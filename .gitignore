@@ -1,0 +1,16 @@
+# cache
+*.~
+*.bk
+*.org
+*.old
+
+# output
+*.o
+bin
+
+# IDE
+.vs
+.vscode
+
+# test
+test
