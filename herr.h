@@ -18,6 +18,7 @@
     F(ERR_MISMATCH,         1020,   "mismatch")         \
     F(ERR_REQUEST,          1021,   "error request")    \
     F(ERR_RESPONSE,         1022,   "error response")   \
+    F(ERR_PARSE,            1023,   "parse failed")     \
     \
     F(ERR_MALLOC,           1030,   "malloc failed")    \
     F(ERR_FREE,             1031,   "free failed")      \
@@ -40,7 +41,11 @@
     F(ERR_CLIENT_DISCONNECT,    2008, "client disconnect")
 
 #define FOREACH_ERR_SERVICE(F)  \
-    F(ERR_GROUP_NOT_FOUND,      3000, "group not found")        
+    F(ERR_RESOURCE_NOT_FOUND,   3000, "resource not found") \
+    F(ERR_GROUP_NOT_FOUND,      3001, "group not found")    \
+    F(ERR_PERSON_NOT_FOUND,     3002, "person not found")   \
+    F(ERR_FACE_NOT_FOUND,       3003, "face not found")     \
+    F(ERR_DEVICE_NOT_FOUND,     3004, "device not found")   
 
 #define FOREACH_ERR(F) \
     FOREACH_ERR_COMMON(F) \
