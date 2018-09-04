@@ -4,13 +4,13 @@
 *.org
 *.old
 
-# output
-*.o
-bin
-
 # IDE
 .vs
 .vscode
+
+# output
+*.o
+bin
 
 # test
 test

@@ -18,6 +18,7 @@
 #ifdef __cplusplus
 #include "hstring.h"
 #include "hthread.h"
+#include "hthreadpool.h"
 #include "hmutex.h"
 #include "hscope.h"
 #include "singleton.h"

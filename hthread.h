@@ -40,7 +40,13 @@ public:
     virtual int start() {
         if (status == STOP) {
             status = RUNNING;
-            thread = std::thread(&HThread::thread_proc, this);
+            dotask_cnt = 0;
+
+            thread = std::thread([this]{
+                doPrepare();
+                run();
+                doFinish();
+            });
         }
         return 0;
     }
@@ -67,12 +73,6 @@ public:
         return 0;
     }
 
-    void thread_proc() {
-        doPrepare();
-        run();
-        doFinish();
-    }
-
     virtual void run() {
         while (status != STOP) {
             while (status == PAUSE) {
@@ -80,6 +80,7 @@ public:
             }
 
             doTask();
+            dotask_cnt++;
 
             std::this_thread::yield();
         }
@@ -96,6 +97,7 @@ public:
         PAUSE,
     };
     std::atomic<Status> status;
+    uint32 dotask_cnt;
 };
 
 #endif // H_THREAD_H

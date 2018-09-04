@@ -11,6 +11,7 @@
 static FILE* s_logfp = NULL;
 static char s_logfile[256] = DEFAULT_LOG_FILE;
 static int s_loglevel = DEFAULT_LOG_LEVEL;
+static bool s_logcolor = false;
 static char s_logbuf[LOGBUF_SIZE];
 static std::mutex s_mutex;
 
@@ -33,6 +34,10 @@ void hlog_set_level(int level){
     s_loglevel = level;
 }
 
+void hlog_enable_color(bool enable){
+    s_logcolor = enable;
+}
+
 int hlog_printf(int level, const char* fmt, ...) {
     if (level < s_loglevel)
         return -10;
@@ -47,9 +52,8 @@ int hlog_printf(int level, const char* fmt, ...) {
     }
 #undef CASE_LOG
 
-#ifdef _WIN32
-    pcolor = "";
-#endif
+    if (!s_logcolor)
+        pcolor = "";
 
     std::lock_guard<std::mutex> locker(s_mutex);
 
@@ -75,9 +79,9 @@ int hlog_printf(int level, const char* fmt, ...) {
     va_end(ap);
 
     fprintf(s_logfp, "%s\n", s_logbuf);
-#ifndef _WIN32
-    fprintf(s_logfp, CL_CLR);
-#endif
+    if (s_logcolor) {
+        fprintf(s_logfp, CL_CLR);
+    }
 
     fflush(NULL);
 
