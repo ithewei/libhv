@@ -3,7 +3,6 @@
 
 #include "hdef.h"
 #include "hplatform.h"
-#include "htime.h" // for msleep
 #include <thread>
 #include <atomic>
 
@@ -76,14 +75,13 @@ public:
 
     virtual void run() {
         while (status != STOP) {
-            if (status == PAUSE) {
-                msleep(1);
-                continue;
+            while (status == PAUSE) {
+                std::this_thread::yield();
             }
 
             doTask();
 
-            msleep(1);
+            std::this_thread::yield();
         }
     }
 
