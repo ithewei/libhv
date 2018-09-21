@@ -5,6 +5,7 @@
 #include "hplatform.h"
 #include <thread>
 #include <atomic>
+#include <chrono>
 
 #ifdef _MSC_VER
 inline uint32 getpid(){
@@ -31,6 +32,9 @@ class HThread{
 public:
     HThread() {
         status = STOP;
+        status_switch = false;
+        sleep_policy = YIELD;
+        sleep_ms = 0;
     }
 
     virtual ~HThread() {
@@ -39,7 +43,7 @@ public:
 
     virtual int start() {
         if (status == STOP) {
-            status = RUNNING;
+            switchStatus(RUNNING);
             dotask_cnt = 0;
 
             thread = std::thread([this]{
@@ -53,7 +57,7 @@ public:
 
     virtual int stop() {
         if (status != STOP) {
-            status = STOP;
+            switchStatus(STOP);
             thread.join(); // wait thread exit
         }
         return 0;
@@ -61,14 +65,14 @@ public:
 
     virtual int pause() {
         if (status == RUNNING) {
-            status = PAUSE;
+            switchStatus(PAUSE);
         }
         return 0;
     }
 
     virtual int resume() {
         if (status == PAUSE) {
-            status = RUNNING;
+            switchStatus(RUNNING);
         }
         return 0;
     }
@@ -82,7 +86,7 @@ public:
             doTask();
             dotask_cnt++;
 
-            std::this_thread::yield();
+            sleep();
         }
     }
 
@@ -98,6 +102,52 @@ public:
     };
     std::atomic<Status> status;
     uint32 dotask_cnt;
+
+    enum SleepPolicy {
+        YIELD,
+        SLEEP_FOR,
+        SLEEP_UNTIL,
+        NO_SLEEP,
+    };
+
+    void setSleepPolicy(SleepPolicy policy, long long ms = 0) {
+        status_switch = true;
+        sleep_policy = policy;
+        sleep_ms = ms;
+    }
+
+protected:
+    void switchStatus(Status stat) {
+        status_switch = true;
+        status = stat;
+    }
+
+    void sleep() {
+        switch (sleep_policy) {
+        case YIELD: 
+            std::this_thread::yield();  
+            break;
+        case SLEEP_FOR: 
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));    
+            break;
+        case SLEEP_UNTIL: {
+            if (status_switch) {
+                status_switch = false;
+                base_tp = std::chrono::system_clock::now();
+            }
+            base_tp += std::chrono::milliseconds(sleep_ms);
+            std::this_thread::sleep_until(base_tp); 
+        }
+            break;
+        default:    // donothing, go all out.
+            break;
+        }
+    }
+
+    std::atomic<bool> status_switch;
+    SleepPolicy sleep_policy;
+    std::chrono::system_clock::time_point base_tp;   // for SLEEP_UNTIL
+    long long sleep_ms;
 };
 
 #endif // H_THREAD_H

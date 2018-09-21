@@ -20,6 +20,7 @@ typedef struct hbuf_s{
         this->len  = len;
     }
 
+    // warn: must call cleanup when no longer in use, otherwise memory leak.
     void init(size_t cap){
         if (cap == len) return;
 
