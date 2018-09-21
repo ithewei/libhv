@@ -2,6 +2,24 @@
 #define H_SCOPE_H
 
 #include "hdef.h"
+#include <functional>
+
+class ScopeCleanup{
+public:
+    typedef std::function<void()> FT;
+
+    template<typename Fn, typename... Args>
+    ScopeCleanup(Fn&& fn, Args&&... args) {
+        cleanup_ = std::bind(std::forward<Fn>(fn), std::forward<Args>(args)...);
+    }
+
+    ~ScopeCleanup() {
+        cleanup_();
+    }
+
+private:
+    FT cleanup_;
+};
 
 template<typename T>
 class ScopeFree{

@@ -3,9 +3,9 @@ CXX = g++
 MKDIR = mkdir -p
 RM = rm -r
 
-CPPFLAGS += -g -O2
+CPPFLAGS +=
 CFLAGS +=
-CXXFLAGS += -std=c++11
+CXXFLAGS += -g -Wall -O3 -std=c++11
 
 INCDIR = include
 SRCDIR = src
@@ -19,7 +19,7 @@ endif
 
 INCFLAGS += -I.
 INCFLAGS += $(addprefix -I, $(INCDIR))
-CPPFLAGS += $(INCFLAGS)
+CXXFLAGS += $(INCFLAGS)
 
 LDFLAGS += $(addprefix -L, $(LIBDIR))
 LDFLAGS += -lpthread
