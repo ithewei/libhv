@@ -3,7 +3,6 @@ CXX = g++
 MKDIR = mkdir -p
 RM = rm -r
 
-CPPFLAGS +=
 CFLAGS += -g -Wall -O3 
 CXXFLAGS += $(CFLAGS) -std=c++11
 
@@ -18,9 +17,18 @@ ifeq ($(OS),Windows_NT)
 TARGET := $(addsuffix .exe, $(TARGET))
 endif
 
-INCDIRS  += . $(INCDIR) $(DEPDIR)/include
-INCFLAGS += $(addprefix -I, $(INCDIRS))
-CPPFLAGS += $(INCFLAGS)
+DIRS += . $(SRCDIR) test
+SRCS += $(foreach dir, $(DIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
+#OBJS := $(patsubst %.cpp, %.o, $(SRCS))
+OBJS := $(addsuffix .o, $(basename $(SRCS)))
+
+$(info TARGET=$(TARGET))
+$(info DIRS=$(DIRS))
+$(info SRCS=$(SRCS))
+$(info OBJS=$(OBJS))
+
+INCDIRS  += $(INCDIR) $(DEPDIR)/include $(DIRS)
+CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
 LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
@@ -28,19 +36,10 @@ LDFLAGS += -lpthread
 
 $(info CC=$(CC))
 $(info CXX=$(CXX))
-$(info CPPFLAGS=$(CPPFLAGS))
 $(info CFLAGS=$(CFLAGS))
 $(info CXXFLAGS=$(CXXFLAGS))
+$(info CPPFLAGS=$(CPPFLAGS))
 $(info LDFLAGS=$(LDFLAGS))
-
-DIRS += . $(SRCDIR) test
-SRCS += $(foreach dir, $(DIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
-#OBJS := $(patsubst %.cpp, %.o, $(SRCS))
-OBJS := $(addsuffix .o, $(basename $(SRCS)))
-
-$(info DIRS=$(DIRS))
-$(info SRCS=$(SRCS))
-$(info OBJS=$(OBJS))
 
 default: all
 
