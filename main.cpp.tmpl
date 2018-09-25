@@ -1,0 +1,85 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "h.h"
+
+void pexit(int code) {
+    printf("Exit with code %d.\n", code);
+    hlogi("Exit with code %d.", code);
+    exit(code);
+}
+
+typedef struct arg_s {
+    string cmd;
+    string conf; // -c
+} arg_t ;
+arg_t g_arg;
+
+const char* options = "hvc:";
+const char* options_descr = "Options:\n\
+-h                      Print help\n\
+-v                      Print version\n\
+-c conffile             Configure file\n\
+";
+
+string version() {
+    return asprintf("%s version %s", g_arg.cmd.c_str(), get_compile_version());
+}
+
+string usage() {
+    return asprintf("Usage: %s [%s]", g_arg.cmd.c_str(), options);
+}
+
+void print_help() {
+    puts(usage().c_str());
+    puts(options_descr);
+    puts(version().c_str());
+}
+
+bool parse_command_line(int argc, char** argv) {
+    int opt = -1;
+    while ((opt = getopt(argc, argv, options)) != -1) {
+        switch (opt) {
+            case 'h': {
+                print_help();
+                pexit(0);
+            }
+            break;
+            case 'v': {
+                puts(version().c_str());
+                pexit(0);
+            }
+            break;
+            case 'c': {
+                g_arg.conf = optarg;
+            }
+            break;
+            default: {
+                return false;
+            }
+            break;
+        }
+    }
+
+    return true;
+}
+
+int main(int argc, char** argv) {
+    string strCmd((const char*)argv[0]);
+    g_arg.cmd = filename(strCmd);
+
+    string strLog = g_arg.cmd + ".log";
+    hlog_set_file(strLog.c_str());
+    hlog_set_level(LOG_LEVEL_INFO);
+    hlogi("%s", version().c_str());
+
+    if (!parse_command_line(argc, argv)) {
+        printf("Command line parse error, please use -h to get help.\n");
+        pexit(-10);
+    }
+    
+    // ...
+
+    pexit(0);
+}

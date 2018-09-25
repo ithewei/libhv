@@ -4,25 +4,34 @@ MKDIR = mkdir -p
 RM = rm -r
 
 CPPFLAGS +=
-CFLAGS +=
-CXXFLAGS += -g -Wall -O3 -std=c++11
+CFLAGS += -g -Wall -O3 
+CXXFLAGS += $(CFLAGS) -std=c++11
 
 INCDIR = include
-SRCDIR = src
 LIBDIR = lib
+SRCDIR = src
 BINDIR = bin
+DEPDIR = 3rd
 
 TARGET = test
 ifeq ($(OS),Windows_NT)
 TARGET := $(addsuffix .exe, $(TARGET))
 endif
 
-INCFLAGS += -I.
-INCFLAGS += $(addprefix -I, $(INCDIR))
-CXXFLAGS += $(INCFLAGS)
+INCDIRS  += . $(INCDIR) $(DEPDIR)/include
+INCFLAGS += $(addprefix -I, $(INCDIRS))
+CPPFLAGS += $(INCFLAGS)
 
-LDFLAGS += $(addprefix -L, $(LIBDIR))
+LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
+LDFLAGS += $(addprefix -L, $(LIBDIRS))
 LDFLAGS += -lpthread
+
+$(info CC=$(CC))
+$(info CXX=$(CXX))
+$(info CPPFLAGS=$(CPPFLAGS))
+$(info CFLAGS=$(CFLAGS))
+$(info CXXFLAGS=$(CXXFLAGS))
+$(info LDFLAGS=$(LDFLAGS))
 
 DIRS += . $(SRCDIR) test
 SRCS += $(foreach dir, $(DIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
@@ -32,6 +41,8 @@ OBJS := $(addsuffix .o, $(basename $(SRCS)))
 $(info DIRS=$(DIRS))
 $(info SRCS=$(SRCS))
 $(info OBJS=$(OBJS))
+
+default: all
 
 all: prepare $(TARGET)
 
@@ -44,3 +55,9 @@ $(TARGET): $(OBJS)
 clean:
 	$(RM) $(OBJS)
 	$(RM) $(BINDIR)
+    
+install:
+
+uninstall:
+    
+.PHONY: default all prepare clean install uninstall
