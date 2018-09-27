@@ -3,9 +3,6 @@
 
 // platform
 #include "hplatform.h"
-#ifdef _MSC_VER
-#include "msvc_getopt.h"
-#endif
 
 // c
 #include "hversion.h"

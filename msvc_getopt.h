@@ -112,7 +112,7 @@ extern char __declspec(dllimport) *__progname;
 #ifdef __CYGWIN__
 static char EMSG[] = "";
 #else
-#define	EMSG		""
+#define	EMSG		(char*)""
 #endif
 
 static int getopt_internal(int, char * const *, const char *,
