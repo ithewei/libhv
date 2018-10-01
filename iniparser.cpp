@@ -6,7 +6,6 @@
 
 #include <sstream>
 
-#include "hlog.h"
 #include "herr.h"
 #include "hfile.h"
 
@@ -30,29 +29,15 @@ int IniParser::LoadFromFile(const char* filepath) {
 
     HFile file;
     if (file.open(filepath, "r") != 0) {
-        hloge("Open file [%s] failed!", filepath);
         return ERR_OPEN_FILE;
     }
 
     hbuf_t buf;
     file.readall(buf);
-    hlogi("filesize=%d", buf.len);
-    hlogi("%s", buf.base);
 
     return LoadFromMem((const char*)buf.base);
 }
 
-/********************************************
-# test.ini
-# this is a test ini file.
-
-[section] # tail_comment
-# key
-key = value # tail_comment
-
-# other
-# end
-********************************************/
 int IniParser::LoadFromMem(const char* data) {
     Unload();
 
@@ -86,7 +71,6 @@ int IniParser::LoadFromMem(const char* data) {
         if (pos != string::npos) {
             comment = content.substr(pos);
             content = content.substr(0, pos);
-            hlogi("pos=%d content=%s comment=%s", pos, content.c_str(), comment.c_str());
         }
 
         content = trimR(content);
@@ -112,7 +96,7 @@ int IniParser::LoadFromMem(const char* data) {
                 root_->Add(pNewNode);
                 pScopeNode = pNewNode;
             } else {
-                hlogw("format error, line:%d", line);
+                // hlogw("format error, line:%d", line);
                 continue;   // ignore    
             }
         } else {
@@ -125,7 +109,7 @@ int IniParser::LoadFromMem(const char* data) {
                 pNewNode->value = trim(content.substr(pos+_delim.length()));
                 pScopeNode->Add(pNewNode);
             } else {
-                hlogw("format error, line:%d", line);
+                // hlogw("format error, line:%d", line);
                 continue;   // ignore
             }
         }
@@ -207,7 +191,6 @@ int IniParser::SaveAs(const char* filepath) {
 
     HFile file;
     if (file.open(filepath, "w") != 0) {
-        hloge("Save file [%s] failed.", filepath);
         return ERR_SAVE_FILE;
     }
     file.write(str.c_str(), str.length());

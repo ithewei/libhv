@@ -1,8 +1,10 @@
 #ifndef H_FRAME_H
 #define H_FRAME_H
 
-#include "hbuf.h"
 #include <deque>
+
+#include "hbuf.h"
+#include "hmutex.h"
 
 typedef struct hframe_s{
     hbuf_t buf;
@@ -57,7 +59,7 @@ typedef struct frame_stats_s{
 
 #define DEFAULT_FRAME_CACHENUM  10
 
-class HFrameBuf : public HRingBuf{
+class HFrameBuf : public HRingBuf {
 public:
     enum CacheFullPolicy{
         SQUEEZE,
@@ -79,6 +81,7 @@ public:
     FrameStats  frame_stats;
     FrameInfo   frame_info;
     std::deque<HFrame> frames;
+    std::mutex         mutex;
 };
 
 #endif // H_FRAME_H

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 
 #include "hdef.h"
@@ -38,9 +39,9 @@ public:
     }
 
     size_t size() {
-        struct _stat stat;
-        _stat(_filepath, &stat);
-        return stat.st_size;       
+        struct stat st;
+        stat(_filepath, &st);
+        return st.st_size;     
     }
 
     size_t read(void* ptr, size_t len) {

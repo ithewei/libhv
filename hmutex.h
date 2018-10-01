@@ -1,7 +1,14 @@
 #ifndef H_MUTEX_H
 #define H_MUTEX_H
 
+#include <mutex>
+
 #include "hplatform.h"
+
+class HMutex {
+protected:
+    std::mutex  _mutex;
+};
 
 #ifdef _MSC_VER
 class RWLock{
@@ -16,6 +23,7 @@ public:
     void wrunlock() { ReleaseSRWLockExclusive(&_rwlock); }
 private:
     SRWLOCK _rwlock;
+};
 };
 #else
 class RWLock{
