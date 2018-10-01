@@ -25,6 +25,7 @@
 
 #include "hbuf.h"
 #include "hbytearray.h"
+#include "hfile.h"
 #include "hgui.h"
 
 #include "hframe.h"
