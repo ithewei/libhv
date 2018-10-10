@@ -28,6 +28,8 @@
 #include "hfile.h"
 #include "hgui.h"
 
+#include "iniparser.h"
+
 #include "hframe.h"
 #include "htable.h"
 #endif
