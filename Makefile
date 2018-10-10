@@ -1,7 +1,10 @@
 CC = gcc
 CXX = g++
+MAKE = make
+
 MKDIR = mkdir -p
 RM = rm -r
+CP = cp -r
 
 CFLAGS += -g -Wall -O3 
 CXXFLAGS += $(CFLAGS) -std=c++11
@@ -15,6 +18,7 @@ DEPDIR = 3rd
 TARGET = test
 ifeq ($(OS),Windows_NT)
 TARGET := $(addsuffix .exe, $(TARGET))
+MAKE = mingw32-make
 endif
 
 DIRS += . $(SRCDIR) test
@@ -36,6 +40,7 @@ LDFLAGS += -lpthread
 
 $(info CC=$(CC))
 $(info CXX=$(CXX))
+$(info MAKE=$(MAKE))
 $(info CFLAGS=$(CFLAGS))
 $(info CXXFLAGS=$(CXXFLAGS))
 $(info CPPFLAGS=$(CPPFLAGS))
