@@ -24,7 +24,6 @@ public:
 private:
     SRWLOCK _rwlock;
 };
-};
 #else
 class RWLock{
 public:
