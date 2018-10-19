@@ -71,7 +71,7 @@ int hlog_printf(int level, const char* fmt, ...) {
 
     datetime_t now = get_datetime();
 
-    int len = snprintf(s_logbuf, LOGBUF_SIZE, "%s[%04d:%02d:%02d %02d-%02d-%02d.%03d][%s]: ",
+    int len = snprintf(s_logbuf, LOGBUF_SIZE, "%s[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s]: ",
         pcolor, now.year, now.month, now.day, now.hour, now.min, now.sec, now.ms, plevel);
     va_list ap;
     va_start(ap, fmt);
