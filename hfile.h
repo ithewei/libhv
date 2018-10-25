@@ -1,5 +1,5 @@
-#ifndef HW_FILE_H
-#define HW_FILE_H
+#ifndef HW_FILE_H_
+#define HW_FILE_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,7 +12,7 @@
 #include "herr.h"
 
 class HFile {
-public:
+ public:
     HFile() {
         _fp = NULL;
     }
@@ -41,7 +41,7 @@ public:
     size_t size() {
         struct stat st;
         stat(_filepath, &st);
-        return st.st_size;     
+        return st.st_size;
     }
 
     size_t read(void* ptr, size_t len) {
@@ -74,4 +74,4 @@ public:
     FILE* _fp;
 };
 
-#endif // HW_FILE_H
+#endif  // HW_FILE_H_

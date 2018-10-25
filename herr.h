@@ -1,5 +1,5 @@
-#ifndef H_ERR_H
-#define H_ERR_H
+#ifndef HW_ERR_H_
+#define HW_ERR_H_
 
 // F(macro, errcode, errmsg)
 #define FOREACH_ERR_COMMON(F) \
@@ -45,7 +45,7 @@
     F(ERR_GROUP_NOT_FOUND,      3001, "group not found")    \
     F(ERR_PERSON_NOT_FOUND,     3002, "person not found")   \
     F(ERR_FACE_NOT_FOUND,       3003, "face not found")     \
-    F(ERR_DEVICE_NOT_FOUND,     3004, "device not found")   
+    F(ERR_DEVICE_NOT_FOUND,     3004, "device not found")
 
 #define FOREACH_ERR(F) \
     FOREACH_ERR_COMMON(F) \
@@ -70,4 +70,4 @@ int  get_last_errcode();
 // errcode => errmsg
 const char* get_errmsg(int errcode);
 
-#endif // H_ERR_H
+#endif  // HW_ERR_H_

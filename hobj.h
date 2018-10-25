@@ -1,24 +1,21 @@
-#ifndef H_OBJ_H
-#define H_OBJ_H
+#ifndef HW_OBJ_H_
+#define HW_OBJ_H_
 
-#include "hdef.h"
-#include "hvar.h"
 #include <string>
 #include <map>
 #include <list>
 
-class HObj{
-public:
+#include "hdef.h"
+#include "hvar.h"
+
+class HObj {
+ public:
     HObj(HObj* parent = NULL) {
         _parent = parent;
     }
 
     virtual ~HObj() {
-        auto iter = children.begin();
-        while (iter != children.end()) {
-            SAFE_DELETE(*iter);
-            iter++;
-        }
+        deleteAllChild();
     }
 
     std::string name() {
@@ -37,13 +34,34 @@ public:
         _parent = ptr;
     }
 
-    void  setChild(HObj* ptr) {
-        children.push_back(ptr);
+    void  addChild(HObj* ptr) {
+        _children.push_back(ptr);
+    }
+
+    void removeChild(HObj* ptr) {
+        auto iter = _children.begin();
+        while (iter != _children.end()) {
+            if ((*iter) == ptr) {
+                iter = _children.erase(iter);
+            } else {
+                ++iter;
+            }
+            ++iter;
+        }
+    }
+
+    void deleteAllChild() {
+        auto iter = _children.begin();
+        while (iter != _children.end()) {
+            SAFE_DELETE(*iter);
+            ++iter;
+        }
+        _children.clear();
     }
 
     HObj* findChild(std::string objName) {
-        auto iter = children.begin();
-        while (iter != children.end()) {
+        auto iter = _children.begin();
+        while (iter != _children.end()) {
             if ((*iter)->name() == objName)
                 return *iter;
             iter++;
@@ -51,34 +69,34 @@ public:
     }
 
     HVar  property(std::string key) {
-        auto iter = properties.find(key);
-        if (iter != properties.end())
+        auto iter = _properties.find(key);
+        if (iter != _properties.end())
             return iter->second;
         return HVar();
     }
 
     void  setProperty(std::string key, HVar value) {
-        properties[key] = value;
+        _properties[key] = value;
     }
 
     method_t method(std::string key) {
-        auto iter = methods.find(key);
-        if (iter != methods.end())
+        auto iter = _methods.find(key);
+        if (iter != _methods.end())
             return iter->second;
         return NULL;
     }
 
     void  setMethod(std::string key, method_t method) {
-        methods[key] = method;
+        _methods[key] = method;
     }
 
-public:
+ public:
     std::string _objName;
-    std::map<std::string, HVar> properties;
-    std::map<std::string, method_t> methods;
+    std::map<std::string, HVar> _properties;
+    std::map<std::string, method_t> _methods;
 
     HObj* _parent;
-    std::list<HObj*> children;
+    std::list<HObj*> _children;
 };
 
-#endif
+#endif  // HW_OBJ_H_

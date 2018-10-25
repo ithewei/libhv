@@ -1,7 +1,8 @@
-#ifndef HW_INI_PARSER_H
-#define HW_INI_PARSER_H
+#ifndef HW_INI_PARSER_H_
+#define HW_INI_PARSER_H_
 
 #include <list>
+#include <string>
 
 #include "hdef.h"
 #include "hstring.h"
@@ -24,7 +25,7 @@ key = value # span
 // class IniKeyValue;
 // for simplicity, we add a member value.
 class IniNode {
-public:
+ public:
     enum Type {
         INI_NODE_TYPE_UNKNOWN,
         INI_NODE_TYPE_ROOT,
@@ -33,8 +34,8 @@ public:
         INI_NODE_TYPE_DIV,
         INI_NODE_TYPE_SPAN,
     } type;
-    string  label;  
-    string  value;  
+    string  label;
+    string  value;
     std::list<IniNode*>    children;
 
     virtual ~IniNode() {
@@ -85,7 +86,7 @@ public:
 // };
 
 class IniParser {
-public:
+ public:
     IniParser();
     ~IniParser();
 
@@ -104,7 +105,7 @@ public:
     string GetValue(const string& key, const string& section = "");
     void   SetValue(const string& key, const string& value, const string& section = "");
 
-private:
+ private:
     string  _comment;
     string  _delim;
     string  _filepath;
@@ -112,4 +113,4 @@ private:
     IniNode* root_;
 };
 
-#endif // HW_INI_PARSER_H
+#endif  // HW_INI_PARSER_H_

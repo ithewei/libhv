@@ -1,10 +1,11 @@
-#ifndef H_BUF_H
-#define H_BUF_H
+#ifndef HW_BUF_H_
+#define HW_BUF_H_
 
-#include "hdef.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <mutex>
+
+#include "hdef.h"
 
 typedef struct hbuf_s {
     uint8* base;
@@ -56,10 +57,10 @@ typedef struct hbuf_s {
     bool isNull() {
         return base == NULL || len == 0;
     }
-}hbuf_t;
+} hbuf_t;
 
 class HBuf : public hbuf_t {
-public:
+ public:
     HBuf() : hbuf_t() {}
     HBuf(size_t cap) {init(cap);}
     HBuf(void* data, size_t len) {
@@ -70,7 +71,7 @@ public:
 
 // VL: Variable-Length
 class HVLBuf : public HBuf {
-public:
+ public:
     HVLBuf() : HBuf() {_offset = _size = 0;}
     HVLBuf(size_t cap) : HBuf(cap) {_offset = _size = 0;}
     HVLBuf(void* data, size_t len) : HBuf(data, len) {_offset = 0; _size = len;}
@@ -84,7 +85,7 @@ public:
             this->len = MAX(this->len, len)*2;
             base = (uint8*)realloc(base, this->len);
         }
-        
+
         if (_offset < len) {
             // move => end
             memmove(base+this->len-_size, data(), _size);
@@ -100,7 +101,7 @@ public:
         if (len > this->len - _size) {
             this->len = MAX(this->len, len)*2;
             base = (uint8*)realloc(base, this->len);
-        }else if (len > this->len - _offset - _size) {
+        } else if (len > this->len - _offset - _size) {
             // move => start
             memmove(base, data(), _size);
             _offset = 0;
@@ -111,7 +112,7 @@ public:
 
     void pop_front(void* ptr, size_t len) {
         if (len <= _size) {
-            if (ptr){
+            if (ptr) {
                 memcpy(ptr, data(), len);
             }
             _offset += len;
@@ -149,13 +150,13 @@ public:
         pop_front(NULL, len);
     }
 
-private:
+ private:
     size_t _offset;
     size_t _size;
 };
 
 class HRingBuf : public HBuf {
-public:
+ public:
     HRingBuf() : HBuf() {_head = _tail = _size = 0;}
     HRingBuf(size_t cap) : HBuf(cap) {_head = _tail = _size = 0;}
 
@@ -167,11 +168,11 @@ public:
                 ret = base + _tail;
                 _tail += len;
                 if (_tail == this->len) _tail = 0;
-            } else if(_head >= len) {
+            } else if (_head >= len) {
                 ret = base;
                 _tail = len;
             }
-        }else{
+        } else {
             // [_tail, _head)
             if (_head - _tail >= len) {
                 ret = base + _tail;
@@ -194,10 +195,10 @@ public:
 
     size_t size() {return _size;}
 
-private:
+ private:
     size_t _head;
     size_t _tail;
     size_t _size;
 };
 
-#endif // H_BUF_H
+#endif  // HW_BUF_H_

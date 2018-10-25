@@ -1,5 +1,5 @@
-#ifndef H_DEF_H
-#define H_DEF_H
+#ifndef HW_DEF_H_
+#define HW_DEF_H_
 
 typedef unsigned char       uint8;
 typedef unsigned short      uint16;
@@ -62,27 +62,27 @@ typedef void (*procedure_t)(void* userdata);
 #endif
 
 #ifndef MAX
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 #endif
 
 #ifndef MIN
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 
-#define SAFE_FREE(p)    do{if (p) {free(p); (p) = NULL;}}while(0)
-#define SAFE_DELETE(p)  do{if (p) {delete (p); (p) = NULL;}}while(0)
-#define SAFE_DELETE_ARRAY(p) do{if (p) {delete[] (p); (p) = NULL;}}while(0)
-#define SAFE_RELEASE(p) do{if (p) {(p)->release(); (p) = NULL;}}while(0)
+#define SAFE_FREE(p)    do {if (p) {free(p); (p) = NULL;}}while(0)
+#define SAFE_DELETE(p)  do {if (p) {delete (p); (p) = NULL;}}while(0)
+#define SAFE_DELETE_ARRAY(p) do {if (p) {delete[] (p); (p) = NULL;}}while(0)
+#define SAFE_RELEASE(p) do {if (p) {(p)->release(); (p) = NULL;}}while(0)
 
 #ifndef MAKE_FOURCC
-#define MAKE_FOURCC(a,b,c,d) \
+#define MAKE_FOURCC(a, b, c, d) \
 ( ((uint32)d) | ( ((uint32)c) << 8 ) | ( ((uint32)b) << 16 ) | ( ((uint32)a) << 24 ) )
 #endif
 
 #ifndef MAKE_WORD
-#define MAKE_WORD(h,l)  ( (((WORD)h) << 8) | (l & 0xff) )
+#define MAKE_WORD(h, l)  ( (((WORD)h) << 8) | (l & 0xff) )
 #endif
 
 #ifndef HIBYTE
@@ -93,11 +93,11 @@ typedef void (*procedure_t)(void* userdata);
 #define LOBYTE(w) ( (BYTE)(w & 0xff) )
 #endif
 
-#define MAKE_INT32(h,l)   ( ((int32)h) << 16 | (l & 0xffff) )
+#define MAKE_INT32(h, l)   ( ((int32)h) << 16 | (l & 0xffff) )
 #define HIINT16(n)        ( (int16)(((int32)n) >> 16) )
 #define LOINI16(n)        ( (int16)(n & 0xffff) )
 
-#define MAKE_INT64(h,l)   ( ((int64)h) << 32 | (l & 0xffffffff) )
+#define MAKE_INT64(h, l)   ( ((int64)h) << 32 | (l & 0xffffffff) )
 #define HIINT32(n)        ( (int32)(((int64)n) >> 32) )
 #define LOINI32(n)        ( (int32)(n & 0xffffffff) )
 
@@ -107,10 +107,10 @@ typedef void (*procedure_t)(void* userdata);
 #define STRINGIFY(x)    STRINGIFY_HELPER(x)
 #define STRINGIFY_HELPER(x)    #x
 
-#define STRINGCAT(x,y)  STRINGCAT_HELPER(x,y)
-#define STRINGCAT_HELPER(x,y)   x##y
+#define STRINGCAT(x, y)  STRINGCAT_HELPER(x, y)
+#define STRINGCAT_HELPER(x, y)   x##y
 
 #define container_of(ptr, type, member) \
   ((type *) ((char *) (ptr) - offsetof(type, member)))
 
-#endif // H_DEF_H
+#endif  // HW_DEF_H_

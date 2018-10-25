@@ -1,6 +1,6 @@
 #include "hframe.h"
 
-int HFrameBuf::push(HFrame* pFrame){
+int HFrameBuf::push(HFrame* pFrame) {
     if (pFrame->isNull())
         return -10;
 
@@ -8,9 +8,9 @@ int HFrameBuf::push(HFrame* pFrame){
 
     std::lock_guard<std::mutex> locker(mutex);
 
-    if (frames.size() >= cache_num){
-        if (policy == HFrameBuf::DISCARD){
-            return -20; // note: cache full, discard frame
+    if (frames.size() >= cache_num) {
+        if (policy == HFrameBuf::DISCARD) {
+            return -20;     // note: cache full, discard frame
         }
 
         // note: cache full, remove front, push newer frame
@@ -20,9 +20,9 @@ int HFrameBuf::push(HFrame* pFrame){
     }
 
     int ret = 0;
-    if (isNull()){
+    if (isNull()) {
         init(pFrame->buf.len * cache_num);
-        ret = 1; // note: first push
+        ret = 1;    // note: first push
 
         frame_info.w = pFrame->w;
         frame_info.h = pFrame->h;
@@ -40,7 +40,7 @@ int HFrameBuf::push(HFrame* pFrame){
     return ret;
 }
 
-int HFrameBuf::pop(HFrame* pFrame){
+int HFrameBuf::pop(HFrame* pFrame) {
     frame_stats.pop_cnt++;
 
     std::lock_guard<std::mutex> locker(mutex);

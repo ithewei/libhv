@@ -1,11 +1,12 @@
-#ifndef H_TIME_H
-#define H_TIME_H
+#ifndef HW_TIME_H_
+#define HW_TIME_H_
+
+#include <time.h>
 
 #include "hdef.h"
 #include "hplatform.h"
-#include <time.h>
 
-typedef struct datetime_s{
+typedef struct datetime_s {
     int year;
     int month;
     int day;
@@ -13,12 +14,12 @@ typedef struct datetime_s{
     int min;
     int sec;
     int ms;
-}datetime_t;
+} datetime_t;
 
 void msleep(unsigned long ms);
 
 #ifdef _MSC_VER
-inline void sleep(unsigned int s){
+inline void sleep(unsigned int s) {
     Sleep(s*1000);
 }
 #endif
@@ -31,4 +32,4 @@ const char* month_itoa(int month);
 datetime_t get_datetime();
 datetime_t get_compile_datetime();
 
-#endif // H_TIME_H
+#endif  // HW_TIME_H_

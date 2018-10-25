@@ -1,9 +1,11 @@
 #include "hlog.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 #include <mutex>
-#include "htime.h" // for get_datetime
+
+#include "htime.h"  // for get_datetime
 
 #define LOGBUF_SIZE         (1<<13)  // 8k
 #define LOGFILE_MAXSIZE     (1<<23)  // 8M
@@ -19,7 +21,7 @@ int hlog_set_file(const char* logfile) {
     if (logfile && strlen(logfile) > 0) {
         strncpy(s_logfile, logfile, 256);
     }
-    
+
     if (s_logfp) {
         fclose(s_logfp);
         s_logfp = NULL;
@@ -30,11 +32,11 @@ int hlog_set_file(const char* logfile) {
     return s_logfp ? 0 : -1;
 }
 
-void hlog_set_level(int level){
+void hlog_set_level(int level) {
     s_loglevel = level;
 }
 
-void hlog_enable_color(bool enable){
+void hlog_enable_color(bool enable) {
     s_logcolor = enable;
 }
 
@@ -57,12 +59,12 @@ int hlog_printf(int level, const char* fmt, ...) {
 
     std::lock_guard<std::mutex> locker(s_mutex);
 
-    if (!s_logfp){
+    if (!s_logfp) {
         if (hlog_set_file(s_logfile) != 0)
             return -20;
     }
 
-    if (ftell(s_logfp) > LOGFILE_MAXSIZE){
+    if (ftell(s_logfp) > LOGFILE_MAXSIZE) {
         fclose(s_logfp);
         s_logfp = fopen(s_logfile, "w");
         if (!s_logfp)
@@ -73,6 +75,7 @@ int hlog_printf(int level, const char* fmt, ...) {
 
     int len = snprintf(s_logbuf, LOGBUF_SIZE, "%s[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s]: ",
         pcolor, now.year, now.month, now.day, now.hour, now.min, now.sec, now.ms, plevel);
+
     va_list ap;
     va_start(ap, fmt);
     len += vsnprintf(s_logbuf + len, LOGBUF_SIZE-len, fmt, ap);

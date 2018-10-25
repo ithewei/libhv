@@ -89,7 +89,7 @@ int IniParser::LoadFromMem(const char* data) {
         if (content[0] == '[') {
             if (content[content.length()-1] == ']') {
                 // section
-                content = trim(content.substr(1,content.length()-2));
+                content = trim(content.substr(1, content.length()-2));
                 pNewNode = new IniNode;
                 pNewNode->type = IniNode::INI_NODE_TYPE_SECTION;
                 pNewNode->label = content;
@@ -97,7 +97,7 @@ int IniParser::LoadFromMem(const char* data) {
                 pScopeNode = pNewNode;
             } else {
                 // hlogw("format error, line:%d", line);
-                continue;   // ignore    
+                continue;   // ignore
             }
         } else {
             pos = content.find_first_of(_delim);
@@ -105,7 +105,7 @@ int IniParser::LoadFromMem(const char* data) {
                 // key-value
                 pNewNode = new IniNode;
                 pNewNode->type = IniNode::INI_NODE_TYPE_KEY_VALUE;
-                pNewNode->label = trim(content.substr(0,pos));
+                pNewNode->label = trim(content.substr(0, pos));
                 pNewNode->value = trim(content.substr(pos+_delim.length()));
                 pScopeNode->Add(pNewNode);
             } else {
@@ -207,11 +207,11 @@ string IniParser::GetValue(const string& key, const string& section) {
 
     IniNode* pKV = pSection->Get(key, IniNode::INI_NODE_TYPE_KEY_VALUE);
     if (pKV == NULL)    return "";
-    
+
     return pKV->value;
 }
 
-void   IniParser::SetValue(const string& key, const string& value, const string& section) {
+void IniParser::SetValue(const string& key, const string& value, const string& section) {
     IniNode* pSection = root_;
     if (section.length() != 0) {
         pSection = root_->Get(section, IniNode::INI_NODE_TYPE_SECTION);

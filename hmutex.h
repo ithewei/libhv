@@ -1,18 +1,13 @@
-#ifndef H_MUTEX_H
-#define H_MUTEX_H
+#ifndef HW_MUTEX_H_
+#define HW_MUTEX_H_
 
 #include <mutex>
 
 #include "hplatform.h"
 
-class HMutex {
-protected:
-    std::mutex  _mutex;
-};
-
 #ifdef _MSC_VER
-class RWLock{
-public:
+class RWLock {
+ public:
     RWLock() { InitializeSRWLock(&_rwlock); }
     ~RWLock() { }
 
@@ -21,12 +16,12 @@ public:
 
     void wrlock()   { AcquireSRWLockExclusive(&_rwlock); }
     void wrunlock() { ReleaseSRWLockExclusive(&_rwlock); }
-private:
+ private:
     SRWLOCK _rwlock;
 };
 #else
 class RWLock{
-public:
+ public:
     RWLock() { pthread_rwlock_init(&_rwlock, NULL); }
     ~RWLock() { pthread_rwlock_destroy(&_rwlock); }
 
@@ -35,9 +30,9 @@ public:
 
     void wrlock()   { pthread_rwlock_wrlock(&_rwlock); }
     void wrunlock() { pthread_rwlock_unlock(&_rwlock); }
-private:
+ private:
     pthread_rwlock_t _rwlock;
 };
 #endif
 
-#endif // H_MUTEX_H
+#endif  // HW_MUTEX_H_

@@ -1,11 +1,12 @@
-#ifndef H_SCOPE_H
-#define H_SCOPE_H
+#ifndef HW_SCOPE_H_
+#define HW_SCOPE_H_
 
-#include "hdef.h"
 #include <functional>
 
-class ScopeCleanup{
-public:
+#include "hdef.h"
+
+class ScopeCleanup {
+ public:
     typedef std::function<void()> FT;
 
     template<typename Fn, typename... Args>
@@ -17,53 +18,53 @@ public:
         cleanup_();
     }
 
-private:
+ private:
     FT cleanup_;
 };
 
 template<typename T>
-class ScopeFree{
-public:
+class ScopeFree {
+ public:
     ScopeFree(T* p) : _p(p) {} 
     ~ScopeFree()    {SAFE_FREE(_p);}
-private:
+ private:
     T*  _p;
 };
 
 template<typename T>
-class ScopeDelete{
-public:
+class ScopeDelete {
+ public:
     ScopeDelete(T* p) : _p(p) {} 
     ~ScopeDelete()    {SAFE_DELETE(_p);}
-private:
+ private:
     T*  _p;
 };
 
 template<typename T>
-class ScopeDeleteArray{
-public:
+class ScopeDeleteArray {
+ public:
     ScopeDeleteArray(T* p) : _p(p) {} 
     ~ScopeDeleteArray()    {SAFE_DELETE_ARRAY(_p);}
-private:
+ private:
     T*  _p;
 };
 
 template<typename T>
-class ScopeRelease{
-public:
+class ScopeRelease {
+ public:
     ScopeRelease(T* p) : _p(p) {} 
     ~ScopeRelease()    {SAFE_RELEASE(_p);}
-private:
+ private:
     T*  _p;
 };
 
 template<typename T>
-class ScopeLock{
-public:
+class ScopeLock {
+ public:
     ScopeLock(T& mutex) : _mutex(mutex) {_mutex.lock();} 
     ~ScopeLock()    {_mutex.unlock();}
-private:
+ private:
     T& _mutex;
 };
 
-#endif // H_SCOPE_H
+#endif  // HW_SCOPE_H_

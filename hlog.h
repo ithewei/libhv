@@ -1,5 +1,5 @@
-#ifndef H_LOG_H
-#define H_LOG_H
+#ifndef HW_LOG_H_
+#define HW_LOG_H_
 
 #define CL_CLR      "\033[0m"       /* 恢复颜色 */
 #define CL_BLACK    "\033[30m"      /* 黑色字 */
@@ -49,4 +49,4 @@ int     hlog_printf(int level, const char* fmt, ...);
 #define hloge(fmt, ...) hlog_printf(LOG_LEVEL_ERROR, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hlogf(fmt, ...) hlog_printf(LOG_LEVEL_FATAL, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 
-#endif // H_LOG_H
+#endif  // HW_LOG_H_

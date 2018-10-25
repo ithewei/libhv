@@ -1,5 +1,5 @@
-#ifndef H_PLATFORM_H
-#define H_PLATFORM_H
+#ifndef HW_PLATFORM_H_
+#define HW_PLATFORM_H_
 
 #ifdef _MSC_VER
     #ifndef WIN32_LEAN_AND_MEAN
@@ -8,7 +8,7 @@
     #include <winsock2.h>
     #include <windows.h>
     #undef  WIN32_LEAN_AND_MEAN
-#else    
+#else
     #include <unistd.h>
     #include <pthread.h>
     #include <sys/time.h>
@@ -19,9 +19,9 @@
 #endif
 
 #ifdef __GNUC__
-    #define GNUC_ALIGN(n)   __attribute__((aligned(n))) 
+    #define GNUC_ALIGN(n)   __attribute__((aligned(n)))
 #else
     #define GNUC_ALIGN(n)
 #endif
 
-#endif // H_PLATFORM_H
+#endif  // HW_PLATFORM_H_

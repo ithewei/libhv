@@ -1,13 +1,14 @@
-#ifndef H_VAR_H
-#define H_VAR_H
+#ifndef HW_VAR_H_
+#define HW_VAR_H_
 
-#include "hdef.h"
 #include <stdlib.h>
 #include <string.h>
 
-class HVar{
-public:
-    enum TYPE{
+#include "hdef.h"
+
+class HVar {
+ public:
+    enum TYPE {
         UNKNOWN,
         BOOLEAN,
         INTEGER,
@@ -16,7 +17,7 @@ public:
         POINTER
     } type;
 
-    union DATA{
+    union DATA {
         bool b;
         int64 i;
         float64 f;
@@ -29,8 +30,8 @@ public:
     HVar(int64 i)   {data.i = i; type = INTEGER;}
     HVar(float64 f) {data.f = f; type = FLOAT;}
     HVar(char* str) {
-        data.str = (char*)malloc(strlen(str)+1); 
-        strcpy(data.str, str); 
+        data.str = (char*)malloc(strlen(str)+1);
+        strcpy(data.str, str);
         type = STRING;
     }
     HVar(void* ptr) {data.ptr = ptr; type = POINTER;}
@@ -45,10 +46,10 @@ public:
     bool    isValid()   {return type != UNKNOWN;}
 
     bool    toBool()    {return data.b;}
-    int64   toInt()     {return data.i;}     
+    int64   toInt()     {return data.i;}
     float64 toFloat()   {return data.f;}
     char*   toString()  {return data.str;}
     void*   toPointer() {return data.ptr;}
 };
 
-#endif // H_VAR_H
+#endif  // HW_VAR_H_

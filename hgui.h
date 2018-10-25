@@ -1,60 +1,60 @@
-#ifndef HGUI_H
-#define HGUI_H
+#ifndef HW_GUI_H_
+#define HW_GUI_H_
 
 #include "hdef.h"
 
-typedef uint32 HColor; // 0xAARRGGBB
+typedef uint32 HColor;  // 0xAARRGGBB
 
-#define CLR_B(c)    ( c        & 0xff)
+#define CLR_B(c)    (c         & 0xff)
 #define CLR_G(c)    ((c >> 8)  & 0xff)
 #define CLR_R(c)    ((c >> 16) & 0xff)
 #define CLR_A(c)    ((c >> 24) & 0xff)
-#define ARGB(a, r, g, b) MAKE_FOURCC(a,r,g,b)
+#define ARGB(a, r, g, b) MAKE_FOURCC(a, r, g, b)
 
-typedef struct hpoint_s{
+typedef struct hpoint_s {
     int x;
     int y;
 
 #ifdef __cplusplus
-    hpoint_s(){
+    hpoint_s() {
         x = y = 0;
     }
 
-    hpoint_s(int x, int y){
+    hpoint_s(int x, int y) {
         this->x = x;
         this->y = y;
     }
 #endif
-}HPoint;
+} HPoint;
 
-typedef struct hsize_s{
+typedef struct hsize_s {
     int w;
     int h;
 
 #ifdef __cplusplus
-    hsize_s(){
+    hsize_s() {
         w = h = 0;
     }
 
-    hsize_s(int w, int h){
+    hsize_s(int w, int h) {
         this->w = w;
         this->h = h;
     }
 #endif
 }HSize;
 
-typedef struct hrect_s{
+typedef struct hrect_s {
     int x;
     int y;
     int w;
     int h;
 
 #ifdef __cplusplus
-    hrect_s(){
+    hrect_s() {
         x = y = w = h = 0;
     }
 
-    hrect_s(int x, int y, int w, int h){
+    hrect_s(int x, int y, int w, int h) {
         this->x = x;
         this->y = y;
         this->w = w;
@@ -66,6 +66,6 @@ typedef struct hrect_s{
     int top()      {return y;}
     int bottom()   {return y+h;}
 #endif
-}HRect;
+} HRect;
 
-#endif // HGUI_H
+#endif  // HW_GUI_H_
