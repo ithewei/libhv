@@ -1,12 +1,11 @@
 CC = gcc
 CXX = g++
-MAKE = make
 
 MKDIR = mkdir -p
 RM = rm -r
 CP = cp -r
 
-CFLAGS += -g -Wall -O3 
+CFLAGS += -g -Wall -O3
 CXXFLAGS += $(CFLAGS) -std=c++11
 
 INCDIR = include
@@ -14,14 +13,15 @@ LIBDIR = lib
 SRCDIR = src
 BINDIR = bin
 DEPDIR = 3rd
+CONFDIR = etc
 
 TARGET = test
 ifeq ($(OS),Windows_NT)
 TARGET := $(addsuffix .exe, $(TARGET))
-MAKE = mingw32-make
 endif
 
-DIRS += . $(SRCDIR) test
+DIRS += . test
+DIRS += $(shell find $(SRCDIR) -type d)
 SRCS += $(foreach dir, $(DIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
 #OBJS := $(patsubst %.cpp, %.o, $(SRCS))
 OBJS := $(addsuffix .o, $(basename $(SRCS)))
@@ -36,7 +36,8 @@ CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
 LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
-LDFLAGS += -lpthread
+#LDFLAGS += -wl,-Bstatic  -luv
+#LDFLAGS += -Wl,-Bdynamic -lm -lz -lpthread
 
 $(info CC=$(CC))
 $(info CXX=$(CXX))
@@ -59,9 +60,10 @@ $(TARGET): $(OBJS)
 clean:
 	$(RM) $(OBJS)
 	$(RM) $(BINDIR)
-    
+
 install:
 
 uninstall:
-    
+
 .PHONY: default all prepare clean install uninstall
+
