@@ -1,12 +1,14 @@
-CC = gcc
-CXX = g++
-
 MKDIR = mkdir -p
 RM = rm -r
 CP = cp -r
 
 CFLAGS += -g -Wall -O3
+ENABLE_SHARED=true
+ifeq ($(ENABLE_SHARED),true)
+	CFLAGS += -shared -fPIC
+endif
 CXXFLAGS += $(CFLAGS) -std=c++11
+ARFLAGS := cr
 
 INCDIR = include
 LIBDIR = lib
@@ -36,15 +38,15 @@ CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
 LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
-#LDFLAGS += -wl,-Bstatic  -luv
+#LDFLAGS += -Wl,-Bstatic  -luv
 #LDFLAGS += -Wl,-Bdynamic -lm -lz -lpthread
 
+$(info MAKE=$(MAKE))
 $(info CC=$(CC))
 $(info CXX=$(CXX))
-$(info MAKE=$(MAKE))
+$(info CPPFLAGS=$(CPPFLAGS))
 $(info CFLAGS=$(CFLAGS))
 $(info CXXFLAGS=$(CXXFLAGS))
-$(info CPPFLAGS=$(CPPFLAGS))
 $(info LDFLAGS=$(LDFLAGS))
 
 default: all
