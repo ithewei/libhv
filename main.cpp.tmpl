@@ -56,7 +56,8 @@ bool parse_command_line(int argc, char** argv) {
             }
             break;
             default: {
-                return false;
+                printf("Unrecognized options!\n");
+                pexit(-10);
             }
             break;
         }
@@ -78,7 +79,7 @@ int main(int argc, char** argv) {
         printf("Command line parse error, please use -h to get help.\n");
         pexit(-10);
     }
-    
+
     // ...
 
     pexit(0);
