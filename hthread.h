@@ -12,15 +12,15 @@
 inline uint32 getpid() {
     return GetCurrentProcessId();
 }
-#endif
 
 inline uint32 gettid() {
-#ifdef _MSC_VER
     return GetCurrentThreadId();
-#else
-    return pthread_self();
-#endif
 }
+#endif
+
+#if defined(__unix__) && !defined(__ANDROID__)
+#define gettid  pthread_self
+#endif
 
 /************************************************
  * HThread

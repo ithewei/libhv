@@ -8,10 +8,14 @@
     #include <winsock2.h>
     #include <windows.h>
     #undef  WIN32_LEAN_AND_MEAN
+
+    #define strcasecmp stricmp
+    #define strncasecmp strnicmp
 #else
+    #include <sys/types.h>
+    #include <sys/time.h>  // for gettimeofday
     #include <unistd.h>
     #include <pthread.h>
-    #include <sys/time.h>
 
     #include <strings.h>
     #define stricmp     strcasecmp
