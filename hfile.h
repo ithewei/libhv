@@ -10,6 +10,7 @@
 #include "hdef.h"
 #include "hbuf.h"
 #include "herr.h"
+#include "hstring.h"
 
 class HFile {
  public:

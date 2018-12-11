@@ -1,6 +1,9 @@
 #ifndef HW_ENDIAN_H_
 #define HW_ENDIAN_H_
 
+#include <stdio.h>
+#include <string.h>
+
 #include "hdef.h"
 
 #define LITTLE_ENDIAN   0
