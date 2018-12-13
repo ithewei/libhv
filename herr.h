@@ -47,10 +47,29 @@
     F(ERR_FACE_NOT_FOUND,       3003, "face not found")     \
     F(ERR_DEVICE_NOT_FOUND,     3004, "device not found")
 
+#define FOREACH_ERR_GRPC(F)     \
+    F(ERR_GRPC_FIRST,           4000, "grpc error") \
+    F(ERR_GRPC_STATUS_CANCELLED,4001, "grpc status cancelled")  \
+    F(ERR_GRPC_STATUS_UNKNOWN,  4002, "grpc status unknown")    \
+    F(ERR_GRPC_STATUS_INVALID_ARGUMENT,  4003, "grpc status invalid argument") \
+    F(ERR_GRPC_STATUS_DEADLINE, 4004, "grpc status deadline")   \
+    F(ERR_GRPC_STATUS_NOT_FOUND, 4005, "grpc status not found") \
+    F(ERR_GRPC_STATUS_ALREADY_EXISTS, 4006, "grpc status already exists")   \
+    F(ERR_GRPC_STATUS_PERMISSION_DENIED, 4007, "grpc status permission denied") \
+    F(ERR_GRPC_STATUS_RESOURCE_EXHAUSTED, 4008, "grpc status resource exhausted")    \
+    F(ERR_GRPC_STATUS_FAILED_PRECONDITION, 4009, "grpc status failed precondition") \
+    F(ERR_GRPC_STATUS_ABORTED, 4010, "grpc status aborted") \
+    F(ERR_GRPC_STATUS_OUT_OF_RANGE, 4011, "grpc status out of range")   \
+    F(ERR_GRPC_STATUS_UNIMPLEMENTED, 4012, "grpc status unimplemented") \
+    F(ERR_GRPC_STATUS_INTERNAL, 4013, "grpc status internal") \
+    F(ERR_GRPC_STATUS_UNAVAILABLE, 4014, "grpc service unavailable") \
+    F(ERR_GRPC_STATUS_DATA_LOSS, 4015, "grpc status data loss")
+
 #define FOREACH_ERR(F) \
     FOREACH_ERR_COMMON(F) \
     FOREACH_ERR_NETWORK(F)  \
-    FOREACH_ERR_SERVICE(F)
+    FOREACH_ERR_SERVICE(F)  \
+    FOREACH_ERR_GRPC(F)
 
 #define ENUM_ERR(macro, errcode, _) macro = errcode,
 enum E_ERR{
