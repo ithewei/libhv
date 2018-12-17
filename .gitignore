@@ -1,17 +1,23 @@
 # cache
 *.~
 *.bk
-*.org
+*.bak
 *.old
+*.new
 
 # IDE
 .vs
 .vscode
+tags
+cscope*
+.ycm*
 
 # output
 *.o
-bin
 *.log
+bin
+lib
+dist
 
 # test
 test

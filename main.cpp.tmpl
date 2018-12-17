@@ -6,21 +6,26 @@
 
 void pexit(int code) {
     printf("Exit with code %d.\n", code);
-    hlogi("Exit with code %d.", code);
     exit(code);
 }
 
 typedef struct arg_s {
-    string cmd;
-    string conf; // -c
-} arg_t ;
+    string  cmd;
+    string  confile;    // -c
+    string  logfile;
+    int     port;       // -p
+    int     daemon;     // -d
+} arg_t;
 arg_t g_arg;
 
-const char* options = "hvc:";
-const char* options_descr = "Options:\n\
+const char* options = "hvc:p:d";
+const char* options_descr = "\
+Options:\n\
 -h                      Print help\n\
 -v                      Print version\n\
--c conffile             Configure file\n\
+-c confile              Configure file\n\
+-p port                 Listen port\n\
+-d                      Daemon\n\
 ";
 
 string version() {
@@ -52,11 +57,19 @@ bool parse_command_line(int argc, char** argv) {
             }
             break;
             case 'c': {
-                g_arg.conf = optarg;
+                g_arg.confile = optarg;
+            }
+            break;
+            case 'p': {
+                g_arg.port = atoi(optarg);
+            }
+            break;
+            case 'd': {
+                g_arg.daemon = 1;
             }
             break;
             default: {
-                printf("Unrecognized options!\n");
+                printf("Unrecognized option!");
                 pexit(-10);
             }
             break;
@@ -69,18 +82,38 @@ bool parse_command_line(int argc, char** argv) {
 int main(int argc, char** argv) {
     string strCmd((const char*)argv[0]);
     g_arg.cmd = filename(strCmd);
+    g_arg.confile = g_arg.cmd + ".conf";
+    g_arg.logfile = g_arg.cmd + ".log";
+    g_arg.port = 0;
+    g_arg.daemon = 0;
 
-    string strLog = g_arg.cmd + ".log";
-    hlog_set_file(strLog.c_str());
+    hlog_set_file(g_arg.logfile.c_str());
     hlog_set_level(LOG_LEVEL_INFO);
     hlogi("%s", version().c_str());
 
     if (!parse_command_line(argc, argv)) {
-        printf("Command line parse error, please use -h to get help.\n");
+        printf("Parse command line error, please use -h to get help.\n");
         pexit(-10);
     }
 
-    // ...
+    IniParser ini;
+    int iRet = ini.LoadFromFile(g_arg.confile.c_str());
+    if (iRet != 0) {
+        printf("Load confile [%s] failed: %d\n", g_arg.confile.c_str(), iRet);
+        return iRet;
+    }
+
+    if (g_arg.port == 0) {
+        printf("Please config port!\n");
+        pexit(-30);
+    }
+
+#ifdef __unix__
+    if (g_arg.daemon) {
+        daemon(1, 1);
+    }
+#endif
 
     pexit(0);
 }
+

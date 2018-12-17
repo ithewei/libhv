@@ -1,9 +1,9 @@
 #ifndef HW_H_
 #define HW_H_
 
-/*
-# copyright 2018 HeWei, all rights reserved.
-*/
+/**
+ * @copyright 2018 HeWei, all rights reserved.
+ */
 
 // platform
 #include "hplatform.h"
@@ -37,3 +37,4 @@
 #endif
 
 #endif  // HW_H_
+

@@ -15,7 +15,8 @@ LIBDIR = lib
 SRCDIR = src
 BINDIR = bin
 DEPDIR = 3rd
-CONFDIR = etc
+CONFDIR = conf
+DISTDIR = dist
 
 TARGET = test
 ifeq ($(OS),Windows_NT)
@@ -54,18 +55,23 @@ default: all
 all: prepare $(TARGET)
 
 prepare:
-	$(MKDIR) $(BINDIR)
+	$(MKDIR) $(BINDIR) $(LIBDIR)
 
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(CPPFLAGS) $^ -o $(BINDIR)/$@ $(LDFLAGS)
+	$(CXX) $^ -o $(BINDIR)/$@ $(LDFLAGS)
+	#$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@ $(LDFLAGS)
+	#$(AR)  $(ARFLAGS)  $^ -o $(LIBDIR)/$@
 
 clean:
 	$(RM) $(OBJS)
 	$(RM) $(BINDIR)
+	$(RM) $(LIBDIR)
 
 install:
 
 uninstall:
 
-.PHONY: default all prepare clean install uninstall
+dist:
+
+.PHONY: default all prepare clean install uninstall dist
 
