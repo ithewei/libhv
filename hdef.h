@@ -20,6 +20,8 @@ typedef unsigned char       BYTE;
 typedef unsigned short      WORD;
 typedef int                 BOOL;
 
+typedef void*               handle;
+
 typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
 

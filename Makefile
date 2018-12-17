@@ -72,6 +72,8 @@ install:
 uninstall:
 
 dist:
+	$(MKDIR) $(DISTDIR)
+	$(CP) $(BINDIR) $(LIBDIR) $(DISTDIR)
 
 .PHONY: default all prepare clean install uninstall dist
 

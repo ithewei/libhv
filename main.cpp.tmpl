@@ -69,7 +69,7 @@ bool parse_command_line(int argc, char** argv) {
             }
             break;
             default: {
-                printf("Unrecognized option!");
+                puts("Unrecognized option!");
                 pexit(-10);
             }
             break;
@@ -100,12 +100,15 @@ int main(int argc, char** argv) {
     int iRet = ini.LoadFromFile(g_arg.confile.c_str());
     if (iRet != 0) {
         printf("Load confile [%s] failed: %d\n", g_arg.confile.c_str(), iRet);
-        return iRet;
+        pexit(-20);
     }
 
     if (g_arg.port == 0) {
-        printf("Please config port!\n");
-        pexit(-30);
+        g_arg.port = atoi(ini.GetValue("port").c_str());
+        if (g_arg.port == 0) {
+            puts("Please config listen port!");
+            pexit(-30);
+        }
     }
 
 #ifdef __unix__
