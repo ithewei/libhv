@@ -199,6 +199,8 @@ int IniParser::SaveAs(const char* filepath) {
 }
 
 string IniParser::GetValue(const string& key, const string& section) {
+    if (root_ == NULL)  return "";
+
     IniNode* pSection = root_;
     if (section.length() != 0) {
         pSection = root_->Get(section, IniNode::INI_NODE_TYPE_SECTION);
@@ -212,6 +214,10 @@ string IniParser::GetValue(const string& key, const string& section) {
 }
 
 void IniParser::SetValue(const string& key, const string& value, const string& section) {
+    if (root_ == NULL) {
+        root_ = new IniNode;
+    }
+
     IniNode* pSection = root_;
     if (section.length() != 0) {
         pSection = root_->Get(section, IniNode::INI_NODE_TYPE_SECTION);
@@ -232,3 +238,4 @@ void IniParser::SetValue(const string& key, const string& value, const string& s
     }
     pKV->value = value;
 }
+

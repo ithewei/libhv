@@ -82,7 +82,7 @@ bool parse_command_line(int argc, char** argv) {
 int main(int argc, char** argv) {
     string strCmd((const char*)argv[0]);
     g_arg.cmd = filename(strCmd);
-    g_arg.confile = g_arg.cmd + ".conf";
+    //g_arg.confile = g_arg.cmd + ".conf";
     g_arg.logfile = g_arg.cmd + ".log";
     g_arg.port = 0;
     g_arg.daemon = 0;
@@ -97,18 +97,20 @@ int main(int argc, char** argv) {
     }
 
     IniParser ini;
-    int iRet = ini.LoadFromFile(g_arg.confile.c_str());
-    if (iRet != 0) {
-        printf("Load confile [%s] failed: %d\n", g_arg.confile.c_str(), iRet);
-        pexit(-20);
+    if (!g_arg.confile.empty()) {
+        int iRet = ini.LoadFromFile(g_arg.confile.c_str());
+        if (iRet != 0) {
+            printf("Load confile [%s] failed: %d\n", g_arg.confile.c_str(), iRet);
+            pexit(-20);
+        }
     }
 
     if (g_arg.port == 0) {
         g_arg.port = atoi(ini.GetValue("port").c_str());
-        if (g_arg.port == 0) {
-            puts("Please config listen port!");
-            pexit(-30);
-        }
+    }
+    if (g_arg.port == 0) {
+        puts("Please config listen port!");
+        pexit(-30);
     }
 
 #ifdef __unix__
