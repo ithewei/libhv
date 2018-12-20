@@ -60,7 +60,7 @@ prepare:
 $(TARGET): $(OBJS)
 	$(CXX) $^ -o $(BINDIR)/$@ $(LDFLAGS)
 	#$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@ $(LDFLAGS)
-	#$(AR)  $(ARFLAGS)  $^ -o $(LIBDIR)/$@
+	#$(AR)  $(ARFLAGS) $(LIBDIR)/$@ $^
 
 clean:
 	$(RM) $(OBJS)
