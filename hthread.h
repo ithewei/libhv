@@ -8,14 +8,9 @@
 #include "hdef.h"
 #include "hplatform.h"
 
-#ifdef _MSC_VER
-inline uint32 getpid() {
-    return GetCurrentProcessId();
-}
-
-inline uint32 gettid() {
-    return GetCurrentThreadId();
-}
+#ifdef _WIN32
+#define getpid GetCurrentProcessId
+#define gettid GetCurrentThreadId
 #endif
 
 #if defined(__unix__) && !defined(__ANDROID__)

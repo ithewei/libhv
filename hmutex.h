@@ -5,7 +5,7 @@
 
 #include "hplatform.h"
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 class RWLock {
  public:
     RWLock() { InitializeSRWLock(&_rwlock); }

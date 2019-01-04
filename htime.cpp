@@ -4,7 +4,7 @@
 #include <string.h>
 
 void msleep(unsigned long ms) {
-#ifdef _MSC_VER
+#ifdef _WIN32
     Sleep(ms);
 #else
     usleep(ms*1000);
@@ -12,7 +12,7 @@ void msleep(unsigned long ms) {
 }
 
 uint64 gettick() {
-#ifdef _MSC_VER
+#ifdef _WIN32
     return GetTickCount();
 #else
     struct timeval tv;
@@ -23,7 +23,7 @@ uint64 gettick() {
 
 datetime_t get_datetime() {
     datetime_t  dt;
-#ifdef _MSC_VER
+#ifdef _WIN32
     SYSTEMTIME tm;
     GetLocalTime(&tm);
     dt.year     = tm.wYear;

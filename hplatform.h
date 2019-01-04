@@ -1,25 +1,31 @@
 #ifndef HW_PLATFORM_H_
 #define HW_PLATFORM_H_
 
-#ifdef _MSC_VER
+#include <sys/types.h>
+
+#ifndef _MSC_VER
+#include <sys/time.h>  // for gettimeofday
+
+#include <pthread.h>
+
+#include <strings.h>
+#define stricmp     strcasecmp
+#define strnicmp    strncasecmp
+#endif
+
+#ifdef _WIN32
     #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
     #endif
     #include <winsock2.h>
     #include <windows.h>
-    #undef  WIN32_LEAN_AND_MEAN
 
     #define strcasecmp stricmp
     #define strncasecmp strnicmp
-#else
-    #include <sys/types.h>
-    #include <sys/time.h>  // for gettimeofday
-    #include <unistd.h>
-    #include <pthread.h>
+#endif
 
-    #include <strings.h>
-    #define stricmp     strcasecmp
-    #define strnicmp    strncasecmp
+#ifdef __unix__
+    #include <unistd.h>
 #endif
 
 #ifdef __GNUC__

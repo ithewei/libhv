@@ -18,7 +18,7 @@ typedef struct datetime_s {
 
 void msleep(unsigned long ms);
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 inline void sleep(unsigned int s) {
     Sleep(s*1000);
 }
