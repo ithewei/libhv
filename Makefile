@@ -5,7 +5,7 @@ CP = cp -r
 CFLAGS += -g -Wall -O3
 ENABLE_SHARED=true
 ifeq ($(ENABLE_SHARED),true)
-	CFLAGS += -shared -fPIC
+	CFLAGS += -shared -fPIC -fvisibility=hidden
 endif
 CXXFLAGS += $(CFLAGS) -std=c++11
 ARFLAGS := cr
@@ -20,6 +20,7 @@ DISTDIR = dist
 
 TARGET = test
 ifeq ($(OS),Windows_NT)
+CPPFLAGS += -D_WIN32_WINNT=0x600 -DLL_EXPORTS
 TARGET := $(addsuffix .exe, $(TARGET))
 endif
 
@@ -39,8 +40,14 @@ CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
 LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
-#LDFLAGS += -Wl,-Bstatic  -luv
-#LDFLAGS += -Wl,-Bdynamic -lm -lz -lpthread
+ifeq ($(OS),Windows_NT)
+	LDFLAGS += -static-libgcc -static-libstdc++
+	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
+else
+	LDFLAGS += -L3rd/lib/x86_64-linux-gnu
+	LDFLAGS += -Wl,-Bstatic -luv
+	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lpthread -lm
+endif
 
 $(info MAKE=$(MAKE))
 $(info CC=$(CC))
