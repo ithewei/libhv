@@ -22,18 +22,7 @@ public:
         userdata = NULL;
     }
 
-    HFrame(const HFrame& rhs) {
-        copy(rhs);
-    }
-
     ~HFrame() {
-    }
-
-    HFrame& operator=(const HFrame& rhs) {
-        if (this != &rhs) {
-            copy(rhs);
-        }
-        return *this;
     }
 
     void copy(const HFrame& rhs) {

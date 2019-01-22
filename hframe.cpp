@@ -1,5 +1,7 @@
 #include "hframe.h"
 
+#include "hlog.h"
+
 int HFrameBuf::push(HFrame* pFrame) {
     if (pFrame->isNull())
         return -10;
@@ -9,15 +11,16 @@ int HFrameBuf::push(HFrame* pFrame) {
     std::lock_guard<std::mutex> locker(mutex);
 
     if (frames.size() >= cache_num) {
+        hlogd("frame cache full!");
         if (policy == HFrameBuf::DISCARD) {
             return -20;     // note: cache full, discard frame
         }
 
-        // note: cache full, remove front, push newer frame
         HFrame& frame = frames.front();
         frames.pop_front();
         free(frame.buf.len);
         if (frame.userdata) {
+            hlogd("free userdata");
             ::free(frame.userdata);
             frame.userdata = NULL;
         }
@@ -37,7 +40,7 @@ int HFrameBuf::push(HFrame* pFrame) {
     HFrame frame;
     frame.buf.base = alloc(pFrame->buf.len);
     frame.buf.len  = pFrame->buf.len;
-    frame = *pFrame;
+    frame.copy(*pFrame);
     frames.push_back(frame);
     frame_stats.push_ok_cnt++;
 
@@ -52,8 +55,10 @@ int HFrameBuf::pop(HFrame* pFrame) {
     if (isNull())
         return -10;
 
-    if (frames.size() == 0)
+    if (frames.size() == 0) {
+        hlogd("frame cache empty!");
         return -20;
+    }
 
     HFrame& frame = frames.front();
     frames.pop_front();
@@ -62,7 +67,7 @@ int HFrameBuf::pop(HFrame* pFrame) {
     if (frame.isNull())
         return -30;
 
-    *pFrame = frame;
+    pFrame->copy(frame);
     frame_stats.pop_ok_cnt++;
 
     return 0;
