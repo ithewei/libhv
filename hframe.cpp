@@ -17,6 +17,10 @@ int HFrameBuf::push(HFrame* pFrame) {
         HFrame& frame = frames.front();
         frames.pop_front();
         free(frame.buf.len);
+        if (frame.userdata) {
+            ::free(frame.userdata);
+            frame.userdata = NULL;
+        }
     }
 
     int ret = 0;
@@ -33,7 +37,7 @@ int HFrameBuf::push(HFrame* pFrame) {
     HFrame frame;
     frame.buf.base = alloc(pFrame->buf.len);
     frame.buf.len  = pFrame->buf.len;
-    frame.copy(*pFrame);
+    frame = *pFrame;
     frames.push_back(frame);
     frame_stats.push_ok_cnt++;
 
@@ -58,7 +62,7 @@ int HFrameBuf::pop(HFrame* pFrame) {
     if (frame.isNull())
         return -30;
 
-    pFrame->copy(frame);
+    *pFrame = frame;
     frame_stats.pop_ok_cnt++;
 
     return 0;

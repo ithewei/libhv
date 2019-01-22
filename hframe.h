@@ -6,37 +6,54 @@
 #include "hbuf.h"
 #include "hmutex.h"
 
-typedef struct hframe_s {
+class HFrame {
+public:
     hbuf_t buf;
     int w;
     int h;
-    int type;
     int bpp;
+    int type;
     uint64 ts;
+    int64 useridx;
     void* userdata;
-    hframe_s() {
-        w = h = type = bpp = ts = 0;
+    HFrame() {
+        w = h = bpp = type = ts = 0;
+        useridx = -1;
         userdata = NULL;
+    }
+
+    HFrame(const HFrame& rhs) {
+        copy(rhs);
+    }
+
+    ~HFrame() {
+    }
+
+    HFrame& operator=(const HFrame& rhs) {
+        if (this != &rhs) {
+            copy(rhs);
+        }
+        return *this;
+    }
+
+    void copy(const HFrame& rhs) {
+        w = rhs.w;
+        h = rhs.h;
+        bpp = rhs.bpp;
+        type = rhs.type;
+        ts = rhs.ts;
+        useridx = rhs.useridx;
+        userdata = rhs.userdata;
+        if (buf.isNull() || buf.len != rhs.buf.len) {
+            buf.init(rhs.buf.len);
+        }
+        memcpy(buf.base, rhs.buf.base, rhs.buf.len);
     }
 
     bool isNull() {
         return w == 0 || h == 0 || buf.isNull();
     }
-
-    // deep copy
-    void copy(const hframe_s& rhs) {
-        this->w = rhs.w;
-        this->h = rhs.h;
-        this->type = rhs.type;
-        this->bpp  = rhs.bpp;
-        this->ts   = rhs.ts;
-        this->userdata = rhs.userdata;
-        if (this->buf.isNull() || this->buf.len != rhs.buf.len) {
-            this->buf.init(rhs.buf.len);
-        }
-        memcpy(this->buf.base, rhs.buf.base, rhs.buf.len);
-    }
-}HFrame;
+};
 
 typedef struct frame_info_s {
     int w;
