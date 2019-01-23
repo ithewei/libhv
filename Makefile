@@ -1,9 +1,14 @@
 # Windows,Linux,Android
-OS=Linux
-# x86,x86_64,arm,aarch64
-ARCH=x86_64
+ifeq ($(OS), Windows_NT)
+	OS=Windows
+else
+	OS=Linux
+endif
 $(info OS=$(OS))
-$(info ARCH=$(ARCH))
+
+# x86,x86_64,arm,aarch64
+#ARCH=x86
+#$(info ARCH=$(ARCH))
 
 ENABLE_SHARED=false
 $(info ENABLE_SHARED=$(ENABLE_SHARED))
