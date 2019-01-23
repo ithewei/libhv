@@ -1,21 +1,28 @@
-# Windows,Linux,Android
+######################configure##################
+# OS=Windows,Linux,Android
+# ARCH=x86,x86_64,arm,aarch64
+# CC
+# CXX
+# CPPFLAGS
+# CFLAGS
+# CXXFLAGS
+# LDFLAGS
+# ENABLE_SHARED=true,false
+
 ifeq ($(OS), Windows_NT)
 	OS=Windows
-else
-	OS=Linux
 endif
-$(info OS=$(OS))
-
-# x86,x86_64,arm,aarch64
-#ARCH=x86
-#$(info ARCH=$(ARCH))
-
-ENABLE_SHARED=false
-$(info ENABLE_SHARED=$(ENABLE_SHARED))
 
 MKDIR = mkdir -p
 RM = rm -r
 CP = cp -r
+
+ifeq ($(OS), Windows)
+	CPPFLAGS += -D_WIN32_WINNT=0x600
+ifeq ($(ENABLE_SHARED),true)
+	CPPFLAGS += -DDLL_EXPORTS
+endif
+endif
 
 CFLAGS += -g -Wall -O3
 ifeq ($(ENABLE_SHARED),true)
@@ -34,11 +41,7 @@ DISTDIR = dist
 DOCDIR = doc
 
 TARGET = test
-ifeq ($(OS), Windows)
-CPPFLAGS += -D_WIN32_WINNT=0x600 -DDLL_EXPORTS
-endif
 
-DIRS += . test
 DIRS += $(shell find $(SRCDIR) -type d)
 SRCS += $(foreach dir, $(DIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
 #OBJS := $(patsubst %.cpp, %.o, $(SRCS))
@@ -54,15 +57,15 @@ CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
 LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
-LDFLAGS += -L3rd/lib/x86_64-linux-gnu
 ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
 else
-	LDFLAGS += -Wl,-Bstatic -luv
 	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lpthread -lm
 endif
 
+$(info OS=$(OS))
+$(info ARCH=$(ARCH))
 $(info MAKE=$(MAKE))
 $(info CC=$(CC))
 $(info CXX=$(CXX))
