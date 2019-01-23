@@ -3,10 +3,10 @@
 # ARCH=x86,x86_64,arm,aarch64
 # CC
 # CXX
-# CPPFLAGS
+# CPPFLAGS += $(addprefix -I, $(INCDIRS))
 # CFLAGS
 # CXXFLAGS
-# LDFLAGS
+# LDFLAGS += $(addprefix -L, $(LIBDIRS))
 # ENABLE_SHARED=true,false
 
 ifeq ($(OS), Windows_NT)
