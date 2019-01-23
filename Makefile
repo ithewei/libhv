@@ -1,9 +1,18 @@
+# Windows,Linux,Android
+OS=Linux
+# x86,x86_64,arm,aarch64
+ARCH=x86_64
+$(info OS=$(OS))
+$(info ARCH=$(ARCH))
+
+ENABLE_SHARED=false
+$(info ENABLE_SHARED=$(ENABLE_SHARED))
+
 MKDIR = mkdir -p
 RM = rm -r
 CP = cp -r
 
 CFLAGS += -g -Wall -O3
-ENABLE_SHARED=true
 ifeq ($(ENABLE_SHARED),true)
 	CFLAGS += -shared -fPIC -fvisibility=hidden
 endif
@@ -15,13 +24,13 @@ LIBDIR = lib
 SRCDIR = src
 BINDIR = bin
 DEPDIR = 3rd
-CONFDIR = conf
+CONFDIR = etc
 DISTDIR = dist
+DOCDIR = doc
 
 TARGET = test
-ifeq ($(OS),Windows_NT)
-CPPFLAGS += -D_WIN32_WINNT=0x600 -DLL_EXPORTS
-TARGET := $(addsuffix .exe, $(TARGET))
+ifeq ($(OS), Windows)
+CPPFLAGS += -D_WIN32_WINNT=0x600 -DDLL_EXPORTS
 endif
 
 DIRS += . test
@@ -40,11 +49,11 @@ CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
 LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
-ifeq ($(OS),Windows_NT)
+LDFLAGS += -L3rd/lib/x86_64-linux-gnu
+ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
 else
-	LDFLAGS += -L3rd/lib/x86_64-linux-gnu
 	LDFLAGS += -Wl,-Bstatic -luv
 	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lpthread -lm
 endif
@@ -65,9 +74,20 @@ prepare:
 	$(MKDIR) $(BINDIR) $(LIBDIR)
 
 $(TARGET): $(OBJS)
-	$(CXX) $^ -o $(BINDIR)/$@ $(LDFLAGS)
-	#$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@ $(LDFLAGS)
-	#$(AR)  $(ARFLAGS) $(LIBDIR)/$@ $^
+# executable
+ifeq ($(OS), Windows)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $(BINDIR)/$@.exe
+else
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $(BINDIR)/$@
+endif
+# dynamic
+#ifeq ($(OS), Windows)
+	#$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $(LIBDIR)/$@.dll -Wl,--output-def,$(LIBDIR)/$@.def
+#else
+	#$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $(LIBDIR)/$@.so
+#endif
+# archive
+	#$(AR)  $(ARFLAGS) $(LIBDIR)/$@.a $^
 
 clean:
 	$(RM) $(OBJS)
@@ -80,7 +100,10 @@ uninstall:
 
 dist:
 	$(MKDIR) $(DISTDIR)
-	$(CP) $(BINDIR) $(LIBDIR) $(DISTDIR)
+	$(CP) $(INCDIR) $(LIBDIR) $(BINDIR) $(DISTDIR)
 
-.PHONY: default all prepare clean install uninstall dist
+undist:
+	$(RM) $(DISTDIR)
+
+.PHONY: default all prepare clean install uninstall dist undist
 
