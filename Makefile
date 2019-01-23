@@ -81,18 +81,18 @@ prepare:
 $(TARGET): $(OBJS)
 # executable
 ifeq ($(OS), Windows)
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $(BINDIR)/$@.exe
+	$(CXX) $(CXXFLAGS) $^ -o $(BINDIR)/$@.exe $(LDFLAGS)
 else
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $(BINDIR)/$@
+	$(CXX) $(CXXFLAGS) $^ -o $(BINDIR)/$@ $(LDFLAGS)
 endif
 # dynamic
 #ifeq ($(OS), Windows)
-	#$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $(LIBDIR)/$@.dll -Wl,--output-def,$(LIBDIR)/$@.def
+	#$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$@.def
 #else
-	#$(CXX) $(CXXFLAGS) $(LDFLAGS) $^ -o $(LIBDIR)/$@.so
+	#$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
 #endif
 # archive
-	#$(AR)  $(ARFLAGS) $(LIBDIR)/$@.a $^
+	#$(AR) $(ARFLAGS) $(LIBDIR)/$@.a $^
 
 clean:
 	$(RM) $(OBJS)
