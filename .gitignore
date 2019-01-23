@@ -8,15 +8,20 @@
 # IDE
 .vs
 .vscode
+
 tags
 cscope*
 .ycm*
 
 # output
 *.o
+*.obj
+
 *.log
-bin
+*.db
+
 lib
+bin
 dist
 
 # test
