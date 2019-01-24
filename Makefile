@@ -3,6 +3,7 @@
 # ARCH=x86,x86_64,arm,aarch64
 # CC
 # CXX
+# CPPFLAGS += $(addprefix -D, $(DEFINES))
 # CPPFLAGS += $(addprefix -I, $(INCDIRS))
 # CFLAGS
 # CXXFLAGS
@@ -17,6 +18,7 @@ MKDIR = mkdir -p
 RM = rm -r
 CP = cp -r
 
+CPPFLAGS += $(addprefix -D, $(DEFINES))
 ifeq ($(OS), Windows)
 	CPPFLAGS += -D_WIN32_WINNT=0x600
 ifeq ($(ENABLE_SHARED),true)
@@ -38,7 +40,7 @@ BINDIR = bin
 DEPDIR = 3rd
 CONFDIR = etc
 DISTDIR = dist
-DOCDIR = doc
+DOCDIR  = doc
 
 TARGET = test
 
