@@ -3,6 +3,9 @@
 #include <string.h>
 
 #include "h.h"
+#ifdef _WIN32
+#include "win32_getopt.h"
+#endif
 
 void pexit(int code) {
     printf("Exit with code %d.\n", code);
