@@ -2,6 +2,11 @@
 #define HW_DEF_H_
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <string>
+#include <map>
 
 typedef unsigned char       uint8;
 typedef unsigned short      uint16;
@@ -24,6 +29,8 @@ typedef void*               handle;
 
 typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
+
+typedef std::map<std::string, std::string> keyval_t;
 
 #ifndef MAX_PATH
 #define MAX_PATH          260
@@ -63,6 +70,10 @@ typedef void (*procedure_t)(void* userdata);
 
 #ifndef REPEATED
 #define REPEATED
+#endif
+
+#ifndef ABS
+#define ABS(n) ((n) < 0 ? -(n) : (n))
 #endif
 
 #ifndef MAX

@@ -8,15 +8,12 @@
 // platform
 #include "hplatform.h"
 
-// c
 #include "hversion.h"
 #include "hdef.h"
 #include "herr.h"
 #include "hlog.h"
 #include "htime.h"
 
-// cpp
-#ifdef __cplusplus
 #include "hstring.h"
 #include "hbuf.h"
 #include "hfile.h"
@@ -34,7 +31,6 @@
 
 #include "singleton.h"
 #include "iniparser.h"
-#endif
 
 #endif  // HW_H_
 
