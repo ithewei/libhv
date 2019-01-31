@@ -40,7 +40,7 @@
 #include <sys/stat.h>
 
 #ifdef __unix__
-#define MKDIR(dir) mkdir(dir, 0x755)
+#define MKDIR(dir) mkdir(dir, 0777)
 #else
 #define MKDIR(dir) mkdir(dir)
 #endif
