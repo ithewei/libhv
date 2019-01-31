@@ -84,12 +84,25 @@ typedef std::map<std::string, std::string> keyval_t;
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
+#endif
 
+#ifndef SAFE_FREE
 #define SAFE_FREE(p)    do {if (p) {free(p); (p) = NULL;}}while(0)
+#endif
+
+#ifndef SAFE_DELETE
 #define SAFE_DELETE(p)  do {if (p) {delete (p); (p) = NULL;}}while(0)
+#endif
+
+#ifndef SAFE_DELETE_ARRAY
 #define SAFE_DELETE_ARRAY(p) do {if (p) {delete[] (p); (p) = NULL;}}while(0)
+#endif
+
+#ifndef SAFE_RELEASE
 #define SAFE_RELEASE(p) do {if (p) {(p)->release(); (p) = NULL;}}while(0)
+#endif
 
 #ifndef MAKE_FOURCC
 #define MAKE_FOURCC(a, b, c, d) \
