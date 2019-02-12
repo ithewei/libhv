@@ -1,4 +1,7 @@
+#include <signal.h> // for signal,kill...
+
 #include "h.h"
+#include "hsysinfo.h"
 
 #include "hmain.h"
 main_ctx_t g_main_ctx;
@@ -17,15 +20,16 @@ int create_pidfile() {
     char pid[16] = {0};
     snprintf(pid, sizeof(pid), "%d\n", g_main_ctx.pid);
     fwrite(pid, 1, strlen(pid), fp);
-    fclose(fp);
+    fclose(fp); atexit(delete_pidfile);
 
-    atexit(delete_pidfile);
+    hlogd("create_pidfile [%s] pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
 
     return 0;
 }
 
 void delete_pidfile() {
     remove(g_main_ctx.pidfile);
+    hlogd("delete_pidfile [%s]", g_main_ctx.pidfile);
 }
 
 pid_t getpid_from_pidfile() {
@@ -36,6 +40,7 @@ pid_t getpid_from_pidfile() {
     }
     char pid[64];
     int readbytes = fread(pid, 1, sizeof(pid), fp);
+    fclose(fp);
     if (readbytes <= 0) {
         printf("fread [%s] bytes=%d\n", g_main_ctx.pidfile, readbytes);
         return -1;
@@ -61,6 +66,11 @@ int main_ctx_init(int argc, char** argv) {
         --e;
     }
     strncpy(g_main_ctx.program_name, e+1, sizeof(g_main_ctx.program_name));
+#ifdef _WIN32
+    if (strcmp(g_main_ctx.program_name+strlen(g_main_ctx.program_name)-4, ".exe") == 0) {
+        *(g_main_ctx.program_name+strlen(g_main_ctx.program_name)-4) = '\0';
+    }
+#endif
     //printf("program_name=%s\n", g_main_ctx.program_name);
 
     // save arg
@@ -139,7 +149,13 @@ int main_ctx_init(int argc, char** argv) {
     g_main_ctx.confile_parser = NULL;
 
     g_main_ctx.oldpid = getpid_from_pidfile();
-    create_pidfile();
+#ifdef __unix__
+    if (kill(g_main_ctx.oldpid, 0) == -1 && errno == ESRCH) {
+        g_main_ctx.oldpid = -1;
+    }
+#else
+
+#endif
 
     return 0;
 }
@@ -173,12 +189,14 @@ void setproctitle(const char* title) {
 #endif
 
 // unix short style
-static char options[] = "hvc:td";
+static char options[] = "hvc:ts:d";
 static char detail_options[] = "\
 -h              : print help\n\
 -v              : print version\n\
 -c  confile     : set configure file, default etc/${program}.conf\n\
 -t              : test configure file and exit\n\
+-s  signal      : send signal to process\n\
+                  signal=[start, stop, restart, status]\n\
 -d              : daemon\n\
 ";
 
@@ -240,18 +258,144 @@ next_option:
     return 0;
 }
 
-int main(int argc, char** argv) {
-    main_ctx_init(argc, argv);
-
-    parse_cmdline(argc, argv);
-
-/*
 #ifdef __unix__
+// unix use signal
+// we use SIGTERM to quit process
+#define SIGNAL_TERMINATE    SIGTERM
+#include <sys/wait.h>
+
+#define MAXNUM_WORKER   1024
+static pid_t s_worker_processes[MAXNUM_WORKER];
+
+void worker_process_cycle() {
+    char proctitle[256] = {0};
+    snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
+    setproctitle(proctitle);
+
+    while(1) {
+        msleep(1);
+    }
+}
+
+int create_worker_process(int worker_processes) {
+    for (int i = 0; i < worker_processes; ++i) {
+        pid_t pid = fork();
+        if (pid < 0) {
+            hloge("fork error: %d", errno);
+            return errno;
+        }
+        if (pid == 0) {
+            hlogi("worker process start/running, pid=%d", getpid());
+            worker_process_cycle();
+            exit(0);
+        }
+
+        for (int i = 0; i < MAXNUM_WORKER; ++i) {
+            if (s_worker_processes[i] <= 0) {
+                s_worker_processes[i] = pid;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
+static int s_signo = 0;
+void master_process_signal_handler(int signo) {
+    hlogd("pid=%d recv signo=%d", getpid(), signo);
+    s_signo = signo;
+}
+
+void master_process_init() {
+    for (int i = 0; i < MAXNUM_WORKER; ++i) {
+        s_worker_processes[i] = -1;
+    }
+}
+
+void master_process_cycle() {
     char proctitle[256] = {0};
     snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
     setproctitle(proctitle);
+
+    signal(SIGINT, master_process_signal_handler);
+    signal(SIGCHLD, master_process_signal_handler);
+    signal(SIGNAL_TERMINATE, master_process_signal_handler);
+
+    sigset_t sigset;
+    sigemptyset(&sigset);
+    sigaddset(&sigset, SIGINT);
+    sigaddset(&sigset, SIGCHLD);
+    sigaddset(&sigset, SIGNAL_TERMINATE);
+    sigprocmask(SIG_BLOCK, &sigset, NULL);
+
+    create_worker_process(get_ncpu());
+
+    sigemptyset(&sigset);
+    while (1) {
+        sigsuspend(&sigset);
+        switch (s_signo) {
+        case SIGINT:
+        case SIGNAL_TERMINATE:
+            hlogi("killall worker processes");
+            for (int i = 0; i < MAXNUM_WORKER; ++i) {
+                if (s_worker_processes[i] <= 0) break;
+                kill(s_worker_processes[i], SIGKILL);
+                s_worker_processes[i] = -1;
+            }
+            msleep(1000);
+            exit(0);
+            break;
+        case SIGCHLD:
+        {
+            pid_t pid = 0;
+            int status = 0;
+            while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+                hlogw("worker process stop/waiting, pid=%d status=%d", pid, status);
+                for (int i = 0; i < MAXNUM_WORKER; ++i) {
+                    if (s_worker_processes[i] == pid) {
+                        s_worker_processes[i] = -1;
+                        break;
+                    }
+                }
+                create_worker_process(1);
+            }
+        }
+            break;
+        default:
+            break;
+        }
+    }
+}
+#else
+// win32 use Event
+static HANDLE s_hEventTerm = NULL;
+
+void master_process_exit() {
+    CloseHandle(s_hEventTerm);
+    s_hEventTerm = NULL;
+}
+
+void master_process_init() {
+    char eventname[MAX_PATH] = {0};
+    snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
+    s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
+    //s_hEventTerm = OpenEvent(EVENT_ALL_ACCESS, FALSE, eventname);
+
+    atexit(master_process_exit);
+}
+
+void master_process_cycle() {
+    while (1) {
+         DWORD ret = WaitForSingleObject(s_hEventTerm, INFINITE);
+         exit(0);
+    }
+}
 #endif
-*/
+
+int main(int argc, char** argv) {
+    main_ctx_init(argc, argv);
+    parse_cmdline(argc, argv);
+    master_process_init();
 
     if (get_arg("h")) {
         print_help();
@@ -274,6 +418,49 @@ int main(int argc, char** argv) {
         exit(0);
     }
 
+    const char* signal = get_arg("s");
+    if (signal) {
+        if (strcmp(signal, "start") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+                printf("%s is already running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
+                exit(0);
+            }
+        } else if (strcmp(signal, "stop") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+#ifdef __unix__
+                kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
+#else
+                SetEvent(s_hEventTerm);
+#endif
+                printf("%s stop/waiting\n", g_main_ctx.program_name);
+            } else {
+                printf("%s is already stopped", g_main_ctx.program_name);
+            }
+            exit(0);
+        } else if (strcmp(signal, "restart") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+#ifdef __unix__
+                kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
+#else
+                SetEvent(s_hEventTerm);
+#endif
+                printf("%s stop/waiting\n", g_main_ctx.program_name);
+                msleep(1000);
+            }
+        } else if (strcmp(signal, "status") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+                printf("%s start/running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
+            } else {
+                printf("%s stop/waiting\n", g_main_ctx.program_name);
+            }
+            exit(0);
+        } else {
+            printf("Invalid signal: '%s'\n", signal);
+            exit(0);
+        }
+        printf("%s start/running\n", g_main_ctx.program_name);
+    }
+
 #ifdef __unix__
     if (get_arg("d")) {
         // nochdir, noclose
@@ -282,14 +469,18 @@ int main(int argc, char** argv) {
             printf("daemon error: %d\n", ret);
             exit(-10);
         }
+        // parent process exit after daemon, so pid changed.
+        g_main_ctx.pid = getpid();
     }
 #endif
 
     hlog_set_file(g_main_ctx.logfile);
     hlog_set_level(LOG_LEVEL_DEBUG);
-    hlogi("version: %s", get_compile_version());
+    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
+    hlogi("%s start/running, pid=%d", g_main_ctx.program_name, g_main_ctx.pid);
 
-    // add code below
+    create_pidfile();
+    master_process_cycle();
 
     return 0;
 }
