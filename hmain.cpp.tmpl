@@ -407,20 +407,24 @@ void master_process_cycle() {
 #endif
 
 int main(int argc, char** argv) {
+    // g_main_ctx
     main_ctx_init(argc, argv);
     parse_cmdline(argc, argv);
     master_process_init();
 
+    // help
     if (get_arg("h")) {
         print_help();
         exit(0);
     }
 
+    // version
     if (get_arg("v")) {
         print_version();
         exit(0);
     }
 
+    // confile
     const char* confile = get_arg("c");
     if (confile) {
         strncpy(g_main_ctx.confile, confile, sizeof(g_main_ctx.confile));
@@ -435,6 +439,26 @@ int main(int argc, char** argv) {
         g_main_ctx.confile_parser = ini;
     }
 
+    // logfile
+    hlog_set_file(g_main_ctx.logfile);
+    int loglevel = LOG_LEVEL_DEBUG;
+    hlog_set_level(LOG_LEVEL_DEBUG);
+    const char* szLoglevel = ini->GetValue("loglevel").c_str();
+    if (stricmp(szLoglevel, "DEBUG") == 0) {
+        loglevel = LOG_LEVEL_DEBUG;
+    } else if (stricmp(szLoglevel, "INFO") == 0) {
+        loglevel = LOG_LEVEL_INFO;
+    } else if (stricmp(szLoglevel, "WARN") == 0) {
+        loglevel = LOG_LEVEL_WARN;
+    } else if (stricmp(szLoglevel, "ERROR") == 0) {
+        loglevel = LOG_LEVEL_ERROR;
+    } else {
+        loglevel = LOG_LEVEL_DEBUG;
+    }
+    hlog_set_level(loglevel);
+    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
+
+    // test
     if (get_arg("t")) {
         printf("Test confile [%s] OK!\n", g_main_ctx.confile);
         exit(0);
@@ -484,6 +508,7 @@ int main(int argc, char** argv) {
     }
 
 #ifdef __unix__
+    // daemon
     if (get_arg("d")) {
         // nochdir, noclose
         int ret = daemon(1, 1);
@@ -496,12 +521,11 @@ int main(int argc, char** argv) {
     }
 #endif
 
-    hlog_set_file(g_main_ctx.logfile);
-    hlog_set_level(LOG_LEVEL_DEBUG);
-    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
+    // pidfile
     hlogi("%s start/running, pid=%d", g_main_ctx.program_name, g_main_ctx.pid);
-
     create_pidfile();
+
+    // main_process_cycle
     master_process_cycle();
 
     return 0;
