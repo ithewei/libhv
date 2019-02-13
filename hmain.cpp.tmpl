@@ -264,8 +264,9 @@ next_option:
 #define SIGNAL_TERMINATE    SIGTERM
 #include <sys/wait.h>
 
-#define MAXNUM_WORKER   1024
-static pid_t s_worker_processes[MAXNUM_WORKER];
+#define MAXNUM_WORKER_PROCESSES     1024
+#define DEFAULT_WORKER_PROCESSES    4
+static pid_t s_worker_processes[MAXNUM_WORKER_PROCESSES];
 
 void worker_process_cycle() {
     char proctitle[256] = {0};
@@ -290,7 +291,7 @@ int create_worker_process(int worker_processes) {
             exit(0);
         }
 
-        for (int i = 0; i < MAXNUM_WORKER; ++i) {
+        for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
             if (s_worker_processes[i] <= 0) {
                 s_worker_processes[i] = pid;
                 break;
@@ -307,7 +308,7 @@ void master_process_signal_handler(int signo) {
 }
 
 void master_process_init() {
-    for (int i = 0; i < MAXNUM_WORKER; ++i) {
+    for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
         s_worker_processes[i] = -1;
     }
 }
@@ -328,7 +329,20 @@ void master_process_cycle() {
     sigaddset(&sigset, SIGNAL_TERMINATE);
     sigprocmask(SIG_BLOCK, &sigset, NULL);
 
-    create_worker_process(get_ncpu());
+    int worker_processes = 0;
+    IniParser* ini = (IniParser*)g_main_ctx.confile_parser;
+    if (ini) {
+        worker_processes = atoi(ini->GetValue("worker_processes", "core").c_str());
+        hlogd("core.worker_processes=%d", worker_processes);
+    }
+    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
+        worker_processes = get_ncpu();
+        hlogd("worker_processes=ncpu=%d", worker_processes);
+    }
+    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
+        worker_processes = DEFAULT_WORKER_PROCESSES;
+    }
+    create_worker_process(worker_processes);
 
     sigemptyset(&sigset);
     while (1) {
@@ -337,7 +351,7 @@ void master_process_cycle() {
         case SIGINT:
         case SIGNAL_TERMINATE:
             hlogi("killall worker processes");
-            for (int i = 0; i < MAXNUM_WORKER; ++i) {
+            for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
                 if (s_worker_processes[i] <= 0) break;
                 kill(s_worker_processes[i], SIGKILL);
                 s_worker_processes[i] = -1;
@@ -351,7 +365,7 @@ void master_process_cycle() {
             int status = 0;
             while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
                 hlogw("worker process stop/waiting, pid=%d status=%d", pid, status);
-                for (int i = 0; i < MAXNUM_WORKER; ++i) {
+                for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
                     if (s_worker_processes[i] == pid) {
                         s_worker_processes[i] = -1;
                         break;
@@ -412,9 +426,17 @@ int main(int argc, char** argv) {
         strncpy(g_main_ctx.confile, confile, sizeof(g_main_ctx.confile));
     }
 
-    //printf("load confile [%s]\n", g_conf_ctx.confile);
+    IniParser* ini = new IniParser;
+    int ret = ini->LoadFromFile(g_main_ctx.confile);
+    if (ret != 0) {
+        printf("Load confile [%s] failed: %d\n", g_main_ctx.confile, ret);
+        exit(-40);
+    } else {
+        g_main_ctx.confile_parser = ini;
+    }
 
     if (get_arg("t")) {
+        printf("Test confile [%s] OK!\n", g_main_ctx.confile);
         exit(0);
     }
 

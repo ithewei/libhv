@@ -17,6 +17,7 @@ cscope*
 *.o
 *.obj
 
+*.pid
 *.log
 *.db
 
