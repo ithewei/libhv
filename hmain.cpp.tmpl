@@ -20,16 +20,15 @@ int create_pidfile() {
     char pid[16] = {0};
     snprintf(pid, sizeof(pid), "%d\n", g_main_ctx.pid);
     fwrite(pid, 1, strlen(pid), fp);
-    fclose(fp); atexit(delete_pidfile);
-
-    hlogd("create_pidfile [%s] pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
+    fclose(fp); atexit(delete_pidfile); 
+    hlogi("create_pidfile [%s] pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
 
     return 0;
 }
 
 void delete_pidfile() {
     remove(g_main_ctx.pidfile);
-    hlogd("delete_pidfile [%s]", g_main_ctx.pidfile);
+    hlogi("delete_pidfile [%s]", g_main_ctx.pidfile);
 }
 
 pid_t getpid_from_pidfile() {
@@ -260,6 +259,7 @@ next_option:
 
 #ifdef __unix__
 // unix use signal
+// unix use multi-processes
 // we use SIGTERM to quit process
 #define SIGNAL_TERMINATE    SIGTERM
 #include <sys/wait.h>
@@ -269,10 +269,6 @@ next_option:
 static pid_t s_worker_processes[MAXNUM_WORKER_PROCESSES];
 
 void worker_process_cycle() {
-    char proctitle[256] = {0};
-    snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
-    setproctitle(proctitle);
-
     while(1) {
         msleep(1);
     }
@@ -287,6 +283,10 @@ int create_worker_process(int worker_processes) {
         }
         if (pid == 0) {
             hlogi("worker process start/running, pid=%d", getpid());
+            char proctitle[256] = {0};
+            snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
+            setproctitle(proctitle);
+
             worker_process_cycle();
             exit(0);
         }
@@ -301,19 +301,42 @@ int create_worker_process(int worker_processes) {
     return 0;
 }
 
-static int s_signo = 0;
 void master_process_signal_handler(int signo) {
-    hlogd("pid=%d recv signo=%d", getpid(), signo);
-    s_signo = signo;
-}
-
-void master_process_init() {
-    for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
-        s_worker_processes[i] = -1;
+    hlogi("pid=%d recv signo=%d", getpid(), signo);
+    switch (signo) {
+    case SIGINT:
+    case SIGNAL_TERMINATE:
+        hlogi("killall worker processes");
+        signal(SIGCHLD, SIG_IGN);
+        for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
+            if (s_worker_processes[i] <= 0) break;
+            kill(s_worker_processes[i], SIGKILL);
+            s_worker_processes[i] = -1;
+        }
+        exit(0);
+        break;
+    case SIGCHLD:
+    {
+        pid_t pid = 0;
+        int status = 0;
+        while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+            hlogw("worker process stop/waiting, pid=%d status=%d", pid, status);
+            for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
+                if (s_worker_processes[i] == pid) {
+                    s_worker_processes[i] = -1;
+                    break;
+                }
+            }
+            create_worker_process(1);
+        }
+    }
+        break;
+    default:
+        break;
     }
 }
 
-void master_process_cycle() {
+void master_process_init() {
     char proctitle[256] = {0};
     snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
     setproctitle(proctitle);
@@ -322,13 +345,12 @@ void master_process_cycle() {
     signal(SIGCHLD, master_process_signal_handler);
     signal(SIGNAL_TERMINATE, master_process_signal_handler);
 
-    sigset_t sigset;
-    sigemptyset(&sigset);
-    sigaddset(&sigset, SIGINT);
-    sigaddset(&sigset, SIGCHLD);
-    sigaddset(&sigset, SIGNAL_TERMINATE);
-    sigprocmask(SIG_BLOCK, &sigset, NULL);
+    for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
+        s_worker_processes[i] = -1;
+    }
+}
 
+void master_process_cycle() {
     int worker_processes = 0;
     IniParser* ini = (IniParser*)g_main_ctx.confile_parser;
     if (ini) {
@@ -344,44 +366,13 @@ void master_process_cycle() {
     }
     create_worker_process(worker_processes);
 
-    sigemptyset(&sigset);
     while (1) {
-        sigsuspend(&sigset);
-        switch (s_signo) {
-        case SIGINT:
-        case SIGNAL_TERMINATE:
-            hlogi("killall worker processes");
-            for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
-                if (s_worker_processes[i] <= 0) break;
-                kill(s_worker_processes[i], SIGKILL);
-                s_worker_processes[i] = -1;
-            }
-            msleep(1000);
-            exit(0);
-            break;
-        case SIGCHLD:
-        {
-            pid_t pid = 0;
-            int status = 0;
-            while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-                hlogw("worker process stop/waiting, pid=%d status=%d", pid, status);
-                for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
-                    if (s_worker_processes[i] == pid) {
-                        s_worker_processes[i] = -1;
-                        break;
-                    }
-                }
-                create_worker_process(1);
-            }
-        }
-            break;
-        default:
-            break;
-        }
+        msleep(1);
     }
 }
-#else
+#elif defined(_WIN32)
 // win32 use Event
+// win32 use multi-threads
 static HANDLE s_hEventTerm = NULL;
 
 void master_process_exit() {
@@ -400,8 +391,13 @@ void master_process_init() {
 
 void master_process_cycle() {
     while (1) {
-         DWORD ret = WaitForSingleObject(s_hEventTerm, INFINITE);
-         exit(0);
+         DWORD ret = WaitForSingleObject(s_hEventTerm, 0);
+         if (ret == WAIT_OBJECT_0) {
+             hlogi("pid=%d recv event [TERM]", getpid());
+             exit(0);
+         }
+
+         msleep(1);
     }
 }
 #endif
