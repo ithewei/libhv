@@ -28,7 +28,7 @@
     F(LOG_LEVEL_ERROR, "ERROR", CL_RED) \
     F(LOG_LEVEL_FATAL, "FATAL", CL_RED_WHT)
 
-enum LOG_LEVEL{
+enum LOG_LEVEL {
     LOG_LEVEL_NONE = 0,
 #define ENUM_LOG(id, str, clr) id,
     FOREACH_LOG(ENUM_LOG)
