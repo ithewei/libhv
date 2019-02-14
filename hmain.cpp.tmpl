@@ -6,9 +6,39 @@
 #include "hmain.h"
 main_ctx_t g_main_ctx;
 
-static int create_pidfile();
-static void delete_pidfile();
-static pid_t getpid_from_pidfile();
+typedef struct conf_ctx_s {
+    IniParser* parser;
+    int loglevel;
+    int worker_processes;
+    int port;
+} conf_ctx_t;
+conf_ctx_t g_conf_ctx;
+
+#define DEFAULT_WORKER_PROCESSES    4
+#define MAXNUM_WORKER_PROCESSES     1024
+inline void conf_ctx_init(conf_ctx_t* ctx) {
+    ctx->parser = new IniParser;
+    ctx->loglevel = LOG_LEVEL_DEBUG;
+    ctx->worker_processes = 0;
+    ctx->port = 0;
+}
+
+static int      create_pidfile();
+static void     delete_pidfile();
+static pid_t    getpid_from_pidfile();
+
+static int  parse_cmdline(int argc, char** argv);
+static void print_version();
+static void print_help();
+static void handle_signal();
+static int  parse_confile(const char* confile);
+
+static int  master_process_init();
+static void master_process_exit();
+static int  master_process_cycle();
+
+static int  create_worker_processes(int worker_processes);
+static int  worker_process_cycle(void* ctx);
 
 int create_pidfile() {
     FILE* fp = fopen(g_main_ctx.pidfile, "w");
@@ -145,7 +175,6 @@ int main_ctx_init(int argc, char** argv) {
     snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_path, g_main_ctx.program_name);
     snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_path, g_main_ctx.program_name);
     snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_path, g_main_ctx.program_name);
-    g_main_ctx.confile_parser = NULL;
 
     g_main_ctx.oldpid = getpid_from_pidfile();
 #ifdef __unix__
@@ -188,7 +217,7 @@ void setproctitle(const char* title) {
 #endif
 
 // unix short style
-static char options[] = "hvc:ts:d";
+static char options[] = "hvc:ts:dp:";
 static char detail_options[] = "\
 -h              : print help\n\
 -v              : print version\n\
@@ -197,6 +226,7 @@ static char detail_options[] = "\
 -s  signal      : send signal to process\n\
                   signal=[start, stop, restart, status]\n\
 -d              : daemon\n\
+-p  port        : set listen port\n\
 ";
 
 void print_version() {
@@ -257,6 +287,69 @@ next_option:
     return 0;
 }
 
+int parse_confile(const char* confile) {
+    conf_ctx_init(&g_conf_ctx);
+    int ret = g_conf_ctx.parser->LoadFromFile(confile);
+    if (ret != 0) {
+        printf("Load confile [%s] failed: %d\n", confile, ret);
+        exit(-40);
+    }
+
+    // loglevel
+    const char* szLoglevel = g_conf_ctx.parser->GetValue("loglevel").c_str();
+    if (stricmp(szLoglevel, "DEBUG") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_DEBUG;
+    } else if (stricmp(szLoglevel, "INFO") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_INFO;
+    } else if (stricmp(szLoglevel, "WARN") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_WARN;
+    } else if (stricmp(szLoglevel, "ERROR") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_ERROR;
+    } else {
+        g_conf_ctx.loglevel = LOG_LEVEL_DEBUG;
+    }
+    hlog_set_level(g_conf_ctx.loglevel);
+
+    // worker_processes
+    int worker_processes = 0;
+    worker_processes = atoi(g_conf_ctx.parser->GetValue("worker_processes").c_str());
+    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
+        worker_processes = get_ncpu();
+        hlogd("worker_processes=ncpu=%d", worker_processes);
+    }
+    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
+        worker_processes = DEFAULT_WORKER_PROCESSES;
+    }
+    g_conf_ctx.worker_processes = worker_processes;
+
+    // port
+    int port = 0;
+    const char* szPort = get_arg("p");
+    if (szPort) {
+        port = atoi(szPort);
+    }
+    if (port == 0) {
+        port = atoi(g_conf_ctx.parser->GetValue("port").c_str());
+    }
+    if (port == 0) {
+        printf("Please config listen port!\n");
+        exit(-10);
+    }
+    g_conf_ctx.port = port;
+
+    return 0;
+}
+
+int master_process_cycle() {
+    while (1) msleep(1);
+    return 0;
+}
+
+int worker_process_cycle(void* ctx) {
+    while (1) msleep(1);
+    return 0;
+}
+
 #ifdef __unix__
 // unix use signal
 // unix use multi-processes
@@ -264,17 +357,9 @@ next_option:
 #define SIGNAL_TERMINATE    SIGTERM
 #include <sys/wait.h>
 
-#define MAXNUM_WORKER_PROCESSES     1024
-#define DEFAULT_WORKER_PROCESSES    4
 static pid_t s_worker_processes[MAXNUM_WORKER_PROCESSES];
 
-void worker_process_cycle() {
-    while(1) {
-        msleep(1);
-    }
-}
-
-int create_worker_process(int worker_processes) {
+int create_worker_processes(int worker_processes) {
     for (int i = 0; i < worker_processes; ++i) {
         pid_t pid = fork();
         if (pid < 0) {
@@ -287,7 +372,8 @@ int create_worker_process(int worker_processes) {
             snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
             setproctitle(proctitle);
 
-            worker_process_cycle();
+            long port = g_conf_ctx.port + i + 1;
+            worker_process_cycle((void*)port);
             exit(0);
         }
 
@@ -327,7 +413,7 @@ void master_process_signal_handler(int signo) {
                     break;
                 }
             }
-            create_worker_process(1);
+            create_worker_processes(1);
         }
     }
         break;
@@ -336,7 +422,7 @@ void master_process_signal_handler(int signo) {
     }
 }
 
-void master_process_init() {
+int master_process_init() {
     char proctitle[256] = {0};
     snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
     setproctitle(proctitle);
@@ -348,118 +434,64 @@ void master_process_init() {
     for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
         s_worker_processes[i] = -1;
     }
+
+    atexit(master_process_exit);
+    return 0;
 }
 
-void master_process_cycle() {
-    int worker_processes = 0;
-    IniParser* ini = (IniParser*)g_main_ctx.confile_parser;
-    if (ini) {
-        worker_processes = atoi(ini->GetValue("worker_processes", "core").c_str());
-        hlogd("core.worker_processes=%d", worker_processes);
-    }
-    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
-        worker_processes = get_ncpu();
-        hlogd("worker_processes=ncpu=%d", worker_processes);
-    }
-    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
-        worker_processes = DEFAULT_WORKER_PROCESSES;
-    }
-    create_worker_process(worker_processes);
-
-    while (1) {
-        msleep(1);
-    }
+void master_process_exit() {
 }
 #elif defined(_WIN32)
 // win32 use Event
 // win32 use multi-threads
 static HANDLE s_hEventTerm = NULL;
 
-void master_process_exit() {
-    CloseHandle(s_hEventTerm);
-    s_hEventTerm = NULL;
+#include <mmsystem.h>
+#ifdef _MSC_VER
+#pragma comment(lib, "winmm.lib")
+#endif
+void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
+    DWORD ret = WaitForSingleObject(s_hEventTerm, 0);
+    if (ret == WAIT_OBJECT_0) {
+        timeKillEvent(uTimerID);
+        hlogi("pid=%d recv event [TERM]", getpid());
+        exit(0);
+    }
 }
 
-void master_process_init() {
+int master_process_init() {
     char eventname[MAX_PATH] = {0};
     snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
     s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
     //s_hEventTerm = OpenEvent(EVENT_ALL_ACCESS, FALSE, eventname);
 
+    timeSetEvent(1000, 1000, on_timer, 0, TIME_PERIODIC);
+
     atexit(master_process_exit);
+    return 0;
 }
 
-void master_process_cycle() {
-    while (1) {
-         DWORD ret = WaitForSingleObject(s_hEventTerm, 0);
-         if (ret == WAIT_OBJECT_0) {
-             hlogi("pid=%d recv event [TERM]", getpid());
-             exit(0);
-         }
+void master_process_exit() {
+    CloseHandle(s_hEventTerm);
+    s_hEventTerm = NULL;
+}
 
-         msleep(1);
+#include <process.h>
+void thread_proc(void* ctx) {
+    hlogi("worker thread start/running, tid=%d", gettid());
+    worker_process_cycle(ctx);
+}
+
+int create_worker_processes(int worker_processes) {
+    for (int i = 0; i < worker_processes; ++i) {
+        long port = g_conf_ctx.port + i + 1;
+        _beginthread(thread_proc, 0, (void*)port);
     }
+    return 0;
 }
 #endif
 
-int main(int argc, char** argv) {
-    // g_main_ctx
-    main_ctx_init(argc, argv);
-    parse_cmdline(argc, argv);
-    master_process_init();
-
-    // help
-    if (get_arg("h")) {
-        print_help();
-        exit(0);
-    }
-
-    // version
-    if (get_arg("v")) {
-        print_version();
-        exit(0);
-    }
-
-    // confile
-    const char* confile = get_arg("c");
-    if (confile) {
-        strncpy(g_main_ctx.confile, confile, sizeof(g_main_ctx.confile));
-    }
-
-    IniParser* ini = new IniParser;
-    int ret = ini->LoadFromFile(g_main_ctx.confile);
-    if (ret != 0) {
-        printf("Load confile [%s] failed: %d\n", g_main_ctx.confile, ret);
-        exit(-40);
-    } else {
-        g_main_ctx.confile_parser = ini;
-    }
-
-    // logfile
-    hlog_set_file(g_main_ctx.logfile);
-    int loglevel = LOG_LEVEL_DEBUG;
-    hlog_set_level(LOG_LEVEL_DEBUG);
-    const char* szLoglevel = ini->GetValue("loglevel").c_str();
-    if (stricmp(szLoglevel, "DEBUG") == 0) {
-        loglevel = LOG_LEVEL_DEBUG;
-    } else if (stricmp(szLoglevel, "INFO") == 0) {
-        loglevel = LOG_LEVEL_INFO;
-    } else if (stricmp(szLoglevel, "WARN") == 0) {
-        loglevel = LOG_LEVEL_WARN;
-    } else if (stricmp(szLoglevel, "ERROR") == 0) {
-        loglevel = LOG_LEVEL_ERROR;
-    } else {
-        loglevel = LOG_LEVEL_DEBUG;
-    }
-    hlog_set_level(loglevel);
-    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
-
-    // test
-    if (get_arg("t")) {
-        printf("Test confile [%s] OK!\n", g_main_ctx.confile);
-        exit(0);
-    }
-
+void handle_signal() {
     const char* signal = get_arg("s");
     if (signal) {
         if (strcmp(signal, "start") == 0) {
@@ -476,7 +508,7 @@ int main(int argc, char** argv) {
 #endif
                 printf("%s stop/waiting\n", g_main_ctx.program_name);
             } else {
-                printf("%s is already stopped", g_main_ctx.program_name);
+                printf("%s is already stopped\n", g_main_ctx.program_name);
             }
             exit(0);
         } else if (strcmp(signal, "restart") == 0) {
@@ -502,6 +534,48 @@ int main(int argc, char** argv) {
         }
         printf("%s start/running\n", g_main_ctx.program_name);
     }
+}
+
+int main(int argc, char** argv) {
+    // g_main_ctx
+    main_ctx_init(argc, argv);
+    parse_cmdline(argc, argv);
+
+    // help
+    if (get_arg("h")) {
+        print_help();
+        exit(0);
+    }
+
+    // version
+    if (get_arg("v")) {
+        print_version();
+        exit(0);
+    }
+
+    // logfile
+    hlog_set_file(g_main_ctx.logfile);
+    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
+
+    // confile
+    const char* confile = get_arg("c");
+    if (confile) {
+        strncpy(g_main_ctx.confile, confile, sizeof(g_main_ctx.confile));
+    }
+
+    // g_conf_ctx
+    parse_confile(g_main_ctx.confile);
+
+    // test
+    if (get_arg("t")) {
+        printf("Test confile [%s] OK!\n", g_main_ctx.confile);
+        exit(0);
+    }
+
+    master_process_init();
+
+    // signal
+    handle_signal();
 
 #ifdef __unix__
     // daemon
@@ -518,10 +592,11 @@ int main(int argc, char** argv) {
 #endif
 
     // pidfile
-    hlogi("%s start/running, pid=%d", g_main_ctx.program_name, g_main_ctx.pid);
     create_pidfile();
+    hlogi("%s start/running, pid=%d", g_main_ctx.program_name, g_main_ctx.pid);
 
-    // main_process_cycle
+    // cycle
+    create_worker_processes(g_conf_ctx.worker_processes);
     master_process_cycle();
 
     return 0;

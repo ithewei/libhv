@@ -27,6 +27,8 @@ typedef struct main_ctx_s {
 
     keyval_t    arg_kv;
     keyval_t    env_kv;
+
+    void*   confile_parser; // deprecated
 } main_ctx_t;
 
 extern main_ctx_t g_main_ctx;
