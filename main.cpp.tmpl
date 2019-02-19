@@ -1,0 +1,374 @@
+#include "h.h"
+
+#define DEFAULT_WORKER_PROCESSES    4
+#define MAXNUM_WORKER_PROCESSES     1024
+static proc_ctx_t s_worker_processes[MAXNUM_WORKER_PROCESSES];
+
+typedef struct conf_ctx_s {
+    IniParser* parser;
+    int loglevel;
+    int worker_processes;
+    int port;
+} conf_ctx_t;
+conf_ctx_t g_conf_ctx;
+
+inline void conf_ctx_init(conf_ctx_t* ctx) {
+    ctx->parser = new IniParser;
+    ctx->loglevel = LOG_LEVEL_DEBUG;
+    ctx->worker_processes = 0;
+    ctx->port = 0;
+}
+
+static void print_version();
+static void print_help();
+
+static int  parse_cmdline(int argc, char** argv);
+static int  parse_confile(const char* confile);
+
+static int  signal_init();
+static void signal_cleanup();
+static void handle_signal();
+
+static void master_proc(void* userdata);
+static void worker_proc(void* userdata);
+
+// unix short style
+static char options[] = "hvc:ts:dp:";
+static char detail_options[] = "\
+-h              : print help\n\
+-v              : print version\n\
+-c  confile     : set configure file, default etc/${program}.conf\n\
+-t              : test configure file and exit\n\
+-s  signal      : send signal to process\n\
+                  signal=[start, stop, restart, status]\n\
+-d              : daemon\n\
+-p  port        : set listen port\n\
+";
+
+void print_version() {
+    printf("%s version %s\n", g_main_ctx.program_name, get_compile_version());
+}
+
+void print_help() {
+    printf("Usage: %s [%s]\n", g_main_ctx.program_name, options);
+    printf("Options:\n%s\n", detail_options);
+}
+
+#define INVALID_OPTION  -1
+#define FLAG_OPTION     1
+#define PARMA_OPTION    2
+int get_option(char opt) {
+    char* p = options;
+    while (*p && *p != opt) ++p;
+    if (*p == '\0')     return INVALID_OPTION;
+    if (*(p+1) == ':')  return PARMA_OPTION;
+    return FLAG_OPTION;
+}
+
+int parse_cmdline(int argc, char** argv) {
+    int i = 1;
+    while (argv[i]) {
+        char* p = argv[i];
+        if (*p != '-') {
+            printf("Invalid argv[%d]: %s\n", i, argv[i]);
+            exit(-10);
+        }
+        while (*++p) {
+            switch (get_option(*p)) {
+            case INVALID_OPTION:
+                printf("Invalid option: '%c'\n", *p);
+                exit(-20);
+            case FLAG_OPTION:
+                g_main_ctx.arg_kv[std::string(p, 1)] = "true";
+                break;
+            case PARMA_OPTION:
+                if (*(p+1) != '\0') {
+                    g_main_ctx.arg_kv[std::string(p, 1)] = p+1;
+                    ++i;
+                    goto next_option;
+                } else if (argv[i+1] != NULL) {
+                    g_main_ctx.arg_kv[std::string(p, 1)] = argv[i+1];
+                    i += 2;
+                    goto next_option;
+                } else {
+                    printf("Option '%c' requires param\n", *p);
+                    exit(-30);
+                }
+            }
+        }
+        ++i;
+next_option:
+        continue;
+    }
+    return 0;
+}
+
+int parse_confile(const char* confile) {
+    conf_ctx_init(&g_conf_ctx);
+    int ret = g_conf_ctx.parser->LoadFromFile(confile);
+    if (ret != 0) {
+        printf("Load confile [%s] failed: %d\n", confile, ret);
+        exit(-40);
+    }
+
+    // loglevel
+    const char* szLoglevel = g_conf_ctx.parser->GetValue("loglevel").c_str();
+    if (stricmp(szLoglevel, "DEBUG") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_DEBUG;
+    } else if (stricmp(szLoglevel, "INFO") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_INFO;
+    } else if (stricmp(szLoglevel, "WARN") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_WARN;
+    } else if (stricmp(szLoglevel, "ERROR") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_ERROR;
+    } else {
+        g_conf_ctx.loglevel = LOG_LEVEL_DEBUG;
+    }
+    hlog_set_level(g_conf_ctx.loglevel);
+
+    // worker_processes
+    int worker_processes = 0;
+    worker_processes = atoi(g_conf_ctx.parser->GetValue("worker_processes").c_str());
+    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
+        worker_processes = get_ncpu();
+        hlogd("worker_processes=ncpu=%d", worker_processes);
+    }
+    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
+        worker_processes = DEFAULT_WORKER_PROCESSES;
+    }
+    g_conf_ctx.worker_processes = worker_processes;
+
+    // port
+    int port = 0;
+    const char* szPort = get_arg("p");
+    if (szPort) {
+        port = atoi(szPort);
+    }
+    if (port == 0) {
+        port = atoi(g_conf_ctx.parser->GetValue("port").c_str());
+    }
+    if (port == 0) {
+        printf("Please config listen port!\n");
+        exit(-10);
+    }
+    g_conf_ctx.port = port;
+
+    return 0;
+}
+
+#ifdef __unix__
+// unix use signal
+// we use SIGTERM to quit process
+#define SIGNAL_TERMINATE    SIGTERM
+#include <sys/wait.h>
+
+void signal_handler(int signo) {
+    hlogi("pid=%d recv signo=%d", getpid(), signo);
+    switch (signo) {
+    case SIGINT:
+    case SIGNAL_TERMINATE:
+        hlogi("killall processes");
+        signal(SIGCHLD, SIG_IGN);
+        for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
+            if (s_worker_processes[i].pid <= 0) break;
+            kill(s_worker_processes[i].pid, SIGKILL);
+            s_worker_processes[i].pid = -1;
+        }
+        exit(0);
+        break;
+    case SIGCHLD:
+    {
+        pid_t pid = 0;
+        int status = 0;
+        while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+            hlogw("proc stop/waiting, pid=%d status=%d", pid, status);
+            for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
+                if (s_worker_processes[i].pid == pid) {
+                    s_worker_processes[i].pid = -1;
+                    create_proc(&s_worker_processes[i]);
+                    break;
+                }
+            }
+        }
+    }
+        break;
+    default:
+        break;
+    }
+}
+
+int signal_init() {
+    signal(SIGINT, signal_handler);
+    signal(SIGCHLD, signal_handler);
+    signal(SIGNAL_TERMINATE, signal_handler);
+
+    atexit(signal_cleanup);
+    return 0;
+}
+
+void signal_cleanup() {
+}
+#elif defined(_WIN32)
+// win32 use Event
+static HANDLE s_hEventTerm = NULL;
+
+#include <mmsystem.h>
+#ifdef _MSC_VER
+#pragma comment(lib, "winmm.lib")
+#endif
+void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
+    DWORD ret = WaitForSingleObject(s_hEventTerm, 0);
+    if (ret == WAIT_OBJECT_0) {
+        timeKillEvent(uTimerID);
+        hlogi("pid=%d recv event [TERM]", getpid());
+        exit(0);
+    }
+}
+
+int signal_init() {
+    char eventname[MAX_PATH] = {0};
+    snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
+    s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
+    //s_hEventTerm = OpenEvent(EVENT_ALL_ACCESS, FALSE, eventname);
+
+    timeSetEvent(1000, 1000, on_timer, 0, TIME_PERIODIC);
+
+    atexit(signal_cleanup);
+    return 0;
+}
+
+void signal_cleanup() {
+    CloseHandle(s_hEventTerm);
+    s_hEventTerm = NULL;
+}
+#endif
+
+void handle_signal() {
+    const char* signal = get_arg("s");
+    if (signal) {
+        if (strcmp(signal, "start") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+                printf("%s is already running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
+                exit(0);
+            }
+        } else if (strcmp(signal, "stop") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+#ifdef __unix__
+                kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
+#else
+                SetEvent(s_hEventTerm);
+#endif
+                printf("%s stop/waiting\n", g_main_ctx.program_name);
+            } else {
+                printf("%s is already stopped\n", g_main_ctx.program_name);
+            }
+            exit(0);
+        } else if (strcmp(signal, "restart") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+#ifdef __unix__
+                kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
+#else
+                SetEvent(s_hEventTerm);
+#endif
+                printf("%s stop/waiting\n", g_main_ctx.program_name);
+                msleep(1000);
+            }
+        } else if (strcmp(signal, "status") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+                printf("%s start/running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
+            } else {
+                printf("%s stop/waiting\n", g_main_ctx.program_name);
+            }
+            exit(0);
+        } else {
+            printf("Invalid signal: '%s'\n", signal);
+            exit(0);
+        }
+        printf("%s start/running\n", g_main_ctx.program_name);
+    }
+}
+
+void master_proc(void* userdata) {
+    while(1) msleep(1000);
+}
+
+void worker_proc(void* userdata) {
+    while(1) msleep(1000);
+}
+
+int main(int argc, char** argv) {
+    // g_main_ctx
+    main_ctx_init(argc, argv);
+    parse_cmdline(argc, argv);
+
+    // help
+    if (get_arg("h")) {
+        print_help();
+        exit(0);
+    }
+
+    // version
+    if (get_arg("v")) {
+        print_version();
+        exit(0);
+    }
+
+    // logfile
+    hlog_set_file(g_main_ctx.logfile);
+    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
+
+    // confile
+    const char* confile = get_arg("c");
+    if (confile) {
+        strncpy(g_main_ctx.confile, confile, sizeof(g_main_ctx.confile));
+    }
+
+    // g_conf_ctx
+    parse_confile(g_main_ctx.confile);
+
+    // test
+    if (get_arg("t")) {
+        printf("Test confile [%s] OK!\n", g_main_ctx.confile);
+        exit(0);
+    }
+
+    // signal
+    signal_init();
+    handle_signal();
+
+#ifdef __unix__
+    // daemon
+    if (get_arg("d")) {
+        // nochdir, noclose
+        int ret = daemon(1, 1);
+        if (ret != 0) {
+            printf("daemon error: %d\n", ret);
+            exit(-10);
+        }
+        // parent process exit after daemon, so pid changed.
+        g_main_ctx.pid = getpid();
+    }
+    // proctitle
+    char proctitle[256] = {0};
+    snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
+    setproctitle(proctitle);
+#endif
+
+    // pidfile
+    create_pidfile();
+    hlogi("%s start/running, pid=%d", g_main_ctx.program_name, g_main_ctx.pid);
+
+    // master-worker proc
+    memset(s_worker_processes, 0, sizeof(s_worker_processes));
+    for (int i = 0; i < g_conf_ctx.worker_processes; ++i) {
+        proc_ctx_t* ctx = &s_worker_processes[i];
+        snprintf(ctx->proctitle, sizeof(ctx->proctitle), "%s: worker process", g_main_ctx.program_name);
+        ctx->proc = worker_proc;
+        ctx->userdata = NULL;
+        create_proc(ctx);
+    }
+    master_proc(NULL);
+
+    return 0;
+}
+

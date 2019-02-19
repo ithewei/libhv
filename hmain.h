@@ -41,4 +41,8 @@ const char* get_env(const char* key);
 void setproctitle(const char* title);
 #endif
 
+int      create_pidfile();
+void     delete_pidfile();
+pid_t    getpid_from_pidfile();
+
 #endif // H_MAIN_H_

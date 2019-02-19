@@ -29,6 +29,10 @@
 
 #include "hgui.h"
 
+#include "hmain.h"
+#include "hproc.h"
+#include "hsysinfo.h"
+
 #include "singleton.h"
 #include "iniparser.h"
 

@@ -30,18 +30,21 @@ hw 是一套跨平台c++工具集，类名以H开头
 - hobj.h: 对象基类
 - hvar.h: var变量
 - hbuf.h: 缓存类
-- iniparser.h: ini解析
 - hscope.h: 作用域RAII机制
+- hmain.h: main_ctx: arg env
+- hproc.h: 子进程/线程类
+- hsysinfo.h: 系统信息
 - singleton.h: 单例模式
+- iniparser.h: ini解析
 
 ## other
 
 - Makefile: 通用Makefile模板
-- hmain.cpp.tmpl: 通用main.cpp模板
+- main.cpp.tmpl: 通用main.cpp模板
 
 ## BUILD
 
 ```
-mv hmain.cpp.tmpl hmain.cpp
+mv main.cpp.tmpl main.cpp
 make DIRS="."
 ```
