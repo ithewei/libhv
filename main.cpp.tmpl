@@ -288,14 +288,6 @@ void handle_signal() {
     }
 }
 
-void master_proc(void* userdata) {
-    while(1) msleep(1000);
-}
-
-void worker_proc(void* userdata) {
-    while(1) msleep(1000);
-}
-
 int main(int argc, char** argv) {
     // g_main_ctx
     main_ctx_init(argc, argv);
@@ -370,5 +362,13 @@ int main(int argc, char** argv) {
     master_proc(NULL);
 
     return 0;
+}
+
+void master_proc(void* userdata) {
+    while(1) msleep(1000);
+}
+
+void worker_proc(void* userdata) {
+    while(1) msleep(1000);
 }
 

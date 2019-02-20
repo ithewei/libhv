@@ -62,7 +62,7 @@ LDFLAGS += $(addprefix -L, $(LIBDIRS))
 ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
-	LDFLAGS += -Wl,-Bdynamic -lwinmm
+	LDFLAGS += -Wl,-Bdynamic -lwinmm -liphlpapi -lws2_32
 else
 	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lpthread -lm
 endif
