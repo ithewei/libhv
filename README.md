@@ -34,6 +34,7 @@ hw 是一套跨平台c++工具集，类名以H开头
 - hmain.h: main_ctx: arg env
 - hproc.h: 子进程/线程类
 - hsysinfo.h: 系统信息
+- hifconf.h: ifconfig实现
 - singleton.h: 单例模式
 - iniparser.h: ini解析
 

@@ -32,6 +32,7 @@
 #include "hmain.h"
 #include "hproc.h"
 #include "hsysinfo.h"
+#include "hifconf.h"
 
 #include "singleton.h"
 #include "iniparser.h"
