@@ -1,6 +1,7 @@
 #include "hmain.h"
 
 #include <signal.h> // for kill
+#include <errno.h>
 
 #include "hplatform.h"
 #include "hlog.h"
