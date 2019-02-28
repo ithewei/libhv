@@ -55,6 +55,12 @@ class HFile {
         return fread(buf.base, 1, buf.len, _fp);
     }
 
+    size_t readall(string& str) {
+        size_t filesize = size();
+        str.resize(filesize);
+        return fread((void*)str.data(), 1, filesize, _fp);
+    }
+
     bool readline(string& str) {
         str.clear();
         char ch;
