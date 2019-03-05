@@ -61,10 +61,19 @@ LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
 ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
-	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
+endif
+
+#common LIBS
+
+ifeq ($(OS), Windows)
 	LDFLAGS += -Wl,-Bdynamic -lwinmm -liphlpapi -lws2_32
+	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
+else
+ifeq ($(OS), Android)
+	LDFLAGS += -Wl,-Bdynamic -llog -lm
 else
 	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lpthread -lm
+endif
 endif
 
 $(info OS=$(OS))
