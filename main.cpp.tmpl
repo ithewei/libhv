@@ -34,16 +34,16 @@ static void worker_proc(void* userdata);
 
 // unix short style
 static char options[] = "hvc:ts:dp:";
-static char detail_options[] = "\
--h              : print help\n\
--v              : print version\n\
--c  confile     : set configure file, default etc/${program}.conf\n\
--t              : test configure file and exit\n\
--s  signal      : send signal to process\n\
-                  signal=[start, stop, restart, status]\n\
--d              : daemon\n\
--p  port        : set listen port\n\
-";
+static char detail_options[] = R"(
+-h              : print help
+-v              : print version
+-c  confile     : set configure file, default etc/${program}.conf
+-t              : test configure file and exit
+-s  signal      : send signal to process
+                  signal=[start, stop, restart, status]
+-d              : daemon
+-p  port        : set listen port
+)";
 
 void print_version() {
     printf("%s version %s\n", g_main_ctx.program_name, get_compile_version());

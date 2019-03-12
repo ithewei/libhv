@@ -7,6 +7,7 @@
     #define _CRT_NONSTDC_NO_DEPRECATE
     #include <winsock2.h>
     #include <windows.h>
+    #include <process.h> // for getpid,exec
     #include <direct.h> // for mkdir,rmdir,chdir,getcwd
 
     #define strcasecmp stricmp

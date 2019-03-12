@@ -9,7 +9,6 @@
 #include "hplatform.h"
 
 #ifdef _WIN32
-#define getpid GetCurrentProcessId
 #define gettid GetCurrentThreadId
 #endif
 

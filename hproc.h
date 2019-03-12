@@ -38,7 +38,6 @@ inline int create_proc(proc_ctx_t* ctx) {
 }
 #elif defined(_WIN32)
 // win32 use multi-threads
-#include <process.h>
 inline int create_proc(proc_ctx_t* ctx) {
     HANDLE h = (HANDLE)_beginthread(ctx->proc, 0, ctx->userdata);
     if (h == NULL) {
