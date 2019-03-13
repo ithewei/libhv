@@ -52,6 +52,7 @@ int main_ctx_init(int argc, char** argv) {
     }
     g_main_ctx.save_argv[g_main_ctx.argc] = NULL;
 
+#if defined(OS_WIN) || defined(OS_LINUX)
     // save env
     g_main_ctx.os_envp = environ;
     g_main_ctx.envc = 0;
@@ -79,6 +80,7 @@ int main_ctx_init(int argc, char** argv) {
         }
         g_main_ctx.env_kv[std::string(b, delim-b)] = std::string(delim+1);
     }
+#endif
 
     /*
     // print argv and envp
