@@ -4,13 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "hplatform.h"
 #include "hdef.h"
 
-#define LITTLE_ENDIAN   0
-#define BIG_ENDIAN      1
-#define NET_ENDIAN      BIG_ENDIAN
-
-int check_endian() {
+int detect_endian() {
     union {
         char c;
         short s;

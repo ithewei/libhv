@@ -4,7 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __unix__
+#include "hplatform.h"
+
+#ifdef OS_UNIX
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -91,7 +93,7 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
     close(sock);
     return 0;
 }
-#elif defined(_WIN32)
+#elif defined(OS_WIN)
 #include <winsock2.h>
 #include <windows.h>
 #include <IphlpApi.h>
@@ -170,3 +172,4 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
     return -10; // unimplemented
 }
 #endif
+

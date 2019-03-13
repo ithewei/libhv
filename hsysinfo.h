@@ -6,12 +6,12 @@
 
 // logic processors number
 inline int get_ncpu() {
-#ifdef __unix__
-    return sysconf(_SC_NPROCESSORS_CONF);
-#elif defined(_WIN32)
+#ifdef OS_WIN
     SYSTEM_INFO si;
     GetSystemInfo(&si);
     return si.dwNumberOfProcessors;
+#else
+    return sysconf(_SC_NPROCESSORS_CONF);
 #endif
     return 1;
 }
@@ -22,7 +22,7 @@ typedef struct meminfo_s {
 } meminfo_t;
 
 inline int get_meminfo(meminfo_t* mem) {
-#ifdef __linux__
+#ifdef OS_LINUX
     // cat /proc/meminfo
     // MemTotal:       16432348 kB
     // MemFree:          180704 kB
@@ -47,7 +47,7 @@ inline int get_meminfo(meminfo_t* mem) {
     //printf("%s %u %s\n", name, num, unit);
     mem->avail = num >> 10;
     return 0;
-#elif defined(_WIN32)
+#elif defined(OS_WIN)
     MEMORYSTATUSEX memstat;
     memset(&memstat, 0, sizeof(memstat));
     memstat.dwLength = sizeof(memstat);

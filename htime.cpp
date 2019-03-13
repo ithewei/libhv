@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "hplatform.h"
+
 void msleep(unsigned long ms) {
-#ifdef _WIN32
+#ifdef OS_WIN
     Sleep(ms);
 #else
     usleep(ms*1000);
@@ -12,7 +14,7 @@ void msleep(unsigned long ms) {
 }
 
 uint64 gettick() {
-#ifdef _WIN32
+#ifdef OS_WIN
     return GetTickCount();
 #else
     struct timeval tv;
@@ -23,7 +25,7 @@ uint64 gettick() {
 
 datetime_t get_datetime() {
     datetime_t  dt;
-#ifdef _WIN32
+#ifdef OS_WIN
     SYSTEMTIME tm;
     GetLocalTime(&tm);
     dt.year     = tm.wYear;
@@ -55,7 +57,7 @@ static const char* s_month[] = {"January", "February", "March", "April", "May", 
     "July", "August", "September", "October", "November", "December"};
 
 int month_atoi(const char* month) {
-    for (int i = 0; i < ARRAY_SIZE(s_month); ++i) {
+    for (size_t i = 0; i < ARRAY_SIZE(s_month); ++i) {
         if (strnicmp(month, s_month[i], strlen(month)) == 0)
             return i+1;
     }

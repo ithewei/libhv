@@ -3,8 +3,8 @@
 
 #include <time.h>
 
-#include "hdef.h"
 #include "hplatform.h"
+#include "hdef.h"
 
 typedef struct datetime_s {
     int year;
@@ -18,7 +18,7 @@ typedef struct datetime_s {
 
 void msleep(unsigned long ms);
 
-#ifdef _WIN32
+#ifdef OS_WIN
 inline void sleep(unsigned int s) {
     Sleep(s*1000);
 }

@@ -7,16 +7,16 @@
 
 // platform
 #include "hplatform.h"
-
-#include "hversion.h"
 #include "hdef.h"
+#include "hversion.h"
+
 #include "herr.h"
 #include "hlog.h"
-#include "htime.h"
 
+#include "htime.h"
 #include "hstring.h"
-#include "hbuf.h"
 #include "hfile.h"
+#include "hbuf.h"
 #include "hbytearray.h"
 
 #include "hscope.h"

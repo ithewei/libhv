@@ -54,15 +54,16 @@ void print_help() {
     printf("Options:\n%s\n", detail_options);
 }
 
-#define INVALID_OPTION  -1
-#define FLAG_OPTION     1
-#define PARMA_OPTION    2
+#define INVALID_OPTION      -1
+#define NO_ARGUMENT         0
+#define REQUIRED_ARGUMENT   1
+#define OPTIONAL_ARGUMENT   2
 int get_option(char opt) {
     char* p = options;
     while (*p && *p != opt) ++p;
     if (*p == '\0')     return INVALID_OPTION;
-    if (*(p+1) == ':')  return PARMA_OPTION;
-    return FLAG_OPTION;
+    if (*(p+1) == ':')  return REQUIRED_ARGUMENT;
+    return NO_ARGUMENT;
 }
 
 int parse_cmdline(int argc, char** argv) {
@@ -78,10 +79,10 @@ int parse_cmdline(int argc, char** argv) {
             case INVALID_OPTION:
                 printf("Invalid option: '%c'\n", *p);
                 exit(-20);
-            case FLAG_OPTION:
+            case NO_ARGUMENT:
                 g_main_ctx.arg_kv[std::string(p, 1)] = "true";
                 break;
-            case PARMA_OPTION:
+            case REQUIRED_ARGUMENT:
                 if (*(p+1) != '\0') {
                     g_main_ctx.arg_kv[std::string(p, 1)] = p+1;
                     ++i;
@@ -156,7 +157,7 @@ int parse_confile(const char* confile) {
     return 0;
 }
 
-#ifdef __unix__
+#ifdef OS_UNIX
 // unix use signal
 // we use SIGTERM to quit process
 #define SIGNAL_TERMINATE    SIGTERM
@@ -208,7 +209,7 @@ int signal_init() {
 
 void signal_cleanup() {
 }
-#elif defined(_WIN32)
+#elif defined(OS_WIN)
 // win32 use Event
 static HANDLE s_hEventTerm = NULL;
 
@@ -253,7 +254,7 @@ void handle_signal() {
             }
         } else if (strcmp(signal, "stop") == 0) {
             if (g_main_ctx.oldpid > 0) {
-#ifdef __unix__
+#ifdef OS_UNIX
                 kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
 #else
                 SetEvent(s_hEventTerm);
@@ -265,7 +266,7 @@ void handle_signal() {
             exit(0);
         } else if (strcmp(signal, "restart") == 0) {
             if (g_main_ctx.oldpid > 0) {
-#ifdef __unix__
+#ifdef OS_UNIX
                 kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
 #else
                 SetEvent(s_hEventTerm);
@@ -328,7 +329,7 @@ int main(int argc, char** argv) {
     signal_init();
     handle_signal();
 
-#ifdef __unix__
+#ifdef OS_UNIX
     // daemon
     if (get_arg("d")) {
         // nochdir, noclose
@@ -371,4 +372,3 @@ void master_proc(void* userdata) {
 void worker_proc(void* userdata) {
     while(1) msleep(1000);
 }
-

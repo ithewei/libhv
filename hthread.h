@@ -5,14 +5,12 @@
 #include <atomic>
 #include <chrono>
 
-#include "hdef.h"
 #include "hplatform.h"
+#include "hdef.h"
 
-#ifdef _WIN32
-#define gettid GetCurrentThreadId
-#endif
-
-#if defined(__unix__) && !defined(__ANDROID__)
+#ifdef OS_WIN
+#define gettid  GetCurrentThreadId
+#elif !defined(OS_ANDROID)
 #define gettid  pthread_self
 #endif
 

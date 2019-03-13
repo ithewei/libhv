@@ -10,7 +10,7 @@ int HFrameBuf::push(HFrame* pFrame) {
 
     std::lock_guard<std::mutex> locker(mutex);
 
-    if (frames.size() >= cache_num) {
+    if (frames.size() >= (size_t)cache_num) {
         hlogd("frame cache full!");
         if (policy == HFrameBuf::DISCARD) {
             return -20;     // note: cache full, discard frame

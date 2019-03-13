@@ -1,12 +1,7 @@
 #ifndef HW_DEF_H_
 #define HW_DEF_H_
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <string>
-#include <map>
+#include "hplatform.h"
 
 typedef unsigned char       uint8;
 typedef unsigned short      uint16;
@@ -30,7 +25,11 @@ typedef void*               handle;
 typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
 
+#ifdef __cplusplus
+#include <string>
+#include <map>
 typedef std::map<std::string, std::string> keyval_t;
+#endif
 
 #ifndef MAX_PATH
 #define MAX_PATH          260
@@ -109,6 +108,7 @@ typedef std::map<std::string, std::string> keyval_t;
 ( ((uint32)d) | ( ((uint32)c) << 8 ) | ( ((uint32)b) << 16 ) | ( ((uint32)a) << 24 ) )
 #endif
 
+#ifndef OS_WIN
 #ifndef MAKE_WORD
 #define MAKE_WORD(h, l)  ( (((WORD)h) << 8) | (l & 0xff) )
 #endif
@@ -119,6 +119,7 @@ typedef std::map<std::string, std::string> keyval_t;
 
 #ifndef LOBYTE
 #define LOBYTE(w) ( (BYTE)(w & 0xff) )
+#endif
 #endif
 
 #define MAKE_INT32(h, l)   ( ((int32)h) << 16 | (l & 0xffff) )

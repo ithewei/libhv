@@ -37,7 +37,7 @@ int main_ctx_init(int argc, char** argv);
 const char* get_arg(const char* key);
 const char* get_env(const char* key);
 
-#ifdef __unix__
+#ifdef OS_UNIX
 void setproctitle(const char* title);
 #endif
 

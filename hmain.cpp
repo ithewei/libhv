@@ -26,7 +26,7 @@ int main_ctx_init(int argc, char** argv) {
         --e;
     }
     strncpy(g_main_ctx.program_name, e+1, sizeof(g_main_ctx.program_name));
-#ifdef _WIN32
+#ifdef OS_WIN
     if (strcmp(g_main_ctx.program_name+strlen(g_main_ctx.program_name)-4, ".exe") == 0) {
         *(g_main_ctx.program_name+strlen(g_main_ctx.program_name)-4) = '\0';
     }
@@ -108,12 +108,10 @@ int main_ctx_init(int argc, char** argv) {
     snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_path, g_main_ctx.program_name);
 
     g_main_ctx.oldpid = getpid_from_pidfile();
-#ifdef __unix__
+#ifdef OS_UNIX
     if (kill(g_main_ctx.oldpid, 0) == -1 && errno == ESRCH) {
         g_main_ctx.oldpid = -1;
     }
-#else
-
 #endif
 
     return 0;
@@ -135,7 +133,7 @@ const char* get_env(const char* key) {
     return iter->second.c_str();
 }
 
-#ifdef __unix__
+#ifdef OS_UNIX
 /*
  * memory layout
  * argv[0]\0argv[1]\0argv[n]\0env[0]\0env[1]\0env[n]\0
