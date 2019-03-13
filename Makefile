@@ -66,13 +66,13 @@ endif
 #common LIBS
 
 ifeq ($(OS), Windows)
-	LDFLAGS += -Wl,-Bdynamic -lwinmm -liphlpapi -lws2_32
+	LDFLAGS += -lwinmm -liphlpapi -lws2_32
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
 else
 ifeq ($(OS), Android)
-	LDFLAGS += -Wl,-Bdynamic -llog -lm
+	LDFLAGS += -llog -lm
 else
-	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lpthread -lm -ldl
+	LDFLAGS += -lstdc++ -lpthread -lm -ldl
 endif
 endif
 
