@@ -10,7 +10,14 @@
 
 #ifdef OS_WIN
 #define gettid  GetCurrentThreadId
-#elif !defined(OS_ANDROID)
+#elif defined(OS_ANDROID)
+#define gettid  gettid
+#elif defined(OS_LINUX)
+#include <sys/syscall.h>
+inline int gettid() {
+    return syscall(SYS_gettid);
+}
+#else
 #define gettid  pthread_self
 #endif
 

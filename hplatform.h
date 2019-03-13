@@ -115,7 +115,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>
-#include <error.h>
+#include <errno.h>
 
 #ifdef _MSC_VER
     typedef int pid_t;

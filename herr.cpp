@@ -22,11 +22,21 @@ int  get_id_errcode(int id) {
 }
 
 void set_last_errcode(int errcode) {
-    set_id_errcode(gettid(), errcode);
+#if defined(OS_WIN) || defined(OS_LINUX)
+    int id = gettid();
+#else
+    int id = getpid();
+#endif
+    set_id_errcode(id, errcode);
 }
 
 int  get_last_errcode() {
-    return get_id_errcode(gettid());
+#if defined(OS_WIN) || defined(OS_LINUX)
+    int id = gettid();
+#else
+    int id = getpid();
+#endif
+    return get_id_errcode(id);
 }
 
 const char* get_errmsg(int err) {

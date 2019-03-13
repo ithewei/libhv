@@ -6,7 +6,7 @@
 
 #include "hplatform.h"
 
-#ifdef OS_UNIX
+#ifdef OS_LINUX
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
