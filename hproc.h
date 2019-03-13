@@ -1,8 +1,8 @@
 #ifndef H_PROC_H_
 #define H_PROC_H_
 
-#include "hdef.h"
 #include "hplatform.h"
+#include "hdef.h"
 #include "hlog.h"
 #include "hmain.h"
 
@@ -13,7 +13,7 @@ typedef struct proc_ctx_s {
     void*           userdata;
 } proc_ctx_t;
 
-#ifdef __unix__
+#ifdef OS_UNIX
 // unix use multi-processes
 inline int create_proc(proc_ctx_t* ctx) {
     pid_t pid = fork();
@@ -36,7 +36,7 @@ inline int create_proc(proc_ctx_t* ctx) {
     ctx->pid = pid;
     return pid;
 }
-#elif defined(_WIN32)
+#elif defined(OS_WIN)
 // win32 use multi-threads
 inline int create_proc(proc_ctx_t* ctx) {
     HANDLE h = (HANDLE)_beginthread(ctx->proc, 0, ctx->userdata);
