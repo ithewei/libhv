@@ -45,12 +45,18 @@ int main_ctx_init(int argc, char** argv) {
     char* argp = (char*)malloc(g_main_ctx.arg_len);
     memset(argp, 0, g_main_ctx.arg_len);
     g_main_ctx.save_argv = (char**)malloc((g_main_ctx.argc+1) * sizeof(char*));
+    char* cmdline = (char*)malloc(g_main_ctx.arg_len);
+    g_main_ctx.cmdline = cmdline;
     for (i = 0; argv[i]; ++i) {
         g_main_ctx.save_argv[i] = argp;
         strcpy(g_main_ctx.save_argv[i], argv[i]);
         argp += strlen(argv[i]) + 1;
+
+        strcat(cmdline, argv[i]);
+        strcat(cmdline, " ");
     }
     g_main_ctx.save_argv[g_main_ctx.argc] = NULL;
+    g_main_ctx.cmdline[g_main_ctx.arg_len-1] = '\0';
 
 #if defined(OS_WIN) || defined(OS_LINUX)
     // save env
@@ -82,26 +88,6 @@ int main_ctx_init(int argc, char** argv) {
     }
 #endif
 
-    /*
-    // print argv and envp
-    printf("---------------arg------------------------------\n");
-    for (auto& pair : g_main_ctx.arg_kv) {
-        printf("%s=%s\n", pair.first.c_str(), pair.second.c_str());
-    }
-    printf("---------------env------------------------------\n");
-    for (auto& pair : g_main_ctx.env_kv) {
-        printf("%s=%s\n", pair.first.c_str(), pair.second.c_str());
-    }
-
-    printf("PWD=%s\n", get_env("PWD"));
-    printf("USER=%s\n", get_env("USER"));
-    printf("HOME=%s\n", get_env("HOME"));
-    printf("LANG=%s\n", get_env("LANG"));
-    printf("TERM=%s\n", get_env("TERM"));
-    printf("SHELL=%s\n", get_env("SHELL"));
-    printf("================================================\n");
-    */
-
     char logpath[MAX_PATH] = {0};
     snprintf(logpath, sizeof(logpath), "%s/logs", g_main_ctx.run_path);
     MKDIR(logpath);
@@ -116,6 +102,148 @@ int main_ctx_init(int argc, char** argv) {
     }
 #endif
 
+    return 0;
+}
+
+#define UNDEFINED_OPTION    -1
+static int get_arg_type(int short_opt, const char* options) {
+    if (options == NULL) return UNDEFINED_OPTION;
+    const char* p = options;
+    while (*p && *p != short_opt) ++p;
+    if (*p == '\0')     return UNDEFINED_OPTION;
+    if (*(p+1) == ':')  return REQUIRED_ARGUMENT;
+    return NO_ARGUMENT;
+}
+
+int parse_opt(int argc, char** argv, const char* options) {
+    for (int i = 1; argv[i]; ++i) {
+        char* p = argv[i];
+        if (*p != '-') {
+            g_main_ctx.arg_list.push_back(argv[i]);
+            continue;
+        }
+        while (*++p) {
+            int arg_type = get_arg_type(*p, options);
+            if (arg_type == UNDEFINED_OPTION) {
+                printf("Invalid option '%c'\n", *p);
+                return -20;
+            } else if (arg_type == NO_ARGUMENT) {
+                g_main_ctx.arg_kv[std::string(p, 1)] = OPTION_ENABLE;
+                continue;
+            } else if (arg_type == REQUIRED_ARGUMENT) {
+                if (*(p+1) != '\0') {
+                    g_main_ctx.arg_kv[std::string(p, 1)] = p+1;
+                    break;
+                } else if (argv[i+1] != NULL) {
+                    g_main_ctx.arg_kv[std::string(p, 1)] = argv[++i];
+                    break;
+                } else {
+                    printf("Option '%c' requires param\n", *p);
+                    return -30;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+static const option_t* get_option(const char* opt, const option_t* long_options, int size) {
+    if (opt == NULL || long_options == NULL) return NULL;
+    int len = strlen(opt);
+    if (len == 0)   return NULL;
+    if (len == 1) {
+        for (int i = 0; i < size; ++i) {
+            if (long_options[i].short_opt == *opt) {
+                return &long_options[i];
+            }
+        }
+    } else {
+        for (int i = 0; i < size; ++i) {
+            if (strcmp(long_options[i].long_opt, opt) == 0) {
+                return &long_options[i];
+            }
+        }
+    }
+
+    return NULL;
+}
+
+#define MAX_OPTION      32
+// opt type
+#define NOPREFIX_OPTION 0
+#define SHORT_OPTION    -1
+#define LONG_OPTION     -2
+int parse_opt_long(int argc, char** argv, const option_t* long_options, int size) {
+    char opt[MAX_OPTION+1] = {0};
+    for (int i = 1; argv[i]; ++i) {
+        char* arg = argv[i];
+        int opt_type = NOPREFIX_OPTION;
+        // prefix
+        if (*arg == OPTION_PREFIX) {
+            ++arg;
+            opt_type = SHORT_OPTION;
+            if (*arg == OPTION_PREFIX) {
+                ++arg;
+                opt_type = LONG_OPTION;
+            }
+        }
+        int arg_len  = strlen(arg);
+        // delim
+        char* delim = strchr(arg, OPTION_DELIM);
+        if (delim == arg || delim == arg+arg_len-1 || delim-arg > MAX_OPTION) {
+            printf("Invalid option '%s'\n", argv[i]);
+            return -10;
+        }
+        if (delim) {
+            memcpy(opt, arg, delim-arg);
+            opt[delim-arg] = '\0';
+        } else {
+            if (opt_type == SHORT_OPTION) {
+                *opt = *arg;
+                opt[1] = '\0';
+            } else {
+                strncpy(opt, arg, MAX_OPTION);
+            }
+        }
+        // get_option
+        const option_t* pOption = get_option(opt, long_options, size);
+        if (pOption == NULL) {
+            if (delim == NULL && opt_type == NOPREFIX_OPTION) {
+                g_main_ctx.arg_list.push_back(arg);
+                continue;
+            } else {
+                printf("Invalid option: '%s'\n", argv[i]);
+                return -10;
+            }
+        }
+        const char* value = NULL;
+        if (pOption->arg_type == NO_ARGUMENT) {
+            // -h
+            value = OPTION_ENABLE;
+        } else if (pOption->arg_type == REQUIRED_ARGUMENT) {
+            if (delim) {
+                // --port=80
+                value = delim+1;
+            } else {
+                if (opt_type == SHORT_OPTION && *(arg+1) != '\0') {
+                    // p80
+                    value = arg+1;
+                } else if (argv[i+1] != NULL) {
+                    // --port 80
+                    value = argv[++i];
+                } else {
+                    printf("Option '%s' requires parament\n", opt);
+                    return -20;
+                }
+            }
+        }
+        // preferred to use short_opt as key
+        if (pOption->short_opt > 0) {
+            g_main_ctx.arg_kv[std::string(1, pOption->short_opt)] = value;
+        } else if (pOption->long_opt) {
+            g_main_ctx.arg_kv[pOption->long_opt] = value;
+        }
+    }
     return 0;
 }
 
