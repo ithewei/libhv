@@ -51,6 +51,18 @@ typedef std::map<std::string, std::string> keyval_t;
 #define TRUE                1
 #endif
 
+#ifndef CR
+#define CR      '\r'
+#endif
+
+#ifndef LF
+#define LF      '\n'
+#endif
+
+#ifndef CRLF
+#define CRLF    "\r\n"
+#endif
+
 #ifndef IN
 #define IN
 #endif

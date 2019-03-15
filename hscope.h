@@ -25,7 +25,7 @@ class ScopeCleanup {
 template<typename T>
 class ScopeFree {
  public:
-    ScopeFree(T* p) : _p(p) {} 
+    ScopeFree(T* p) : _p(p) {}
     ~ScopeFree()    {SAFE_FREE(_p);}
  private:
     T*  _p;
@@ -34,7 +34,7 @@ class ScopeFree {
 template<typename T>
 class ScopeDelete {
  public:
-    ScopeDelete(T* p) : _p(p) {} 
+    ScopeDelete(T* p) : _p(p) {}
     ~ScopeDelete()    {SAFE_DELETE(_p);}
  private:
     T*  _p;
@@ -43,7 +43,7 @@ class ScopeDelete {
 template<typename T>
 class ScopeDeleteArray {
  public:
-    ScopeDeleteArray(T* p) : _p(p) {} 
+    ScopeDeleteArray(T* p) : _p(p) {}
     ~ScopeDeleteArray()    {SAFE_DELETE_ARRAY(_p);}
  private:
     T*  _p;
@@ -52,7 +52,7 @@ class ScopeDeleteArray {
 template<typename T>
 class ScopeRelease {
  public:
-    ScopeRelease(T* p) : _p(p) {} 
+    ScopeRelease(T* p) : _p(p) {}
     ~ScopeRelease()    {SAFE_RELEASE(_p);}
  private:
     T*  _p;
@@ -61,7 +61,7 @@ class ScopeRelease {
 template<typename T>
 class ScopeLock {
  public:
-    ScopeLock(T& mutex) : _mutex(mutex) {_mutex.lock();} 
+    ScopeLock(T& mutex) : _mutex(mutex) {_mutex.lock();}
     ~ScopeLock()    {_mutex.unlock();}
  private:
     T& _mutex;
