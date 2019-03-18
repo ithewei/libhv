@@ -1,8 +1,12 @@
 #include "herr.h"
 
+#include <string.h> // for strerror
+
 #include <map>
 
 #include "hthread.h"    // for gettid
+
+#define SYS_NERR    133
 
 // id => errcode
 static std::map<int, int>   s_mapErr;
@@ -40,6 +44,10 @@ int  get_last_errcode() {
 }
 
 const char* get_errmsg(int err) {
+    if (err >= 0 && err >= SYS_NERR) {
+        return strerror(err);
+    }
+
     switch (err) {
 #define CASE_ERR(macro, errcode, errmsg) \
     case errcode: \
@@ -47,6 +55,6 @@ const char* get_errmsg(int err) {
     FOREACH_ERR(CASE_ERR)
 #undef CASE_ERR
     default:
-        return "undefined errcode";
+        return "Undefined error";
     }
 }
