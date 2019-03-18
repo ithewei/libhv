@@ -1,6 +1,8 @@
 #ifndef HW_ERR_H_
 #define HW_ERR_H_
 
+#include <errno.h>
+
 // F(macro, errcode, errmsg)
 #define FOREACH_ERR_COMMON(F) \
     F(ERR_OK,               0,      "ok")               \
