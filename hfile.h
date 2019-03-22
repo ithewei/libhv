@@ -65,7 +65,17 @@ class HFile {
         str.clear();
         char ch;
         while (fread(&ch, 1, 1, _fp)) {
-            if (ch == '\n') {
+            if (ch == LF) {
+                // unix: LF
+                return true;
+            }
+            if (ch == CR) {
+                // dos: CRLF
+                // read LF
+                if (fread(&ch, 1, 1, _fp) && ch != LF) {
+                    // mac: CR
+                    fseek(_fp, -1, SEEK_CUR);
+                }
                 return true;
             }
             str += ch;
