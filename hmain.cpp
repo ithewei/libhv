@@ -52,8 +52,10 @@ int main_ctx_init(int argc, char** argv) {
         strcpy(g_main_ctx.save_argv[i], argv[i]);
         argp += strlen(argv[i]) + 1;
 
-        strcat(cmdline, argv[i]);
-        strcat(cmdline, " ");
+        strcpy(cmdline, argv[i]);
+        cmdline += strlen(argv[i]);
+        *cmdline = ' ';
+        ++cmdline;
     }
     g_main_ctx.save_argv[g_main_ctx.argc] = NULL;
     g_main_ctx.cmdline[g_main_ctx.arg_len-1] = '\0';
