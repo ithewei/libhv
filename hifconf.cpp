@@ -130,7 +130,7 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
         memset(&ifc, 0, sizeof(ifc));
         strncpy(ifc.name, pAddr->AdapterName, sizeof(ifc.name));
         strncpy(ifc.ip, "0.0.0.0", sizeof(ifc.ip));
-        strncpy(ifc.mask, "0.0.0.0", sizeof(ifc.ip));
+        strncpy(ifc.mask, "255.255.255.255", sizeof(ifc.mask));
         strncpy(ifc.mac, mac, sizeof(ifc.mac));
         tmp_ifcs.push_back(ifc);
 

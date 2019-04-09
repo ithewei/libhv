@@ -44,7 +44,7 @@ int  get_last_errcode() {
 }
 
 const char* get_errmsg(int err) {
-    if (err >= 0 && err >= SYS_NERR) {
+    if (err >= 0 && err <= SYS_NERR) {
         return strerror(err);
     }
 

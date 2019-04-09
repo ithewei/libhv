@@ -46,7 +46,6 @@ class HObj {
             } else {
                 ++iter;
             }
-            ++iter;
         }
     }
 
@@ -60,12 +59,12 @@ class HObj {
     }
 
     HObj* findChild(std::string objName) {
-        auto iter = _children.begin();
-        while (iter != _children.end()) {
-            if ((*iter)->name() == objName)
+        for (auto iter = _children.begin(); iter != _children.end(); ++iter) {
+            if ((*iter)->name() == objName) {
                 return *iter;
-            iter++;
+            }
         }
+        return NULL;
     }
 
     HVar  property(std::string key) {
