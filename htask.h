@@ -21,7 +21,7 @@ public:
 
     HTask() {
         state_ = TASK_STATE_NOT_READY;
-        errno = 0;
+        errno_ = 0;
         is_wait_ = false;
         timeout_ = DEFAULT_TASK_TIMEOUT;
     }
