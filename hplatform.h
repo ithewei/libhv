@@ -7,10 +7,10 @@
 #elif defined(WIN64) || defined(_WIN64)
     #define OS_WIN64
     #define OS_WIN32
-#elif defined(linux) || defined(__linux) || defined(__linux__)
-    #define OS_LINUX
 #elif defined(ANDROID) || defined(__ANDROID__)
     #define OS_ANDROID
+    #define OS_LINUX
+#elif defined(linux) || defined(__linux) || defined(__linux__)
     #define OS_LINUX
 #elif defined(__APPLE__) && (defined(__GNUC__) || defined(__xlC__) || defined(__xlc__))
     #include <TargetConditionals.h>
