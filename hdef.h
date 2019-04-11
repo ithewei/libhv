@@ -3,16 +3,21 @@
 
 #include "hplatform.h"
 
-#include <stdint.h>
 typedef unsigned char       uint8;
 typedef unsigned short      uint16;
 typedef unsigned int        uint32;
-typedef uint64_t            uint64;
 
 typedef char                int8;
 typedef short               int16;
 typedef int                 int32;
+
+#ifdef _MSC_VER
+typedef __int64             int64;
+typedef unsigned __int64    uint64;
+#else
 typedef int64_t             int64;
+typedef uint64_t            uint64;
+#endif
 
 typedef float               float32;
 typedef double              float64;
@@ -22,6 +27,12 @@ typedef unsigned short      WORD;
 typedef int                 BOOL;
 
 typedef void*               handle;
+
+#ifdef _MSC_VER
+typedef int pid_t;
+typedef int gid_t;
+typedef int uid_t;
+#endif
 
 typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
@@ -144,7 +155,7 @@ typedef std::map<std::string, std::string> keyval_t;
 #define LOINI32(n)        ( (int32)(n & 0xffffffff) )
 
 #define FLOAT_PRECISION 1e-6
-#define FLOAT_EQUAL_ZERO(f) (-FLOAT_PRECISION < (f) && (f) < FLOAT_PRECISION)
+#define FLOAT_EQUAL_ZERO(f) (ABS(f) < FLOAT_PRECISION)
 
 #define STRINGIFY(x)    STRINGIFY_HELPER(x)
 #define STRINGIFY_HELPER(x)    #x

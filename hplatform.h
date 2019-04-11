@@ -107,26 +107,26 @@
     #define MKDIR(dir) mkdir(dir, 0777)
 #endif
 
+// ANSI C
+#include <assert.h>
 #include <stddef.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <math.h>
+#include <errno.h>
+#include <ctype.h>
+#include <wctype.h>
+#include <wchar.h>
+#include <uchar.h>
 
+// POSIX C
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <signal.h>
-#include <errno.h>
-
-#ifdef _MSC_VER
-    typedef int pid_t;
-    typedef int gid_t;
-    typedef int uid_t;
-#endif
-
-#ifdef __GNUC__
-    #define GNUC_ALIGN(n)   __attribute__((aligned(n)))
-#else
-    #define GNUC_ALIGN(n)
-#endif
 
 #endif  // HW_PLATFORM_H_

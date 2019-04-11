@@ -1,9 +1,7 @@
 #ifndef HW_GUI_H_
 #define HW_GUI_H_
 
-#include "hdef.h"
-
-typedef uint32 HColor;  // 0xAARRGGBB
+typedef unsigned int HColor;  // 0xAARRGGBB
 
 #define CLR_B(c)    (c         & 0xff)
 #define CLR_G(c)    ((c >> 8)  & 0xff)
