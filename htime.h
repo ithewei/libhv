@@ -29,6 +29,7 @@ inline void msleep(unsigned int ms) {
 #endif
 }
 
+// ms
 inline unsigned int gettick() {
 #ifdef OS_WIN
     return GetTickCount();
@@ -37,6 +38,11 @@ inline unsigned int gettick() {
     gettimeofday(&tv, NULL);
     return tv.tv_sec*1000 + tv.tv_usec/1000;
 #endif
+}
+
+// us
+inline unsigned int getclock() {
+    return clock()*(unsigned long long)1000000 / CLOCKS_PER_SEC;
 }
 
 int month_atoi(const char* month);
