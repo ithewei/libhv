@@ -4,7 +4,6 @@
 #include <time.h>
 
 #include "hplatform.h"
-#include "hdef.h"
 
 typedef struct datetime_s {
     int year;
@@ -16,15 +15,29 @@ typedef struct datetime_s {
     int ms;
 } datetime_t;
 
-void msleep(unsigned long ms);
-
 #ifdef OS_WIN
 inline void sleep(unsigned int s) {
     Sleep(s*1000);
 }
 #endif
 
-uint64 gettick();
+inline void msleep(unsigned int ms) {
+#ifdef OS_WIN
+    Sleep(ms);
+#else
+    usleep(ms*1000);
+#endif
+}
+
+inline unsigned int gettick() {
+#ifdef OS_WIN
+    return GetTickCount();
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec*1000 + tv.tv_usec/1000;
+#endif
+}
 
 int month_atoi(const char* month);
 const char* month_itoa(int month);

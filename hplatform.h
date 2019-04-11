@@ -120,9 +120,6 @@
 #include <math.h>
 #include <errno.h>
 #include <ctype.h>
-#include <wctype.h>
-#include <wchar.h>
-#include <uchar.h>
 
 // POSIX C
 #include <signal.h>
