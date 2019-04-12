@@ -107,6 +107,10 @@ typedef std::map<std::string, std::string> keyval_t;
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #endif
 
+#ifndef LIMIT
+#define LIMIT(lower, v, upper) MIN(MAX((lower), (v)), (upper))
+#endif
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
 #endif
