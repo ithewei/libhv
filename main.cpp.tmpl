@@ -49,7 +49,7 @@ static const char detail_options[] = R"(
   -c|--confile <confile>    Set configure file, default etc/{program}.conf
   -t|--test                 Test Configure file and exit
   -s|--signal <signal>      Send <signal> to process,
-                            <signal>=[start,stop,restart,status]
+                            <signal>=[start,stop,restart,status,reload]
   -d|--daemon               Daemonize
   -p|--port <port>          Set listen port
 )";
@@ -118,8 +118,9 @@ int parse_confile(const char* confile) {
 
 #ifdef OS_UNIX
 // unix use signal
-// we use SIGTERM to quit process
+// we use SIGTERM to quit process, SIGUSR1 to reload confile
 #define SIGNAL_TERMINATE    SIGTERM
+#define SIGNAL_RELOAD       SIGUSR1
 #include <sys/wait.h>
 
 void signal_handler(int signo) {
@@ -135,6 +136,10 @@ void signal_handler(int signo) {
             s_worker_processes[i].pid = -1;
         }
         exit(0);
+        break;
+    case SIGNAL_RELOAD:
+        hlogi("reload confile [%s]", g_main_ctx.confile);
+        parse_confile(g_main_ctx.confile);
         break;
     case SIGCHLD:
     {
@@ -161,6 +166,7 @@ int signal_init() {
     signal(SIGINT, signal_handler);
     signal(SIGCHLD, signal_handler);
     signal(SIGNAL_TERMINATE, signal_handler);
+    signal(SIGNAL_RELOAD, signal_handler);
 
     atexit(signal_cleanup);
     return 0;
@@ -171,6 +177,7 @@ void signal_cleanup() {
 #elif defined(OS_WIN)
 // win32 use Event
 static HANDLE s_hEventTerm = NULL;
+static HANDLE s_hEventReload = NULL;
 
 #include <mmsystem.h>
 #ifdef _MSC_VER
@@ -183,6 +190,12 @@ void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, 
         hlogi("pid=%d recv event [TERM]", getpid());
         exit(0);
     }
+
+    ret = WaitForSingleObject(s_hEventReload, 0);
+    if (ret == WAIT_OBJECT_0) {
+        hlogi("pid=%d recv event [RELOAD]", getpid());
+        parse_confile(g_main_ctx.confile);
+    }
 }
 
 int signal_init() {
@@ -190,6 +203,8 @@ int signal_init() {
     snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
     s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
     //s_hEventTerm = OpenEvent(EVENT_ALL_ACCESS, FALSE, eventname);
+    snprintf(eventname, sizeof(eventname), "%s_reload_event", g_main_ctx.program_name);
+    s_hEventReload = CreateEvent(NULL, FALSE, FALSE, eventname);
 
     timeSetEvent(1000, 1000, on_timer, 0, TIME_PERIODIC);
 
@@ -200,6 +215,8 @@ int signal_init() {
 void signal_cleanup() {
     CloseHandle(s_hEventTerm);
     s_hEventTerm = NULL;
+    CloseHandle(s_hEventReload);
+    s_hEventReload = NULL;
 }
 #endif
 
@@ -239,6 +256,17 @@ void handle_signal() {
             } else {
                 printf("%s stop/waiting\n", g_main_ctx.program_name);
             }
+            exit(0);
+        } else if (strcmp(signal, "reload") == 0) {
+            if (g_main_ctx.oldpid > 0) {
+                printf("reload confile [%s]\n", g_main_ctx.confile);
+#ifdef __unix__
+                kill(g_main_ctx.oldpid, SIGNAL_RELOAD);
+#else
+                SetEvent(s_hEventReload);
+#endif
+            }
+            sleep(1);
             exit(0);
         } else {
             printf("Invalid signal: '%s'\n", signal);

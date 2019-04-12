@@ -8,7 +8,8 @@
 # CFLAGS
 # CXXFLAGS
 # LDFLAGS += $(addprefix -L, $(LIBDIRS))
-# ENABLE_SHARED=true,false
+# LDFLAGS += $(addprefix -l, $(LIBS))
+# BUILD_SHARED=true,false
 
 ifeq ($(OS), Windows_NT)
 	OS=Windows
@@ -21,16 +22,17 @@ CP = cp -r
 CPPFLAGS += $(addprefix -D, $(DEFINES))
 ifeq ($(OS), Windows)
 	CPPFLAGS += -D_WIN32_WINNT=0x600
-ifeq ($(ENABLE_SHARED),true)
+ifeq ($(BUILD_SHARED),true)
 	CPPFLAGS += -DDLL_EXPORTS
 endif
 endif
 
-CFLAGS += -g -Wall -O3
-ifeq ($(ENABLE_SHARED),true)
-	CFLAGS += -shared -fPIC -fvisibility=hidden
+COMMON_CFLAGS += -g -Wall -O3
+ifeq ($(BUILD_SHARED),true)
+	COMMON_CFLAGS += -shared -fPIC -fvisibility=hidden
 endif
-CXXFLAGS += $(CFLAGS) -std=c++11
+CFLAGS += $(COMMON_CFLAGS) -std=c99
+CXXFLAGS += $(COMMON_CFLAGS) -std=c++11
 ARFLAGS := cr
 
 INCDIR = include
@@ -64,6 +66,7 @@ ifeq ($(OS), Windows)
 endif
 
 #common LIBS
+LDFLAGS += $(addprefix -l, $(LIBS))
 
 ifeq ($(OS), Windows)
 	LDFLAGS += -lwinmm -liphlpapi -lws2_32
