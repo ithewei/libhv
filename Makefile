@@ -1,4 +1,4 @@
-######################configure##################
+#+++++++++++++++++++++++++++++++++configure++++++++++++++++++++++++++++++++++++++++
 # OS=Windows,Linux,Android
 # ARCH=x86,x86_64,arm,aarch64
 # CC
@@ -10,6 +10,11 @@
 # LDFLAGS += $(addprefix -L, $(LIBDIRS))
 # LDFLAGS += $(addprefix -l, $(LIBS))
 # BUILD_SHARED=true,false
+#
+# Usage:
+# make all BUILD_SHARED=true OS=Android ARCH=arm DEFINES=USE_OPENCV
+# DIRS=src LIBDIRS=3rd/lib/arm-linux-android LIBS="opencv_core opencv_highgui"
+#+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ifeq ($(OS), Windows_NT)
 	OS=Windows
