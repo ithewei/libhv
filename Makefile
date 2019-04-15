@@ -61,7 +61,7 @@ $(info DIRS=$(DIRS))
 $(info SRCS=$(SRCS))
 $(info OBJS=$(OBJS))
 
-INCDIRS  += $(INCDIR) $(DEPDIR)/include $(DIRS)
+INCDIRS  += $(INCDIR) $(DEPDIR) $(DEPDIR)/include $(DIRS)
 CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
 LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
