@@ -110,19 +110,23 @@
 // ANSI C
 #include <assert.h>
 #include <stddef.h>
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <float.h>
+#include <limits.h>
 #include <time.h>
 #include <math.h>
 #include <errno.h>
-#include <ctype.h>
+#include <signal.h>
+
+// c99
+#include <stdbool.h>
+#include <stdint.h>
 
 // POSIX C
-#include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
