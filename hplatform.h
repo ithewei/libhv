@@ -2,10 +2,10 @@
 #define HW_PLATFORM_H_
 
 // OS
-#if defined(WIN32)|| defined(_WIN32)
-    #define OS_WIN32
-#elif defined(WIN64) || defined(_WIN64)
+#if defined(WIN64) || defined(_WIN64)
     #define OS_WIN64
+    #define OS_WIN32
+#elif defined(WIN32)|| defined(_WIN32)
     #define OS_WIN32
 #elif defined(ANDROID) || defined(__ANDROID__)
     #define OS_ANDROID
