@@ -71,9 +71,16 @@ int parse_confile(const char* confile) {
         exit(-40);
     }
 
+    // logfile
+    string str = g_conf_ctx.parser->GetValue("logfile");
+    if (!str.empty()) {
+        hlog_set_file(str.c_str());
+    }
     // loglevel
     const char* szLoglevel = g_conf_ctx.parser->GetValue("loglevel").c_str();
-    if (stricmp(szLoglevel, "DEBUG") == 0) {
+    if (stricmp(szLoglevel, "VERBOSE") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_VERBOSE;
+    } else if (stricmp(szLoglevel, "DEBUG") == 0) {
         g_conf_ctx.loglevel = LOG_LEVEL_DEBUG;
     } else if (stricmp(szLoglevel, "INFO") == 0) {
         g_conf_ctx.loglevel = LOG_LEVEL_INFO;
@@ -81,10 +88,19 @@ int parse_confile(const char* confile) {
         g_conf_ctx.loglevel = LOG_LEVEL_WARN;
     } else if (stricmp(szLoglevel, "ERROR") == 0) {
         g_conf_ctx.loglevel = LOG_LEVEL_ERROR;
+    } else if (stricmp(szLoglevel, "FATAL") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_FATAL;
+    } else if (stricmp(szLoglevel, "SILENT") == 0) {
+        g_conf_ctx.loglevel = LOG_LEVEL_SILENT;
     } else {
-        g_conf_ctx.loglevel = LOG_LEVEL_DEBUG;
+        g_conf_ctx.loglevel = LOG_LEVEL_VERBOSE;
     }
     hlog_set_level(g_conf_ctx.loglevel);
+    // log_remain_days
+    str = g_conf_ctx.parser->GetValue("log_remain_days");
+    if (!str.empty()) {
+        hlog_set_remain_days(atoi(str.c_str()));
+    }
 
     // worker_processes
     int worker_processes = 0;

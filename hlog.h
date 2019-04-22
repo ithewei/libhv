@@ -29,17 +29,22 @@
     F(LOG_LEVEL_FATAL, "FATAL", CL_RED_WHT)
 
 enum LOG_LEVEL {
-    LOG_LEVEL_NONE = 0,
-#define ENUM_LOG(id, str, clr) id,
-    FOREACH_LOG(ENUM_LOG)
-#undef  ENUM_LOG
+    LOG_LEVEL_VERBOSE = 0,
+#define ENUM_LOG_LEVEL(id, str, clr) id,
+    FOREACH_LOG(ENUM_LOG_LEVEL)
+#undef  ENUM_LOG_LEVEL
+    LOG_LEVEL_SILENT
 };
 
-#define DEFAULT_LOG_FILE    "./default.log"
-#define DEFAULT_LOG_LEVEL   LOG_LEVEL_NONE
+#define DEFAULT_LOG_FILE            "default.log"
+#define DEFAULT_LOG_LEVEL           LOG_LEVEL_VERBOSE
+#define DEFAULT_LOG_REMAIN_DAYS     1
+#define LOG_BUFSIZE                 (1<<13)  // 8k
+#define MAX_LOG_FILESIZE            (1<<23)  // 8M
 
 int     hlog_set_file(const char* file);
 void    hlog_set_level(int level);
+void    hlog_set_remain_days(int days);
 void    hlog_enable_color(bool enable);
 int     hlog_printf(int level, const char* fmt, ...);
 
