@@ -1,12 +1,12 @@
 #include "hmain.h"
 
-#include <signal.h> // for kill
-#include <errno.h>
-
 #include "hplatform.h"
 #include "hlog.h"
+#include "htime.h"
 
-main_ctx_t g_main_ctx;
+main_ctx_t  g_main_ctx;
+int         g_worker_processes_num = 0;
+proc_ctx_t* g_worker_processes = NULL;
 
 int main_ctx_init(int argc, char** argv) {
     g_main_ctx.pid = getpid();
@@ -314,3 +314,171 @@ pid_t getpid_from_pidfile() {
     return atoi(pid);
 }
 
+static procedure_t s_reload_fn = NULL;
+static void*       s_reload_userdata = NULL;
+#ifdef OS_UNIX
+// unix use signal
+#include <sys/wait.h>
+
+void signal_handler(int signo) {
+    hlogi("pid=%d recv signo=%d", getpid(), signo);
+    switch (signo) {
+    case SIGINT:
+    case SIGNAL_TERMINATE:
+        hlogi("killall processes");
+        signal(SIGCHLD, SIG_IGN);
+        for (int i = 0; i < g_worker_processes_num; ++i) {
+            if (g_worker_processes[i].pid <= 0) break;
+            kill(g_worker_processes[i].pid, SIGKILL);
+            g_worker_processes[i].pid = -1;
+        }
+        exit(0);
+        break;
+    case SIGNAL_RELOAD:
+        if (s_reload_fn) {
+            s_reload_fn(s_reload_userdata);
+            if (getpid_from_pidfile() == getpid()) {
+                // master raise SIGNAL_RELOAD => workers
+                for (int i = 0; i < g_worker_processes_num; ++i) {
+                    if (g_worker_processes[i].pid <= 0) break;
+                    kill(g_worker_processes[i].pid, SIGNAL_RELOAD);
+                }
+            }
+        }
+        break;
+    case SIGCHLD:
+    {
+        pid_t pid = 0;
+        int status = 0;
+        while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+            hlogw("proc stop/waiting, pid=%d status=%d", pid, status);
+            for (int i = 0; i < g_worker_processes_num; ++i) {
+                if (g_worker_processes[i].pid == pid) {
+                    g_worker_processes[i].pid = -1;
+                    create_proc(&g_worker_processes[i]);
+                    break;
+                }
+            }
+        }
+    }
+        break;
+    default:
+        break;
+    }
+}
+
+int signal_init(procedure_t reload_fn, void* reload_userdata) {
+    s_reload_fn = reload_fn;
+    s_reload_userdata = reload_userdata;
+
+    signal(SIGINT, signal_handler);
+    signal(SIGCHLD, signal_handler);
+    signal(SIGNAL_TERMINATE, signal_handler);
+    signal(SIGNAL_RELOAD, signal_handler);
+
+    return 0;
+}
+
+#elif defined(OS_WIN)
+// win32 use Event
+static HANDLE s_hEventTerm = NULL;
+static HANDLE s_hEventReload = NULL;
+
+#include <mmsystem.h>
+#ifdef _MSC_VER
+#pragma comment(lib, "winmm.lib")
+#endif
+void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
+    DWORD ret = WaitForSingleObject(s_hEventTerm, 0);
+    if (ret == WAIT_OBJECT_0) {
+        timeKillEvent(uTimerID);
+        hlogi("pid=%d recv event [TERM]", getpid());
+        exit(0);
+    }
+
+    ret = WaitForSingleObject(s_hEventReload, 0);
+    if (ret == WAIT_OBJECT_0) {
+        hlogi("pid=%d recv event [RELOAD]", getpid());
+        if (s_reload_fn) {
+            s_reload_fn(s_reload_userdata);
+        }
+    }
+}
+
+void signal_cleanup() {
+    CloseHandle(s_hEventTerm);
+    s_hEventTerm = NULL;
+    CloseHandle(s_hEventReload);
+    s_hEventReload = NULL;
+}
+
+int signal_init(procedure_t reload_fn, void* reload_userdata) {
+    s_reload_fn = reload_fn;
+    s_reload_userdata = reload_userdata;
+
+    char eventname[MAX_PATH] = {0};
+    snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
+    s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
+    //s_hEventTerm = OpenEvent(EVENT_ALL_ACCESS, FALSE, eventname);
+    snprintf(eventname, sizeof(eventname), "%s_reload_event", g_main_ctx.program_name);
+    s_hEventReload = CreateEvent(NULL, FALSE, FALSE, eventname);
+
+    timeSetEvent(1000, 1000, on_timer, 0, TIME_PERIODIC);
+
+    atexit(signal_cleanup);
+    return 0;
+}
+#endif
+
+void handle_signal(const char* signal) {
+    if (strcmp(signal, "start") == 0) {
+        if (g_main_ctx.oldpid > 0) {
+            printf("%s is already running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
+            exit(0);
+        }
+    } else if (strcmp(signal, "stop") == 0) {
+        if (g_main_ctx.oldpid > 0) {
+#ifdef OS_UNIX
+            kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
+#else
+            SetEvent(s_hEventTerm);
+#endif
+            printf("%s stop/waiting\n", g_main_ctx.program_name);
+        } else {
+            printf("%s is already stopped\n", g_main_ctx.program_name);
+        }
+        exit(0);
+    } else if (strcmp(signal, "restart") == 0) {
+        if (g_main_ctx.oldpid > 0) {
+#ifdef OS_UNIX
+            kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
+#else
+            SetEvent(s_hEventTerm);
+#endif
+            printf("%s stop/waiting\n", g_main_ctx.program_name);
+            msleep(1000);
+        }
+    } else if (strcmp(signal, "status") == 0) {
+        if (g_main_ctx.oldpid > 0) {
+            printf("%s start/running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
+        } else {
+            printf("%s stop/waiting\n", g_main_ctx.program_name);
+        }
+        exit(0);
+    } else if (strcmp(signal, "reload") == 0) {
+        if (g_main_ctx.oldpid > 0) {
+            printf("reload confile [%s]\n", g_main_ctx.confile);
+#ifdef OS_UNIX
+            kill(g_main_ctx.oldpid, SIGNAL_RELOAD);
+#else
+            SetEvent(s_hEventReload);
+#endif
+        }
+        sleep(1);
+        exit(0);
+    } else {
+        printf("Invalid signal: '%s'\n", signal);
+        exit(0);
+    }
+    printf("%s start/running\n", g_main_ctx.program_name);
+}

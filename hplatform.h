@@ -94,14 +94,22 @@
     #define strncasecmp strnicmp
     #define MKDIR(dir) mkdir(dir)
 #else
-    #include <unistd.h> // for daemon
+    #include <unistd.h>
+    #include <pthread.h>
     #include <dirent.h> // for mkdir,rmdir,chdir,getcwd
     #include <sys/time.h>  // for gettimeofday
 
-    #include <pthread.h>
+    // socket
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    #include <arpa/inet.h>
+    #include <netinet/in.h>
+    #include <netinet/tcp.h>
+    #include <netinet/udp.h>
+    #include <fcntl.h>
+    #include <netdb.h> // for gethostbyname
 
     #include <strings.h>
-
     #define stricmp     strcasecmp
     #define strnicmp    strncasecmp
     #define MKDIR(dir) mkdir(dir, 0777)

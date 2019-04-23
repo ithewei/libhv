@@ -1,8 +1,5 @@
 #include "h.h"
-
-#define DEFAULT_WORKER_PROCESSES    4
-#define MAXNUM_WORKER_PROCESSES     1024
-static proc_ctx_t s_worker_processes[MAXNUM_WORKER_PROCESSES];
+#include "hmain.h"
 
 typedef struct conf_ctx_s {
     IniParser* parser;
@@ -24,11 +21,8 @@ static void print_help();
 
 static int  parse_confile(const char* confile);
 
-static int  signal_init();
-static void signal_cleanup();
-static void handle_signal();
-
 static void master_proc(void* userdata);
+static void worker_init(void* userdata);
 static void worker_proc(void* userdata);
 
 // short options
@@ -64,7 +58,6 @@ void print_help() {
 }
 
 int parse_confile(const char* confile) {
-    conf_ctx_init(&g_conf_ctx);
     int ret = g_conf_ctx.parser->LoadFromFile(confile);
     if (ret != 0) {
         printf("Load confile [%s] failed: %d\n", confile, ret);
@@ -104,15 +97,17 @@ int parse_confile(const char* confile) {
 
     // worker_processes
     int worker_processes = 0;
-    worker_processes = atoi(g_conf_ctx.parser->GetValue("worker_processes").c_str());
-    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
-        worker_processes = get_ncpu();
-        hlogd("worker_processes=ncpu=%d", worker_processes);
+    str = g_conf_ctx.parser->GetValue("worker_processes");
+    if (str.size() != 0) {
+        if (strcmp(str.c_str(), "auto") == 0) {
+            worker_processes = get_ncpu();
+            hlogd("worker_processes=ncpu=%d", worker_processes);
+        }
+        else {
+            worker_processes = atoi(str.c_str());
+        }
     }
-    if (worker_processes <= 0 || worker_processes > MAXNUM_WORKER_PROCESSES) {
-        worker_processes = DEFAULT_WORKER_PROCESSES;
-    }
-    g_conf_ctx.worker_processes = worker_processes;
+    g_conf_ctx.worker_processes = LIMIT(0, worker_processes, MAXNUM_WORKER_PROCESSES);
 
     // port
     int port = 0;
@@ -132,164 +127,18 @@ int parse_confile(const char* confile) {
     return 0;
 }
 
+void worker_init(void* userdata) {
 #ifdef OS_UNIX
-// unix use signal
-// we use SIGTERM to quit process, SIGUSR1 to reload confile
-#define SIGNAL_TERMINATE    SIGTERM
-#define SIGNAL_RELOAD       SIGUSR1
-#include <sys/wait.h>
-
-void signal_handler(int signo) {
-    hlogi("pid=%d recv signo=%d", getpid(), signo);
-    switch (signo) {
-    case SIGINT:
-    case SIGNAL_TERMINATE:
-        hlogi("killall processes");
-        signal(SIGCHLD, SIG_IGN);
-        for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
-            if (s_worker_processes[i].pid <= 0) break;
-            kill(s_worker_processes[i].pid, SIGKILL);
-            s_worker_processes[i].pid = -1;
-        }
-        exit(0);
-        break;
-    case SIGNAL_RELOAD:
-        hlogi("reload confile [%s]", g_main_ctx.confile);
-        parse_confile(g_main_ctx.confile);
-        break;
-    case SIGCHLD:
-    {
-        pid_t pid = 0;
-        int status = 0;
-        while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-            hlogw("proc stop/waiting, pid=%d status=%d", pid, status);
-            for (int i = 0; i < MAXNUM_WORKER_PROCESSES; ++i) {
-                if (s_worker_processes[i].pid == pid) {
-                    s_worker_processes[i].pid = -1;
-                    create_proc(&s_worker_processes[i]);
-                    break;
-                }
-            }
-        }
-    }
-        break;
-    default:
-        break;
-    }
-}
-
-int signal_init() {
-    signal(SIGINT, signal_handler);
-    signal(SIGCHLD, signal_handler);
-    signal(SIGNAL_TERMINATE, signal_handler);
+    char proctitle[256] = {0};
+    snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
+    setproctitle(proctitle);
     signal(SIGNAL_RELOAD, signal_handler);
-
-    atexit(signal_cleanup);
-    return 0;
+#endif
 }
 
-void signal_cleanup() {
-}
-#elif defined(OS_WIN)
-// win32 use Event
-static HANDLE s_hEventTerm = NULL;
-static HANDLE s_hEventReload = NULL;
-
-#include <mmsystem.h>
-#ifdef _MSC_VER
-#pragma comment(lib, "winmm.lib")
-#endif
-void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
-    DWORD ret = WaitForSingleObject(s_hEventTerm, 0);
-    if (ret == WAIT_OBJECT_0) {
-        timeKillEvent(uTimerID);
-        hlogi("pid=%d recv event [TERM]", getpid());
-        exit(0);
-    }
-
-    ret = WaitForSingleObject(s_hEventReload, 0);
-    if (ret == WAIT_OBJECT_0) {
-        hlogi("pid=%d recv event [RELOAD]", getpid());
-        parse_confile(g_main_ctx.confile);
-    }
-}
-
-int signal_init() {
-    char eventname[MAX_PATH] = {0};
-    snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
-    s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
-    //s_hEventTerm = OpenEvent(EVENT_ALL_ACCESS, FALSE, eventname);
-    snprintf(eventname, sizeof(eventname), "%s_reload_event", g_main_ctx.program_name);
-    s_hEventReload = CreateEvent(NULL, FALSE, FALSE, eventname);
-
-    timeSetEvent(1000, 1000, on_timer, 0, TIME_PERIODIC);
-
-    atexit(signal_cleanup);
-    return 0;
-}
-
-void signal_cleanup() {
-    CloseHandle(s_hEventTerm);
-    s_hEventTerm = NULL;
-    CloseHandle(s_hEventReload);
-    s_hEventReload = NULL;
-}
-#endif
-
-void handle_signal() {
-    const char* signal = get_arg("s");
-    if (signal) {
-        if (strcmp(signal, "start") == 0) {
-            if (g_main_ctx.oldpid > 0) {
-                printf("%s is already running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
-                exit(0);
-            }
-        } else if (strcmp(signal, "stop") == 0) {
-            if (g_main_ctx.oldpid > 0) {
-#ifdef OS_UNIX
-                kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
-#else
-                SetEvent(s_hEventTerm);
-#endif
-                printf("%s stop/waiting\n", g_main_ctx.program_name);
-            } else {
-                printf("%s is already stopped\n", g_main_ctx.program_name);
-            }
-            exit(0);
-        } else if (strcmp(signal, "restart") == 0) {
-            if (g_main_ctx.oldpid > 0) {
-#ifdef OS_UNIX
-                kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
-#else
-                SetEvent(s_hEventTerm);
-#endif
-                printf("%s stop/waiting\n", g_main_ctx.program_name);
-                msleep(1000);
-            }
-        } else if (strcmp(signal, "status") == 0) {
-            if (g_main_ctx.oldpid > 0) {
-                printf("%s start/running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
-            } else {
-                printf("%s stop/waiting\n", g_main_ctx.program_name);
-            }
-            exit(0);
-        } else if (strcmp(signal, "reload") == 0) {
-            if (g_main_ctx.oldpid > 0) {
-                printf("reload confile [%s]\n", g_main_ctx.confile);
-#ifdef __unix__
-                kill(g_main_ctx.oldpid, SIGNAL_RELOAD);
-#else
-                SetEvent(s_hEventReload);
-#endif
-            }
-            sleep(1);
-            exit(0);
-        } else {
-            printf("Invalid signal: '%s'\n", signal);
-            exit(0);
-        }
-        printf("%s start/running\n", g_main_ctx.program_name);
-    }
+static void on_reload(void* userdata) {
+    hlogi("reload confile [%s]", g_main_ctx.confile);
+    parse_confile(g_main_ctx.confile);
 }
 
 int main(int argc, char** argv) {
@@ -349,6 +198,7 @@ int main(int argc, char** argv) {
     }
 
     // g_conf_ctx
+    conf_ctx_init(&g_conf_ctx);
     parse_confile(g_main_ctx.confile);
 
     // test
@@ -358,8 +208,11 @@ int main(int argc, char** argv) {
     }
 
     // signal
-    signal_init();
-    handle_signal();
+    signal_init(on_reload);
+    const char* signal = get_arg("s");
+    if (signal) {
+        handle_signal(signal);
+    }
 
 #ifdef OS_UNIX
     // daemon
@@ -373,26 +226,40 @@ int main(int argc, char** argv) {
         // parent process exit after daemon, so pid changed.
         g_main_ctx.pid = getpid();
     }
-    // proctitle
-    char proctitle[256] = {0};
-    snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
-    setproctitle(proctitle);
 #endif
 
     // pidfile
     create_pidfile();
     hlogi("%s start/running, pid=%d", g_main_ctx.program_name, g_main_ctx.pid);
 
-    // master-worker proc
-    memset(s_worker_processes, 0, sizeof(s_worker_processes));
-    for (int i = 0; i < g_conf_ctx.worker_processes; ++i) {
-        proc_ctx_t* ctx = &s_worker_processes[i];
-        snprintf(ctx->proctitle, sizeof(ctx->proctitle), "%s: worker process", g_main_ctx.program_name);
-        ctx->proc = worker_proc;
-        ctx->userdata = NULL;
-        create_proc(ctx);
+    if (g_conf_ctx.worker_processes == 0) {
+        // single process
+        worker_proc(NULL);
     }
-    master_proc(NULL);
+    else {
+        // master-workers processes
+        g_worker_processes_num = g_conf_ctx.worker_processes;
+        int bytes = sizeof(proc_ctx_t) * g_worker_processes_num;
+        g_worker_processes = (proc_ctx_t*)malloc(bytes);
+        if (g_worker_processes == NULL) {
+            return ERR_MALLOC;
+        }
+        memset(g_worker_processes, 0, bytes);
+        for (int i = 0; i < g_worker_processes_num; ++i) {
+            proc_ctx_t* ctx = &g_worker_processes[i];
+            ctx->init = worker_init;
+            ctx->init_userdata = NULL;
+            ctx->proc = worker_proc;
+            ctx->proc_userdata = NULL;
+            create_proc(ctx);
+        }
+#ifdef OS_UNIX
+        char proctitle[256] = {0};
+        snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
+        setproctitle(proctitle);
+#endif
+        master_proc(NULL);
+    }
 
     return 0;
 }
