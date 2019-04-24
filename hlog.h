@@ -36,7 +36,7 @@ enum LOG_LEVEL {
     LOG_LEVEL_SILENT
 };
 
-#define DEFAULT_LOG_FILE            "default.log"
+#define DEFAULT_LOG_FILE            "default"
 #define DEFAULT_LOG_LEVEL           LOG_LEVEL_VERBOSE
 #define DEFAULT_LOG_REMAIN_DAYS     1
 #define LOG_BUFSIZE                 (1<<13)  // 8k
