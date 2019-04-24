@@ -17,6 +17,7 @@ static int      s_remain_days = DEFAULT_LOG_REMAIN_DAYS;
 static FILE*    s_logfp = NULL;
 static char     s_logbuf[LOG_BUFSIZE];
 static char     s_cur_logfile[256] = {0};
+static time_t   s_last_logfile_ts = 0;
 static std::mutex s_mutex;
 
 static void ts_logfile(time_t ts, char* buf, int len) {
@@ -26,6 +27,40 @@ static void ts_logfile(time_t ts, char* buf, int len) {
             tm->tm_year+1900,
             tm->tm_mon+1,
             tm->tm_mday);
+}
+
+static FILE* shift_logfile() {
+    if (s_logfp == NULL) {
+        hlog_set_file(s_logfile);
+    }
+    time_t ts_now = time(NULL);
+    if (ts_now / SECONDS_PER_DAY - s_last_logfile_ts / SECONDS_PER_DAY) {
+        // shift every day
+        ts_logfile(ts_now, s_cur_logfile, sizeof(s_cur_logfile));
+        if (s_logfp) {
+            fclose(s_logfp);
+            s_logfp = NULL;
+        }
+        s_logfp = fopen(s_cur_logfile, "a");
+        s_last_logfile_ts = ts_now;
+        // remove logfile before s_remain_days
+        if (s_remain_days > 0) {
+            time_t ts_rm  = ts_now - s_remain_days * SECONDS_PER_DAY;
+            char rm_logfile[256] = {0};
+            ts_logfile(ts_rm, rm_logfile, sizeof(rm_logfile));
+            remove(rm_logfile);
+        }
+    }
+    else {
+        // reopen if too big
+        if (s_logfp && ftell(s_logfp) > MAX_LOG_FILESIZE) {
+            fclose(s_logfp);
+            s_logfp = NULL;
+            s_logfp = fopen(s_cur_logfile, "w");
+        }
+    }
+
+    return s_logfp;
 }
 
 int hlog_set_file(const char* logfile) {
@@ -38,23 +73,7 @@ int hlog_set_file(const char* logfile) {
         *suffix = '\0';
     }
 
-    time_t ts_now = time(NULL);
-    ts_logfile(ts_now, s_cur_logfile, sizeof(s_cur_logfile));
-    if (s_logfp) {
-        fclose(s_logfp);
-        s_logfp = NULL;
-    }
-    s_logfp = fopen(s_cur_logfile, "a");
-
-    // remove logfile before s_remain_days
-    if (s_remain_days > 0) {
-        time_t ts_rm  = ts_now - s_remain_days * SECONDS_PER_DAY;
-        char rm_logfile[256] = {0};
-        ts_logfile(ts_rm, rm_logfile, sizeof(rm_logfile));
-        remove(rm_logfile);
-    }
-
-    return s_logfp ? 0 : -1;
+    return 0;
 }
 
 void hlog_set_level(int level) {
@@ -83,38 +102,29 @@ int hlog_printf(int level, const char* fmt, ...) {
     }
 #undef CASE_LOG
 
-    if (!s_logcolor)
-        pcolor = "";
-
     std::lock_guard<std::mutex> locker(s_mutex);
 
-    if (!s_logfp) {
-        if (hlog_set_file(s_logfile) != 0)
-            return -20;
-    }
-
-    if (ftell(s_logfp) > MAX_LOG_FILESIZE) {
-        fclose(s_logfp);
-        s_logfp = fopen(s_cur_logfile, "w");
-        if (!s_logfp)
-            return -30;
+    FILE* fp = shift_logfile();
+    if (fp == NULL) {
+        return -20;
     }
 
     datetime_t now = get_datetime();
-    int len = snprintf(s_logbuf, LOG_BUFSIZE, "%s[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s]: ",
-        pcolor, now.year, now.month, now.day, now.hour, now.min, now.sec, now.ms, plevel);
+    int len = snprintf(s_logbuf, LOG_BUFSIZE, "[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s]: ",
+        now.year, now.month, now.day, now.hour, now.min, now.sec, now.ms, plevel);
 
     va_list ap;
     va_start(ap, fmt);
     len += vsnprintf(s_logbuf + len, LOG_BUFSIZE-len, fmt, ap);
     va_end(ap);
 
-    fprintf(s_logfp, "%s\n", s_logbuf);
     if (s_logcolor) {
-        fprintf(s_logfp, CL_CLR);
+        fprintf(fp, "%s%s%s\n", pcolor, s_logbuf, CL_CLR);
     }
-
-    fflush(s_logfp);
+    else {
+        fprintf(fp, "%s\n", s_logbuf);
+    }
+    fflush(fp);
 
     return len;
 }
