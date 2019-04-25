@@ -1,8 +1,5 @@
 #include "htime.h"
 
-#include <stdio.h>
-#include <string.h>
-
 datetime_t get_datetime() {
     datetime_t  dt;
 #ifdef OS_WIN

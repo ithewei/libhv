@@ -1,8 +1,6 @@
 #ifndef HW_TIME_H_
 #define HW_TIME_H_
 
-#include <time.h>
-
 #include "hplatform.h"
 
 typedef struct datetime_s {
@@ -34,15 +32,32 @@ inline unsigned int gettick() {
 #ifdef OS_WIN
     return GetTickCount();
 #else
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec*1000 + tv.tv_usec/1000;
+    return clock()*(unsigned long long)1000 / CLOCKS_PER_SEC;
 #endif
 }
 
 // us
-inline unsigned int getclock() {
-    return clock()*(unsigned long long)1000000 / CLOCKS_PER_SEC;
+inline unsigned long long gethrtime() {
+#ifdef OS_WIN
+    static LONGLONG s_freq = 0;
+    if (s_freq == 0) {
+        LARGE_INTEGER freq;
+        QueryPerformanceFrequency(&freq);
+        s_freq = freq.QuadPart;
+    }
+    if (s_freq != 0) {
+        LARGE_INTEGER count;
+        QueryPerformanceCounter(&count);
+        return count.QuadPart / (double)s_freq * 1000000;
+    }
+    return 0;
+#elif defined(OS_LINUX)
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec*(unsigned long long)1000000 + ts.tv_nsec / 1000;
+#else
+    return clock()* / (double)CLOCKS_PER_SEC * 1000000;
+#endif
 }
 
 int month_atoi(const char* month);
