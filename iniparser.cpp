@@ -32,10 +32,9 @@ int IniParser::LoadFromFile(const char* filepath) {
         return ERR_OPEN_FILE;
     }
 
-    hbuf_t buf;
-    file.readall(buf);
-
-    return LoadFromMem((const char*)buf.base);
+    std::string str;
+    file.readall(str);
+    return LoadFromMem(str.c_str());
 }
 
 int IniParser::LoadFromMem(const char* data) {

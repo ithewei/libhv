@@ -51,6 +51,11 @@
 // _MSC_VER
 // __MINGW32__
 // __GNUC__
+#ifdef __GNUC__
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+#endif
 // __clang__
 
 // ARCH

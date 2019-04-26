@@ -1,4 +1,4 @@
-#include "hifconf.h"
+#include "ifconfig.h"
 
 #include <stdio.h>
 #include <stdlib.h>

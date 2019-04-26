@@ -1,5 +1,5 @@
-#ifndef H_IFCONFIG_H_
-#define H_IFCONFIG_H_
+#ifndef IFCONFIG_H_
+#define IFCONFIG_H_
 
 #include <vector>
 
@@ -24,4 +24,4 @@ typedef struct ifconfig_s {
  */
 int ifconfig(std::vector<ifconfig_t>& ifcs);
 
-#endif // H_IFCONFIG_H_
+#endif // IFCONFIG_H_

@@ -38,10 +38,41 @@ typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
 
 #ifdef __cplusplus
+
 #include <string>
 #include <map>
 typedef std::map<std::string, std::string> keyval_t;
+
+#ifndef BEGIN_NAMESPACE
+#define BEGIN_NAMESPACE(ns) namespace ns {
 #endif
+
+#ifndef END_NAMESPACE
+#define END_NAMESPACE(ns)   } // ns
+#endif
+
+#ifndef EXTERN_C
+#define EXTERN_C            extern "C"
+#endif
+
+#ifndef BEGIN_EXTERN_C
+#define BEGIN_EXTERN_C      extern "C" {
+#endif
+
+#ifndef END_EXTERN_C
+#define END_EXTERN_C        } // extern "C"
+#endif
+
+#else
+
+#define BEGIN_NAMESPACE(ns)
+#define END_NAMESPACE(ns)
+
+#define EXTERN_C
+#define BEGIN_EXTERN_C
+#define END_EXTERN_C
+
+#endif // __cplusplus
 
 #ifndef MAX_PATH
 #define MAX_PATH          260

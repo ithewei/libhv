@@ -77,22 +77,22 @@
     FOREACH_ERR_SERVICE(F)  \
     FOREACH_ERR_GRPC(F)
 
+enum H_ERR {
 #define ENUM_ERR(macro, errcode, _) macro = errcode,
-enum E_ERR{
     FOREACH_ERR(ENUM_ERR)
+#undef ENUM_ERR
     ERR_LAST
 };
-#undef ENUM_ERR
 
-// id => errcode
-void set_id_errcode(int id, int errcode);
-int  get_id_errcode(int id);
-
-// id = gettid()
-void set_last_errcode(int errcode);
-int  get_last_errcode();
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 // errcode => errmsg
-const char* get_errmsg(int errcode);
+const char* get_errmsg(int err);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif
 
 #endif  // HW_ERR_H_

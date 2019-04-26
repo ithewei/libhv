@@ -327,6 +327,7 @@ void signal_handler(int signo) {
     case SIGNAL_TERMINATE:
         hlogi("killall processes");
         signal(SIGCHLD, SIG_IGN);
+        // master send SIGKILL => workers
         for (int i = 0; i < g_worker_processes_num; ++i) {
             if (g_worker_processes[i].pid <= 0) break;
             kill(g_worker_processes[i].pid, SIGKILL);
@@ -338,7 +339,7 @@ void signal_handler(int signo) {
         if (s_reload_fn) {
             s_reload_fn(s_reload_userdata);
             if (getpid_from_pidfile() == getpid()) {
-                // master raise SIGNAL_RELOAD => workers
+                // master send SIGNAL_RELOAD => workers
                 for (int i = 0; i < g_worker_processes_num; ++i) {
                     if (g_worker_processes[i].pid <= 0) break;
                     kill(g_worker_processes[i].pid, SIGNAL_RELOAD);
@@ -355,7 +356,7 @@ void signal_handler(int signo) {
             for (int i = 0; i < g_worker_processes_num; ++i) {
                 if (g_worker_processes[i].pid == pid) {
                     g_worker_processes[i].pid = -1;
-                    create_proc(&g_worker_processes[i]);
+                    spawn_proc(&g_worker_processes[i]);
                     break;
                 }
             }

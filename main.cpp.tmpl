@@ -1,5 +1,5 @@
 #include "h.h"
-#include "hmain.h"
+#include "iniparser.h"
 
 typedef struct conf_ctx_s {
     IniParser* parser;
@@ -21,6 +21,7 @@ static void print_help();
 
 static int  parse_confile(const char* confile);
 
+static void master_init(void* userdata);
 static void master_proc(void* userdata);
 static void worker_init(void* userdata);
 static void worker_proc(void* userdata);
@@ -127,6 +128,15 @@ int parse_confile(const char* confile) {
     return 0;
 }
 
+void master_init(void* userdata) {
+#ifdef OS_UNIX
+    char proctitle[256] = {0};
+    snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
+    setproctitle(proctitle);
+    signal(SIGNAL_RELOAD, signal_handler);
+#endif
+}
+
 void worker_init(void* userdata) {
 #ifdef OS_UNIX
     char proctitle[256] = {0};
@@ -230,7 +240,6 @@ int main(int argc, char** argv) {
 
     // pidfile
     create_pidfile();
-    hlogi("%s start/running, pid=%d", g_main_ctx.program_name, g_main_ctx.pid);
 
     if (g_conf_ctx.worker_processes == 0) {
         // single process
@@ -251,13 +260,12 @@ int main(int argc, char** argv) {
             ctx->init_userdata = NULL;
             ctx->proc = worker_proc;
             ctx->proc_userdata = NULL;
-            create_proc(ctx);
+            spawn_proc(ctx);
+            hlogi("worker[%d] start/running, pid=%d", i, ctx->pid);
         }
-#ifdef OS_UNIX
-        char proctitle[256] = {0};
-        snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
-        setproctitle(proctitle);
-#endif
+
+        hlogi("master start/running, pid=%d", g_main_ctx.pid);
+        master_init(NULL);
         master_proc(NULL);
     }
 
@@ -265,9 +273,9 @@ int main(int argc, char** argv) {
 }
 
 void master_proc(void* userdata) {
-    while(1) msleep(1000);
+    while(1) sleep(1);
 }
 
 void worker_proc(void* userdata) {
-    while(1) msleep(1000);
+    while(1) sleep(1);
 }

@@ -84,8 +84,8 @@ void hlog_set_remain_days(int days) {
     s_remain_days = days;
 }
 
-void hlog_enable_color(bool enable) {
-    s_logcolor = enable;
+void hlog_enable_color(int on) {
+    s_logcolor = on;
 }
 
 int hlog_printf(int level, const char* fmt, ...) {

@@ -3,7 +3,6 @@
 
 #include "hplatform.h"
 #include "hdef.h"
-#include "hlog.h"
 
 typedef struct proc_ctx_s {
     pid_t           pid; // tid in win32
@@ -17,14 +16,14 @@ typedef struct proc_ctx_s {
 
 #ifdef OS_UNIX
 // unix use multi-processes
-inline int create_proc(proc_ctx_t* ctx) {
+inline int spawn_proc(proc_ctx_t* ctx) {
     pid_t pid = fork();
     if (pid < 0) {
-        hloge("fork error: %d", errno);
+        perror("fork");
         return -1;
     } else if (pid == 0) {
         // child proc
-        hlogi("proc start/running, pid=%d", getpid());
+        ctx->pid = getpid();
         if (ctx->init) {
             ctx->init(ctx->init_userdata);
         }
@@ -37,14 +36,13 @@ inline int create_proc(proc_ctx_t* ctx) {
         exit(0);
     } else if (pid > 0) {
         // parent proc
+        ctx->pid = pid;
     }
-    ctx->pid = pid;
     return pid;
 }
 #elif defined(OS_WIN)
 // win32 use multi-threads
 static void win_thread(void* userdata) {
-    hlogi("proc start/running, tid=%d", GetCurrentThreadId());
     proc_ctx_t* ctx = (proc_ctx_t*)userdata;
     if (ctx->init) {
         ctx->init(ctx->init_userdata);
@@ -56,10 +54,9 @@ static void win_thread(void* userdata) {
         ctx->exit(ctx->exit_userdata);
     }
 }
-inline int create_proc(proc_ctx_t* ctx) {
+inline int spawn_proc(proc_ctx_t* ctx) {
     HANDLE h = (HANDLE)_beginthread(win_thread, 0, ctx);
     if (h == NULL) {
-        hloge("_beginthread error: %d", errno);
         return -1;
     }
     int tid = GetThreadId(h);

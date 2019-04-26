@@ -45,7 +45,7 @@ enum LOG_LEVEL {
 int     hlog_set_file(const char* file);
 void    hlog_set_level(int level);
 void    hlog_set_remain_days(int days);
-void    hlog_enable_color(bool enable);
+void    hlog_enable_color(int on);
 int     hlog_printf(int level, const char* fmt, ...);
 
 #define hlogd(fmt, ...) hlog_printf(LOG_LEVEL_DEBUG, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
