@@ -5,7 +5,6 @@
  * @copyright 2018 HeWei, all rights reserved.
  */
 
-// platform
 #include "hplatform.h"
 #include "hdef.h"
 #include "hversion.h"
@@ -38,4 +37,3 @@
 #include "iniparser.h"
 
 #endif  // HW_H_
-

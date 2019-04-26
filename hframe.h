@@ -2,13 +2,13 @@
 #define HW_FRAME_H_
 
 #include <deque>
+#include <mutex>
 
 #include "hbuf.h"
-#include "hmutex.h"
 
 class HFrame {
 public:
-    hbuf_t buf;
+    HBuf buf;
     int w;
     int h;
     int bpp;
@@ -16,13 +16,15 @@ public:
     uint64 ts;
     int64 useridx;
     void* userdata;
+
     HFrame() {
         w = h = bpp = type = ts = 0;
         useridx = -1;
         userdata = NULL;
     }
 
-    ~HFrame() {
+    bool isNull() {
+        return w == 0 || h == 0 || buf.isNull();
     }
 
     void copy(const HFrame& rhs) {
@@ -33,14 +35,7 @@ public:
         ts = rhs.ts;
         useridx = rhs.useridx;
         userdata = rhs.userdata;
-        if (buf.isNull() || buf.len != rhs.buf.len) {
-            buf.init(rhs.buf.len);
-        }
-        memcpy(buf.base, rhs.buf.base, rhs.buf.len);
-    }
-
-    bool isNull() {
-        return w == 0 || h == 0 || buf.isNull();
+        buf.copy(rhs.buf.base, rhs.buf.len);
     }
 };
 

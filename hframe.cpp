@@ -28,7 +28,7 @@ int HFrameBuf::push(HFrame* pFrame) {
 
     int ret = 0;
     if (isNull()) {
-        init(pFrame->buf.len * cache_num);
+        resize(pFrame->buf.len * cache_num);
         ret = 1;    // note: first push
 
         frame_info.w = pFrame->w;

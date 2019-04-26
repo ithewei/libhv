@@ -7,10 +7,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <string>
+
 #include "hdef.h"
 #include "hbuf.h"
 #include "herr.h"
-#include "hstring.h"
 
 class HFile {
  public:
@@ -49,19 +50,19 @@ class HFile {
         return fread(ptr, 1, len, _fp);
     }
 
-    size_t readall(hbuf_t& buf) {
+    size_t readall(HBuf& buf) {
         size_t filesize = size();
-        buf.init(filesize);
-        return fread(buf.base, 1, buf.len, _fp);
+        buf.resize(filesize);
+        return fread(buf.base, 1, filesize, _fp);
     }
 
-    size_t readall(string& str) {
+    size_t readall(std::string& str) {
         size_t filesize = size();
         str.resize(filesize);
         return fread((void*)str.data(), 1, filesize, _fp);
     }
 
-    bool readline(string& str) {
+    bool readline(std::string& str) {
         str.clear();
         char ch;
         while (fread(&ch, 1, 1, _fp)) {
