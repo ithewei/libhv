@@ -14,7 +14,7 @@
 #include "herr.h"
 
 class HFile {
- public:
+public:
     HFile() {
         _fp = NULL;
     }

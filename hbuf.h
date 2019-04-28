@@ -8,7 +8,7 @@
 #include "hdef.h"
 
 typedef struct hbuf_s {
-    uint8* base;
+    uint8_t* base;
     size_t len;
 
 #ifdef __cplusplus
@@ -18,7 +18,7 @@ typedef struct hbuf_s {
     }
 
     hbuf_s(void* data, size_t len) {
-        this->base = (uint8*)data;
+        this->base = (uint8_t*)data;
         this->len  = len;
     }
 #endif
@@ -60,11 +60,11 @@ public:
         if (cap == len) return;
 
         if (base == NULL) {
-            base = (uint8*)malloc(cap);
+            base = (uint8_t*)malloc(cap);
             memset(base, 0, cap);
         }
         else {
-            base = (uint8*)realloc(base, cap);
+            base = (uint8_t*)realloc(base, cap);
         }
         len = cap;
         cleanup_ = true;
@@ -91,13 +91,13 @@ public:
     HVLBuf(size_t cap) : HBuf(cap) {_offset = _size = 0;}
     virtual ~HVLBuf() {}
 
-    uint8* data() { return base+_offset; }
+    uint8_t* data() { return base+_offset; }
     size_t size() { return _size; }
 
     void push_front(void* ptr, size_t len) {
         if (len > this->len - _size) {
             this->len = MAX(this->len, len)*2;
-            base = (uint8*)realloc(base, this->len);
+            base = (uint8_t*)realloc(base, this->len);
         }
 
         if (_offset < len) {
@@ -114,7 +114,7 @@ public:
     void push_back(void* ptr, size_t len) {
         if (len > this->len - _size) {
             this->len = MAX(this->len, len)*2;
-            base = (uint8*)realloc(base, this->len);
+            base = (uint8_t*)realloc(base, this->len);
         }
         else if (len > this->len - _offset - _size) {
             // move => start
@@ -176,8 +176,8 @@ public:
     HRingBuf(size_t cap) : HBuf(cap) {_head = _tail = _size = 0;}
     virtual ~HRingBuf() {}
 
-    uint8* alloc(size_t len) {
-        uint8* ret = NULL;
+    uint8_t* alloc(size_t len) {
+        uint8_t* ret = NULL;
         if (_head < _tail || _size == 0) {
             // [_tail, this->len) && [0, _head)
             if (this->len - _tail >= len) {

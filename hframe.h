@@ -13,8 +13,8 @@ public:
     int h;
     int bpp;
     int type;
-    uint64 ts;
-    int64 useridx;
+    uint64_t ts;
+    int64_t useridx;
     void* userdata;
 
     HFrame() {

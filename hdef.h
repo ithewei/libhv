@@ -3,22 +3,6 @@
 
 #include "hplatform.h"
 
-typedef unsigned char       uint8;
-typedef unsigned short      uint16;
-typedef unsigned int        uint32;
-
-typedef char                int8;
-typedef short               int16;
-typedef int                 int32;
-
-#ifdef _MSC_VER
-typedef __int64             int64;
-typedef unsigned __int64    uint64;
-#else
-typedef int64_t             int64;
-typedef uint64_t            uint64;
-#endif
-
 typedef float               float32;
 typedef double              float64;
 
@@ -92,6 +76,10 @@ typedef std::map<std::string, std::string> keyval_t;
 
 #ifndef TRUE
 #define TRUE                1
+#endif
+
+#ifndef INFINITE
+#define INFINITE            0xFFFFFFFF
 #endif
 
 #ifndef CR
