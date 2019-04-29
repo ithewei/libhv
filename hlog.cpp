@@ -124,7 +124,7 @@ int hlog_printf(int level, const char* fmt, ...) {
     else {
         fprintf(fp, "%s\n", s_logbuf);
     }
-    fflush(fp);
+    //fflush(fp); // note: fflush cache page => disk, slow
 
     return len;
 }

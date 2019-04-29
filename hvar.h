@@ -19,7 +19,7 @@ class HVar {
 
     union DATA {
         bool b;
-        int64 i;
+        int64_t i;
         float64 f;
         char* str;
         void* ptr;
@@ -27,7 +27,7 @@ class HVar {
 
     HVar()          {memset(&data, 0, sizeof(data)); type = UNKNOWN;}
     HVar(bool b)    {data.b = b; type = BOOLEAN;}
-    HVar(int64 i)   {data.i = i; type = INTEGER;}
+    HVar(int64_t i)   {data.i = i; type = INTEGER;}
     HVar(float64 f) {data.f = f; type = FLOAT;}
     HVar(char* str) {
         data.str = (char*)malloc(strlen(str)+1);
@@ -46,7 +46,7 @@ class HVar {
     bool    isValid()   {return type != UNKNOWN;}
 
     bool    toBool()    {return data.b;}
-    int64   toInt()     {return data.i;}
+    int64_t toInt()     {return data.i;}
     float64 toFloat()   {return data.f;}
     char*   toString()  {return data.str;}
     void*   toPointer() {return data.ptr;}

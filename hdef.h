@@ -131,7 +131,7 @@ typedef std::map<std::string, std::string> keyval_t;
 #endif
 
 #ifndef ARRAY_SIZE
-#define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
 #endif
 
 #ifndef SAFE_FREE

@@ -99,7 +99,7 @@ class HThread {
         PAUSE,
     };
     std::atomic<Status> status;
-    uint32 dotask_cnt;
+    uint32_t dotask_cnt;
 
     enum SleepPolicy {
         YIELD,
@@ -108,7 +108,7 @@ class HThread {
         NO_SLEEP,
     };
 
-    void setSleepPolicy(SleepPolicy policy, int64 ms = 0) {
+    void setSleepPolicy(SleepPolicy policy, uint32_t ms = 0) {
         status_switch = true;
         sleep_policy = policy;
         sleep_ms = ms;
@@ -145,7 +145,7 @@ class HThread {
     std::atomic<bool> status_switch;
     SleepPolicy sleep_policy;
     std::chrono::system_clock::time_point base_tp;   // for SLEEP_UNTIL
-    int64 sleep_ms;
+    uint32_t sleep_ms;
 };
 
 #endif  // HW_THREAD_H_
