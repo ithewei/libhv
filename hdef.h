@@ -21,65 +21,24 @@ typedef int uid_t;
 typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
 
-#ifdef __cplusplus
-
-#include <string>
-#include <map>
-typedef std::map<std::string, std::string> keyval_t;
-
-#ifndef BEGIN_NAMESPACE
-#define BEGIN_NAMESPACE(ns) namespace ns {
-#endif
-
-#ifndef END_NAMESPACE
-#define END_NAMESPACE(ns)   } // ns
-#endif
-
-#ifndef EXTERN_C
-#define EXTERN_C            extern "C"
-#endif
-
-#ifndef BEGIN_EXTERN_C
-#define BEGIN_EXTERN_C      extern "C" {
-#endif
-
-#ifndef END_EXTERN_C
-#define END_EXTERN_C        } // extern "C"
-#endif
-
-#else
-
-#define BEGIN_NAMESPACE(ns)
-#define END_NAMESPACE(ns)
-
-#define EXTERN_C
-#define BEGIN_EXTERN_C
-#define END_EXTERN_C
-
-#endif // __cplusplus
-
 #ifndef MAX_PATH
 #define MAX_PATH          260
 #endif
 
 #ifndef NULL
-#ifdef __cplusplus
-#define NULL    0
-#else
-#define NULL    ((void *)0)
-#endif
-#endif
-
-#ifndef FALSE
-#define FALSE               0
+#define NULL        0
 #endif
 
 #ifndef TRUE
-#define TRUE                1
+#define TRUE        1
+#endif
+
+#ifndef FALSE
+#define FALSE       0
 #endif
 
 #ifndef INFINITE
-#define INFINITE            0xFFFFFFFF
+#define INFINITE    0xFFFFFFFF
 #endif
 
 #ifndef CR
@@ -127,27 +86,39 @@ typedef std::map<std::string, std::string> keyval_t;
 #endif
 
 #ifndef LIMIT
-#define LIMIT(lower, v, upper) MIN(MAX((lower), (v)), (upper))
+#define LIMIT(lower, v, upper) ((v) < (lower) ? (lower) : (v) > (upper) ? (upper) : (v))
+#endif
+
+#ifndef BITSET
+#define BITSET(p, n) (*(p) |= (1u << (n)))
+#endif
+
+#ifndef BITCLEAR
+#define BITCLEAR(p, n) (*(p) &= ~(1u << (n)))
+#endif
+
+#ifndef BITGET
+#define BITGET(i, n) ((i) & (1u << (n)))
 #endif
 
 #ifndef ARRAY_SIZE
-#define ARRAY_SIZE(a) (sizeof(a)/sizeof(*(a)))
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif
 
 #ifndef SAFE_FREE
-#define SAFE_FREE(p)    do {if (p) {free(p); (p) = NULL;}}while(0)
+#define SAFE_FREE(p)    do {if (p) {free(p); (p) = NULL;}} while(0)
 #endif
 
 #ifndef SAFE_DELETE
-#define SAFE_DELETE(p)  do {if (p) {delete (p); (p) = NULL;}}while(0)
+#define SAFE_DELETE(p)  do {if (p) {delete (p); (p) = NULL;}} while(0)
 #endif
 
 #ifndef SAFE_DELETE_ARRAY
-#define SAFE_DELETE_ARRAY(p) do {if (p) {delete[] (p); (p) = NULL;}}while(0)
+#define SAFE_DELETE_ARRAY(p) do {if (p) {delete[] (p); (p) = NULL;}} while(0)
 #endif
 
 #ifndef SAFE_RELEASE
-#define SAFE_RELEASE(p) do {if (p) {(p)->release(); (p) = NULL;}}while(0)
+#define SAFE_RELEASE(p) do {if (p) {(p)->release(); (p) = NULL;}} while(0)
 #endif
 
 #ifndef MAKE_FOURCC
@@ -156,8 +127,8 @@ typedef std::map<std::string, std::string> keyval_t;
 #endif
 
 #ifndef OS_WIN
-#ifndef MAKE_WORD
-#define MAKE_WORD(h, l)  ( (((WORD)h) << 8) | (l & 0xff) )
+#ifndef MAKEWORD
+#define MAKEWORD(h, l)  ( (((WORD)h) << 8) | (l & 0xff) )
 #endif
 
 #ifndef HIBYTE
@@ -167,15 +138,31 @@ typedef std::map<std::string, std::string> keyval_t;
 #ifndef LOBYTE
 #define LOBYTE(w) ( (BYTE)(w & 0xff) )
 #endif
+
+#ifndef MAKELONG
+#define MAKELONG(h, l)   ( ((int32_t)h) << 16 | (l & 0xffff) )
 #endif
 
-#define MAKE_INT32(h, l)   ( ((int32)h) << 16 | (l & 0xffff) )
-#define HIINT16(n)        ( (int16)(((int32)n) >> 16) )
-#define LOINI16(n)        ( (int16)(n & 0xffff) )
+#ifndef HIWORD
+#define HIWORD(n)        ( (WORD)(((int32_t)n) >> 16) )
+#endif
 
-#define MAKE_INT64(h, l)   ( ((int64)h) << 32 | (l & 0xffffffff) )
-#define HIINT32(n)        ( (int32)(((int64)n) >> 32) )
-#define LOINI32(n)        ( (int32)(n & 0xffffffff) )
+#ifndef LOWORD
+#define LOWORD(n)        ( (WORD)(n & 0xffff) )
+#endif
+#endif
+
+#ifndef MAKEINT64
+#define MAKEINT64(h, l)   ( ((int64_t)h) << 32 | (l & 0xffffffff) )
+#endif
+
+#ifndef HIINT
+#define HIINT(n)        ( (int32_t)(((int64_t)n) >> 32) )
+#endif
+
+#ifndef LOINT
+#define LOINT(n)        ( (int32_t)(n & 0xffffffff) )
+#endif
 
 #define FLOAT_PRECISION 1e-6
 #define FLOAT_EQUAL_ZERO(f) (ABS(f) < FLOAT_PRECISION)
@@ -188,5 +175,43 @@ typedef std::map<std::string, std::string> keyval_t;
 
 #define container_of(ptr, type, member) \
   ((type *) ((char *) (ptr) - offsetof(type, member)))
+
+// __cplusplus
+#ifdef __cplusplus
+
+#include <string>
+#include <map>
+typedef std::map<std::string, std::string> keyval_t;
+
+#ifndef BEGIN_NAMESPACE
+#define BEGIN_NAMESPACE(ns) namespace ns {
+#endif
+
+#ifndef END_NAMESPACE
+#define END_NAMESPACE(ns)   } // ns
+#endif
+
+#ifndef EXTERN_C
+#define EXTERN_C            extern "C"
+#endif
+
+#ifndef BEGIN_EXTERN_C
+#define BEGIN_EXTERN_C      extern "C" {
+#endif
+
+#ifndef END_EXTERN_C
+#define END_EXTERN_C        } // extern "C"
+#endif
+
+#else
+
+#define BEGIN_NAMESPACE(ns)
+#define END_NAMESPACE(ns)
+
+#define EXTERN_C
+#define BEGIN_EXTERN_C
+#define END_EXTERN_C
+
+#endif // __cplusplus
 
 #endif  // HW_DEF_H_
