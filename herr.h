@@ -33,7 +33,9 @@
     F(ERR_SAVE_FILE,        1201,   "save file failed") \
     \
     F(ERR_OUT_OF_RANGE,     1300,   "out of range")     \
-    F(ERR_OVER_LIMIT,       1301,   "over limit")
+    F(ERR_OVER_LIMIT,       1301,   "over limit")       \
+    \
+    F(ERR_BUSY,             1400,   "busy")
 
 #define FOREACH_ERR_NETWORK(F) \
     F(ERR_ADAPTER_NOT_FOUND,    2001, "adapter not found")  \
