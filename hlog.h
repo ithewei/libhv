@@ -54,4 +54,22 @@ int     hlog_printf(int level, const char* fmt, ...);
 #define hloge(fmt, ...) hlog_printf(LOG_LEVEL_ERROR, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hlogf(fmt, ...) hlog_printf(LOG_LEVEL_FATAL, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 
+// blew for android
+#include "hplatform.h"
+#ifdef OS_ANDROID
+#include <android/log.h>
+#define LOG_TAG "JNI"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN,  LOG_TAG, __VA_ARGS__)
+#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGF(...) __android_log_print(ANDROID_LOG_FATAL, LOG_TAG, __VA_ARGS__)
+#else
+#define LOGD    hlogd
+#define LOGI    hlogi
+#define LOGW    hlogw
+#define LOGE    hloge
+#define LOGF    hlogf
+#endif
+
 #endif  // HW_LOG_H_

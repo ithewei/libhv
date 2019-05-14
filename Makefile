@@ -20,6 +20,14 @@ ifeq ($(OS), Windows_NT)
 	OS=Windows
 endif
 
+ifneq ($(findstring android, $(CC)), )
+	OS=Android
+endif
+
+ifndef OS
+	OS=Linux
+endif
+
 MKDIR = mkdir -p
 RM = rm -r
 CP = cp -r
