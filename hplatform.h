@@ -103,7 +103,6 @@
     #define MKDIR(dir) mkdir(dir)
 #else
     #include <unistd.h>
-    #include <pthread.h>
     #include <dirent.h> // for mkdir,rmdir,chdir,getcwd
     #include <sys/time.h>  // for gettimeofday
 
@@ -155,5 +154,9 @@ typedef unsigned __int64    uint64_t;
 // POSIX C
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifndef _MSC_VER
+#include <pthread.h>
+#endif
 
 #endif  // HW_PLATFORM_H_
