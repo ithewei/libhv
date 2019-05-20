@@ -33,9 +33,13 @@ static FILE* shift_logfile() {
     time_t ts_now = time(NULL);
     int interval_days = ts_now / SECONDS_PER_DAY - s_last_logfile_ts / SECONDS_PER_DAY;
     if (s_logfp == NULL || interval_days > 0) {
+        // close old logfile
         if (s_logfp) {
             fclose(s_logfp);
             s_logfp = NULL;
+        }
+        else {
+            interval_days = 30;
         }
         // remove [today-interval_days, today-s_remain_days] logfile
         if (interval_days >= s_remain_days) {
@@ -46,18 +50,20 @@ static FILE* shift_logfile() {
                 remove(rm_logfile);
             }
         }
-        // new today logfile
+    }
+
+    // open today logfile
+    if (s_logfp == NULL) {
         ts_logfile(ts_now, s_cur_logfile, sizeof(s_cur_logfile));
         s_logfp = fopen(s_cur_logfile, "a"); // note: append-mode for multi-processes
         s_last_logfile_ts = ts_now;
     }
-    else {
-        // rewrite if too big
-        if (s_logfp && ftell(s_logfp) > MAX_LOG_FILESIZE) {
-            fclose(s_logfp);
-            s_logfp = NULL;
-            s_logfp = fopen(s_cur_logfile, "w");
-        }
+
+    // rewrite if too big
+    if (s_logfp && ftell(s_logfp) > MAX_LOG_FILESIZE) {
+        fclose(s_logfp);
+        s_logfp = NULL;
+        s_logfp = fopen(s_cur_logfile, "w");
     }
 
     return s_logfp;
