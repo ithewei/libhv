@@ -54,7 +54,7 @@ int     hlog_printf(int level, const char* fmt, ...);
 #define hloge(fmt, ...) hlog_printf(LOG_LEVEL_ERROR, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hlogf(fmt, ...) hlog_printf(LOG_LEVEL_FATAL, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 
-// blew for android
+// below for android
 #include "hplatform.h"
 #ifdef OS_ANDROID
 #include <android/log.h>
