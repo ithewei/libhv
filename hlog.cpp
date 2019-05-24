@@ -41,14 +41,21 @@ static FILE* shift_logfile() {
         else {
             interval_days = 30;
         }
-        // remove [today-interval_days, today-s_remain_days] logfile
         if (interval_days >= s_remain_days) {
+            // remove [today-interval_days, today-s_remain_days] logfile
             char rm_logfile[256] = {0};
             for (int i = interval_days; i >= s_remain_days; --i) {
                 time_t ts_rm  = ts_now - i * SECONDS_PER_DAY;
                 ts_logfile(ts_rm, rm_logfile, sizeof(rm_logfile));
                 remove(rm_logfile);
             }
+        }
+        else {
+            // remove today-s_remain_days logfile
+            char rm_logfile[256] = {0};
+            time_t ts_rm  = ts_now - s_remain_days * SECONDS_PER_DAY;
+            ts_logfile(ts_rm, rm_logfile, sizeof(rm_logfile));
+            remove(rm_logfile);
         }
     }
 
