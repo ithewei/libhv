@@ -95,6 +95,7 @@ int parse_confile(const char* confile) {
     if (!str.empty()) {
         hlog_set_remain_days(atoi(str.c_str()));
     }
+    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
 
     // worker_processes
     int worker_processes = 0;
@@ -199,7 +200,6 @@ int main(int argc, char** argv) {
 
     // logfile
     hlog_set_file(g_main_ctx.logfile);
-    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
 
     // confile
     const char* confile = get_arg("c");
