@@ -20,6 +20,10 @@ ifeq ($(OS), Windows_NT)
 	OS=Windows
 endif
 
+ifneq ($(findstring mingw, $(CC)), )
+	OS=Windows
+endif
+
 ifneq ($(findstring android, $(CC)), )
 	OS=Android
 endif

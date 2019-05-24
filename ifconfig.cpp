@@ -96,9 +96,9 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
 #elif defined(OS_WIN)
 #include <winsock2.h>
 #include <windows.h>
-#include <IphlpApi.h>
+#include <iphlpapi.h>
 #ifdef _MSC_VER
-#pragma comment(lib, "Iphlpapi.lib")
+#pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
 #endif
 int ifconfig(std::vector<ifconfig_t>& ifcs) {

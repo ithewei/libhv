@@ -44,8 +44,8 @@ int Listen(int port) {
     return listenfd;
 }
 
-int Connect(const char* host, int port) {
-    // gethostbyname -> socket -> connect
+int Connect(const char* host, int port, int nonblock) {
+    // gethostbyname -> socket -> nonblocking -> connect
     struct sockaddr_in addr;
     int addrlen = sizeof(addr);
     memset(&addr, 0, addrlen);
@@ -62,7 +62,11 @@ int Connect(const char* host, int port) {
         perror("socket");
         return -20;
     }
-    if (connect(connfd, (struct sockaddr*)&addr, addrlen) < 0) {
+    if (nonblock) {
+        nonblocking(connfd);
+    }
+    int ret = connect(connfd, (struct sockaddr*)&addr, addrlen);
+    if (ret != 0 && ret != EINPROGRESS) {
         perror("connect");
         return -30;
     }

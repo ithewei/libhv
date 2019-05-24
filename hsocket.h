@@ -7,9 +7,9 @@
 // @return sockfd
 int Listen(int port);
 
-// gethostbyname -> socket -> connect
+// gethostbyname -> socket -> nonblocking -> connect
 // @return sockfd
-int Connect(const char* host, int port);
+int Connect(const char* host, int port, int nonblock = 0);
 
 #ifdef OS_WIN
 inline int blocking(int sockfd) {
