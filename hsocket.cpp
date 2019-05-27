@@ -66,7 +66,7 @@ int Connect(const char* host, int port, int nonblock) {
         nonblocking(connfd);
     }
     int ret = connect(connfd, (struct sockaddr*)&addr, addrlen);
-    if (ret != 0 && ret != EINPROGRESS) {
+    if (ret < 0 && sockerrno != EINPROGRESS) {
         perror("connect");
         return -30;
     }
