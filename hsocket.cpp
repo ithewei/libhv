@@ -25,6 +25,7 @@ int Listen(int port) {
     int reuseaddr = 1;
     if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
         perror("setsockopt");
+        closesocket(listenfd);
         return -11;
     }
     struct sockaddr_in addr;
@@ -35,10 +36,12 @@ int Listen(int port) {
     addr.sin_port = htons(port);
     if (bind(listenfd, (struct sockaddr*)&addr, addrlen) < 0) {
         perror("bind");
+        closesocket(listenfd);
         return -20;
     }
     if (listen(listenfd, SOMAXCONN) < 0) {
         perror("listen");
+        closesocket(listenfd);
         return -30;
     }
     return listenfd;
@@ -68,6 +71,7 @@ int Connect(const char* host, int port, int nonblock) {
     int ret = connect(connfd, (struct sockaddr*)&addr, addrlen);
     if (ret < 0 && sockerrno != EINPROGRESS) {
         perror("connect");
+        closesocket(connfd);
         return -30;
     }
     return connfd;

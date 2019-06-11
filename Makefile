@@ -12,9 +12,25 @@
 # BUILD_SHARED=true,false
 #
 # Usage:
-# make all BUILD_SHARED=true OS=Android ARCH=arm DEFINES=USE_OPENCV
+# make all CROSS_COMPILE=arm-linux-androideabi- BUILD_SHARED=true OS=Android ARCH=arm DEFINES=USE_OPENCV
 # DIRS=src LIBDIRS=3rd/lib/arm-linux-android LIBS="opencv_core opencv_highgui"
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+CC 	= $(CROSS_COMPILE)gcc
+CC_TARGET=$(shell $(CC) -v 2>&1 | grep Target | sed 's/Target: //')
+CXX = $(CROSS_COMPILE)g++
+CPP = $(CC) -E
+AS 	= $(CROSS_COMPILE)as
+LD	= $(CROSS_COMPILE)ld
+AR	= $(CROSS_COMPILE)ar
+NM	= $(CROSS_COMPILE)nm
+STRIP 	= $(CROSS_COMPILE)strip
+OBJCOPY	= $(CROSS_COMPILE)objcopy
+OBJDUMP	= $(CROSS_COMPILE)objdump
+
+MKDIR = mkdir -p
+RM = rm -r
+CP = cp -r
 
 ifeq ($(OS), Windows_NT)
 	OS=Windows
@@ -31,10 +47,6 @@ endif
 ifndef OS
 	OS=Linux
 endif
-
-MKDIR = mkdir -p
-RM = rm -r
-CP = cp -r
 
 CPPFLAGS += $(addprefix -D, $(DEFINES))
 ifeq ($(OS), Windows)
@@ -65,6 +77,9 @@ TARGET = test
 
 DIRS += $(shell find $(SRCDIR) -type d)
 SRCS += $(foreach dir, $(DIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
+ifeq ($(SRCS), )
+	SRCS = $(wildcard *.c *.cc *.cpp)
+endif
 #OBJS := $(patsubst %.cpp, %.o, $(SRCS))
 OBJS := $(addsuffix .o, $(basename $(SRCS)))
 
@@ -76,7 +91,7 @@ $(info OBJS=$(OBJS))
 INCDIRS  += $(INCDIR) $(DEPDIR) $(DEPDIR)/include $(DIRS)
 CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
-LIBDIRS += $(LIBDIR) $(DEPDIR)/lib
+LIBDIRS += $(DEPDIR)/lib $(DEPDIR)/lib/$(CC_TARGET)
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
 ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
@@ -101,6 +116,8 @@ $(info ARCH=$(ARCH))
 $(info MAKE=$(MAKE))
 $(info CC=$(CC))
 $(info CXX=$(CXX))
+$(info $(shell $(CC) --version 2>&1 | head -n 1))
+$(info CC_TARGET: $(CC_TARGET))
 $(info CPPFLAGS=$(CPPFLAGS))
 $(info CFLAGS=$(CFLAGS))
 $(info CXXFLAGS=$(CXXFLAGS))

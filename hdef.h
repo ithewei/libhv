@@ -173,8 +173,20 @@ typedef void (*procedure_t)(void* userdata);
 #define STRINGCAT(x, y)  STRINGCAT_HELPER(x, y)
 #define STRINGCAT_HELPER(x, y)   x##y
 
+#ifndef offsetof
+#define offsetof(type, mmeber) \
+((size_t)(&((type*)0)->member))
+#endif
+
+#ifndef offsetofend
+#define offsetofend(type, member) \
+(offsetof(type, member) + sizeof(((type*)0)->member))
+#endif
+
+#ifndef container_of
 #define container_of(ptr, type, member) \
-  ((type *) ((char *) (ptr) - offsetof(type, member)))
+((type*)((char*)(ptr) - offsetof(type, member)))
+#endif
 
 // __cplusplus
 #ifdef __cplusplus
