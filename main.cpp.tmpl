@@ -68,8 +68,9 @@ int parse_confile(const char* confile) {
     // logfile
     string str = g_conf_ctx.parser->GetValue("logfile");
     if (!str.empty()) {
-        hlog_set_file(str.c_str());
+        strncpy(g_main_ctx.logfile, str.c_str(), sizeof(g_main_ctx.logfile));
     }
+    hlog_set_file(g_main_ctx.logfile);
     // loglevel
     const char* szLoglevel = g_conf_ctx.parser->GetValue("loglevel").c_str();
     if (stricmp(szLoglevel, "VERBOSE") == 0) {
@@ -198,17 +199,12 @@ int main(int argc, char** argv) {
         exit(0);
     }
 
-    // logfile
-    hlog_set_file(g_main_ctx.logfile);
-
-    // confile
+    // g_conf_ctx
+    conf_ctx_init(&g_conf_ctx);
     const char* confile = get_arg("c");
     if (confile) {
         strncpy(g_main_ctx.confile, confile, sizeof(g_main_ctx.confile));
     }
-
-    // g_conf_ctx
-    conf_ctx_init(&g_conf_ctx);
     parse_confile(g_main_ctx.confile);
 
     // test

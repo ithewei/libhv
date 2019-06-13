@@ -47,5 +47,5 @@ hw 是一套跨平台c++工具集，类名以H开头
 
 ```
 mv main.cpp.tmpl main.cpp
-make DIRS="."
+make
 ```

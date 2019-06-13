@@ -97,6 +97,8 @@ int main_ctx_init(int argc, char** argv) {
     snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_path, g_main_ctx.program_name);
     snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_path, g_main_ctx.program_name);
 
+    hlog_set_file(g_main_ctx.logfile);
+
     g_main_ctx.oldpid = getpid_from_pidfile();
 #ifdef OS_UNIX
     if (kill(g_main_ctx.oldpid, 0) == -1 && errno == ESRCH) {
