@@ -1,23 +1,25 @@
 #+++++++++++++++++++++++++++++++++configure++++++++++++++++++++++++++++++++++++++++
 # OS=Windows,Linux,Android
 # ARCH=x86,x86_64,arm,aarch64
-# CC
-# CXX
+# CC  = $(CROSS_COMPILE)gcc
+# CXX = $(CROSS_COMPILE)g++
 # CPPFLAGS += $(addprefix -D, $(DEFINES))
 # CPPFLAGS += $(addprefix -I, $(INCDIRS))
-# CFLAGS
-# CXXFLAGS
-# LDFLAGS += $(addprefix -L, $(LIBDIRS))
-# LDFLAGS += $(addprefix -l, $(LIBS))
-# BUILD_SHARED=true,false
+# LDFLAGS  += $(addprefix -L, $(LIBDIRS))
+# LDFLAGS  += $(addprefix -l, $(LIBS))
 #
 # Usage:
-# make all CROSS_COMPILE=arm-linux-androideabi- BUILD_SHARED=true OS=Android ARCH=arm DEFINES=USE_OPENCV
-# DIRS=src LIBDIRS=3rd/lib/arm-linux-android LIBS="opencv_core opencv_highgui"
+# make all TARGET_TYPE=SHARED \
+# CROSS_COMPILE=arm-linux-androideabi- \
+# DEFINES=USE_OPENCV \
+# LIBS="opencv_core opencv_highgui"
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#BUILD_TYPE=DEBUG,RELEASE
+BUILD_TYPE=DEBUG
+#TARGET_TYPE=EXECUTABLE,SHARED,STATIC
+TARGET_TYPE=EXECUTABLE
 
 CC 	= $(CROSS_COMPILE)gcc
-CC_TARGET=$(shell $(CC) -v 2>&1 | grep Target | sed 's/Target: //')
 CXX = $(CROSS_COMPILE)g++
 CPP = $(CC) -E
 AS 	= $(CROSS_COMPILE)as
@@ -32,37 +34,38 @@ MKDIR = mkdir -p
 RM = rm -r
 CP = cp -r
 
-ifeq ($(OS), Windows_NT)
+TARGET_PLATFORM=$(shell $(CC) -v 2>&1 | grep Target | sed 's/Target: //')
+ifneq ($(findstring mingw, $(TARGET_PLATFORM)), )
 	OS=Windows
 endif
-
-ifneq ($(findstring mingw, $(CC)), )
-	OS=Windows
-endif
-
-ifneq ($(findstring android, $(CC)), )
+ifneq ($(findstring android, $(TARGET_PLATFORM)), )
 	OS=Android
 endif
-
 ifndef OS
 	OS=Linux
 endif
 
-CPPFLAGS += $(addprefix -D, $(DEFINES))
-ifeq ($(OS), Windows)
-	CPPFLAGS += -D_WIN32_WINNT=0x600
-ifeq ($(BUILD_SHARED),true)
-	CPPFLAGS += -DDLL_EXPORTS
-endif
+ifndef ARCH
+ARCH=$(shell echo 'x86_64-linux-gnu' | awk -F'-' '{print $$1}')
 endif
 
-COMMON_CFLAGS += -g -Wall -O3
-ifeq ($(BUILD_SHARED),true)
-	COMMON_CFLAGS += -shared -fPIC -fvisibility=hidden
+ifeq ($(BUILD_TYPE), DEBUG)
+	DEFAULT_CFLAGS = -g
 endif
-CFLAGS += $(COMMON_CFLAGS) -std=c99
-CXXFLAGS += $(COMMON_CFLAGS) -std=c++11
+DEFAULT_CFLAGS += -Wall -O3 -fPIC
+ifneq ($(TARGET_TYPE), EXECUTABLE)
+	DEFAULT_CFLAGS += -shared -fvisibility=hidden
+endif
+
+ifndef CFLAGS
+CFLAGS := $(DEFAULT_CFLAGS) -std=c99
+endif
+ifndef CXXFLAGS
+CXXFLAGS := $(DEFAULT_CFLAGS) -std=c++11
+endif
+ifndef ARFLAGS
 ARFLAGS := cr
+endif
 
 INCDIR = include
 LIBDIR = lib
@@ -73,25 +76,19 @@ CONFDIR = etc
 DISTDIR = dist
 DOCDIR  = doc
 
-TARGET = test
+SRCDIRS += $(shell find $(SRCDIR) -type d)
+INCDIRS += $(INCDIR) $(DEPDIR) $(DEPDIR)/include $(SRCDIRS)
+LIBDIRS += $(LIBDIR) $(DEPDIR)/lib $(DEPDIR)/lib/$(TARGET_PLATFORM)
 
-DIRS += $(shell find $(SRCDIR) -type d)
-SRCS += $(foreach dir, $(DIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
-ifeq ($(SRCS), )
-	SRCS = $(wildcard *.c *.cc *.cpp)
+CPPFLAGS += $(addprefix -D, $(DEFINES))
+ifeq ($(OS), Windows)
+	CPPFLAGS += -D_WIN32_WINNT=0x600
+ifeq ($(BUILD_SHARED), true)
+	CPPFLAGS += -DDLL_EXPORTS
 endif
-#OBJS := $(patsubst %.cpp, %.o, $(SRCS))
-OBJS := $(addsuffix .o, $(basename $(SRCS)))
-
-$(info TARGET=$(TARGET))
-$(info DIRS=$(DIRS))
-$(info SRCS=$(SRCS))
-$(info OBJS=$(OBJS))
-
-INCDIRS  += $(INCDIR) $(DEPDIR) $(DEPDIR)/include $(DIRS)
+endif
 CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
-LIBDIRS += $(DEPDIR)/lib $(DEPDIR)/lib/$(CC_TARGET)
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
 ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
@@ -111,40 +108,59 @@ else
 endif
 endif
 
+$(info $(shell $(CC) --version 2>&1 | head -n 1))
+$(info TARGET_PLATFORM=$(TARGET_PLATFORM))
 $(info OS=$(OS))
 $(info ARCH=$(ARCH))
 $(info MAKE=$(MAKE))
 $(info CC=$(CC))
 $(info CXX=$(CXX))
-$(info $(shell $(CC) --version 2>&1 | head -n 1))
-$(info CC_TARGET: $(CC_TARGET))
 $(info CPPFLAGS=$(CPPFLAGS))
 $(info CFLAGS=$(CFLAGS))
 $(info CXXFLAGS=$(CXXFLAGS))
 $(info LDFLAGS=$(LDFLAGS))
 
+TARGET_NAME = test
+
+SRCS += $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
+ifeq ($(SRCS), )
+	SRCS = $(wildcard *.c *.cc *.cpp)
+endif
+#OBJS += $(patsubst %.c, %.o, $(SRCS))
+#OBJS += $(patsubst %.cc, %.o, $(SRCS))
+#OBJS += $(patsubst %.cpp, %.o, $(SRCS))
+OBJS := $(addsuffix .o, $(basename $(SRCS)))
+
+$(info TARGET_TYPE=$(TARGET_TYPE))
+$(info TARGET_NAME=$(TARGET_NAME))
+$(info SRCS=$(SRCS))
+$(info OBJS=$(OBJS))
+
 default: all
 
-all: prepare $(TARGET)
+all: prepare $(TARGET_NAME)
 
 prepare:
 	$(MKDIR) $(BINDIR) $(LIBDIR)
 
-$(TARGET): $(OBJS)
-# executable
+$(TARGET_NAME): $(OBJS)
+ifeq ($(TARGET_TYPE), SHARED)
+ifeq ($(OS), Windows)
+	$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
+else
+	$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
+endif
+else
+ifeq ($(TARGET_TYPE), STATIC)
+	$(AR) $(ARFLAGS) $(LIBDIR)/$@.a $^
+else
 ifeq ($(OS), Windows)
 	$(CXX) $(CXXFLAGS) $^ -o $(BINDIR)/$@.exe $(LDFLAGS)
 else
 	$(CXX) $(CXXFLAGS) $^ -o $(BINDIR)/$@ $(LDFLAGS)
 endif
-# dynamic
-#ifeq ($(OS), Windows)
-	#$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$@.def
-#else
-	#$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
-#endif
-# archive
-	#$(AR) $(ARFLAGS) $(LIBDIR)/$@.a $^
+endif
+endif
 
 clean:
 	$(RM) $(OBJS)
