@@ -22,7 +22,6 @@ public:
     HTask() {
         state_ = TASK_STATE_NOT_READY;
         errno_ = 0;
-        is_wait_ = false;
         timeout_ = DEFAULT_TASK_TIMEOUT;
     }
 
@@ -59,9 +58,7 @@ public:
     }
 
     int Wait(std::unique_lock<std::mutex>& locker) {
-        is_wait_ = true;
         std::cv_status status = cond_.wait_for(locker, std::chrono::milliseconds(timeout_));
-        is_wait_ = false;
         if (status == std::cv_status::timeout){
             SetErrno(ERR_TASK_TIMEOUT);
             return ERR_TASK_TIMEOUT;
@@ -81,10 +78,7 @@ public:
 
 protected:
     void wake() {
-        if (is_wait_){
-            is_wait_ = false;
-            cond_.notify_all();
-        }
+        cond_.notify_all();
     }
 
 public:
@@ -93,7 +87,6 @@ protected:
     State state_;
     int errno_;
     std::condition_variable cond_;
-    bool is_wait_;
     time_t timeout_;
 };
 
