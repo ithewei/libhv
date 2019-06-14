@@ -53,10 +53,6 @@ ifeq ($(BUILD_TYPE), DEBUG)
 	DEFAULT_CFLAGS = -g
 endif
 DEFAULT_CFLAGS += -Wall -O3 -fPIC
-ifneq ($(TARGET_TYPE), EXECUTABLE)
-	DEFAULT_CFLAGS += -shared -fvisibility=hidden
-endif
-
 ifndef CFLAGS
 CFLAGS := $(DEFAULT_CFLAGS) -std=c99
 endif
@@ -98,13 +94,13 @@ endif
 LDFLAGS += $(addprefix -l, $(LIBS))
 
 ifeq ($(OS), Windows)
-	LDFLAGS += -lwinmm -liphlpapi -lws2_32
+	LDFLAGS += -Wl,-Bdynamic -lwinmm -liphlpapi -lws2_32
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
 else
 ifeq ($(OS), Android)
-	LDFLAGS += -llog -lm
+	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lm -llog
 else
-	LDFLAGS += -lstdc++ -lpthread -lm -ldl
+	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lpthread -lm
 endif
 endif
 
@@ -146,18 +142,18 @@ prepare:
 $(TARGET_NAME): $(OBJS)
 ifeq ($(TARGET_TYPE), SHARED)
 ifeq ($(OS), Windows)
-	$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
+	$(CC) -shared $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
 else
-	$(CXX) $(CXXFLAGS) $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
+	$(CC) -shared $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
 endif
 else
 ifeq ($(TARGET_TYPE), STATIC)
 	$(AR) $(ARFLAGS) $(LIBDIR)/$@.a $^
 else
 ifeq ($(OS), Windows)
-	$(CXX) $(CXXFLAGS) $^ -o $(BINDIR)/$@.exe $(LDFLAGS)
+	$(CC) $^ -o $(BINDIR)/$@.exe $(LDFLAGS)
 else
-	$(CXX) $(CXXFLAGS) $^ -o $(BINDIR)/$@ $(LDFLAGS)
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS)
 endif
 endif
 endif
