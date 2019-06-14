@@ -1,10 +1,7 @@
 #ifndef HW_VERSION_H_
 #define HW_VERSION_H_
 
-#include <stdio.h>
-
 #include "hdef.h"
-#include "htime.h"
 
 #define H_VERSION_MAJOR   1
 #define H_VERSION_MINOR   18
@@ -22,12 +19,6 @@ inline const char* get_static_version() {
     return H_VERSION_STRING;
 }
 
-inline const char* get_compile_version() {
-    static char version[64];
-    static datetime_t dt = get_compile_datetime();
-    snprintf(version, sizeof(version), "%d.%02d.%02d.%02d",
-        H_VERSION_MAJOR, dt.year%100, dt.month, dt.day);
-    return version;
-}
+const char* get_compile_version();
 
 #endif  // HW_VERSION_H_
