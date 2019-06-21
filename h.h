@@ -32,7 +32,6 @@
 
 #include "hlog.h"
 #include "hstring.h"
-#include "hmain.h"
 #include "hframe.h"
 #endif
 

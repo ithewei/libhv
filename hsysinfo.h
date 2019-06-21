@@ -3,7 +3,7 @@
 
 #include "hplatform.h"
 
-#ifdef OS_UNIX
+#ifdef OS_LINUX
 #include <sys/sysinfo.h>
 #endif
 

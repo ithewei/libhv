@@ -101,6 +101,30 @@ typedef void (*procedure_t)(void* userdata);
 #define BITGET(i, n) ((i) & (1u << (n)))
 #endif
 
+#ifndef LOWER
+#define LOWER(c)    ((c) | 0x20)
+#endif
+
+#ifndef UPPER
+#define UPPER(c)    ((c) & ~0x20)
+#endif
+
+#ifndef IS_NUM
+#define IS_NUM(c)   ((c) >= '0' && (c) <= '9')
+#endif
+
+#ifndef IS_ALPHA
+#define IS_ALPHA(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'A'))
+#endif
+
+#ifndef IS_ALPHANUM
+#define IS_ALPHANUM(c) (IS_NUM(c) || IS_ALPHA(c))
+#endif
+
+#ifndef IS_HEX
+#define IS_HEX(c) (IS_NUM(c) || ((c) >= 'a' && (c) <= 'f') || ((c) >= 'A' && (c) <= 'F'))
+#endif
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif

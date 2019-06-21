@@ -100,7 +100,7 @@ else
 ifeq ($(OS), Android)
 	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lm -llog
 else
-	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lpthread -lm
+	LDFLAGS += -lstdc++ -lpthread -lm
 endif
 endif
 

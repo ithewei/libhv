@@ -19,6 +19,6 @@ inline const char* get_static_version() {
     return H_VERSION_STRING;
 }
 
-const char* get_compile_version();
+EXTERN_C const char* get_compile_version();
 
 #endif  // HW_VERSION_H_
