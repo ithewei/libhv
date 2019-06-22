@@ -8,8 +8,6 @@
 #include <iostream>
 #include <sstream>
 
-#define SPACE_CHARS     " \t\r\n"
-
 int vscprintf(const char* fmt, va_list ap) {
     return vsnprintf(NULL, 0, fmt, ap);
 }
@@ -42,23 +40,38 @@ StringList split(const string& str, char delim) {
     return res;
 }
 
-string trim(const string& str) {
-    string::size_type pos1 = str.find_first_not_of(SPACE_CHARS);
+string trim(const string& str, const char* chars) {
+    string::size_type pos1 = str.find_first_not_of(chars);
     if (pos1 == string::npos)   return "";
 
-    string::size_type pos2 = str.find_last_not_of(SPACE_CHARS);
+    string::size_type pos2 = str.find_last_not_of(chars);
     return str.substr(pos1, pos2-pos1+1);
 }
 
-string trimL(const string& str) {
-    string::size_type pos = str.find_first_not_of(SPACE_CHARS);
+string trimL(const string& str, const char* chars) {
+    string::size_type pos = str.find_first_not_of(chars);
     if (pos == string::npos)    return "";
     return str.substr(pos);
 }
 
-string trimR(const string& str) {
-    string::size_type pos = str.find_last_not_of(SPACE_CHARS);
+string trimR(const string& str, const char* chars) {
+    string::size_type pos = str.find_last_not_of(chars);
     return str.substr(0, pos+1);
+}
+
+string trim_pairs(const string& str, const char* pairs) {
+    const char* s = str.c_str();
+    const char* e = str.c_str() + str.size() - 1;
+    const char* p = pairs;
+    bool is_pair = false;
+    while (*p != '\0' && *(p+1) != '\0') {
+        if (*s == *p && *e == *(p+1)) {
+            is_pair = true;
+            break;
+        }
+        p += 2;
+    }
+    return is_pair ? str.substr(1, str.size()-2) : str;
 }
 
 string replace(const string& str, const string& find, const string& rep) {
