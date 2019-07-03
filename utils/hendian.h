@@ -20,10 +20,10 @@ int detect_endian() {
 }
 
 template <typename T>
-uint8* serialize(uint8* buf, T value, int host_endian = LITTLE_ENDIAN, int buf_endian = BIG_ENDIAN) {
+uint8_t* serialize(uint8_t* buf, T value, int host_endian = LITTLE_ENDIAN, int buf_endian = BIG_ENDIAN) {
     size_t size = sizeof(T);
-    uint8* pDst = buf;
-    uint8* pSrc = (uint8*)&value;
+    uint8_t* pDst = buf;
+    uint8_t* pSrc = (uint8_t*)&value;
 
     if (host_endian == buf_endian) {
         memcpy(pDst, pSrc, size);
@@ -37,10 +37,10 @@ uint8* serialize(uint8* buf, T value, int host_endian = LITTLE_ENDIAN, int buf_e
 }
 
 template <typename T>
-uint8* deserialize(uint8* buf, T* value, int host_endian = LITTLE_ENDIAN, int buf_endian = BIG_ENDIAN) {
+uint8_t* deserialize(uint8_t* buf, T* value, int host_endian = LITTLE_ENDIAN, int buf_endian = BIG_ENDIAN) {
     size_t size = sizeof(T);
-    uint8* pSrc = buf;
-    uint8* pDst = (uint8*)value;
+    uint8_t* pSrc = buf;
+    uint8_t* pDst = (uint8_t*)value;
 
     if (host_endian == buf_endian) {
         memcpy(pDst, pSrc, size);
