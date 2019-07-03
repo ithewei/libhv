@@ -20,24 +20,24 @@
 
 // cpp
 #ifdef __cplusplus
-#include "hmutex.h"
-#include "hthread.h"
-#include "hthreadpool.h"
-#include "hscope.h"
+#include "hlog.h"
+#include "hstring.h"
+#include "hsocket.h"
+
 #include "hvar.h"
 #include "hobj.h"
 #include "hgui.h"
 #include "hbuf.h"
 #include "hfile.h"
-
-#include "hlog.h"
-#include "hstring.h"
-#include "hframe.h"
+#include "hscope.h"
+#include "hmutex.h"
+#include "hthread.h"
+#include "hthreadpool.h"
 #endif
 
 //--------------------utils-----------------------------
 #ifdef WITH_HW_UTILS
-#include "base.h"
+#include "base64.h"
 #include "hbytearray.h"
 #include "hframe.h"
 #include "ifconfig.h"
