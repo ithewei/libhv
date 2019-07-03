@@ -289,9 +289,9 @@ int create_pidfile() {
     char pid[16] = {0};
     snprintf(pid, sizeof(pid), "%d\n", g_main_ctx.pid);
     fwrite(pid, 1, strlen(pid), fp);
-    fclose(fp); atexit(delete_pidfile);
+    fclose(fp);
     hlogi("create_pidfile [%s] pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
-
+    atexit(delete_pidfile);
     return 0;
 }
 

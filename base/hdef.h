@@ -38,7 +38,7 @@ typedef void (*procedure_t)(void* userdata);
 #endif
 
 #ifndef INFINITE
-#define INFINITE    0xFFFFFFFF
+#define INFINITE    0xFFFFFFFFU
 #endif
 
 #ifndef CR

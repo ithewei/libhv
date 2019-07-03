@@ -95,16 +95,17 @@
     #define _CRT_NONSTDC_NO_DEPRECATE
     #include <winsock2.h>
     #include <windows.h>
-    #include <process.h> // for getpid,exec
-    #include <direct.h> // for mkdir,rmdir,chdir,getcwd
+    #include <process.h>    // for getpid,exec
+    #include <direct.h>     // for mkdir,rmdir,chdir,getcwd
+    #include <io.h>         // for open,close,read,write,lseek,tell
 
     #define strcasecmp stricmp
     #define strncasecmp strnicmp
     #define MKDIR(dir) mkdir(dir)
 #else
     #include <unistd.h>
-    #include <dirent.h> // for mkdir,rmdir,chdir,getcwd
-    #include <sys/time.h>  // for gettimeofday
+    #include <dirent.h>     // for mkdir,rmdir,chdir,getcwd
+    #include <sys/time.h>   // for gettimeofday
 
     // socket
     #include <sys/types.h>
@@ -114,7 +115,7 @@
     #include <netinet/tcp.h>
     #include <netinet/udp.h>
     #include <fcntl.h>
-    #include <netdb.h> // for gethostbyname
+    #include <netdb.h>  // for gethostbyname
 
     #include <strings.h>
     #define stricmp     strcasecmp

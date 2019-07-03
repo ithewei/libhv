@@ -29,7 +29,7 @@ int Listen(int port) {
         return -11;
     }
     struct sockaddr_in addr;
-    unsigned int addrlen = sizeof(addr);
+    socklen_t addrlen = sizeof(addr);
     memset(&addr, 0, addrlen);
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -50,7 +50,7 @@ int Listen(int port) {
 int Connect(const char* host, int port, int nonblock) {
     // gethostbyname -> socket -> nonblocking -> connect
     struct sockaddr_in addr;
-    int addrlen = sizeof(addr);
+    socklen_t addrlen = sizeof(addr);
     memset(&addr, 0, addrlen);
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = inet_addr(host);
@@ -69,7 +69,11 @@ int Connect(const char* host, int port, int nonblock) {
         nonblocking(connfd);
     }
     int ret = connect(connfd, (struct sockaddr*)&addr, addrlen);
+#ifdef OS_WIN
+    if (ret < 0 && sockerrno != WSAEWOULDBLOCK) {
+#else
     if (ret < 0 && sockerrno != EINPROGRESS) {
+#endif
         perror("connect");
         closesocket(connfd);
         return -30;

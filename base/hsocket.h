@@ -12,6 +12,7 @@ int Listen(int port);
 int Connect(const char* host, int port, int nonblock = 0);
 
 #ifdef OS_WIN
+typedef int socklen_t;
 inline int blocking(int sockfd) {
     unsigned long nb = 0;
     return ioctlsocket(sockfd, FIONBIO, &nb);
@@ -21,11 +22,13 @@ inline int nonblocking(int sockfd) {
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
 #define sockerrno   WSAGetLastError()
+#define NIO_EAGAIN  WSAEWOULDBLOCK
 #else
 #define blocking(s)     fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
 #define nonblocking(s)  fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK)
 #define closesocket close
 #define sockerrno   errno
+#define NIO_EAGAIN  EAGAIN
 #endif
 
 inline int tcp_nodelay(int sockfd, int on = 1) {

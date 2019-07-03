@@ -5,6 +5,7 @@
  * @copyright 2018 HeWei, all rights reserved.
  */
 
+//-------------------base---------------------------
 // platform
 #include "hplatform.h"
 #include "hdef.h"
@@ -28,19 +29,28 @@
 #include "hgui.h"
 #include "hbuf.h"
 #include "hfile.h"
-#include "hbytearray.h"
 
 #include "hlog.h"
 #include "hstring.h"
 #include "hframe.h"
 #endif
 
-// misc
-/*
-#include "singleton.h"
-#include "base64.h"
-#include "iniparser.h"
+//--------------------utils-----------------------------
+#ifdef WITH_HW_UTILS
+#include "base.h"
+#include "hbytearray.h"
+#include "hframe.h"
 #include "ifconfig.h"
-*/
+#include "iniparser.h"
+#include "json.hpp"
+#include "singleton.h"
+#include "htask.h"
+#include "task_queue.h"
+#endif
+
+//--------------------misc------------------------------
+#ifdef WITH_HW_MISC
+#include "win32_getopt.h"
+#endif
 
 #endif  // HW_H_
