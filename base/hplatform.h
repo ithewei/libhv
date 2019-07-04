@@ -155,6 +155,7 @@ typedef unsigned __int64    uint64_t;
 // POSIX C
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #ifndef _MSC_VER
 #include <pthread.h>

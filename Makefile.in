@@ -9,16 +9,20 @@
 # LDFLAGS  += $(addprefix -l, $(LIBS))
 #
 # Usage:
-# make all TARGET_TYPE=SHARED \
+# make all TARGET=libxx TARGET_TYPE=SHARED \
 # CROSS_COMPILE=arm-linux-androideabi- \
 # DEFINES=USE_OPENCV \
 # LIBS="opencv_core opencv_highgui"
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+# VARIABLES
+TARGET=test
 #BUILD_TYPE=DEBUG,RELEASE
 BUILD_TYPE=DEBUG
 #TARGET_TYPE=EXECUTABLE,SHARED,STATIC
 TARGET_TYPE=EXECUTABLE
 
+# COMMANDS
 CC 	= $(CROSS_COMPILE)gcc
 CXX = $(CROSS_COMPILE)g++
 CPP = $(CC) -E
@@ -30,10 +34,12 @@ STRIP 	= $(CROSS_COMPILE)strip
 OBJCOPY	= $(CROSS_COMPILE)objcopy
 OBJDUMP	= $(CROSS_COMPILE)objdump
 
-MKDIR = mkdir -p
-RM = rm -r
-CP = cp -r
+MKDIR = -mkdir -p
+CP = -cp -r
+RM = -rm -r
 
+# PLATFORM: OS, ARCH
+CC_VERSION=$(shell $(CC) --version 2>&1 | head -n 1)
 TARGET_PLATFORM=$(shell $(CC) -v 2>&1 | grep Target | sed 's/Target: //')
 ifneq ($(findstring mingw, $(TARGET_PLATFORM)), )
 	OS=Windows
@@ -46,23 +52,29 @@ ifndef OS
 endif
 
 ifndef ARCH
-ARCH=$(shell echo 'x86_64-linux-gnu' | awk -F'-' '{print $$1}')
+ARCH=$(shell echo $(TARGET_PLATFORM) | awk -F'-' '{print $$1}')
 endif
 
+# CFLAGS, CXXFLAGS, ARFLAGS
 ifeq ($(BUILD_TYPE), DEBUG)
 	DEFAULT_CFLAGS = -g
 endif
 DEFAULT_CFLAGS += -Wall -O3 -fPIC
 ifndef CFLAGS
-CFLAGS := $(DEFAULT_CFLAGS) -std=c99
+CFLAGS := $(DEFAULT_CFLAGS) -std=c99 $(MAKE_CFLAGS)
 endif
 ifndef CXXFLAGS
-CXXFLAGS := $(DEFAULT_CFLAGS) -std=c++11
+CXXFLAGS := $(DEFAULT_CFLAGS) -std=c++11 $(MAKE_CXXFLAGS)
 endif
 ifndef ARFLAGS
 ARFLAGS := cr
 endif
 
+# DIRS
+PREFIX = install
+ifeq ($(OS), Linux)
+	PREFIX = /usr/local
+endif
 INCDIR = include
 LIBDIR = lib
 SRCDIR = src
@@ -76,21 +88,24 @@ SRCDIRS += $(shell find $(SRCDIR) -type d)
 INCDIRS += $(INCDIR) $(DEPDIR) $(DEPDIR)/include $(SRCDIRS)
 LIBDIRS += $(LIBDIR) $(DEPDIR)/lib $(DEPDIR)/lib/$(TARGET_PLATFORM)
 
-CPPFLAGS += $(addprefix -D, $(DEFINES))
+# CPPFLAGS
 ifeq ($(OS), Windows)
 	CPPFLAGS += -D_WIN32_WINNT=0x600
-ifeq ($(BUILD_SHARED), true)
+ifeq ($(TARGET_TYPE), SHARED)
 	CPPFLAGS += -DDLL_EXPORTS
 endif
 endif
+ifeq ($(BUILD_TYPE), DEBUG)
+	CPPFLAGS += -DDEBUG
+endif
+CPPFLAGS += $(addprefix -D, $(DEFINES))
 CPPFLAGS += $(addprefix -I, $(INCDIRS))
 
-LDFLAGS += $(addprefix -L, $(LIBDIRS))
+# LDFLAGS
 ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
 endif
-
-#common LIBS
+LDFLAGS += $(addprefix -L, $(LIBDIRS))
 LDFLAGS += $(addprefix -l, $(LIBS))
 
 ifeq ($(OS), Windows)
@@ -104,20 +119,6 @@ else
 endif
 endif
 
-$(info $(shell $(CC) --version 2>&1 | head -n 1))
-$(info TARGET_PLATFORM=$(TARGET_PLATFORM))
-$(info OS=$(OS))
-$(info ARCH=$(ARCH))
-$(info MAKE=$(MAKE))
-$(info CC=$(CC))
-$(info CXX=$(CXX))
-$(info CPPFLAGS=$(CPPFLAGS))
-$(info CFLAGS=$(CFLAGS))
-$(info CXXFLAGS=$(CXXFLAGS))
-$(info LDFLAGS=$(LDFLAGS))
-
-TARGET = test
-
 SRCS += $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
 ifeq ($(SRCS), )
 	SRCS = $(wildcard *.c *.cc *.cpp)
@@ -127,10 +128,35 @@ endif
 #OBJS += $(patsubst %.cpp, %.o, $(SRCS))
 OBJS := $(addsuffix .o, $(basename $(SRCS)))
 
-$(info TARGET=$(TARGET))
-$(info TARGET_TYPE=$(TARGET_TYPE))
+INSTALLED_INCS=$(addprefix $(PREFIX)/$(INCDIR)/, $(shell ls $(INCDIR)))
+INSTALLED_LIBS=$(addprefix $(PREFIX)/$(LIBDIR)/, $(shell ls $(LIBDIR)))
+INSTALLED_BINS=$(addprefix $(PREFIX)/$(BINDIR)/, $(shell ls $(BINDIR)))
+
+# info
+$(info $(CC_VERSION))
+
+$(info OS   = $(OS))
+$(info ARCH = $(ARCH))
+$(info MAKE = $(MAKE))
+$(info CC   = $(CC))
+$(info CXX  = $(CXX))
+
+$(info CFLAGS   = $(CFLAGS))
+$(info CXXFLAGS = $(CXXFLAGS))
+$(info CPPFLAGS = $(CPPFLAGS))
+$(info LDFLAGS  = $(LDFLAGS))
+
+$(info TARGET           = $(TARGET))
+$(info TARGET_TYPE      = $(TARGET_TYPE))
+$(info TARGET_PLATFORM  = $(TARGET_PLATFORM))
+$(info BUILD_TYPE       = $(BUILD_TYPE))
+
 $(info SRCS=$(SRCS))
 $(info OBJS=$(OBJS))
+
+$(info INSTALLED_INCS=$(INSTALLED_INCS))
+$(info INSTALLED_LIBS=$(INSTALLED_LIBS))
+$(info INSTALLED_BINS=$(INSTALLED_BINS))
 
 default: all
 
@@ -160,16 +186,22 @@ endif
 
 clean:
 	$(RM) $(OBJS)
-	$(RM) $(BINDIR)
 	$(RM) $(LIBDIR)
+	$(RM) $(BINDIR)
 
 install:
+	$(CP) $(INCDIR)/* $(PREFIX)/$(INCDIR)/
+	$(CP) $(LIBDIR)/* $(PREFIX)/$(LIBDIR)/
+	$(CP) $(BINDIR)/* $(PREFIX)/$(BINDIR)/
 
 uninstall:
+	$(RM) $(INSTALLED_INCS)
+	$(RM) $(INSTALLED_LIBS)
+	$(RM) $(INSTALLED_BINS)
 
 dist:
 	$(MKDIR) $(DISTDIR)
-	$(CP) $(INCDIR) $(LIBDIR) $(BINDIR) $(DISTDIR)
+	$(CP) $(INCDIR) $(LIBDIR) $(BINDIR) $(CONFDIR) $(DOCDIR) $(DISTDIR)
 
 undist:
 	$(RM) $(DISTDIR)

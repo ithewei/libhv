@@ -1,33 +1,45 @@
-reset:
-	-mkdir -p test
-	-rm test/*.c test/*.cpp test/*.o;
+MAKEF=$(MAKE) -f Makefile.in
+TMPDIR=tmp
+
+default: all
+
+all: test client server httpd webbench
 
 clean:
-	make clean SRCDIRS=". base utils event http test" -f Makefile.in
+	$(MAKEF) clean SRCDIRS=". base utils event http $(TMPDIR)"
 
-test: reset
-	cp main.cpp.tmpl test/main.cpp
-	make TARGET="test" SRCDIRS=". base utils test" -f Makefile.in
+prepare:
+	-mkdir -p $(TMPDIR)
 
-client: reset
-	cp event/client.cpp.demo test/client.cpp
-	make TARGET="client" SRCDIRS=". base event test" -f Makefile.in
+test: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp main.cpp.tmpl $(TMPDIR)/main.cpp
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils $(TMPDIR)"
 
-server: reset
-	cp event/server.cpp.demo test/server.cpp
-	make TARGET="server" SRCDIRS=". base event test" -f Makefile.in
+client: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp event/client.cpp.demo $(TMPDIR)/client.cpp
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
-curl: reset
-	cp http/curl.cpp.demo test/curl.cpp
-	cp http/http_client.cpp.curl test/http_client.cpp
-	make TARGET="curl" SRCDIRS=". base utils event http test" LIBS="curl" -f Makefile.in
+server: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp event/server.cpp.demo $(TMPDIR)/server.cpp
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
-httpd: reset
-	cp http/httpd.cpp.demo test/httpd.cpp
-	make TARGET="httpd" SRCDIRS=". base utils event http test" -f Makefile.in
+httpd: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp http/httpd.cpp.demo $(TMPDIR)/httpd.cpp
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http $(TMPDIR)"
 
-webbench: reset
-	cp http/webbench.c.demo test/webbench.c
-	make TARGET="webbench" SRCDIRS="test" -f Makefile.in
+webbench: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp http/webbench.c.demo $(TMPDIR)/webbench.c
+	$(MAKEF) TARGET=$@ SRCS="$(TMPDIR)/webbench.c"
 
-.PHONY: reset clean test client server curl httpd
+curl: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp http/curl.cpp.demo $(TMPDIR)/curl.cpp
+	cp http/http_client.cpp.curl $(TMPDIR)/http_client.cpp
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http $(TMPDIR)" LIBS="curl"
+
+.PHONY: clean prepare test client server curl httpd webbench

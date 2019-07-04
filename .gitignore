@@ -21,6 +21,7 @@ cscope*
 *.log
 *.db
 
+tmp
 lib
 bin
 dist
