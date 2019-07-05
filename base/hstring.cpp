@@ -8,6 +8,28 @@
 #include <iostream>
 #include <sstream>
 
+char* strupper(char* str) {
+    char* p = str;
+    while (*p != '\0') {
+        if (*p >= 'a' && *p <= 'z') {
+            *p &= ~0x20;
+        }
+        ++p;
+    }
+    return str;
+}
+
+char* strlower(char* str) {
+    char* p = str;
+    while (*p != '\0') {
+        if (*p >= 'A' && *p <= 'Z') {
+            *p |= 0x20;
+        }
+        ++p;
+    }
+    return str;
+}
+
 int vscprintf(const char* fmt, va_list ap) {
     return vsnprintf(NULL, 0, fmt, ap);
 }

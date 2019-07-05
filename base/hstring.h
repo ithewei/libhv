@@ -10,6 +10,9 @@ using std::string;
 
 typedef std::vector<string> StringList;
 
+char* strupper(char* str);
+char* strlower(char* str);
+
 string asprintf(const char* fmt, ...);
 StringList split(const string& str, char delim);
 string trim(const string& str, const char* chars = SPACE_CHARS);
