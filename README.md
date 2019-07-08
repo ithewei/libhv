@@ -14,7 +14,7 @@ hw 是一套跨平台c++工具集，类名以H开头
 
 ## Module
 
-- h.h：总头文件
+### base
 - hplatform.h: 平台相关
 - hdef.h: 宏定义
 - hversion.h: 版本
@@ -33,19 +33,29 @@ hw 是一套跨平台c++工具集，类名以H开头
 - hmutex.h：同步锁
 - hthread.h：线程
 - hthreadpool.h：线程池
+
+### utils
 - hendian.h: 大小端
 - hmain.h: main_ctx: arg env
 - ifconfig.h: ifconfig实现
 - singleton.h: 单例模式
 - iniparser.h: ini解析
 
-## other
+### event
+- hloop.h: 事件循环
 
+### http
+- http_client.h: http客户端
+- http_server.h: http服务端
+
+### other
+
+- h.h：总头文件
 - Makefile.in: 通用Makefile模板
 - main.cpp.tmpl: 通用main.cpp模板
 
 ## BUILD
 
 ```
-make test
+make all
 ```

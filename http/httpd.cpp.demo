@@ -1,8 +1,8 @@
 #include "h.h"
 #include "hmain.h"
-#include "HttpServer.h"
-#include "api_test.h"
 #include "httpd_conf.h"
+#include "http_server.h"
+#include "api_test.h"
 
 httpd_conf_ctx_t g_conf_ctx;
 HttpService g_http_service;
@@ -233,22 +233,19 @@ int main(int argc, char** argv) {
     // pidfile
     create_pidfile();
 
-    // HttpServer
-    HttpServer srv;
-    ret = srv.SetListenPort(g_conf_ctx.port);
-    if (ret < 0) {
-        return ret;
-    }
-    srv.SetWorkerProcesses(g_conf_ctx.worker_processes);
-    //g_http_service.AddApi("query", HTTP_GET, http_api_query);
+    // HttpService
     g_http_service.preprocessor = http_api_preprocessor;
     g_http_service.postprocessor = http_api_postprocessor;
 #define XXX(path, method, handler) \
     g_http_service.AddApi(path, HTTP_##method, handler);
     HTTP_API_MAP(XXX)
 #undef XXX
-    srv.RegisterService(&g_http_service);
-    srv.Run();
 
-    return 0;
+    // http_server
+    http_server_t srv;
+    srv.port = g_conf_ctx.port;
+    srv.worker_processes = g_conf_ctx.worker_processes;
+    srv.service = &g_http_service;
+    ret = http_server_run(&srv);
+    return ret;
 }

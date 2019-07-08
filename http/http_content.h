@@ -39,7 +39,7 @@ public:
 
 // MAP
 #ifdef USE_MULTIMAP
-#define MAP     std::Multipart
+#define MAP     std::MultiMap
 #else
 #define MAP     std::map
 #endif

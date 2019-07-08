@@ -37,6 +37,7 @@
 
 //--------------------utils-----------------------------
 #ifdef WITH_HW_UTILS
+#include "md5.h"
 #include "base64.h"
 #include "hbytearray.h"
 #include "hframe.h"

@@ -1,15 +1,9 @@
-#include "HttpServer.h"
+#include "http_server.h"
 
+#include "h.h"
 #include "hmain.h"
-#include "hversion.h"
-#include "htime.h"
-#include "hsocket.h"
-#include "hbuf.h"
-#include "hlog.h"
-#include "hscope.h"
-#include "hfile.h"
-
 #include "hloop.h"
+
 #include "HttpParser.h"
 #include "FileCache.h"
 #include "httpd_conf.h"
@@ -17,6 +11,7 @@
 #define RECV_BUFSIZE    4096
 #define SEND_BUFSIZE    4096
 
+static HttpService s_default_service;
 static FileCache s_filecache;
 
 /*
@@ -72,7 +67,7 @@ static void worker_init(void* userdata) {
 }
 
 struct http_connect_userdata {
-    HttpServer*             server;
+    http_server_t*          server;
     std::string             log;
     HttpParser              parser;
     HttpRequest             req;
@@ -280,7 +275,7 @@ accept:
         // new http_connect
         // delete on on_read
         http_connect_userdata* hcu = new http_connect_userdata;
-        hcu->server = (HttpServer*)userdata;
+        hcu->server = (http_server_t*)userdata;
         hcu->log += asprintf("[%s:%d]", inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
 
         nonblocking(connfd);
@@ -316,8 +311,8 @@ void handle_cached_files(htimer_t* timer, void* userdata) {
 }
 
 static void worker_proc(void* userdata) {
-    HttpServer* server = (HttpServer*)userdata;
-    int listenfd = server->listenfd_;
+    http_server_t* server = (http_server_t*)userdata;
+    int listenfd = server->listenfd;
     hloop_t loop;
     hloop_init(&loop);
     htimer_add(&loop, handle_cached_files, &s_filecache, MAX(60000, g_conf_ctx.file_cached_time*1000));
@@ -325,51 +320,45 @@ static void worker_proc(void* userdata) {
     hloop_run(&loop);
 }
 
-static HttpService s_default_service;
-#define DEFAULT_HTTP_PORT   80
-HttpServer::HttpServer() {
-    port = DEFAULT_HTTP_PORT;
-    worker_processes = 0;
-    service = NULL;
-    listenfd_ = 0;
-}
-
-int HttpServer::SetListenPort(int port) {
-    this->port = port;
-    listenfd_ = Listen(port);
-    return listenfd_ < 0 ? listenfd_ : 0;
-}
-
-void HttpServer::Run(bool wait) {
-    if (service == NULL) {
-        service = &s_default_service;
+int http_server_run(http_server_t* server, int wait) {
+    // worker_processes
+    if (server->worker_processes != 0 && g_worker_processes_num != 0 && g_worker_processes != NULL) {
+        return ERR_OVER_LIMIT;
     }
-    if (worker_processes == 0) {
-        worker_proc(this);
+    // service
+    if (server->service == NULL) {
+        server->service = &s_default_service;
+    }
+    // port
+    server->listenfd = Listen(server->port);
+    if (server->listenfd < 0) return server->listenfd;
+
+    if (server->worker_processes == 0) {
+        worker_proc(server);
     }
     else {
         // master-workers processes
-        g_worker_processes_num = worker_processes;
-        int bytes = worker_processes * sizeof(proc_ctx_t);
+        g_worker_processes_num = server->worker_processes;
+        int bytes = g_worker_processes_num * sizeof(proc_ctx_t);
         g_worker_processes = (proc_ctx_t*)malloc(bytes);
         if (g_worker_processes == NULL) {
             perror("malloc");
             abort();
         }
         memset(g_worker_processes, 0, bytes);
-        for (int i = 0; i < worker_processes; ++i) {
+        for (int i = 0; i < g_worker_processes_num; ++i) {
             proc_ctx_t* ctx = g_worker_processes + i;
             ctx->init = worker_init;
             ctx->init_userdata = NULL;
             ctx->proc = worker_proc;
-            ctx->proc_userdata = this;
+            ctx->proc_userdata = server;
             spawn_proc(ctx);
         }
     }
 
     if (wait) {
         master_init(NULL);
-        master_proc(this);
+        master_proc(NULL);
     }
+    return 0;
 }
-
