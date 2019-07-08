@@ -90,13 +90,15 @@ recv:
     nrecv = recv(event->fd, recvbuf, sizeof(recvbuf), 0);
     //printf("recv retval=%d\n", nrecv);
     if (nrecv < 0) {
-        if (sockerrno != NIO_EAGAIN) {
+        if (sockerrno == NIO_EAGAIN) {
+            //goto recv_done;
+            return;
+        }
+        else {
             perror("recv");
             hcu->log += asprintf("recv: %s", strerror(errno));
             goto recv_error;
         }
-        //goto recv_done;
-        return;
     }
     if (nrecv == 0) {
         hcu->log += "disconnect";
@@ -261,13 +263,15 @@ accept:
     addrlen = sizeof(struct sockaddr_in);
     int connfd = accept(event->fd, (struct sockaddr*)&peeraddr, &addrlen);
     if (connfd < 0) {
-        if (sockerrno != NIO_EAGAIN) {
+        if (sockerrno == NIO_EAGAIN) {
+            //goto accept_done;
+            return;
+        }
+        else {
             perror("accept");
             hloge("accept failed: %s: %d", strerror(sockerrno), sockerrno);
             goto accept_error;
         }
-        //goto accept_done;
-        return;
     }
 
     {

@@ -25,7 +25,7 @@ recv:
     nrecv = recv(event->fd, recvbuf, sizeof(recvbuf), 0);
     printf("recv retval=%d\n", nrecv);
     if (nrecv < 0) {
-        if (sockerrno != NIO_EAGAIN) {
+        if (sockerrno == NIO_EAGAIN) {
             //goto recv_done;
             return;
         }
