@@ -87,7 +87,7 @@ struct hevent_s {
     unsigned    connect     :1;
     unsigned    readable    :1;
     unsigned    writeable   :1;
-    int         event_index; // for poll
+    int         event_index[2]; // for poll,kqueue
     int         events;      // for epoll
 };
 
@@ -111,6 +111,8 @@ void        hidle_del(hloop_t* loop, uint32_t idle_id);
 void        hidle_del(hidle_t* idle);
 
 // event
+// NOTE: READ_EVENT is FOREVER
+// NOTE: WRITE_EVENT is ONESHOT
 hevent_t* hevent_accept(hloop_t* loop, int listenfd, hevent_cb on_accept, void* userdata);
 hevent_t* hevent_connect(hloop_t* loop, int connfd, hevent_cb on_connect, void* userdata);
 hevent_t* hevent_read(hloop_t* loop, int fd, hevent_cb on_readable, void* userdata);

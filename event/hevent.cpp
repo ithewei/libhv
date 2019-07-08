@@ -16,6 +16,7 @@ int _on_read(hevent_t* event) {
 }
 
 int _on_write(hevent_t* event) {
+    // ONESHOT
     _del_event(event, WRITE_EVENT);
     event->writeable = 1;
     //if (event->connect) {

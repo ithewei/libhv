@@ -212,7 +212,9 @@ hevent_t* hevent_add(hloop_t* loop, int fd) {
     memset(event, 0, sizeof(hevent_t));
     event->loop = loop;
     event->fd = fd;
-    event->event_index = -1;
+    event->event_index[0] = -1;
+    event->event_index[1] = -1;
+    event->events = 0;
     loop->events[fd] = event;
     return event;
 }

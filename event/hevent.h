@@ -7,6 +7,10 @@
 #define READ_EVENT  0x0001
 #define WRITE_EVENT 0x0004
 
+#define READ_INDEX  0
+#define WRITE_INDEX 1
+#define EVENT_INDEX(type) ((type == READ_EVENT) ? READ_INDEX : WRITE_INDEX)
+
 int hloop_event_init(hloop_t* loop);
 int hloop_event_cleanup(hloop_t* loop);
 int hloop_add_event(hevent_t* event, int type = READ_EVENT|WRITE_EVENT);
@@ -23,6 +27,8 @@ int _on_write(hevent_t* event);
 #define EVENT_SELECT
 #elif defined(OS_LINUX)
 #define EVENT_EPOLL
+#elif defined(OS_MAC)
+#define EVENT_KQUEUE
 #elif defined(OS_BSD)
 #define EVENT_KQUEUE
 #else

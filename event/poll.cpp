@@ -48,9 +48,9 @@ int _add_event(hevent_t* event, int type) {
         hloop_event_init(loop);
     }
     poll_ctx_t* poll_ctx = (poll_ctx_t*)loop->event_ctx;
-    int idx = event->event_index;
+    int idx = event->event_index[0];
     if (idx < 0) {
-        event->event_index = idx = poll_ctx->nfds;
+        event->event_index[0] = idx = poll_ctx->nfds;
         poll_ctx->nfds++;
         if (idx == poll_ctx->capacity) {
             poll_ctx_resize(poll_ctx, poll_ctx->capacity*2);
@@ -74,7 +74,7 @@ int _del_event(hevent_t* event, int type) {
     poll_ctx_t* poll_ctx = (poll_ctx_t*)loop->event_ctx;
     if (poll_ctx == NULL)  return 0;
 
-    int idx = event->event_index;
+    int idx = event->event_index[0];
     if (idx < 0) return 0;
     assert(poll_ctx->fds[idx].fd == event->fd);
     if (type & READ_EVENT) {
@@ -84,13 +84,13 @@ int _del_event(hevent_t* event, int type) {
         poll_ctx->fds[idx].events &= ~POLLOUT;
     }
     if (poll_ctx->fds[idx].events == 0) {
-        event->event_index = -1;
+        event->event_index[0] = -1;
         poll_ctx->nfds--;
         if (idx < poll_ctx->nfds) {
             poll_ctx->fds[idx] = poll_ctx->fds[poll_ctx->nfds];
             auto iter = loop->events.find(poll_ctx->fds[idx].fd);
             if (iter != loop->events.end()) {
-                iter->second->event_index = idx;
+                iter->second->event_index[0] = idx;
             }
         }
     }
