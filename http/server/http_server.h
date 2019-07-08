@@ -6,16 +6,16 @@
 #define DEFAULT_HTTP_PORT   80
 typedef struct http_server_s {
     int port;
-    int worker_processes;
     HttpService* service;
+    int worker_processes;
 //private:
     int listenfd;
 
 #ifdef __cplusplus
     http_server_s() {
         port = DEFAULT_HTTP_PORT;
-        worker_processes = 0;
         service = NULL;
+        worker_processes = 0;
         listenfd = -1;
     }
 #endif

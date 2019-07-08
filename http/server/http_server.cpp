@@ -6,7 +6,6 @@
 
 #include "HttpParser.h"
 #include "FileCache.h"
-#include "httpd_conf.h"
 
 #define RECV_BUFSIZE    4096
 #define SEND_BUFSIZE    4096
@@ -301,7 +300,7 @@ void handle_cached_files(htimer_t* timer, void* userdata) {
     auto iter = pfc->cached_files.begin();
     while (iter != pfc->cached_files.end()) {
         fc = iter->second;
-        if (tt - fc->stat_time > g_conf_ctx.file_cached_time) {
+        if (tt - fc->stat_time > pfc->file_cached_time) {
             delete fc;
             iter = pfc->cached_files.erase(iter);
             continue;
@@ -315,7 +314,7 @@ static void worker_proc(void* userdata) {
     int listenfd = server->listenfd;
     hloop_t loop;
     hloop_init(&loop);
-    htimer_add(&loop, handle_cached_files, &s_filecache, MAX(60000, g_conf_ctx.file_cached_time*1000));
+    htimer_add(&loop, handle_cached_files, &s_filecache, s_filecache.file_cached_time*1000);
     hevent_accept(&loop, listenfd, on_accept, server);
     hloop_run(&loop);
 }

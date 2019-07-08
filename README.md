@@ -57,5 +57,8 @@ hw 是一套跨平台c++工具集，类名以H开头
 ## BUILD
 
 ```
+# all: test client server httpd webbench
 make all
+# curl deps libcurl
+make curl
 ```

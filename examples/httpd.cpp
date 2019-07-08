@@ -2,7 +2,7 @@
 #include "hmain.h"
 #include "httpd_conf.h"
 #include "http_server.h"
-#include "api_test.h"
+#include "http_api_test.h"
 
 httpd_conf_ctx_t g_conf_ctx;
 HttpService g_http_service;
@@ -133,16 +133,6 @@ int parse_confile(const char* confile) {
     str = g_conf_ctx.parser->GetValue("error_page");
     if (str.size() != 0) {
         g_http_service.error_page = str;
-    }
-    // file_stat_interval
-    str = g_conf_ctx.parser->GetValue("file_stat_interval");
-    if (str.size() != 0) {
-        g_conf_ctx.file_stat_interval = MAX(10, atoi(str.c_str()));
-    }
-    // file_cached_time
-    str = g_conf_ctx.parser->GetValue("file_cached_time");
-    if (str.size() != 0) {
-        g_conf_ctx.file_cached_time = MAX(60, atoi(str.c_str()));
     }
 
     return 0;

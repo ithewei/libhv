@@ -8,7 +8,6 @@
 #include "hfile.h"
 #include "md5.h"
 #include "HttpRequest.h" // for get_content_type_str_by_suffix
-#include "httpd_conf.h"
 
 #ifndef INVALID_FD
 #define INVALID_FD  -1
@@ -34,9 +33,18 @@ typedef struct file_cache_s {
 // filepath => file_cache_t
 typedef std::map<std::string, file_cache_t*> FileCacheMap;
 
+#define DEFAULT_FILE_STAT_INTERVAL  10 // s
+#define DEFAULT_FILE_CACHED_TIME    60 // s
 class FileCache {
 public:
+    int file_stat_interval;
+    int file_cached_time;
     FileCacheMap cached_files;
+
+    FileCache() {
+        file_stat_interval  = DEFAULT_FILE_STAT_INTERVAL;
+        file_cached_time    = DEFAULT_FILE_CACHED_TIME;
+    }
 
     ~FileCache() {
         for (auto& pair : cached_files) {
@@ -51,7 +59,7 @@ public:
         if (fc) {
             time_t tt;
             time(&tt);
-            if (tt - fc->stat_time > g_conf_ctx.file_stat_interval) {
+            if (tt - fc->stat_time > file_stat_interval) {
                 struct timespec mtime = fc->st.st_mtim;
                 stat(filepath, &fc->st);
                 fc->stat_time = tt;
