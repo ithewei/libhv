@@ -4,6 +4,7 @@
 #include "hsocket.h"
 
 #define RECV_BUFSIZE    8192
+#define SEND_BUFSIZE    8192
 
 void on_timer(htimer_t* timer, void* userdata) {
     static int cnt = 0;
@@ -40,12 +41,27 @@ recv:
     if (nrecv == sizeof(recvbuf)) {
         goto recv;
     }
-
+recv_done:
+    return;
 recv_error:
 disconnect:
     printf("closesocket fd=%d\n", event->fd);
     closesocket(event->fd);
     hevent_del(event);
+}
+
+void on_stdin(hevent_t* event, void* userdata) {
+    printf("on_stdin fd=%d\n", event->fd);
+    int connfd = (int)(long)userdata;
+    char sendbuf[RECV_BUFSIZE] = {0};
+    int nread, nsend;
+read:
+    memset(sendbuf, 0, sizeof(sendbuf));
+    nread = read(0, sendbuf, sizeof(sendbuf));
+send:
+    nsend = send(connfd, sendbuf, nread, 0);
+    printf("send retval=%d\n", nsend);
+    printf("< %s\n", sendbuf);
 }
 
 void on_connect(hevent_t* event, void* userdata) {
@@ -65,11 +81,7 @@ void on_connect(hevent_t* event, void* userdata) {
             inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
 
     hevent_read(event->loop, event->fd, on_read, NULL);
-
-    static const char* http_request = "GET / HTTP/1.1\r\n\r\n";
-    int nsend = send(event->fd, http_request, strlen(http_request), 0);
-    printf("send retval=%d\n", nsend);
-    printf("< %s\n", http_request);
+    hevent_read(event->loop, 0, on_stdin, (void*)(long)event->fd);
 }
 
 int main(int argc, char** argv) {
@@ -89,7 +101,7 @@ int main(int argc, char** argv) {
     hloop_t loop;
     hloop_init(&loop);
     //hidle_add(&loop, on_idle, NULL);
-    htimer_add(&loop, on_timer, NULL, 1000, INFINITE);
+    //htimer_add(&loop, on_timer, NULL, 1000, INFINITE);
     hevent_connect(&loop, connfd, on_connect, NULL);
     hloop_run(&loop);
 

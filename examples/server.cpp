@@ -46,6 +46,7 @@ send:
     nsend = send(event->fd, http_response, strlen(http_response), 0);
     printf("send retval=%d\n", nsend);
     printf("< %s\n", http_response);
+    return;
 
 recv_error:
 disconnect:
