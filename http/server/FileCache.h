@@ -60,12 +60,11 @@ public:
             time_t tt;
             time(&tt);
             if (tt - fc->stat_time > file_stat_interval) {
-                struct timespec mtime = fc->st.st_mtim;
+                time_t mtime = fc->st.st_mtime;
                 stat(filepath, &fc->st);
                 fc->stat_time = tt;
                 fc->stat_cnt++;
-                if (mtime.tv_sec != fc->st.st_mtim.tv_sec ||
-                    mtime.tv_nsec != fc->st.st_mtim.tv_nsec) {
+                if (mtime != fc->st.st_mtime) {
                     filechanged = true;
                     fc->stat_cnt = 1;
                 }
@@ -88,7 +87,7 @@ public:
             fc->filebuf.resize(fc->st.st_size);
             read(fd, fc->filebuf.base, fc->filebuf.len);
             close(fd);
-            time_t tt = fc->st.st_mtim.tv_sec;
+            time_t tt = fc->st.st_mtime;
             strftime(fc->last_modified, sizeof(fc->last_modified), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
             MD5_CTX md5_ctx;
             MD5Init(&md5_ctx);
