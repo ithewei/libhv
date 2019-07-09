@@ -31,7 +31,7 @@ inline http_method http_method_enum(const char* str) {
     XX(MULTIPART_FORM_DATA,     "multipart/form-data",               ".null.") \
     XX(IMAGE_JPEG,              "image/jpeg",               "jpg") \
     XX(IMAGE_PNG,               "image/png",                "png") \
-    XX(IMAGE_gif,               "image/gif",                "gif")
+    XX(IMAGE_GIF,               "image/gif",                "gif")
 
 enum http_content_type {
 #define XX(name, string, suffix)   name,
