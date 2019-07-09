@@ -259,13 +259,17 @@ public:
             http_parser_url parser;
             http_parser_url_init(&parser);
             http_parser_parse_url(url.c_str(), url.size(), 0, &parser);
-            std::string host;
             if (parser.field_set & (1<<UF_HOST)) {
-                host = url.substr(parser.field_data[UF_HOST].off, parser.field_data[UF_HOST].len);
+                std::string host = url.substr(parser.field_data[UF_HOST].off, parser.field_data[UF_HOST].len);
+                int port = parser.port;
+                if (port == 0) {
+                    headers["Host"] = host;
+                }
+                else {
+                    snprintf(c_str, sizeof(c_str), "%s:%d", host.c_str(), port);
+                    headers["Host"] = c_str;
+                }
             }
-            int port = parser.port;
-            snprintf(c_str, sizeof(c_str), "%s:%d", host.c_str(), port);
-            headers["Host"] = c_str;
             if (parser.field_set & (1<<UF_PATH)) {
                 path = url.c_str() + parser.field_data[UF_PATH].off;
             }
