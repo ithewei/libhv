@@ -1,6 +1,8 @@
 #include "http_content.h"
 
-#include "hfile.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+
 #include "hstring.h"
 
 #ifndef LOWER
@@ -168,9 +170,14 @@ std::string dump_multipart(MultiPart& mp, const char* boundary) {
         auto& form = pair.second;
         if (form.filename.size() != 0) {
             if (form.content.size() == 0) {
-                HFile file;
-                if (file.open(form.filename.c_str(), "r") == 0) {
-                    file.readall(form.content);
+                FILE* fp = fopen(form.filename.c_str(), "r");
+                if (fp) {
+                    struct stat st;
+                    if (stat(form.filename.c_str(), &st) == 0 && st.st_size != 0) {
+                        form.content.resize(st.st_size);
+                        fread((void*)form.content.data(), 1, st.st_size, fp);
+                    }
+                    fclose(fp);
                 }
             }
             snprintf(c_str, sizeof(c_str), "; filename=\"%s\"", basename(form.filename).c_str());

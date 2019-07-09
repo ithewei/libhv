@@ -56,6 +56,15 @@ datetime_t get_datetime() {
 static const char* s_month[] = {"January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"};
 
+#include <string.h>
+#ifdef _MSC_VER
+    #define strcasecmp stricmp
+    #define strncasecmp strnicmp
+#else
+    #include <strings.h>
+    #define stricmp     strcasecmp
+    #define strnicmp    strncasecmp
+#endif
 int month_atoi(const char* month) {
     for (size_t i = 0; i < 12; ++i) {
         if (strnicmp(month, s_month[i], strlen(month)) == 0)

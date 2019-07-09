@@ -99,8 +99,6 @@
     #include <direct.h>     // for mkdir,rmdir,chdir,getcwd
     #include <io.h>         // for open,close,read,write,lseek,tell
 
-    #define strcasecmp stricmp
-    #define strncasecmp strnicmp
     #define MKDIR(dir) mkdir(dir)
 #else
     #include <unistd.h>
@@ -117,9 +115,6 @@
     #include <fcntl.h>
     #include <netdb.h>  // for gethostbyname
 
-    #include <strings.h>
-    #define stricmp     strcasecmp
-    #define strnicmp    strncasecmp
     #define MKDIR(dir) mkdir(dir, 0777)
 #endif
 
