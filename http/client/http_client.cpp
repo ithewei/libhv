@@ -125,6 +125,7 @@ int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
     }
     if (req->body.size() != 0) {
         curl_easy_setopt(handle, CURLOPT_POSTFIELDS, req->body.c_str());
+        curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, req->body.size());
     }
 
     if (timeout > 0) {
