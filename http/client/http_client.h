@@ -11,7 +11,7 @@
 int main(int argc, char* argv[]) {
     HttpRequest req;
     req.method = HTTP_GET;
-    req.url = "www.baidu.com";
+    req.url = "http://ftp.sjtu.edu.cn/sites/ftp.kernel.org/pub/linux/kernel/";
     HttpResponse res;
     int ret = http_client_send(&req, &res);
     printf("%s\n", req.dump(true,true).c_str());

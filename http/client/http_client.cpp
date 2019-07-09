@@ -83,7 +83,7 @@ int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
     // url
     std::string url = req->dump_url();
     curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
-    //hlogd("%s %s HTTP/%d.%d", http_method_str(req->method), url.c_str(), http_major, http_minor);
+    //hlogd("%s %s HTTP/%d.%d", http_method_str(req->method), url.c_str(), req->http_major, req->http_minor);
 
     // header
     req->fill_content_type();
