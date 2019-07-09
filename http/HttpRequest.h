@@ -86,8 +86,9 @@ inline const char* http_content_type_str_by_suffix(const char* suf) {
 }
 
 #include "http_content.h"
-typedef std::map<std::string, std::string>  http_headers;
-typedef std::string                         http_body;
+#include "hstring.h"
+typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
+typedef std::string     http_body;
 class HttpInfo {
 public:
     unsigned short      http_major;
@@ -110,7 +111,7 @@ public:
         auto iter = headers.find("Content-Type");
         if (iter != headers.end()) {
             content_type = http_content_type_enum(iter->second.c_str());
-            return;
+            goto append;
         }
 
         if (content_type == CONTENT_TYPE_NONE) {
@@ -130,6 +131,18 @@ public:
 
         if (content_type != CONTENT_TYPE_NONE) {
             headers["Content-Type"] = http_content_type_str(content_type);
+        }
+append:
+        if (content_type == MULTIPART_FORM_DATA) {
+            auto iter = headers.find("Content-Type");
+            if (iter != headers.end()) {
+                const char* boundary = strstr(iter->second.c_str(), "boundary=");
+                if (boundary == NULL) {
+                    boundary = DEFAULT_MULTIPART_BOUNDARY;
+                    iter->second += "; boundary=";
+                    iter->second += boundary;
+                }
+            }
         }
     }
 
@@ -161,7 +174,18 @@ public:
             body = dump_json(json);
             break;
         case MULTIPART_FORM_DATA:
-            body = dump_multipart(mp);
+        {
+            auto iter = headers.find("Content-Type");
+            if (iter == headers.end()) {
+                return;
+            }
+            const char* boundary = strstr(iter->second.c_str(), "boundary=");
+            if (boundary == NULL) {
+                return;
+            }
+            boundary += strlen("boundary=");
+            body = dump_multipart(mp, boundary);
+        }
             break;
         case X_WWW_FORM_URLENCODED:
             body = dump_query_params(kv);

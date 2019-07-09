@@ -1,17 +1,6 @@
 #include "http_client.h"
 
-#include <string.h>
-#include <string>
-using std::string;
-
-#define SPACE_CHARS     " \t\r\n"
-static string trim(const string& str) {
-    string::size_type pos1 = str.find_first_not_of(SPACE_CHARS);
-    if (pos1 == string::npos)   return "";
-
-    string::size_type pos2 = str.find_last_not_of(SPACE_CHARS);
-    return str.substr(pos1, pos2-pos1+1);
-}
+#include "hstring.h"
 
 /***************************************************************
 HttpClient based libcurl

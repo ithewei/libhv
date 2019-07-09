@@ -5,6 +5,8 @@
 
 #include "hstring.h"
 
+#include "HttpRequest.h"
+
 #ifndef LOWER
 #define LOWER(c)    ((c) | 0x20)
 #endif
@@ -182,6 +184,15 @@ std::string dump_multipart(MultiPart& mp, const char* boundary) {
             }
             snprintf(c_str, sizeof(c_str), "; filename=\"%s\"", basename(form.filename).c_str());
             str += c_str;
+            const char* suffix = strrchr(form.filename.c_str(), '.');
+            if (suffix) {
+                const char* stype = http_content_type_str_by_suffix(++suffix);
+                if (stype && *stype != '\0') {
+                    str += "\r\n";
+                    str += "Content-Type: ";
+                    str += stype;
+                }
+            }
         }
         str += "\r\n\r\n";
         str += form.content;
@@ -246,7 +257,7 @@ struct multipart_parser_userdata {
     }
 };
 static int on_header_field(multipart_parser* parser, const char *at, size_t length) {
-    printf("on_header_field:%.*s\n", (int)length, at);
+    //printf("on_header_field:%.*s\n", (int)length, at);
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->handle_header();
     userdata->state = MP_HEADER_FIELD;
@@ -254,47 +265,47 @@ static int on_header_field(multipart_parser* parser, const char *at, size_t leng
     return 0;
 }
 static int on_header_value(multipart_parser* parser, const char *at, size_t length) {
-    printf("on_header_value:%.*s\n", (int)length, at);
+    //printf("on_header_value:%.*s\n", (int)length, at);
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->state = MP_HEADER_VALUE;
     userdata->header_value.insert(userdata->header_value.size(), at, length);
     return 0;
 }
 static int on_part_data(multipart_parser* parser, const char *at, size_t length) {
-    printf("on_part_data:%.*s\n", (int)length, at);
+    //printf("on_part_data:%.*s\n", (int)length, at);
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->state = MP_PART_DATA;
     userdata->part_data.insert(userdata->part_data.size(), at, length);
     return 0;
 }
 static int on_part_data_begin(multipart_parser* parser) {
-    printf("on_part_data_begin\n");
+    //printf("on_part_data_begin\n");
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->state = MP_PART_DATA_BEGIN;
     return 0;
 }
 static int on_headers_complete(multipart_parser* parser) {
-    printf("on_headers_complete\n");
+    //printf("on_headers_complete\n");
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->handle_header();
     userdata->state = MP_HEADERS_COMPLETE;
     return 0;
 }
 static int on_part_data_end(multipart_parser* parser) {
-    printf("on_part_data_end\n");
+    //printf("on_part_data_end\n");
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->state = MP_PART_DATA_END;
     userdata->handle_data();
     return 0;
 }
 static int on_body_end(multipart_parser* parser) {
-    printf("on_body_end\n");
+    //printf("on_body_end\n");
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->state = MP_BODY_END;
     return 0;
 }
 int parse_multipart(std::string& str, MultiPart& mp, const char* boundary) {
-    printf("boundary=%s\n", boundary);
+    //printf("boundary=%s\n", boundary);
     std::string __boundary("--");
     __boundary += boundary;
     multipart_parser_settings settings;

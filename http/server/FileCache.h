@@ -102,8 +102,7 @@ public:
             fc->etag[32] = '\0';
             const char* suffix = strrchr(filepath, '.');
             if (suffix) {
-                ++suffix;
-                fc->content_type = http_content_type_str_by_suffix(suffix);
+                fc->content_type = http_content_type_str_by_suffix(++suffix);
             }
         }
         return fc;

@@ -16,6 +16,14 @@
 using std::string;
 typedef std::vector<string> StringList;
 
+// std::map<std::string, std::string, StringCaseLess>
+class StringCaseLess : public std::binary_function<std::string, std::string, bool> {
+public:
+    bool operator()(const std::string& lhs, const std::string& rhs) {
+        return stricmp(lhs.c_str(), rhs.c_str()) < 0;
+    }
+};
+
 #define SPACE_CHARS     " \t\r\n"
 #define PAIR_CHARS      "{}[]()<>\"\"\'\'``"
 
