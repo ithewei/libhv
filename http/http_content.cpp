@@ -18,7 +18,7 @@
 #endif
 
 #ifndef IS_ALPHA
-#define IS_ALPHA(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'A'))
+#define IS_ALPHA(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'F'))
 #endif
 
 #ifndef IS_ALPHANUM
