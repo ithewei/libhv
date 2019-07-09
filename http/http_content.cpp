@@ -237,7 +237,7 @@ struct multipart_parser_userdata {
     }
 
     void handle_data() {
-        if (name.c_str() != 0) {
+        if (name.size() != 0) {
             (*mp)[name] = FormData(part_data.c_str(), filename.c_str());
         }
         name.clear();

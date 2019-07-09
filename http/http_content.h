@@ -84,14 +84,6 @@ struct FormData {
             this->filename = filename;
         }
     }
-    FormData(const char* c_str, bool file = false) {
-        if (c_str) {
-            file ? filename = c_str : content = c_str;
-        }
-    }
-    FormData(const std::string& str, bool file = false) {
-        file ? filename = str : content = str;
-    }
     FormData(int n) {
         content = std::to_string(n);
     }
