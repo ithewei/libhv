@@ -396,9 +396,11 @@ static HANDLE s_hEventReload = NULL;
 void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
     DWORD ret = WaitForSingleObject(s_hEventTerm, 0);
     if (ret == WAIT_OBJECT_0) {
-        timeKillEvent(uTimerID);
         hlogi("pid=%d recv event [TERM]", getpid());
-        exit(0);
+        if (getpid_from_pidfile() == getpid()) {
+            timeKillEvent(uTimerID);
+            exit(0);
+        }
     }
 
     ret = WaitForSingleObject(s_hEventReload, 0);

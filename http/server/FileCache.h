@@ -91,7 +91,7 @@ public:
             strftime(fc->last_modified, sizeof(fc->last_modified), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
             MD5_CTX md5_ctx;
             MD5Init(&md5_ctx);
-            MD5Update(&md5_ctx, fc->filebuf.base, fc->filebuf.len);
+            MD5Update(&md5_ctx, (unsigned char*)fc->filebuf.base, fc->filebuf.len);
             unsigned char digital[16];
             MD5Final(digital, &md5_ctx);
             char* md5 = fc->etag;

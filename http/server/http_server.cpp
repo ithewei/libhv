@@ -3,6 +3,7 @@
 #include "h.h"
 #include "hmain.h"
 #include "hloop.h"
+#include "hbuf.h"
 
 #include "HttpParser.h"
 #include "FileCache.h"
@@ -77,38 +78,22 @@ struct http_connect_userdata {
     }
 };
 
-static void on_read(hevent_t* event, void* userdata) {
-    //printf("on_read fd=%d\n", event->fd);
+static void on_read(hio_t* io, void* buf, int readbytes, void* userdata) {
+    //printf("on_read fd=%d readbytes=%d\n", io->fd, readbytes);
     http_connect_userdata* hcu = (http_connect_userdata*)userdata;
     HttpService* service = hcu->server->service;
     HttpRequest* req = &hcu->req;
     HttpResponse* res = &hcu->res;
-    char recvbuf[RECV_BUFSIZE] = {0};
-    int ret, nrecv, nparse, nsend;
-recv:
+    int ret, nparse;
+    char* recvbuf = (char*)buf;
+    int nrecv = readbytes;
     // recv -> http_parser -> http_request -> http_request_handler -> http_response -> send
-    nrecv = recv(event->fd, recvbuf, sizeof(recvbuf), 0);
-    //printf("recv retval=%d\n", nrecv);
-    if (nrecv < 0) {
-        if (sockerrno == NIO_EAGAIN) {
-            //goto recv_done;
-            return;
-        }
-        else {
-            perror("recv");
-            hcu->log += asprintf("recv: %s", strerror(errno));
-            goto recv_error;
-        }
-    }
-    if (nrecv == 0) {
-        hcu->log += "disconnect";
-        goto disconnect;
-    }
     //printf("%s\n", recvbuf);
     nparse = hcu->parser.execute(recvbuf, nrecv);
     if (nparse != nrecv || hcu->parser.get_errno() != HPE_OK) {
         hcu->log += asprintf("http parser error: %s", http_errno_description(hcu->parser.get_errno()));
-        goto parser_error;
+        hclose(io);
+        return;
     }
     if (hcu->parser.get_state() == HP_MESSAGE_COMPLETE) {
         http_api_handler api = NULL;
@@ -218,78 +203,45 @@ recv:
         }
 
         // send header
-        nsend = send(event->fd, header.c_str(), header.size(), 0);
-        if (nsend != header.size()) {
-            hcu->log += asprintf("send header: %s", strerror(errno));
-            goto send_error;
-        }
+        hwrite(io->loop, io->fd, header.c_str(), header.size());
         // send body
         if (!send_in_one_packet && content_length != 0) {
-            //queue send ?
-            //if (content_length > SEND_BUFSIZE) {
-            //}
-            nsend = send(event->fd, content, content_length, 0);
-            if (nsend != res->body.size()) {
-                hcu->log += asprintf("send body: %s", strerror(errno));
-                goto send_error;
-            }
+            hwrite(io->loop, io->fd, content, content_length);
         }
         hcu->log += asprintf("=>[%d %s]", res->status_code, http_status_str(res->status_code));
         hlogi("%s", hcu->log.c_str());
-        goto end;
+        hclose(io);
     }
-    if (nrecv == sizeof(recvbuf)) {
-        goto recv;
-    }
-    goto end;
-
-recv_error:
-disconnect:
-parser_error:
-send_error:
-    hloge("%s", hcu->log.c_str());
-end:
-    closesocket(event->fd);
-    hevent_del(event);
-    delete hcu;
 }
 
-static void on_accept(hevent_t* event, void* userdata) {
-    //printf("on_accept listenfd=%d\n", event->fd);
+static void on_close(hio_t* io, void* userdata) {
+    http_connect_userdata* hcu = (http_connect_userdata*)userdata;
+    if (hcu) {
+        hlogi("%s", hcu->log.c_str());
+        delete hcu;
+    }
+}
+
+static void on_accept(hio_t* io, int connfd, void* userdata) {
+    //printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
     struct sockaddr_in localaddr, peeraddr;
-    socklen_t addrlen = sizeof(struct sockaddr_in);
-    getsockname(event->fd, (struct sockaddr*)&localaddr, &addrlen);
-accept:
+    socklen_t addrlen;
     addrlen = sizeof(struct sockaddr_in);
-    int connfd = accept(event->fd, (struct sockaddr*)&peeraddr, &addrlen);
-    if (connfd < 0) {
-        if (sockerrno == NIO_EAGAIN) {
-            //goto accept_done;
-            return;
-        }
-        else {
-            perror("accept");
-            hloge("accept failed: %s: %d", strerror(sockerrno), sockerrno);
-            goto accept_error;
-        }
-    }
+    getsockname(connfd, (struct sockaddr*)&localaddr, &addrlen);
+    addrlen = sizeof(struct sockaddr_in);
+    getpeername(connfd, (struct sockaddr*)&peeraddr, &addrlen);
+    //printf("accept connfd=%d [%s:%d] <= [%s:%d]\n", connfd,
+            //inet_ntoa(localaddr.sin_addr), ntohs(localaddr.sin_port),
+            //inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
+    // new http_connect_userdata
+    // delete on_close
+    http_connect_userdata* hcu = new http_connect_userdata;
+    hcu->server = (http_server_t*)userdata;
+    hcu->log += asprintf("[%s:%d]", inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
 
-    {
-        // new http_connect
-        // delete on on_read
-        http_connect_userdata* hcu = new http_connect_userdata;
-        hcu->server = (http_server_t*)userdata;
-        hcu->log += asprintf("[%s:%d]", inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
-
-        nonblocking(connfd);
-        hevent_read(event->loop, connfd, on_read, hcu);
-    }
-
-    goto accept;
-
-accept_error:
-    closesocket(event->fd);
-    hevent_del(event);
+    nonblocking(connfd);
+    HBuf* buf = (HBuf*)io->loop->custom_data.ptr;
+    hread(io->loop, connfd, buf->base, buf->len, on_read, hcu, on_close, hcu);
 }
 
 void handle_cached_files(htimer_t* timer, void* userdata) {
@@ -319,7 +271,11 @@ static void worker_proc(void* userdata) {
     hloop_t loop;
     hloop_init(&loop);
     htimer_add(&loop, handle_cached_files, &s_filecache, s_filecache.file_cached_time*1000);
-    hevent_accept(&loop, listenfd, on_accept, server);
+    // one loop one readbuf.
+    HBuf readbuf;
+    readbuf.resize(RECV_BUFSIZE);
+    loop.custom_data.ptr = &readbuf;
+    haccept(&loop, listenfd, on_accept, server);
     hloop_run(&loop);
 }
 

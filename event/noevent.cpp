@@ -1,25 +1,25 @@
-#include "hevent.h"
+#include "io_watcher.h"
 
 #ifdef EVENT_NOEVENT
-int _event_init(hloop_t* loop) {
-    loop->event_ctx = NULL;
+#include "htime.h"
+int iowatcher_init(hloop_t* loop) {
     return 0;
 }
 
-int _event_cleanup(hloop_t* loop) {
-    loop->event_ctx = NULL;
+int iowatcher_cleanup(hloop_t* loop) {
     return 0;
 }
 
-int _add_event(hevent_t* event, int type) {
+int iowatcher_add_event(hio_t* fd, int events) {
     return 0;
 }
 
-int _del_event(hevent_t* event, int type) {
+int iowatcher_del_event(hio_t* fd, int events) {
     return 0;
 }
 
-int _handle_events(hloop_t* loop, int timeout) {
+int iowatcher_poll_events(hloop_t* loop, int timeout) {
+    msleep(timeout);
     return 0;
 }
 #endif

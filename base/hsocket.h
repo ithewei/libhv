@@ -21,6 +21,7 @@ inline int nonblocking(int sockfd) {
     unsigned long nb = 1;
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
+#define poll        WSAPoll
 #define sockerrno   WSAGetLastError()
 #define NIO_EAGAIN  WSAEWOULDBLOCK
 #else

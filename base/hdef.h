@@ -12,6 +12,16 @@ typedef int                 BOOL;
 
 typedef void*               handle;
 
+typedef union {
+    bool        b;
+    char        ch;
+    char*       str;
+    long long   num;
+    float       f;
+    double      lf;
+    void*       ptr;
+} var;
+
 #ifdef _MSC_VER
 typedef int pid_t;
 typedef int gid_t;

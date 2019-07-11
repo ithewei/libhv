@@ -1,4 +1,4 @@
-#include "hevent.h"
+#include "io_watcher.h"
 
 #ifdef EVENT_SELECT
 #include "hplatform.h"
@@ -7,6 +7,7 @@
 #endif
 
 #include "hdef.h"
+#include "hio.h"
 
 typedef struct select_ctx_s {
     int max_fd;
@@ -16,40 +17,40 @@ typedef struct select_ctx_s {
     int nwrite;
 } select_ctx_t;
 
-int _event_init(hloop_t* loop) {
-    if (loop->event_ctx) return 0;
+int iowatcher_init(hloop_t* loop) {
+    if (loop->iowatcher) return 0;
     select_ctx_t* select_ctx = (select_ctx_t*)malloc(sizeof(select_ctx_t));
     select_ctx->max_fd = -1;
     FD_ZERO(&select_ctx->readfds);
     FD_ZERO(&select_ctx->writefds);
     select_ctx->nread = 0;
     select_ctx->nwrite = 0;
-    loop->event_ctx = select_ctx;
+    loop->iowatcher = select_ctx;
     return 0;
 }
 
-int _event_cleanup(hloop_t* loop) {
-    SAFE_FREE(loop->event_ctx);
+int iowatcher_cleanup(hloop_t* loop) {
+    SAFE_FREE(loop->iowatcher);
     return 0;
 }
 
-int _add_event(hevent_t* event, int type) {
-    hloop_t* loop = event->loop;
-    if (loop->event_ctx == NULL) {
-        hloop_event_init(loop);
+int iowatcher_add_event(hio_t* io, int events) {
+    hloop_t* loop = io->loop;
+    if (loop->iowatcher == NULL) {
+        hloop_iowatcher_init(loop);
     }
-    select_ctx_t* select_ctx = (select_ctx_t*)loop->event_ctx;
-    int fd = event->fd;
+    select_ctx_t* select_ctx = (select_ctx_t*)loop->iowatcher;
+    int fd = io->fd;
     if (fd > select_ctx->max_fd) {
         select_ctx->max_fd = fd;
     }
-    if (type & READ_EVENT) {
+    if (events & READ_EVENT) {
         if (!FD_ISSET(fd, &select_ctx->readfds)) {
             FD_SET(fd, &select_ctx->readfds);
             select_ctx->nread++;
         }
     }
-    if (type & WRITE_EVENT) {
+    if (events & WRITE_EVENT) {
         if (!FD_ISSET(fd, &select_ctx->writefds)) {
             FD_SET(fd, &select_ctx->writefds);
             select_ctx->nwrite++;
@@ -58,21 +59,21 @@ int _add_event(hevent_t* event, int type) {
     return 0;
 }
 
-int _del_event(hevent_t* event, int type) {
-    hloop_t* loop = event->loop;
-    select_ctx_t* select_ctx = (select_ctx_t*)loop->event_ctx;
+int iowatcher_del_event(hio_t* io, int events) {
+    hloop_t* loop = io->loop;
+    select_ctx_t* select_ctx = (select_ctx_t*)loop->iowatcher;
     if (select_ctx == NULL)    return 0;
-    int fd = event->fd;
+    int fd = io->fd;
     if (fd == select_ctx->max_fd) {
         select_ctx->max_fd = -1;
     }
-    if (type & READ_EVENT) {
+    if (events & READ_EVENT) {
         if (FD_ISSET(fd, &select_ctx->readfds)) {
             FD_CLR(fd, &select_ctx->readfds);
             select_ctx->nread--;
         }
     }
-    if (type & WRITE_EVENT) {
+    if (events & WRITE_EVENT) {
         if (FD_ISSET(fd, &select_ctx->writefds)) {
             FD_CLR(fd, &select_ctx->writefds);
             select_ctx->nwrite--;
@@ -81,8 +82,8 @@ int _del_event(hevent_t* event, int type) {
     return 0;
 }
 
-int _handle_events(hloop_t* loop, int timeout) {
-    select_ctx_t* select_ctx = (select_ctx_t*)loop->event_ctx;
+int iowatcher_poll_events(hloop_t* loop, int timeout) {
+    select_ctx_t* select_ctx = (select_ctx_t*)loop->iowatcher;
     if (select_ctx == NULL)    return 0;
     if (select_ctx->nread == 0 && select_ctx->nwrite == 0) {
         return 0;
@@ -91,7 +92,7 @@ int _handle_events(hloop_t* loop, int timeout) {
     fd_set  readfds = select_ctx->readfds;
     fd_set  writefds = select_ctx->writefds;
     if (max_fd == -1) {
-        for (auto& pair : loop->events) {
+        for (auto& pair : loop->ios) {
             int fd = pair.first;
             if (fd > max_fd) {
                 max_fd = fd;
@@ -122,19 +123,20 @@ int _handle_events(hloop_t* loop, int timeout) {
     }
     if (nselect == 0)   return 0;
     int nevent = 0;
-    auto iter = loop->events.begin();
-    while (iter != loop->events.end()) {
+    auto iter = loop->ios.begin();
+    while (iter != loop->ios.end()) {
         if (nevent == nselect) break;
         int fd = iter->first;
-        hevent_t* event = iter->second;
+        hio_t* io = iter->second;
         if (FD_ISSET(fd, &readfds)) {
             ++nevent;
-            _on_read(event);
+            io->revents |= READ_EVENT;
         }
         if (FD_ISSET(fd, &writefds)) {
             ++nevent;
-            _on_write(event);
+            io->revents |= WRITE_EVENT;
         }
+        hio_handle_events(io);
         ++iter;
     }
     return nevent;
