@@ -7,7 +7,7 @@
 #include <sys/sysinfo.h>
 #endif
 
-inline int get_ncpu() {
+static inline int get_ncpu() {
 #ifdef OS_WIN
     SYSTEM_INFO si;
     GetSystemInfo(&si);
@@ -25,7 +25,7 @@ typedef struct meminfo_s {
     unsigned long free; // KB
 } meminfo_t;
 
-inline int get_meminfo(meminfo_t* mem) {
+static inline int get_meminfo(meminfo_t* mem) {
 #ifdef OS_WIN
     MEMORYSTATUSEX memstat;
     memset(&memstat, 0, sizeof(memstat));

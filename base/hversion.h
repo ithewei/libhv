@@ -15,7 +15,7 @@
 
 #define H_VERSION_NUMBER    (H_VERSION_MAJOR << 24) | (H_VERSION_MINOR << 16) | (H_VERSION_MICRO << 8) | H_VERSION_PATCH
 
-inline const char* get_static_version() {
+static inline const char* get_static_version() {
     return H_VERSION_STRING;
 }
 

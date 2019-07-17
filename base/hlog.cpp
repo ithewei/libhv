@@ -12,9 +12,10 @@
 static char     s_logfile[256] = DEFAULT_LOG_FILE;
 static int      s_loglevel = DEFAULT_LOG_LEVEL;
 static bool     s_logcolor = false;
+static bool     s_fflush   = true;
 static int      s_remain_days = DEFAULT_LOG_REMAIN_DAYS;
 static char     s_logbuf[LOG_BUFSIZE];
-static std::mutex s_mutex;
+static std::mutex s_mutex; // for thread-safe
 
 static void ts_logfile(time_t ts, char* buf, int len) {
     struct tm* tm = localtime(&ts);
@@ -137,7 +138,22 @@ int hlog_printf(int level, const char* fmt, ...) {
     else {
         fprintf(fp, "%s\n", s_logbuf);
     }
-    fflush(fp); // note: fflush cache page => disk, slow
+    if (s_fflush) {
+        fflush(fp);
+    }
 
     return len;
+}
+
+void hlog_set_fflush(int on) {
+    s_fflush = on;
+}
+
+void hlog_fflush() {
+    std::lock_guard<std::mutex> locker(s_mutex);
+
+    FILE* fp = shift_logfile();
+    if (fp) {
+        fflush(fp);
+    }
 }

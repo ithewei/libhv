@@ -13,11 +13,11 @@ int Connect(const char* host, int port, int nonblock = 0);
 
 #ifdef OS_WIN
 typedef int socklen_t;
-inline int blocking(int sockfd) {
+static inline int blocking(int sockfd) {
     unsigned long nb = 0;
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
-inline int nonblocking(int sockfd) {
+static inline int nonblocking(int sockfd) {
     unsigned long nb = 1;
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
@@ -32,11 +32,11 @@ inline int nonblocking(int sockfd) {
 #define NIO_EAGAIN  EAGAIN
 #endif
 
-inline int tcp_nodelay(int sockfd, int on = 1) {
+static inline int tcp_nodelay(int sockfd, int on = 1) {
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&on, sizeof(int));
 }
 
-inline int tcp_nopush(int sockfd, int on = 1) {
+static inline int tcp_nopush(int sockfd, int on = 1) {
 #ifdef TCP_NOPUSH
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NOPUSH, (const char*)&on, sizeof(int));
 #elif defined(TCP_CORK)
@@ -46,7 +46,7 @@ inline int tcp_nopush(int sockfd, int on = 1) {
 #endif
 }
 
-inline int tcp_keepalive(int sockfd, int on = 1, int delay = 60) {
+static inline int tcp_keepalive(int sockfd, int on = 1, int delay = 60) {
     if (setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, (const char*)&on, sizeof(int)) != 0) {
         return sockerrno;
     }
@@ -61,7 +61,7 @@ inline int tcp_keepalive(int sockfd, int on = 1, int delay = 60) {
 #endif
 }
 
-inline int udp_broadcast(int sockfd, int on = 1) {
+static inline int udp_broadcast(int sockfd, int on = 1) {
     return setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(int));
 }
 

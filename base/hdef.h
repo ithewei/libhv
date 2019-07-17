@@ -48,7 +48,7 @@ typedef void (*procedure_t)(void* userdata);
 #endif
 
 #ifndef INFINITE
-#define INFINITE    0xFFFFFFFFU
+#define INFINITE    (uint32_t)-1
 #endif
 
 #ifndef CR
@@ -139,6 +139,19 @@ typedef void (*procedure_t)(void* userdata);
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif
 
+#ifndef ARRAY_INIT
+#define ARRAY_INIT(type, p, size)\
+    do {\
+        size_t bytes = sizeof(*(p)) * size;\
+        p = (type*)malloc(bytes);\
+        memset(p, 0, bytes);\
+    } while (0)
+#endif
+
+#ifndef ARRAY_RESIZE
+#define ARRAY_RESIZE(type, p, newsize) do {p = (type*)realloc(p, sizeof(*(p)) * newsize);} while(0)
+#endif
+
 #ifndef SAFE_FREE
 #define SAFE_FREE(p)    do {if (p) {free(p); (p) = NULL;}} while(0)
 #endif
@@ -222,6 +235,14 @@ typedef void (*procedure_t)(void* userdata);
 ((type*)((char*)(ptr) - offsetof(type, member)))
 #endif
 
+#ifndef prefetch
+#ifdef __GNUC__
+#define prefetch(x) __builtin_prefetch(x)
+#else
+#define prefetch(x)
+#endif
+#endif
+
 // __cplusplus
 #ifdef __cplusplus
 
@@ -249,6 +270,18 @@ typedef std::map<std::string, std::string> keyval_t;
 #define END_EXTERN_C        } // extern "C"
 #endif
 
+#ifndef ENUM
+#define ENUM(e)     enum e
+#endif
+
+#ifndef STRUCT
+#define STRUCT(s)   struct s
+#endif
+
+#ifndef DEFAULT
+#define DEFAULT(x)  = x
+#endif
+
 #else
 
 #define BEGIN_NAMESPACE(ns)
@@ -257,6 +290,22 @@ typedef std::map<std::string, std::string> keyval_t;
 #define EXTERN_C
 #define BEGIN_EXTERN_C
 #define END_EXTERN_C
+
+#ifndef ENUM
+#define ENUM(e)\
+typedef enum e e;\
+enum e
+#endif
+
+#ifndef STRUCT
+#define STRUCT(s)\
+typedef struct s s;\
+struct s
+#endif
+
+#ifndef DEFAULT
+#define DEFAULT(x)
+#endif
 
 #endif // __cplusplus
 

@@ -1,6 +1,10 @@
 #ifndef HW_LOG_H_
 #define HW_LOG_H_
 
+/*
+ * hlog is thread-safe
+ */
+
 #define CL_CLR      "\033[0m"       /* 恢复颜色 */
 #define CL_BLACK    "\033[30m"      /* 黑色字 */
 #define CL_RED      "\e[1;31m"      /* 红色字 */
@@ -47,6 +51,11 @@ void    hlog_set_level(int level);
 void    hlog_set_remain_days(int days);
 void    hlog_enable_color(int on);
 int     hlog_printf(int level, const char* fmt, ...);
+
+// NOTE: fflush cache page => disk, slow
+// fflush, default enable
+void    hlog_set_fflush(int on);
+void    hlog_fflush();
 
 #define hlogd(fmt, ...) hlog_printf(LOG_LEVEL_DEBUG, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hlogi(fmt, ...) hlog_printf(LOG_LEVEL_INFO,  fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)

@@ -16,7 +16,7 @@ typedef struct proc_ctx_s {
 
 #ifdef OS_UNIX
 // unix use multi-processes
-inline int spawn_proc(proc_ctx_t* ctx) {
+static inline int spawn_proc(proc_ctx_t* ctx) {
     pid_t pid = fork();
     if (pid < 0) {
         perror("fork");
@@ -54,7 +54,7 @@ static void win_thread(void* userdata) {
         ctx->exit(ctx->exit_userdata);
     }
 }
-inline int spawn_proc(proc_ctx_t* ctx) {
+static inline int spawn_proc(proc_ctx_t* ctx) {
     HANDLE h = (HANDLE)_beginthread(win_thread, 0, ctx);
     if (h == NULL) {
         return -1;

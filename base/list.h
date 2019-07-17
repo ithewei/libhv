@@ -16,6 +16,7 @@
 struct list_head {
 	struct list_head *next, *prev;
 };
+#define list_node   list_head
 
 struct hlist_head {
 	struct hlist_node *first;
@@ -26,11 +27,9 @@ struct hlist_node {
 };
 
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
-
-#define LIST_HEAD(name) \
-	struct list_head name = LIST_HEAD_INIT(name)
-
-static inline void INIT_LIST_HEAD(struct list_head *list)
+#define LIST_HEAD(name) struct list_head name = LIST_HEAD_INIT(name)
+#define INIT_LIST_HEAD  list_init
+static inline void list_init(struct list_head *list)
 {
 	list->next = list;
 	list->prev = list;
@@ -106,8 +105,8 @@ static inline void __list_del_entry(struct list_head *entry)
 static inline void list_del(struct list_head *entry)
 {
 	__list_del(entry->prev, entry->next);
-	entry->next = NULL;
-	entry->prev = NULL;
+	//entry->next = NULL;
+	//entry->prev = NULL;
 }
 
 /**
@@ -569,7 +568,8 @@ static inline void list_splice_tail_init(struct list_head *list,
 #define HLIST_HEAD_INIT { .first = NULL }
 #define HLIST_HEAD(name) struct hlist_head name = {  .first = NULL }
 #define INIT_HLIST_HEAD(ptr) ((ptr)->first = NULL)
-static inline void INIT_HLIST_NODE(struct hlist_node *h)
+#define INIT_HLIST_NODE hlist_init
+static inline void hlist_init(struct hlist_node *h)
 {
 	h->next = NULL;
 	h->pprev = NULL;
@@ -597,8 +597,8 @@ static inline void __hlist_del(struct hlist_node *n)
 static inline void hlist_del(struct hlist_node *n)
 {
 	__hlist_del(n);
-	n->next = NULL;
-	n->pprev = NULL;
+	//n->next = NULL;
+	//n->pprev = NULL;
 }
 
 static inline void hlist_del_init(struct hlist_node *n)

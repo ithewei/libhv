@@ -14,7 +14,7 @@
 #define gettid  gettid
 #elif defined(OS_LINUX)
 #include <sys/syscall.h>
-inline int gettid() {
+static inline int gettid() {
     return syscall(SYS_gettid);
 }
 #else
