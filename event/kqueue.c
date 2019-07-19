@@ -60,7 +60,7 @@ static int __add_event(hloop_t* loop, int fd, int event) {
         iowatcher_init(loop);
     }
     kqueue_ctx_t* kqueue_ctx = (kqueue_ctx_t*)loop->iowatcher;
-    struct hio_t* io = loop->ios.ptr[fd];
+    hio_t* io = loop->ios.ptr[fd];
     int idx = io->event_index[EVENT_INDEX(event)];
     if (idx < 0) {
         io->event_index[EVENT_INDEX(event)] = idx = kqueue_ctx->nchanges;
@@ -94,7 +94,7 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
 static int __del_event(hloop_t* loop, int fd, int event) {
     kqueue_ctx_t* kqueue_ctx = (kqueue_ctx_t*)loop->iowatcher;
     if (kqueue_ctx == NULL) return 0;
-    struct hio_t* io = loop->ios.ptr[fd];
+    hio_t* io = loop->ios.ptr[fd];
     int idx = io->event_index[EVENT_INDEX(event)];
     if (idx < 0) return 0;
     assert(kqueue_ctx->changes[idx].ident == fd);
@@ -109,7 +109,7 @@ static int __del_event(hloop_t* loop, int fd, int event) {
         kqueue_ctx->changes[lastidx] = tmp;
         hio_t* last = kqueue_ctx->changes[idx].ident;
         if (last) {
-            last->event_index[EVENT_INDEX(kqueue_ctx->chages[idx].filter)] = idx;
+            last->event_index[EVENT_INDEX(kqueue_ctx->changes[idx].filter)] = idx;
         }
     }
     struct timespec ts;
@@ -169,6 +169,6 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
         }
         if (nevents == nkqueue) break;
     }
-    return nevent;
+    return nevents;
 }
 #endif
