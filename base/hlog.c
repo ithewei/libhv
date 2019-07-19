@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
-#include <mutex>
 
 #include "htime.h"  // for get_datetime
 
@@ -15,7 +14,24 @@ static bool     s_logcolor = false;
 static bool     s_fflush   = true;
 static int      s_remain_days = DEFAULT_LOG_REMAIN_DAYS;
 static char     s_logbuf[LOG_BUFSIZE];
-static std::mutex s_mutex; // for thread-safe
+
+// for thread-safe
+#include "hmutex.h"
+#ifdef _MSC_VER
+static hmutex_t  s_mutex;
+static honce_t   s_once = HONCE_INIT;
+static void __mutex_init() {
+    hmutex_init(&s_mutex);
+}
+#define HLOG_LOCK\
+    honce(&s_once, __mutex_init);\
+    hmutex_lock(%s_mutex);
+
+#else
+static hmutex_t s_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define HLOG_LOCK       hmutex_lock(&s_mutex);
+#endif
+#define HLOG_UNLOCK     hmutex_unlock(&s_mutex);
 
 static void ts_logfile(time_t ts, char* buf, int len) {
     struct tm* tm = localtime(&ts);
@@ -29,10 +45,10 @@ static void ts_logfile(time_t ts, char* buf, int len) {
 static FILE* shift_logfile() {
     static FILE*    s_logfp = NULL;
     static char     s_cur_logfile[256] = {0};
-    static time_t   s_last_logfile_ts = time(NULL);
+    static time_t   s_last_logfile_ts = 0;
 
     time_t ts_now = time(NULL);
-    int interval_days = ts_now / SECONDS_PER_DAY - s_last_logfile_ts / SECONDS_PER_DAY;
+    int interval_days = s_last_logfile_ts == 0 ? 0 : (ts_now / SECONDS_PER_DAY - s_last_logfile_ts / SECONDS_PER_DAY);;
     if (s_logfp == NULL || interval_days > 0) {
         // close old logfile
         if (s_logfp) {
@@ -116,10 +132,11 @@ int hlog_printf(int level, const char* fmt, ...) {
     }
 #undef CASE_LOG
 
-    std::lock_guard<std::mutex> locker(s_mutex);
+    HLOG_LOCK
 
     FILE* fp = shift_logfile();
     if (fp == NULL) {
+        HLOG_UNLOCK
         return -20;
     }
 
@@ -142,6 +159,7 @@ int hlog_printf(int level, const char* fmt, ...) {
         fflush(fp);
     }
 
+    HLOG_UNLOCK
     return len;
 }
 
@@ -150,10 +168,10 @@ void hlog_set_fflush(int on) {
 }
 
 void hlog_fflush() {
-    std::lock_guard<std::mutex> locker(s_mutex);
-
+    HLOG_LOCK
     FILE* fp = shift_logfile();
     if (fp) {
         fflush(fp);
     }
+    HLOG_UNLOCK
 }

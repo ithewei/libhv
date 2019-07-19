@@ -1,6 +1,10 @@
 #ifndef HW_LOG_H_
 #define HW_LOG_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * hlog is thread-safe
  */
@@ -79,6 +83,10 @@ void    hlog_fflush();
 #define LOGW    hlogw
 #define LOGE    hloge
 #define LOGF    hlogf
+#endif
+
+#ifdef __cplusplus
+} // extern "C"
 #endif
 
 #endif  // HW_LOG_H_

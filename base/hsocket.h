@@ -2,6 +2,9 @@
 #define HW_SOCKET_H_
 
 #include "hplatform.h"
+#include "hdef.h"
+
+BEGIN_EXTERN_C
 
 // socket -> setsockopt -> bind -> listen
 // @return sockfd
@@ -9,7 +12,7 @@ int Listen(int port);
 
 // gethostbyname -> socket -> nonblocking -> connect
 // @return sockfd
-int Connect(const char* host, int port, int nonblock = 0);
+int Connect(const char* host, int port, int nonblock DEFAULT(0));
 
 #ifdef OS_WIN
 typedef int socklen_t;
@@ -32,11 +35,11 @@ static inline int nonblocking(int sockfd) {
 #define NIO_EAGAIN  EAGAIN
 #endif
 
-static inline int tcp_nodelay(int sockfd, int on = 1) {
+static inline int tcp_nodelay(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&on, sizeof(int));
 }
 
-static inline int tcp_nopush(int sockfd, int on = 1) {
+static inline int tcp_nopush(int sockfd, int on DEFAULT(1)) {
 #ifdef TCP_NOPUSH
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NOPUSH, (const char*)&on, sizeof(int));
 #elif defined(TCP_CORK)
@@ -46,7 +49,7 @@ static inline int tcp_nopush(int sockfd, int on = 1) {
 #endif
 }
 
-static inline int tcp_keepalive(int sockfd, int on = 1, int delay = 60) {
+static inline int tcp_keepalive(int sockfd, int on DEFAULT(1), int delay DEFAULT(60)) {
     if (setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, (const char*)&on, sizeof(int)) != 0) {
         return sockerrno;
     }
@@ -61,8 +64,10 @@ static inline int tcp_keepalive(int sockfd, int on = 1, int delay = 60) {
 #endif
 }
 
-static inline int udp_broadcast(int sockfd, int on = 1) {
+static inline int udp_broadcast(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(int));
 }
+
+END_EXTERN_C
 
 #endif // HW_SOCKET_H_

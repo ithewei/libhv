@@ -16,6 +16,11 @@ test: prepare
 	cp main.cpp.tmpl $(TMPDIR)/main.cpp
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils $(TMPDIR)"
 
+loop: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/loop.c $(TMPDIR)/loop.c
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
+
 client: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/client.cpp $(TMPDIR)/client.cpp

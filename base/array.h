@@ -1,6 +1,15 @@
 #ifndef HW_ARRAY_H_
 #define HW_ARRAY_H_
 
+/*
+ * array
+ * at: random access by pos
+ * @effective
+ * push_back,pop_back,del_nomove,swap
+ * @ineffective
+ * add,del
+ */
+
 #include <assert.h> // for assert
 #include <stdlib.h> // for malloc,realloc,free
 #include <string.h> // for memset,memmove
@@ -54,6 +63,10 @@ static inline void atype##_init(atype* p, int maxsize) {\
     p->ptr = (type*)malloc(bytes);\
     memset(p->ptr, 0, bytes);\
 }\
+static inline void atype##_clear(atype* p) {\
+    p->size = 0;\
+    memset(p->ptr, 0, sizeof(type) * p->maxsize);\
+}\
 \
 static inline void atype##_cleanup(atype* p) {\
     if (p->ptr) {\
@@ -72,6 +85,19 @@ static inline void atype##_resize(atype* p, int maxsize) {\
 static inline void atype##_double_resize(atype* p) {\
     assert(p->maxsize != 0);\
     return atype##_resize(p, p->maxsize*2);\
+}\
+\
+static inline void atype##_push_back(atype* p, type* elem) {\
+    if (p->size == p->maxsize) {\
+        atype##_double_resize(p);\
+    }\
+    p->ptr[p->size] = *elem;\
+    p->size++;\
+}\
+\
+static inline void atype##_pop_back(atype* p) {\
+    assert(p->size > 0);\
+    p->size--;\
 }\
 \
 static inline void atype##_add(atype* p, type* elem, int pos) {\
@@ -100,17 +126,15 @@ static inline void atype##_del(atype* p, int pos) {\
     }\
 }\
 \
-static inline void atype##_push_back(atype* p, type* elem) {\
-    if (p->size == p->maxsize) {\
-        atype##_double_resize(p);\
+static inline void atype##_del_nomove(atype* p, int pos) {\
+    if (pos < 0) {\
+        pos += p->size;\
     }\
-    p->ptr[p->size] = *elem;\
-    p->size++;\
-}\
-\
-static inline void atype##_pop_back(atype* p) {\
-    assert(p->size > 0);\
+    assert(pos >= 0 && pos < p->size);\
     p->size--;\
+    if (pos < p->size) {\
+        p->ptr[pos] = p->ptr[p->size];\
+    }\
 }\
 \
 static inline void atype##_swap(atype* p, int pos1, int pos2) {\
@@ -123,17 +147,6 @@ static inline void atype##_swap(atype* p, int pos1, int pos2) {\
     type tmp = p->ptr[pos1];\
     p->ptr[pos1] = p->ptr[pos2];\
     p->ptr[pos2] = tmp;\
-}\
-\
-static inline void atype##_del_nomove(atype* p, int pos) {\
-    if (pos < 0) {\
-        pos += p->size;\
-    }\
-    assert(pos >= 0 && pos < p->size);\
-    p->size--;\
-    if (pos < p->size) {\
-        p->ptr[pos] = p->ptr[p->size];\
-    }\
 }\
 
 #endif

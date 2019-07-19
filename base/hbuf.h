@@ -24,6 +24,24 @@ typedef struct hbuf_s {
 #endif
 } hbuf_t;
 
+typedef struct offset_buf_s {
+    char*   base;
+    size_t  len;
+    size_t  offset;
+#ifdef __cplusplus
+    offset_buf_s() {
+        base = NULL;
+        len = offset = 0;
+    }
+
+    offset_buf_s(void* data, size_t len) {
+        this->base = (char*)data;
+        this->len = len;
+    }
+#endif
+} offset_buf_t;
+
+#ifdef __cplusplus
 class HBuf : public hbuf_t {
 public:
     HBuf() : hbuf_t() {
@@ -219,5 +237,6 @@ private:
     size_t _tail;
     size_t _size;
 };
+#endif
 
 #endif  // HW_BUF_H_

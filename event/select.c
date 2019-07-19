@@ -1,4 +1,4 @@
-#include "io_watcher.h"
+#include "iowatcher.h"
 
 #ifdef EVENT_SELECT
 #include "hplatform.h"
@@ -7,7 +7,8 @@
 #endif
 
 #include "hdef.h"
-#include "hio.h"
+#include "hevent.h"
+#include "hsocket.h"
 
 typedef struct select_ctx_s {
     int max_fd;
@@ -34,13 +35,11 @@ int iowatcher_cleanup(hloop_t* loop) {
     return 0;
 }
 
-int iowatcher_add_event(hio_t* io, int events) {
-    hloop_t* loop = io->loop;
+int iowatcher_add_event(hloop_t* loop, int fd, int events) {
     if (loop->iowatcher == NULL) {
-        hloop_iowatcher_init(loop);
+        iowatcher_init(loop);
     }
     select_ctx_t* select_ctx = (select_ctx_t*)loop->iowatcher;
-    int fd = io->fd;
     if (fd > select_ctx->max_fd) {
         select_ctx->max_fd = fd;
     }
@@ -59,11 +58,9 @@ int iowatcher_add_event(hio_t* io, int events) {
     return 0;
 }
 
-int iowatcher_del_event(hio_t* io, int events) {
-    hloop_t* loop = io->loop;
+int iowatcher_del_event(hloop_t* loop, int fd, int events) {
     select_ctx_t* select_ctx = (select_ctx_t*)loop->iowatcher;
     if (select_ctx == NULL)    return 0;
-    int fd = io->fd;
     if (fd == select_ctx->max_fd) {
         select_ctx->max_fd = -1;
     }
@@ -82,6 +79,38 @@ int iowatcher_del_event(hio_t* io, int events) {
     return 0;
 }
 
+static int find_max_active_fd(hloop_t* loop) {
+    hio_t* io = NULL;
+    for (int i = loop->ios.maxsize-1; i >= 0; --i) {
+        io = loop->ios.ptr[i];
+        if (io && io->active && io->events) return i;
+    }
+    return -1;
+}
+
+static int remove_bad_fds(hloop_t* loop) {
+    select_ctx_t* select_ctx = (select_ctx_t*)loop->iowatcher;
+    if (select_ctx == NULL)    return 0;
+    int badfds = 0;
+    int error = 0;
+    socklen_t optlen = sizeof(error);
+    for (int fd = 0; fd <= select_ctx->max_fd; ++fd) {
+        if (FD_ISSET(fd, &select_ctx->readfds) ||
+            FD_ISSET(fd, &select_ctx->writefds)) {
+            error = 0;
+            optlen = sizeof(int);
+            if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (char*)&error, &optlen) < 0 || error != 0) {
+                ++badfds;
+                hio_t* io = loop->ios.ptr[fd];
+                if (io) {
+                    hio_del(io, ALL_EVENTS);
+                }
+            }
+        }
+    }
+    return badfds;
+}
+
 int iowatcher_poll_events(hloop_t* loop, int timeout) {
     select_ctx_t* select_ctx = (select_ctx_t*)loop->iowatcher;
     if (select_ctx == NULL)    return 0;
@@ -92,13 +121,7 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
     fd_set  readfds = select_ctx->readfds;
     fd_set  writefds = select_ctx->writefds;
     if (max_fd == -1) {
-        for (auto& pair : loop->ios) {
-            int fd = pair.first;
-            if (fd > max_fd) {
-                max_fd = fd;
-            }
-        }
-        select_ctx->max_fd = max_fd;
+        select_ctx->max_fd = max_fd = find_max_active_fd(loop);
     }
     struct timeval tv, *tp;
     if (timeout == INFINITE) {
@@ -117,28 +140,33 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
         if (errno == EBADF) {
             perror("select");
 #endif
+            remove_bad_fds(loop);
             return -EBADF;
         }
         return nselect;
     }
     if (nselect == 0)   return 0;
-    int nevent = 0;
-    auto iter = loop->ios.begin();
-    while (iter != loop->ios.end()) {
-        if (nevent == nselect) break;
-        int fd = iter->first;
-        hio_t* io = iter->second;
+    int nevents = 0;
+    int revents = 0;
+    for (int fd = 0; fd <= max_fd; ++fd) {
+        revents = 0;
         if (FD_ISSET(fd, &readfds)) {
-            ++nevent;
-            io->revents |= READ_EVENT;
+            ++nevents;
+            revents |= READ_EVENT;
         }
         if (FD_ISSET(fd, &writefds)) {
-            ++nevent;
-            io->revents |= WRITE_EVENT;
+            ++nevents;
+            revents |= WRITE_EVENT;
         }
-        hio_handle_events(io);
-        ++iter;
+        if (revents) {
+            hio_t* io = loop->ios.ptr[fd];
+            if (io) {
+                io->revents = revents;
+                EVENT_PENDING(io);
+            }
+        }
+        if (nevents == nselect) break;
     }
-    return nevent;
+    return nevents;
 }
 #endif

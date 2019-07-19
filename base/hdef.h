@@ -243,6 +243,12 @@ typedef void (*procedure_t)(void* userdata);
 #endif
 #endif
 
+#ifdef PRINT_DEBUG
+#define printd printf
+#else
+#define printd(...)
+#endif
+
 // __cplusplus
 #ifdef __cplusplus
 

@@ -78,9 +78,9 @@ struct http_connect_userdata {
     }
 };
 
-static void on_read(hio_t* io, void* buf, int readbytes, void* userdata) {
+static void on_read(hio_t* io, void* buf, int readbytes) {
     //printf("on_read fd=%d readbytes=%d\n", io->fd, readbytes);
-    http_connect_userdata* hcu = (http_connect_userdata*)userdata;
+    http_connect_userdata* hcu = (http_connect_userdata*)io->userdata;
     HttpService* service = hcu->server->service;
     HttpRequest* req = &hcu->req;
     HttpResponse* res = &hcu->res;
@@ -209,20 +209,19 @@ static void on_read(hio_t* io, void* buf, int readbytes, void* userdata) {
             hwrite(io->loop, io->fd, content, content_length);
         }
         hcu->log += asprintf("=>[%d %s]", res->status_code, http_status_str(res->status_code));
-        hlogi("%s", hcu->log.c_str());
         hclose(io);
     }
 }
 
-static void on_close(hio_t* io, void* userdata) {
-    http_connect_userdata* hcu = (http_connect_userdata*)userdata;
+static void on_close(hio_t* io) {
+    http_connect_userdata* hcu = (http_connect_userdata*)io->userdata;
     if (hcu) {
         hlogi("%s", hcu->log.c_str());
         delete hcu;
     }
 }
 
-static void on_accept(hio_t* io, int connfd, void* userdata) {
+static void on_accept(hio_t* io, int connfd) {
     //printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
     struct sockaddr_in localaddr, peeraddr;
     socklen_t addrlen;
@@ -236,16 +235,18 @@ static void on_accept(hio_t* io, int connfd, void* userdata) {
     // new http_connect_userdata
     // delete on_close
     http_connect_userdata* hcu = new http_connect_userdata;
-    hcu->server = (http_server_t*)userdata;
+    hcu->server = (http_server_t*)io->userdata;
     hcu->log += asprintf("[%s:%d]", inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
 
     nonblocking(connfd);
-    HBuf* buf = (HBuf*)io->loop->custom_data.ptr;
-    hread(io->loop, connfd, buf->base, buf->len, on_read, hcu, on_close, hcu);
+    HBuf* buf = (HBuf*)io->loop->userdata;
+    hio_t* connio = hread(io->loop, connfd, buf->base, buf->len, on_read);
+    connio->close_cb = on_close;
+    connio->userdata = hcu;
 }
 
-void handle_cached_files(htimer_t* timer, void* userdata) {
-    FileCache* pfc = (FileCache*)userdata;
+void handle_cached_files(htimer_t* timer) {
+    FileCache* pfc = (FileCache*)timer->userdata;
     if (pfc == NULL) {
         htimer_del(timer);
         return;
@@ -270,12 +271,16 @@ static void worker_proc(void* userdata) {
     int listenfd = server->listenfd;
     hloop_t loop;
     hloop_init(&loop);
-    htimer_add(&loop, handle_cached_files, &s_filecache, s_filecache.file_cached_time*1000);
+    htimer_t* timer = htimer_add(&loop, handle_cached_files, s_filecache.file_cached_time*1000);
+    timer->userdata = &s_filecache;
     // one loop one readbuf.
     HBuf readbuf;
     readbuf.resize(RECV_BUFSIZE);
-    loop.custom_data.ptr = &readbuf;
-    haccept(&loop, listenfd, on_accept, server);
+    loop.userdata = &readbuf;
+    hio_t* listenio = haccept(&loop, listenfd, on_accept);
+    listenio->userdata = server;
+    // disable fflush
+    hlog_set_fflush(0);
     hloop_run(&loop);
 }
 

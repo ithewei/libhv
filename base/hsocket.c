@@ -1,19 +1,5 @@
 #include "hsocket.h"
 
-#ifdef OS_WIN
-class WinSocketRAII {
-public:
-    WinSocketRAII() {
-        WSADATA wsadata;
-        WSAStartup(MAKEWORD(2,2), &wsadata);
-    }
-    ~WinSocketRAII() {
-        WSACleanup();
-    }
-};
-static WinSocketRAII s_ws;
-#endif
-
 int Listen(int port) {
     // socket -> setsockopt -> bind -> listen
     int listenfd = socket(AF_INET, SOCK_STREAM, 0);
