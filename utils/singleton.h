@@ -5,7 +5,7 @@
     Class(const Class &) = delete; \
     Class &operator=(const Class &) = delete;
 
-#define DCLR_SINGLETON(Class) \
+#define SINGLETON_DECL(Class) \
     public: \
         static Class* instance(); \
         static void exitInstance(); \
@@ -13,7 +13,7 @@
         DISABLE_COPY(Class) \
         static Class* s_pInstance;
 
-#define IMPL_SINGLETON(Class) \
+#define SINGLETON_IMPL(Class) \
     Class* Class::s_pInstance = NULL; \
     Class* Class::instance() { \
         if (s_pInstance == NULL) { \
