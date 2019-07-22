@@ -182,7 +182,7 @@ void hloop_cleanup(hloop_t* loop) {
     list_init(&loop->timers);
     heap_init(&loop->timer_minheap, NULL);
     // iowatcher
-    //iowatcher_cleanup(loop);
+    iowatcher_cleanup(loop);
 };
 
 int hloop_run(hloop_t* loop) {
@@ -280,8 +280,9 @@ hio_t* hio_add(hloop_t* loop, hio_cb cb, int fd, int events) {
         io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
     }
 
-    if (fd > loop->ios.maxsize) {
-        io_array_resize(&loop->ios, ceil2e(fd));
+    if (fd >= loop->ios.maxsize) {
+        int newsize = ceil2e(fd);
+        io_array_resize(&loop->ios, newsize > fd ? newsize : 2*fd);
     }
 
     hio_t* io = loop->ios.ptr[fd];
