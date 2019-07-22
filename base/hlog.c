@@ -20,12 +20,12 @@ static char     s_logbuf[LOG_BUFSIZE];
 #ifdef _MSC_VER
 static hmutex_t  s_mutex;
 static honce_t   s_once = HONCE_INIT;
-static void __mutex_init() {
+static void WINAPI __mutex_init() {
     hmutex_init(&s_mutex);
 }
 #define HLOG_LOCK\
     honce(&s_once, __mutex_init);\
-    hmutex_lock(%s_mutex);
+    hmutex_lock(&s_mutex);
 
 #else
 static hmutex_t s_mutex = PTHREAD_MUTEX_INITIALIZER;

@@ -18,7 +18,8 @@ public:
     void* userdata;
 
     HFrame() {
-        w = h = bpp = type = ts = 0;
+        w = h = bpp = type = 0;
+        ts = 0;
         useridx = -1;
         userdata = NULL;
     }

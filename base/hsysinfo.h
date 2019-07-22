@@ -31,8 +31,8 @@ static inline int get_meminfo(meminfo_t* mem) {
     memset(&memstat, 0, sizeof(memstat));
     memstat.dwLength = sizeof(memstat);
     GlobalMemoryStatusEx(&memstat);
-    mem->total = memstat.ullTotalPhys >> 10;
-    mem->free = memstat.ullAvailPhys >> 10;
+    mem->total = (unsigned long)(memstat.ullTotalPhys >> 10);
+    mem->free = (unsigned long)(memstat.ullAvailPhys >> 10);
     return 0;
 #elif defined(OS_LINUX)
     struct sysinfo info;

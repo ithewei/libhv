@@ -90,7 +90,9 @@
 
 // header files
 #ifdef OS_WIN
+    #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
+    #endif
     #define _CRT_SECURE_NO_WARNINGS
     #define _CRT_NONSTDC_NO_DEPRECATE
     #include <winsock2.h>
@@ -153,7 +155,10 @@ typedef unsigned __int64    uint64_t;
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#ifndef _MSC_VER
+#ifdef _MSC_VER
+#pragma warning (disable: 4100) // unused param
+#pragma warning (disable: 4819) // Unicode
+#else
 #include <pthread.h>
 #endif
 
