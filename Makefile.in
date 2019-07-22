@@ -87,8 +87,8 @@ DISTDIR = dist
 DOCDIR  = doc
 
 SRCDIRS += $(shell find $(SRCDIR) -type d)
-INCDIRS += $(INCDIR) $(DEPDIR) $(DEPDIR)/include $(SRCDIRS)
-LIBDIRS += $(LIBDIR) $(DEPDIR)/lib $(DEPDIR)/lib/$(TARGET_PLATFORM)
+override INCDIRS += $(INCDIR) $(DEPDIR) $(DEPDIR)/include
+override LIBDIRS += $(LIBDIR) $(DEPDIR)/lib $(DEPDIR)/lib/$(TARGET_PLATFORM)
 
 # CPPFLAGS
 ifeq ($(OS), Windows)
@@ -102,6 +102,7 @@ ifeq ($(BUILD_TYPE), DEBUG)
 endif
 CPPFLAGS += $(addprefix -D, $(DEFINES))
 CPPFLAGS += $(addprefix -I, $(INCDIRS))
+CPPFLAGS += $(addprefix -I, $(SRCDIRS))
 
 # LDFLAGS
 ifeq ($(OS), Windows)

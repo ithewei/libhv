@@ -17,7 +17,7 @@ static char     s_logbuf[LOG_BUFSIZE];
 
 // for thread-safe
 #include "hmutex.h"
-#ifdef _MSC_VER
+#ifdef OS_WIN
 static hmutex_t  s_mutex;
 static honce_t   s_once = HONCE_INIT;
 static void WINAPI __mutex_init() {

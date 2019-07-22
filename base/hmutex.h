@@ -3,7 +3,7 @@
 
 #include "hplatform.h"
 
-#ifdef _WIN32
+#ifdef OS_WIN
 #define hmutex_t            CRITICAL_SECTION
 #define hmutex_init         InitializeCriticalSection
 #define hmutex_destroy      DeleteCriticalSection
