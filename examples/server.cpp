@@ -22,10 +22,6 @@ void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", io->fd, io->error);
 }
 
-void on_write(hio_t* io, const void* buf, int writebytes, void* userdata) {
-    printf("on_write fd=%d writebytes=%d\n", io->fd, writebytes);
-}
-
 void on_read(hio_t* io, void* buf, int readbytes) {
     printf("on_read fd=%d readbytes=%d\n", io->fd, readbytes);
     printf("< %s\n", buf);
