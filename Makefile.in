@@ -117,9 +117,9 @@ ifeq ($(OS), Windows)
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
 else
 ifeq ($(OS), Android)
-	LDFLAGS += -lstdc++ -lm -llog
+	LDFLAGS += -lstdc++ -lm -llog -ldl
 else
-	LDFLAGS += -lstdc++ -lpthread -lm
+	LDFLAGS += -lstdc++ -lpthread -lm -ldl
 endif
 endif
 
