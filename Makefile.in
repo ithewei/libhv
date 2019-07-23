@@ -4,6 +4,7 @@
 # CC  = $(CROSS_COMPILE)gcc
 # CXX = $(CROSS_COMPILE)g++
 # CPPFLAGS += $(addprefix -D, $(DEFINES))
+# CPPFLAGS += $(addprefix -I, $(SRCDIRS))
 # CPPFLAGS += $(addprefix -I, $(INCDIRS))
 # LDFLAGS  += $(addprefix -L, $(LIBDIRS))
 # LDFLAGS  += $(addprefix -l, $(LIBS))
@@ -122,7 +123,7 @@ else
 endif
 endif
 
-SRCS += $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
+override SRCS += $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
 ifeq ($(SRCS), )
 	SRCS = $(wildcard *.c *.cc *.cpp)
 endif
