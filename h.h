@@ -19,12 +19,11 @@
 #include "herr.h"
 #include "hlog.h"
 #include "hmutex.h"
+#include "hsocket.h"
 
 // cpp
 #ifdef __cplusplus
 #include "hstring.h"
-#include "hsocket.h"
-
 #include "hvar.h"
 #include "hobj.h"
 #include "hgui.h"

@@ -39,12 +39,13 @@ httpd: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server $(TMPDIR)"
 
 webbench: prepare
-	$(MAKEF) TARGET=$@ SRCS="examples/webbench.c"
+	$(MAKEF) TARGET=$@ SRCDIRS="" SRCS="examples/webbench.c"
 
 # curl
-INCDIRS:=". base utils http http/client"
-SRCS:="examples/curl.cpp http/client/http_client.cpp http/http_parser.c http/multipart_parser.c http/http_content.cpp base/hstring.cpp"
+CURL_SRCDIRS := http http/client
+CURL_INCDIRS += base utils http http/client
+CURL_SRCS    += examples/curl.cpp base/hstring.cpp
 curl:
-	$(MAKEF) TARGET=$@ INCDIRS=$(INCDIRS) SRCS=$(SRCS) DEFINES="CURL_STATICLIB" LIBS="curl"
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" INCDIRS="$(CURL_INCDIRS)" SRCS="$(CURL_SRCS)" DEFINES="CURL_STATICLIB" LIBS="curl"
 
 .PHONY: clean prepare test client server curl httpd webbench

@@ -27,7 +27,7 @@ int db_close(HDB* phdb) {
 
 int db_exec(HDB hdb, const char* sql) {
     char *errmsg;
-    printf("sql: %s\n", sql);
+    //printf("sql: %s\n", sql);
     if (sqlite3_exec(hdb, sql, NULL, NULL, &errmsg) != SQLITE_OK) {
         fprintf(stderr, "sqlite3_exec sql: %s err: %s\n", sql, errmsg);
         return SQL_ERR;
@@ -39,7 +39,7 @@ int db_exec_with_result(HDB hdb, const char* sql, DBTable* table) {
     int row, col;
     char **results;
     char *errmsg;
-    printf("sql: %s\n", sql);
+    //printf("sql: %s\n", sql);
     if (sqlite3_get_table(hdb, sql, &results, &row, &col, &errmsg) != SQLITE_OK) {
         fprintf(stderr, "sqlite3_get_table sql: %s err: %s\n", sql, errmsg);
         return SQL_ERR;
@@ -60,7 +60,7 @@ int db_exec_with_result(HDB hdb, const char* sql, DBTable* table) {
 
 int db_exec_cb(HDB hdb, const char* sql, db_callback cb, void* userdata) {
     char *errmsg;
-    printf("sql: %s\n", sql);
+    //printf("sql: %s\n", sql);
     if (sqlite3_exec(hdb, sql, cb, userdata, &errmsg) != SQLITE_OK) {
         fprintf(stderr, "sqlite3_exec sql: %s err: %s\n", sql, errmsg);
         return SQL_ERR;

@@ -113,11 +113,11 @@ LDFLAGS += $(addprefix -L, $(LIBDIRS))
 LDFLAGS += $(addprefix -l, $(LIBS))
 
 ifeq ($(OS), Windows)
-	LDFLAGS += -Wl,-Bdynamic -lwinmm -liphlpapi -lws2_32
+	LDFLAGS += -lwinmm -liphlpapi -lws2_32
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
 else
 ifeq ($(OS), Android)
-	LDFLAGS += -Wl,-Bdynamic -lstdc++ -lm -llog
+	LDFLAGS += -lstdc++ -lm -llog
 else
 	LDFLAGS += -lstdc++ -lpthread -lm
 endif
