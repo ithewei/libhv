@@ -190,8 +190,8 @@ endif
 
 clean:
 	$(RM) $(OBJS)
-	$(RM) $(LIBDIR)
-	$(RM) $(BINDIR)
+	#$(RM) $(LIBDIR)
+	#$(RM) $(BINDIR)
 
 install:
 	$(CP) $(INCDIR)/* $(PREFIX)/$(INCDIR)/
