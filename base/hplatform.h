@@ -93,8 +93,9 @@
     #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
     #endif
-    #define _CRT_SECURE_NO_WARNINGS
     #define _CRT_NONSTDC_NO_DEPRECATE
+    #define _CRT_SECURE_NO_WARNINGS
+    #define _WINSOCK_DEPRECATED_NO_WARNINGS
     #include <winsock2.h>
     #include <windows.h>
     #include <process.h>    // for getpid,exec

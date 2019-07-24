@@ -8,7 +8,6 @@
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)
 #define TIMER_ENTRY(p)          container_of(p, htimer_t, node)
-#define TIMER_HEAP_ENTRY(p)     container_of(p, htimer_t, hnode)
 
 #define EVENT_ACTIVE(ev) \
     if (!ev->active) {\

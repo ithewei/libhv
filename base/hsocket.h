@@ -4,6 +4,10 @@
 #include "hplatform.h"
 #include "hdef.h"
 
+#ifdef _MSC_VER
+#pragma comment(lib, "ws2_32.lib")
+#endif
+
 BEGIN_EXTERN_C
 
 // socket -> setsockopt -> bind -> listen

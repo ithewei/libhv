@@ -15,9 +15,11 @@ BEGIN_EXTERN_C
 typedef struct hloop_s  hloop_t;
 typedef struct hevent_s hevent_t;
 
-typedef struct hidle_s  hidle_t;
-typedef struct htimer_s htimer_t;
-typedef struct hio_s    hio_t;
+typedef struct hidle_s      hidle_t;
+typedef struct htimer_s     htimer_t;
+typedef struct htimeout_s   htimeout_t;
+typedef struct hperiod_s    hperiod_t;
+typedef struct hio_s        hio_t;
 
 typedef void (*hevent_cb)   (hevent_t* ev);
 typedef void (*hidle_cb)    (hidle_t* idle);
@@ -32,16 +34,18 @@ typedef void (*hclose_cb)   (hio_t* io);
 
 typedef enum {
     HEVENT_TYPE_NONE    = 0,
-    HEVENT_TYPE_IDLE    = 0x0001,
-    HEVENT_TYPE_TIMER   = 0x0002,
-    HEVENT_TYPE_IO      = 0x0004,
+    HEVENT_TYPE_IDLE    = 0x00000010,
+    HEVENT_TYPE_TIMEOUT = 0x00000100,
+    HEVENT_TYPE_PERIOD  = 0x00000200,
+    HEVENT_TYPE_TIMER   = HEVENT_TYPE_TIMEOUT|HEVENT_TYPE_PERIOD,
+    HEVENT_TYPE_IO      = 0x00001000,
 } hevent_type_e;
 
-#define HEVENT_LOWEST_PRIORITY     -10
-#define HEVENT_LOW_PRIORITY        -5
+#define HEVENT_LOWEST_PRIORITY     -5
+#define HEVENT_LOW_PRIORITY        -3
 #define HEVENT_NORMAL_PRIORITY      0
-#define HEVENT_HIGH_PRIORITY        5
-#define HEVENT_HIGHEST_PRIORITY     10
+#define HEVENT_HIGH_PRIORITY        3
+#define HEVENT_HIGHEST_PRIORITY     5
 #define HEVENT_PRIORITY_SIZE  (HEVENT_HIGHEST_PRIORITY-HEVENT_LOWEST_PRIORITY+1)
 #define HEVENT_PRIORITY_INDEX(priority) (priority-HEVENT_LOWEST_PRIORITY)
 
@@ -71,14 +75,28 @@ struct hidle_s {
     struct list_node node;
 };
 
+#define HTIMER_FIELDS                   \
+    HEVENT_FIELDS                       \
+    uint32_t    repeat;                 \
+    uint64_t    next_timeout;           \
+    struct heap_node node;
+
 struct htimer_s {
-    HEVENT_FIELDS
-    uint32_t    repeat;
-    uint32_t    timeout;
-//private:
-    uint64_t    next_timeout;
-    struct list_node node;
-    struct heap_node hnode;
+    HTIMER_FIELDS
+};
+
+struct htimeout_s {
+    HTIMER_FIELDS
+    uint32_t    timeout;                \
+};
+
+struct hperiod_s {
+    HTIMER_FIELDS
+    int8_t      minute;
+    int8_t      hour;
+    int8_t      day;
+    int8_t      week;
+    int8_t      month;
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
@@ -124,20 +142,19 @@ struct hloop_s {
 //private:
     // events
     uint64_t                    event_counter;
-    uint32_t                    nevents;
     uint32_t                    nactives;
     uint32_t                    npendings;
     // pendings: with priority as array.index
     hevent_t*                   pendings[HEVENT_PRIORITY_SIZE];
     // idles
     struct list_head            idles;
-    uint64_t                    idle_time;
-    uint64_t                    last_idle_hrtime;
+    uint32_t                    nidles;
     // timers
-    struct list_head            timers;
-    struct heap                 timer_minheap;
+    struct heap                 timers;
+    uint32_t                    ntimers;
     // ios: with fd as array.index
     struct io_array             ios;
+    uint32_t                    nios;
     void*                       iowatcher;
 };
 
@@ -157,6 +174,10 @@ static inline time_t hloop_now(hloop_t* loop) {
     return loop->start_time + (loop->cur_hrtime - loop->start_hrtime) / 1000000;
 }
 
+static inline uint64_t hloop_now_hrtime(hloop_t* loop) {
+    return loop->start_time*1e6 + (loop->cur_hrtime - loop->start_hrtime);
+}
+
 // idle
 hidle_t*    hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT(INFINITE));
 void        hidle_del(hidle_t* idle);
@@ -164,6 +185,18 @@ void        hidle_del(hidle_t* idle);
 // timer
 // @param timeout: unit(ms)
 htimer_t*   htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t repeat DEFAULT(INFINITE));
+/*
+ * minute   hour    day     week    month       cb
+ * 0~59     0~23    1~31    0~6     1~12
+ *  30      -1      -1      -1      -1          cron.hourly
+ *  30      1       -1      -1      -1          cron.daily
+ *  30      1       15      -1      -1          cron.monthly
+ *  30      1       -1       7      -1          cron.weekly
+ *  30      1        1      -1      10          cron.yearly
+ */
+htimer_t*   htimer_add_period(hloop_t* loop, htimer_cb cb,
+                int8_t minute DEFAULT(0),  int8_t hour  DEFAULT(-1), int8_t day DEFAULT(-1),
+                int8_t week   DEFAULT(-1), int8_t month DEFAULT(-1), uint32_t repeat DEFAULT(INFINITE));
 void        htimer_del(htimer_t* timer);
 
 // io

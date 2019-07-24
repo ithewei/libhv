@@ -9,6 +9,12 @@ void on_timer(htimer_t* timer) {
         timer->event_id, timer->priority, (long)timer->userdata, hloop_now(timer->loop), timer->loop->cur_hrtime);
 }
 
+void cron_hourly(htimer_t* timer) {
+    time_t tt;
+    time(&tt);
+    printf("cron_hourly: %s\n", ctime(&tt));
+}
+
 int main() {
     hloop_t loop;
     hloop_init(&loop);
@@ -20,6 +26,8 @@ int main() {
         htimer_t* timer = htimer_add(&loop, on_timer, i*1000, i);
         timer->userdata = (void*)i;
     }
+    int minute = time(NULL)%3600/60;
+    htimer_add_period(&loop, cron_hourly, minute+1, -1, -1, -1, -1, INFINITE);
     hloop_run(&loop);
     return 0;
 }

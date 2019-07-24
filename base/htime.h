@@ -6,6 +6,14 @@ extern "C" {
 #endif
 
 #include "hplatform.h"
+#include "hdef.h"
+
+#define SECONDS_PER_HOUR    3600
+#define SECONDS_PER_DAY     86400   // 24*3600
+#define SECONDS_PER_WEEK    604800  // 7*24*3600
+
+#define IS_LEAP_YEAR(year) (((year)%4 == 0 && (year)%100 != 0) ||\
+                            (year)%100 == 0)
 
 typedef struct datetime_s {
     int year;
@@ -43,11 +51,28 @@ static inline unsigned int gettick() {
 // us
 unsigned long long gethrtime();
 
-datetime_t get_datetime();
-datetime_t get_compile_datetime();
+datetime_t datetime_now();
+time_t     datetime_mktime(datetime_t* dt);
 
+datetime_t* datetime_past(datetime_t* dt, int days DEFAULT(1));
+datetime_t* datetime_future(datetime_t* dt, int days DEFAULT(1));
+
+/*
+ * minute   hour    day     week    month       action
+ * 0~59     0~23    1~31    0~6     1~12
+ *  30      -1      -1      -1      -1          cron.hourly
+ *  30      1       -1      -1      -1          cron.daily
+ *  30      1       15      -1      -1          cron.monthly
+ *  30      1       -1       7      -1          cron.weekly
+ *  30      1        1      -1      10          cron.yearly
+ */
+time_t calc_next_timeout(int minute, int hour, int day, int week, int month);
+
+int days_of_month(int month, int year);
 int month_atoi(const char* month);
 const char* month_itoa(int month);
+
+datetime_t get_compile_datetime();
 
 #ifdef __cplusplus
 } // extern "C"

@@ -6,8 +6,6 @@
 
 #include "htime.h"  // for get_datetime
 
-#define SECONDS_PER_DAY     86400
-
 static char     s_logfile[256] = DEFAULT_LOG_FILE;
 static int      s_loglevel = DEFAULT_LOG_LEVEL;
 static bool     s_logcolor = false;
@@ -140,7 +138,7 @@ int hlog_printf(int level, const char* fmt, ...) {
         return -20;
     }
 
-    datetime_t now = get_datetime();
+    datetime_t now = datetime_now();
     int len = snprintf(s_logbuf, LOG_BUFSIZE, "[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s]: ",
         now.year, now.month, now.day, now.hour, now.min, now.sec, now.ms, plevel);
 
