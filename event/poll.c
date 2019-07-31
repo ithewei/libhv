@@ -4,6 +4,10 @@
 #include "hplatform.h"
 #include "hdef.h"
 
+#ifdef OS_WIN
+#define poll        WSAPoll
+#endif
+
 #ifdef OS_LINUX
 #include <sys/poll.h>
 #endif

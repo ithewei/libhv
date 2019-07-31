@@ -11,6 +11,10 @@
 
 #define IO_ARRAY_INIT_SIZE      64
 
+static void hio_init(hio_t* io);
+static void hio_deinit(hio_t* io);
+static void hio_free(hio_t* io);
+
 static int timers_compare(const struct heap_node* lhs, const struct heap_node* rhs) {
     return TIMER_ENTRY(lhs)->next_timeout < TIMER_ENTRY(rhs)->next_timeout;
 }
@@ -118,7 +122,7 @@ static int hloop_process_events(hloop_t* loop) {
     int nios, ntimers, nidles;
     nios = ntimers = nidles = 0;
 
-    int64_t blocktime = 0;
+    int32_t blocktime = MAX_BLOCK_TIME;
     hloop_update_time(loop);
     if (loop->timers.root) {
         uint64_t next_min_timeout = TIMER_ENTRY(loop->timers.root)->next_timeout;
@@ -126,9 +130,9 @@ static int hloop_process_events(hloop_t* loop) {
         if (blocktime <= 0) goto process_timers;
         blocktime /= 1000;
         ++blocktime;
+        blocktime = MIN(blocktime, MAX_BLOCK_TIME);
     }
 
-    blocktime = MIN(blocktime, MAX_BLOCK_TIME);
     if (loop->nios) {
         nios = hloop_process_ios(loop, blocktime);
     }
@@ -158,7 +162,9 @@ int hloop_init(hloop_t* loop) {
     list_init(&loop->idles);
     // timers
     heap_init(&loop->timers, timers_compare);
-    // iowatcher
+    // ios: init when hio_add
+    //io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
+    // iowatcher: init when iowatcher_add_event
     //iowatcher_init(loop);
     // time
     time(&loop->start_time);
@@ -188,6 +194,14 @@ void hloop_cleanup(hloop_t* loop) {
         free(timer);
     }
     heap_init(&loop->timers, NULL);
+    // ios
+    for (int i = 0; i < loop->ios.maxsize; ++i) {
+        hio_t* io = loop->ios.ptr[i];
+        if (io) {
+            hio_free(io);
+        }
+    }
+    io_array_cleanup(&loop->ios);
     // iowatcher
     iowatcher_cleanup(loop);
 };
@@ -297,11 +311,11 @@ void hio_init(hio_t* io) {
     memset(io, 0, sizeof(hio_t));
     io->event_type = HEVENT_TYPE_IO;
     io->event_index[0] = io->event_index[1] = -1;
-    // move to hwrite
+    // write_queue init when hwrite try_write failed
     //write_queue_init(&io->write_queue, 4);;
 }
 
-void hio_cleanup(hio_t* io) {
+void hio_deinit(hio_t* io) {
     offset_buf_t* pbuf = NULL;
     while (!write_queue_empty(&io->write_queue)) {
         pbuf = write_queue_front(&io->write_queue);
@@ -309,6 +323,14 @@ void hio_cleanup(hio_t* io) {
         write_queue_pop_front(&io->write_queue);
     }
     write_queue_cleanup(&io->write_queue);
+}
+
+void hio_free(hio_t* io) {
+    if (io == NULL) return;
+    hio_deinit(io);
+    SAFE_FREE(io->localaddr);
+    SAFE_FREE(io->peeraddr);
+    free(io);
 }
 
 hio_t* hio_add(hloop_t* loop, hio_cb cb, int fd, int events) {
@@ -349,8 +371,20 @@ void hio_del(hio_t* io, int events) {
     io->events &= ~events;
     if (io->events == 0) {
         io->loop->nios--;
-        hio_cleanup(io);
+        hio_deinit(io);
         EVENT_DEL(io);
     }
 }
 
+#include "hsocket.h"
+hio_t* hlisten (hloop_t* loop, int port, haccept_cb accept_cb) {
+    int listenfd = Listen(port);
+    if (listenfd < 0) {
+        return NULL;
+    }
+    hio_t* io = haccept(loop, listenfd, accept_cb);
+    if (io == NULL) {
+        closesocket(listenfd);
+    }
+    return io;
+}

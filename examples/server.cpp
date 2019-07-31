@@ -1,5 +1,4 @@
 #include "hloop.h"
-#include "hsocket.h"
 
 #define RECV_BUFSIZE    4096
 static char readbuf[RECV_BUFSIZE];
@@ -32,17 +31,16 @@ void on_read(hio_t* io, void* buf, int readbytes) {
 
 void on_accept(hio_t* io, int connfd) {
     printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
-    struct sockaddr_in localaddr, peeraddr;
-    socklen_t addrlen;
-    addrlen = sizeof(struct sockaddr_in);
-    getsockname(connfd, (struct sockaddr*)&localaddr, &addrlen);
-    addrlen = sizeof(struct sockaddr_in);
-    getpeername(connfd, (struct sockaddr*)&peeraddr, &addrlen);
-    printf("accept connfd=%d [%s:%d] <= [%s:%d]\n", connfd,
-            inet_ntoa(localaddr.sin_addr), ntohs(localaddr.sin_port),
-            inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
+    struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
+    struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
+    char localip[64];
+    char peerip[64];
+    inet_ntop(AF_INET, &localaddr->sin_addr, localip, sizeof(localip));
+    inet_ntop(AF_INET, &peeraddr->sin_addr, peerip, sizeof(peerip));
+    printf("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
+            localip, ntohs(localaddr->sin_port),
+            peerip, ntohs(peeraddr->sin_port));
 
-    nonblocking(connfd);
     // one loop can use one readbuf
     hio_t* connio = hread(io->loop, connfd, readbuf, RECV_BUFSIZE, on_read);
     connio->close_cb = on_close;
@@ -55,16 +53,14 @@ int main(int argc, char** argv) {
     }
     int port = atoi(argv[1]);
 
-    int listenfd = Listen(port);
-    printf("listenfd=%d\n", listenfd);
-    if (listenfd < 0) {
-        return listenfd;
-    }
-
     hloop_t loop;
     hloop_init(&loop);
     //hidle_add(&loop, on_idle, INFINITE);
     //htimer_add(&loop, on_timer, 1000, INFINITE);
-    haccept(&loop, listenfd, on_accept);
+    hio_t* io = hlisten(&loop, port, on_accept);
+    if (io == NULL) {
+        return -20;
+    }
+    printf("listenfd=%d\n", io->fd);
     hloop_run(&loop);
 }

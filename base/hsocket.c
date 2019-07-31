@@ -39,7 +39,7 @@ int Connect(const char* host, int port, int nonblock) {
     socklen_t addrlen = sizeof(addr);
     memset(&addr, 0, addrlen);
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = inet_addr(host);
+    inet_pton(AF_INET, host, &addr.sin_addr);
     if (addr.sin_addr.s_addr == INADDR_NONE) {
         struct hostent* phe = gethostbyname(host);
         if (phe == NULL)    return -10;

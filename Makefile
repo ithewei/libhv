@@ -3,7 +3,7 @@ TMPDIR=tmp
 
 default: all
 
-all: test client server httpd webbench
+all: test loop client server httpd
 
 clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server examples $(TMPDIR)"
@@ -38,7 +38,7 @@ httpd: prepare
 	cp examples/http_api_test.h $(TMPDIR)/http_api_test.h
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server $(TMPDIR)"
 
-webbench: prepare
+webbench:
 	$(MAKEF) TARGET=$@ SRCDIRS="" SRCS="examples/webbench.c"
 
 # curl
@@ -48,4 +48,4 @@ CURL_SRCS    += examples/curl.cpp base/hstring.cpp
 curl:
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" INCDIRS="$(CURL_INCDIRS)" SRCS="$(CURL_SRCS)" DEFINES="CURL_STATICLIB" LIBS="curl"
 
-.PHONY: clean prepare test client server curl httpd webbench
+.PHONY: clean prepare test loop client server httpd webbench curl

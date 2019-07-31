@@ -106,12 +106,15 @@ struct hio_s {
     unsigned    accept      :1;
     unsigned    connect     :1;
     unsigned    closed      :1;
+    unsigned    connectex   :1; // for ConnectEx/DisconnectEx
     int         fd;
     int         error;
     int         events;
     int         revents;
-    hbuf_t              readbuf;
-    struct write_queue  write_queue;
+    struct sockaddr*    localaddr;
+    struct sockaddr*    peeraddr;
+    hbuf_t              readbuf;        // for hread
+    struct write_queue  write_queue;    // for hwrite
     // callbacks
     hread_cb    read_cb;
     hwrite_cb   write_cb;
@@ -119,7 +122,8 @@ struct hio_s {
     haccept_cb  accept_cb;
     hconnect_cb connect_cb;
 //private:
-    int         event_index[2];
+    int         event_index[2]; // for poll,kqueue
+    void*       hovlp;          // for iocp/overlapio
 };
 
 typedef enum {
@@ -209,7 +213,9 @@ void        hio_del(hio_t* io, int events DEFAULT(ALL_EVENTS));
 
 // second level apis
 hio_t* haccept  (hloop_t* loop, int listenfd, haccept_cb accept_cb);
-hio_t* hconnect (hloop_t* loop, int connfd, hconnect_cb connect_cb);
+// Listen => haccept
+hio_t* hlisten  (hloop_t* loop, int port,     haccept_cb accept_cb);
+hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 hio_t* hread    (hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb);
 hio_t* hwrite   (hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 void   hclose   (hio_t* io);

@@ -218,25 +218,26 @@ static void on_close(hio_t* io) {
     if (hcu) {
         hlogi("%s", hcu->log.c_str());
         delete hcu;
+        io->userdata = NULL;
     }
 }
 
 static void on_accept(hio_t* io, int connfd) {
     //printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
-    struct sockaddr_in localaddr, peeraddr;
-    socklen_t addrlen;
-    addrlen = sizeof(struct sockaddr_in);
-    getsockname(connfd, (struct sockaddr*)&localaddr, &addrlen);
-    addrlen = sizeof(struct sockaddr_in);
-    getpeername(connfd, (struct sockaddr*)&peeraddr, &addrlen);
-    //printf("accept connfd=%d [%s:%d] <= [%s:%d]\n", connfd,
-            //inet_ntoa(localaddr.sin_addr), ntohs(localaddr.sin_port),
-            //inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
+    struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
+    struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
+    //char localip[64];
+    char peerip[64];
+    //inet_ntop(AF_INET, &localaddr->sin_addr, localip, sizeof(localip));
+    inet_ntop(AF_INET, &peeraddr->sin_addr, peerip, sizeof(peerip));
+    //printd("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
+            //localip, ntohs(localaddr->sin_port),
+            //peerip, ntohs(peeraddr->sin_port));
     // new http_connect_userdata
     // delete on_close
     http_connect_userdata* hcu = new http_connect_userdata;
     hcu->server = (http_server_t*)io->userdata;
-    hcu->log += asprintf("[%s:%d]", inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
+    hcu->log += asprintf("[%s:%d]", peerip, ntohs(peeraddr->sin_port));
 
     nonblocking(connfd);
     HBuf* buf = (HBuf*)io->loop->userdata;
@@ -266,21 +267,27 @@ void handle_cached_files(htimer_t* timer) {
     }
 }
 
+void fflush_log(hidle_t* idle) {
+    hlog_fflush();
+}
+
 static void worker_proc(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
     int listenfd = server->listenfd;
     hloop_t loop;
     hloop_init(&loop);
-    htimer_t* timer = htimer_add(&loop, handle_cached_files, s_filecache.file_cached_time*1000);
-    timer->userdata = &s_filecache;
     // one loop one readbuf.
     HBuf readbuf;
     readbuf.resize(RECV_BUFSIZE);
     loop.userdata = &readbuf;
     hio_t* listenio = haccept(&loop, listenfd, on_accept);
     listenio->userdata = server;
-    // disable fflush
+    // fflush logfile when idle
     hlog_set_fflush(0);
+    hidle_add(&loop, fflush_log, INFINITE);
+    // timer handle_cached_files
+    htimer_t* timer = htimer_add(&loop, handle_cached_files, s_filecache.file_cached_time*1000);
+    timer->userdata = &s_filecache;
     hloop_run(&loop);
 }
 
@@ -296,6 +303,12 @@ int http_server_run(http_server_t* server, int wait) {
     // port
     server->listenfd = Listen(server->port);
     if (server->listenfd < 0) return server->listenfd;
+
+#ifdef OS_WIN
+    if (server->worker_processes > 1) {
+        server->worker_processes = 1;
+    }
+#endif
 
     if (server->worker_processes == 0) {
         worker_proc(server);

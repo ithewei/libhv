@@ -1,5 +1,4 @@
 #include "hloop.h"
-#include "hsocket.h"
 
 #define RECV_BUFSIZE    4096
 static char readbuf[RECV_BUFSIZE];
@@ -45,15 +44,11 @@ void on_connect(hio_t* io, int state) {
         printf("error=%d:%s\n", io->error, strerror(io->error));
         return;
     }
-    struct sockaddr_in localaddr, peeraddr;
-    socklen_t addrlen;
-    addrlen = sizeof(struct sockaddr_in);
-    getsockname(io->fd, (struct sockaddr*)&localaddr, &addrlen);
-    addrlen = sizeof(struct sockaddr_in);
-    getpeername(io->fd, (struct sockaddr*)&peeraddr, &addrlen);
+    struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
+    struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
     printf("connect connfd=%d [%s:%d] => [%s:%d]\n", io->fd,
-            inet_ntoa(localaddr.sin_addr), ntohs(localaddr.sin_port),
-            inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
+            inet_ntoa(localaddr->sin_addr), ntohs(localaddr->sin_port),
+            inet_ntoa(peeraddr->sin_addr), ntohs(peeraddr->sin_port));
 
     // NOTE: just on loop, readbuf can be shared.
     hio_t* iostdin = hread(io->loop, 0, readbuf, RECV_BUFSIZE, on_stdin);
@@ -74,17 +69,15 @@ int main(int argc, char** argv) {
     const char* host = argv[1];
     int port = atoi(argv[2]);
 
-    int connfd = Connect(host, port, 1);
-    printf("connfd=%d\n", connfd);
-    if (connfd < 0) {
-        return connfd;
-    }
-
     hloop_t loop;
     hloop_init(&loop);
     //hidle_add(&loop, on_idle, INFINITE);
     //htimer_add(&loop, on_timer, 1000, INFINITE);
-    hconnect(&loop, connfd, on_connect);
+    hio_t* io = hconnect(&loop, host, port, on_connect);
+    if (io == NULL) {
+        return -20;
+    }
+    printf("connfd=%d\n", io->fd);
     hloop_run(&loop);
 
     return 0;

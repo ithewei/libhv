@@ -29,6 +29,7 @@ public:
 
 char* strupper(char* str);
 char* strlower(char* str);
+char* strreverse(char* str);
 
 string asprintf(const char* fmt, ...);
 StringList split(const string& str, char delim);

@@ -4,6 +4,9 @@
 #include "hplatform.h"
 #include "hdef.h"
 
+#include "hevent.h"
+#include "overlapio.h"
+
 typedef struct iocp_ctx_s {
     HANDLE      iocp;
 } iocp_ctx_t;
@@ -29,11 +32,18 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
         iowatcher_init(loop);
     }
     iocp_ctx_t* iocp_ctx = (iocp_ctx_t*)loop->iowatcher;
-    HANDLE h = CreateIoCompletionPort((HANDLE)fd, iocp_ctx->iocp, (ULONG_PTR)events, 0);
+    hio_t* io = loop->ios.ptr[fd];
+    if (io && io->events == 0 && events != 0) {
+        CreateIoCompletionPort((HANDLE)fd, iocp_ctx->iocp, 0, 0);
+    }
     return 0;
 }
 
 int iowatcher_del_event(hloop_t* loop, int fd, int events) {
+    hio_t* io = loop->ios.ptr[fd];
+    if ((io->events & ~events) == 0) {
+        CancelIo((HANDLE)fd);
+    }
     return 0;
 }
 
@@ -43,29 +53,28 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
     DWORD bytes = 0;
     ULONG_PTR key = 0;
     LPOVERLAPPED povlp = NULL;
-    timeout = 3000;
     BOOL bRet = GetQueuedCompletionStatus(iocp_ctx->iocp, &bytes, &key, &povlp, timeout);
     int err = 0;
-    if (bRet == 0) {
-        err = GetLastError();
-    }
-    if (err) {
-        if (err == ERROR_NETNAME_DELETED ||
-            err == ERROR_OPERATION_ABORTED) {
+    if (povlp == NULL) {
+        err = WSAGetLastError();
+        if (err == WAIT_TIMEOUT || ERROR_NETNAME_DELETED || ERROR_OPERATION_ABORTED) {
             return 0;
         }
-        if (povlp == NULL) {
-            if (err == WAIT_TIMEOUT) return 0;
-            return -1;
-        }
+        return -err;
     }
-    if (povlp == NULL) {
-        return -1;
+    hoverlapped_t* hovlp = (hoverlapped_t*)povlp;
+    hio_t* io = hovlp->io;
+    if (bRet == FALSE) {
+        err = WSAGetLastError();
+        printd("iocp ret=%d err=%d bytes=%u\n", bRet, err, bytes);
+        // NOTE: when ConnectEx failed, err != 0
+        hovlp->error = err;
     }
-    if (key == NULL) {
-        return -1;
-    }
-    ULONG_PTR revents = key;
+    // NOTE: when WSASend/WSARecv disconnect, bytes = 0
+    hovlp->bytes = bytes;
+    io->hovlp = hovlp;
+    io->revents |= hovlp->event;
+    EVENT_PENDING(hovlp->io);
     return 1;
 }
 #endif

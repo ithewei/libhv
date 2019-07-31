@@ -62,6 +62,6 @@ hw 是一套跨平台c++工具集，类名以H开头
 - make test: 服务端master-workers model
 - make loop: 事件循环(包含timer、io、idle)
 - make client server：非阻塞socket
-- make httpd: http服务（包含web service和api service），性能测试仅比nginx差一点（估计是nginx accept_mutex规避了惊群效应）
+- make httpd: http服务（包含web service和api service)
 - make curl: 基于libcurl封装http客户端
 - make webbench: http服务压力测试程序

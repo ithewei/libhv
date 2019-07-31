@@ -4,14 +4,16 @@
 
 static void nio_accept(hio_t* io) {
     //printd("nio_accept listenfd=%d\n", io->fd);
-    struct sockaddr_in peeraddr;
     socklen_t addrlen;
-    //struct sockaddr_in localaddr;
-    //addrlen = sizeof(struct sockaddr_in);
-    //getsockname(io->fd, (struct sockaddr*)&localaddr, &addrlen);
+    if (io->localaddr == NULL) {
+        io->localaddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+    }
+    if (io->peeraddr == NULL) {
+        io->peeraddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+    }
 accept:
     addrlen = sizeof(struct sockaddr_in);
-    int connfd = accept(io->fd, (struct sockaddr*)&peeraddr, &addrlen);
+    int connfd = accept(io->fd, io->peeraddr, &addrlen);
     if (connfd < 0) {
         if (sockerrno == NIO_EAGAIN) {
             //goto accept_done;
@@ -23,11 +25,19 @@ accept:
             goto accept_error;
         }
     }
-    //printd("accept connfd=%d [%s:%d] <= [%s:%d]\n", connfd,
-            //inet_ntoa(localaddr.sin_addr), ntohs(localaddr.sin_port),
-            //inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
 
+    addrlen = sizeof(struct sockaddr_in);
+    getsockname(connfd, io->localaddr, &addrlen);
     if (io->accept_cb) {
+        struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
+        struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
+        char localip[64];
+        char peerip[64];
+        inet_ntop(AF_INET, &localaddr->sin_addr, localip, sizeof(localip));
+        inet_ntop(AF_INET, &peeraddr->sin_addr, peerip, sizeof(peerip));
+        printd("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
+                localip, ntohs(localaddr->sin_port),
+                peerip, ntohs(peeraddr->sin_port));
         printd("accept_cb------\n");
         io->accept_cb(io, connfd);
         printd("accept_cb======\n");
@@ -42,28 +52,41 @@ accept_error:
 static void nio_connect(hio_t* io) {
     //printd("nio_connect connfd=%d\n", io->fd);
     int state = 0;
-    struct sockaddr_in peeraddr;
     socklen_t addrlen;
+    if (io->localaddr == NULL) {
+        io->localaddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+        addrlen = sizeof(struct sockaddr_in);
+        getsockname(io->fd, io->localaddr, &addrlen);
+    }
+    if (io->peeraddr == NULL) {
+        io->peeraddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+    }
     addrlen = sizeof(struct sockaddr_in);
-    int ret = getpeername(io->fd, (struct sockaddr*)&peeraddr, &addrlen);
+    int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
         io->error = sockerrno;
-        //printd("connect failed: %s: %d\n", strerror(sockerrno), sockerrno);
+        printd("connect failed: %s: %d\n", strerror(sockerrno), sockerrno);
         state = 0;
     }
     else {
-        //struct sockaddr_in localaddr;
-        //addrlen = sizeof(struct sockaddr_in);
-        //getsockname(ioent->fd, (struct sockaddr*)&localaddr, &addrlen);
-        //printd("connect connfd=%d [%s:%d] => [%s:%d]\n", io->fd,
-                //inet_ntoa(localaddr.sin_addr), ntohs(localaddr.sin_port),
-                //inet_ntoa(peeraddr.sin_addr), ntohs(peeraddr.sin_port));
+        struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
+        struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
+        char localip[64];
+        char peerip[64];
+        inet_ntop(AF_INET, &localaddr->sin_addr, localip, sizeof(localip));
+        inet_ntop(AF_INET, &peeraddr->sin_addr, peerip, sizeof(peerip));
+        printd("connect connfd=%d [%s:%d] => [%s:%d]\n", io->fd,
+                localip, ntohs(localaddr->sin_port),
+                peerip, ntohs(peeraddr->sin_port));
         state = 1;
     }
     if (io->connect_cb) {
         printd("connect_cb------\n");
         io->connect_cb(io, state);
         printd("connect_cb======\n");
+    }
+    if (state == 0) {
+        hclose(io);
     }
 }
 
@@ -74,7 +97,11 @@ static void nio_read(hio_t* io) {
     int   len = io->readbuf.len;
 read:
     memset(buf, 0, len);
+#ifdef OS_UNIX
     nread = read(io->fd, buf, len);
+#else
+    nread = recv(io->fd, buf, len, 0);
+#endif
     //printd("read retval=%d\n", nread);
     if (nread < 0) {
         if (sockerrno == NIO_EAGAIN) {
@@ -115,7 +142,11 @@ write:
     offset_buf_t* pbuf = write_queue_front(&io->write_queue);
     char* buf = pbuf->base + pbuf->offset;
     int len = pbuf->len - pbuf->offset;
+#ifdef OS_UNIX
     nwrite = write(io->fd, buf, len);
+#else
+    nwrite = send(io->fd, buf, len, 0);
+#endif
     //printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
         if (sockerrno == NIO_EAGAIN) {
@@ -191,9 +222,16 @@ hio_t* haccept  (hloop_t* loop, int listenfd, haccept_cb accept_cb) {
     return io;
 }
 
-hio_t* hconnect (hloop_t* loop, int connfd, hconnect_cb connect_cb) {
+hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
+    int connfd = Connect(host, port, 1);
+    if (connfd < 0) {
+        return NULL;
+    }
     hio_t* io = hio_add(loop, hio_handle_events, connfd, WRITE_EVENT);
-    if (io == NULL) return NULL;
+    if (io == NULL) {
+        closesocket(connfd);
+        return NULL;
+    }
     if (connect_cb) {
         io->connect_cb = connect_cb;
     }
@@ -222,7 +260,11 @@ hio_t* hwrite   (hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb w
     int nwrite = 0;
     if (write_queue_empty(&io->write_queue)) {
 try_write:
+#ifdef OS_UNIX
         nwrite = write(fd, buf, len);
+#else
+        nwrite = send(fd, buf, len, 0);
+#endif
         //printd("write retval=%d\n", nwrite);
         if (nwrite < 0) {
             if (sockerrno == NIO_EAGAIN) {
@@ -273,10 +315,16 @@ disconnect:
 void   hclose   (hio_t* io) {
     //printd("close fd=%d\n", io->fd);
     if (io->closed) return;
+#ifdef OS_UNIX
     close(io->fd);
+#else
+    closesocket(io->fd);
+#endif
     io->closed = 1;
     if (io->close_cb) {
+        printd("close_cb------\n");
         io->close_cb(io);
+        printd("close_cb======\n");
     }
     hio_del(io, ALL_EVENTS);
 }

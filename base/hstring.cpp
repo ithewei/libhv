@@ -30,25 +30,43 @@ char* strlower(char* str) {
     return str;
 }
 
-int vscprintf(const char* fmt, va_list ap) {
+char* strreverse(char* str) {
+    if (str == NULL) return NULL;
+    char* b = str;
+    char* e = str;
+    while(*e) {++e;}
+    --e;
+    char tmp;
+    while (e > b) {
+        tmp = *e;
+        *e = *b;
+        *b = tmp;
+        --e;
+        ++b;
+    }
+    return str;
+}
+
+static inline int vscprintf(const char* fmt, va_list ap) {
     return vsnprintf(NULL, 0, fmt, ap);
 }
 
 string asprintf(const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    int len = vscprintf(fmt, ap) + 1;
-    va_end(ap);
-    // must recall va_start in linux
-    va_start(ap, fmt);
-    char* buf = (char*)malloc(len);
-    memset(buf, 0, len);
-    vsnprintf(buf, len, fmt, ap);
+    int len = vscprintf(fmt, ap);
     va_end(ap);
 
-    string res(buf);
-    free(buf);
-    return res;
+    string str;
+    str.reserve(len+1);
+    // must resize to set str.size
+    str.resize(len);
+    // must recall va_start on unix
+    va_start(ap, fmt);
+    vsnprintf((char*)str.data(), len+1, fmt, ap);
+    va_end(ap);
+
+    return str;
 }
 
 StringList split(const string& str, char delim) {

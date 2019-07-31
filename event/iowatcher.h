@@ -12,7 +12,7 @@
     !defined(EVENT_PORT) &&     \
     !defined(EVENT_NOEVENT)
 #ifdef OS_WIN
-#define EVENT_SELECT
+#define EVENT_IOCP
 #elif defined(OS_LINUX)
 #define EVENT_EPOLL
 #elif defined(OS_MAC)
