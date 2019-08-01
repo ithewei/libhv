@@ -5,46 +5,15 @@
 #include "hloop.h"
 #include "hbuf.h"
 
-#include "HttpParser.h"
 #include "FileCache.h"
+#include "HttpParser.h"
+#include "HttpHandler.h"
 
 #define RECV_BUFSIZE    4096
 #define SEND_BUFSIZE    4096
 
-static HttpService s_default_service;
-static FileCache s_filecache;
-
-/*
-<!DOCTYPE html>
-<html>
-<head>
-  <title>404 Not Found</title>
-</head>
-<body>
-  <center><h1>404 Not Found</h1></center>
-  <hr>
-</body>
-</html>
- */
-static void make_http_status_page(http_status status_code, std::string& page) {
-    char szCode[8];
-    snprintf(szCode, sizeof(szCode), "%d ", status_code);
-    const char* status_message = http_status_str(status_code);
-    page += R"(<!DOCTYPE html>
-<html>
-<head>
-  <title>)";
-    page += szCode; page += status_message;
-    page += R"(</title>
-</head>
-<body>
-  <center><h1>)";
-    page += szCode; page += status_message;
-    page += R"(</h1></center>
-  <hr>
-</body>
-</html>)";
-}
+static HttpService  s_default_service;
+static FileCache    s_filecache;
 
 static void master_init(void* userdata) {
 #ifdef OS_UNIX
@@ -53,6 +22,7 @@ static void master_init(void* userdata) {
     setproctitle(proctitle);
 #endif
 }
+
 static void master_proc(void* userdata) {
     while(1) sleep(1);
 }
@@ -66,184 +36,105 @@ static void worker_init(void* userdata) {
 #endif
 }
 
-struct http_connect_userdata {
-    http_server_t*          server;
-    std::string             log;
-    HttpParser              parser;
-    HttpRequest             req;
-    HttpResponse            res;
-
-    http_connect_userdata() {
-        parser.parser_request_init(&req);
-    }
-};
-
 static void on_read(hio_t* io, void* buf, int readbytes) {
     //printf("on_read fd=%d readbytes=%d\n", io->fd, readbytes);
-    http_connect_userdata* hcu = (http_connect_userdata*)io->userdata;
-    HttpService* service = hcu->server->service;
-    HttpRequest* req = &hcu->req;
-    HttpResponse* res = &hcu->res;
-    int ret, nparse;
-    char* recvbuf = (char*)buf;
-    int nrecv = readbytes;
-    // recv -> http_parser -> http_request -> http_request_handler -> http_response -> send
-    //printf("%s\n", recvbuf);
-    nparse = hcu->parser.execute(recvbuf, nrecv);
-    if (nparse != nrecv || hcu->parser.get_errno() != HPE_OK) {
-        hcu->log += asprintf("http parser error: %s", http_errno_description(hcu->parser.get_errno()));
+    HttpHandler* handler = (HttpHandler*)io->userdata;
+    HttpParser* parser = &handler->parser;
+    // recv -> HttpParser -> HttpRequest -> handle_request -> HttpResponse -> send
+    int nparse = parser->execute((char*)buf, readbytes);
+    if (nparse != readbytes || parser->get_errno() != HPE_OK) {
+        hloge("[%s:%d] http parser error: %s", handler->srcip, handler->srcport, http_errno_description(parser->get_errno()));
         hclose(io);
         return;
     }
-    if (hcu->parser.get_state() == HP_MESSAGE_COMPLETE) {
-        http_api_handler api = NULL;
-        file_cache_t* fc = NULL;
-        const char* content = NULL;
-        int content_length = 0;
-        bool send_in_one_packet = false;
-
-        hcu->log += asprintf("[%s %s]", http_method_str(req->method), req->url.c_str());
-        static std::string s_Server = std::string("httpd/") + std::string(get_compile_version());
-        res->headers["Server"] = s_Server;
-        // preprocessor
-        if (service->preprocessor) {
-            service->preprocessor(req, res);
-        }
-        ret = service->GetApi(req->url.c_str(), req->method, &api);
-        if (api) {
-            // api service
-            api(req, res);
-        }
-        else {
-            if (ret == HTTP_STATUS_METHOD_NOT_ALLOWED) {
-                // Method Not Allowed
-                res->status_code = HTTP_STATUS_METHOD_NOT_ALLOWED;
-            }
-            else if (req->method == HTTP_GET) {
-                // web service
-                std::string filepath = service->document_root;
-                filepath += req->url.c_str();
-                if (strcmp(req->url.c_str(), "/") == 0) {
-                    filepath += service->home_page;
-                }
-                fc = s_filecache.Open(filepath.c_str());
-                // Not Found
-                if (fc == NULL) {
-                    res->status_code = HTTP_STATUS_NOT_FOUND;
-                }
-                else {
-                    // Not Modified
-                    auto iter = req->headers.find("if-not-match");
-                    if (iter != req->headers.end() &&
-                        strcmp(iter->second.c_str(), fc->etag) == 0) {
-                        res->status_code = HTTP_STATUS_NOT_MODIFIED;
-                        fc = NULL;
-                    }
-                    else {
-                        iter = req->headers.find("if-modified-since");
-                        if (iter != req->headers.end() &&
-                            strcmp(iter->second.c_str(), fc->last_modified) == 0) {
-                            res->status_code = HTTP_STATUS_NOT_MODIFIED;
-                            fc = NULL;
-                        }
-                    }
-                }
-            }
-            else {
-                // Not Implemented
-                res->status_code = HTTP_STATUS_NOT_IMPLEMENTED;
-            }
-
-            // html page
-            if (res->status_code >= 400 && res->body.size() == 0) {
-                // error page
-                if (service->error_page.size() != 0) {
-                    std::string filepath = service->document_root;
-                    filepath += '/';
-                    filepath += service->error_page;
-                    fc = s_filecache.Open(filepath.c_str());
-                }
-
-                // status page
-                if (fc == NULL && res->body.size() == 0) {
-                    res->content_type = TEXT_HTML;
-                    make_http_status_page(res->status_code, res->body);
-                }
-            }
-        }
-        // postprocessor
-        if (service->postprocessor) {
-            service->postprocessor(req, res);
-        }
-        // send
-        std::string header;
+    if (parser->get_state() == HP_MESSAGE_COMPLETE) {
+        handler->handle_request();
+        // prepare header body
         time_t tt;
         time(&tt);
         char c_str[256] = {0};
         strftime(c_str, sizeof(c_str), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
-        res->headers["Date"] = c_str;
-        if (fc && fc->filebuf.len) {
-            content = (const char*)fc->filebuf.base;
-            content_length = fc->filebuf.len;
-            if (fc->content_type && *fc->content_type != '\0') {
-                res->headers["Content-Type"] = fc->content_type;
-            }
-            res->headers["Content-Length"] = std::to_string(content_length);
-            res->headers["Last-Modified"] = fc->last_modified;
-            res->headers["Etag"] = fc->etag;
+        handler->res.headers["Date"] = c_str;
+        std::string header = handler->res.dump(true, false);
+        const char* body = NULL;
+        int content_length = 0;
+        if (handler->fc) {
+            body = (const char*)handler->fc->filebuf.base;
+            content_length = handler->fc->filebuf.len;
         }
-        else if (res->body.size()) {
-            content = res->body.c_str();
-            content_length = res->body.size();
+        else {
+            body = handler->res.body.c_str();
+            content_length = handler->res.body.size();
         }
-        header = res->dump(true, false);
-        if (header.size() + content_length <= SEND_BUFSIZE) {
-            header.insert(header.size(), content, content_length);
+        bool send_in_one_packet;
+        if (content_length > (1<<20)) {
+            send_in_one_packet = false;
+        }
+        else {
             send_in_one_packet = true;
+            if (content_length > 0) {
+                header.insert(header.size(), body, content_length);
+            }
         }
-
-        // send header
+        // send header/body
         hwrite(io->loop, io->fd, header.c_str(), header.size());
-        // send body
-        if (!send_in_one_packet && content_length != 0) {
-            hwrite(io->loop, io->fd, content, content_length);
+        if (!send_in_one_packet) {
+            // send body
+            hwrite(io->loop, io->fd, body, content_length);
         }
-        hcu->log += asprintf("=>[%d %s]", res->status_code, http_status_str(res->status_code));
-        hclose(io);
+        hlogi("[%s:%d][%s %s]=>[%d %s]",
+            handler->srcip, handler->srcport,
+            http_method_str(handler->req.method), handler->req.url.c_str(),
+            handler->res.status_code, http_status_str(handler->res.status_code));
+        // Connection: Keep-Alive
+        bool keep_alive = false;
+        auto iter = handler->req.headers.find("connection");
+        if (iter != handler->req.headers.end()) {
+            if (stricmp(iter->second.c_str(), "keep-alive") == 0) {
+                keep_alive = true;
+            }
+        }
+        if (keep_alive) {
+            handler->init();
+        }
+        else {
+            hclose(io);
+        }
     }
 }
 
 static void on_close(hio_t* io) {
-    http_connect_userdata* hcu = (http_connect_userdata*)io->userdata;
-    if (hcu) {
-        hlogi("%s", hcu->log.c_str());
-        delete hcu;
+    HttpHandler* handler = (HttpHandler*)io->userdata;
+    if (handler) {
+        delete handler;
         io->userdata = NULL;
     }
 }
 
 static void on_accept(hio_t* io, int connfd) {
     //printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
-    struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
+    //struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
     struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
     //char localip[64];
-    char peerip[64];
-    //inet_ntop(AF_INET, &localaddr->sin_addr, localip, sizeof(localip));
-    inet_ntop(AF_INET, &peeraddr->sin_addr, peerip, sizeof(peerip));
+    //char peerip[64];
+    //inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
+    //inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
     //printd("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
             //localip, ntohs(localaddr->sin_port),
             //peerip, ntohs(peeraddr->sin_port));
-    // new http_connect_userdata
+    // new HttpHandler
     // delete on_close
-    http_connect_userdata* hcu = new http_connect_userdata;
-    hcu->server = (http_server_t*)io->userdata;
-    hcu->log += asprintf("[%s:%d]", peerip, ntohs(peeraddr->sin_port));
+    HttpHandler* handler = new HttpHandler;
+    handler->service = (HttpService*)io->userdata;
+    handler->files = &s_filecache;
+    inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, handler->srcip, sizeof(handler->srcip));
+    handler->srcport = ntohs(peeraddr->sin_port);
 
     nonblocking(connfd);
     HBuf* buf = (HBuf*)io->loop->userdata;
     hio_t* connio = hread(io->loop, connfd, buf->base, buf->len, on_read);
     connio->close_cb = on_close;
-    connio->userdata = hcu;
+    connio->userdata = handler;
 }
 
 void handle_cached_files(htimer_t* timer) {
@@ -281,7 +172,7 @@ static void worker_proc(void* userdata) {
     readbuf.resize(RECV_BUFSIZE);
     loop.userdata = &readbuf;
     hio_t* listenio = haccept(&loop, listenfd, on_accept);
-    listenio->userdata = server;
+    listenio->userdata = server->service;
     // fflush logfile when idle
     hlog_set_fflush(0);
     hidle_add(&loop, fflush_log, INFINITE);

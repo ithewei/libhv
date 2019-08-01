@@ -13,7 +13,9 @@
 #define DEFAULT_DOCUMENT_ROOT   "/var/www/html"
 #define DEFAULT_HOME_PAGE       "index.html"
 
-typedef void (*http_api_handler)(HttpRequest* req, HttpResponse* res);
+#define HANDLE_CONTINUE 0
+#define HANDLE_DONE     1
+typedef int (*http_api_handler)(HttpRequest* req, HttpResponse* res);
 
 struct http_method_handler {
     http_method         method;
@@ -29,6 +31,7 @@ typedef std::list<http_method_handler> http_method_handlers;
 typedef std::map<std::string, std::shared_ptr<http_method_handlers>> http_api_handlers;
 
 struct HttpService {
+    // preprocessor -> api -> web -> postprocessor
     http_api_handler    preprocessor;
     http_api_handler    postprocessor;
     // api service

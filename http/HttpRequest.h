@@ -102,9 +102,18 @@ public:
     KeyValue            kv;         // X_WWW_FORM_URLENCODED
 
     HttpInfo() {
+        init();
+    }
+
+    void init() {
         http_major = 1;
         http_minor = 1;
         content_type = CONTENT_TYPE_NONE;
+        headers.clear();
+        body.clear();
+        json.clear();
+        mp.clear();
+        kv.clear();
     }
 
     void fill_content_type() {
@@ -239,6 +248,11 @@ public:
     QueryParams         query_params;
 
     HttpRequest() {
+        init();
+    }
+
+    void init() {
+        HttpInfo::init();
         method = HTTP_GET;
         headers["User-Agent"] = DEFAULT_USER_AGENT;
         headers["Accept"] = "*/*";
@@ -320,6 +334,11 @@ public:
     http_status         status_code;
 
     HttpResponse() {
+        init();
+    }
+
+    void init() {
+        HttpInfo::init();
         status_code = HTTP_STATUS_OK;
     }
 

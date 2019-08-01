@@ -102,7 +102,7 @@ static int hloop_process_pendings(hloop_t* loop) {
     for (int i = HEVENT_PRIORITY_SIZE-1; i >= 0; --i) {
         next = loop->pendings[i];
         while (next) {
-            if (next->active && next->cb) {
+            if (next->active && next->pending && next->cb) {
                 next->cb(next);
                 ++ncbs;
             }

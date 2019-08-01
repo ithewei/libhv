@@ -47,6 +47,7 @@
 #define EVENT_DEL(ev) \
     do {\
         EVENT_INACTIVE(ev);\
+        ev->pending = 1;\
         ev->destroy = 1;\
     } while(0)
 
