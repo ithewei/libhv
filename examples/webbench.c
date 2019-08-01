@@ -57,6 +57,7 @@ char* proxy_host = NULL;
 int proxy_port = 80;
 int method  = METHOD_GET;
 int http    = 1; // 1=HTTP/1.1 0=HTTP/1.0
+int keepalive = 0;
 const char* url = NULL;
 
 #define REQUEST_SIZE    2048
@@ -65,7 +66,7 @@ char buf[1460] = {0};
 
 int mypipe[2]; // IPC
 
-static const char options[] = "?hV01t:p:c:";
+static const char options[] = "?hV01kt:p:c:";
 
 static const struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
@@ -75,6 +76,7 @@ static const struct option long_options[] = {
     {"clients", required_argument, NULL, 'c'},
     {"http10", no_argument, NULL, '0'},
     {"http11", no_argument, NULL, '1'},
+    {"keepalive", no_argument, NULL, 'k'},
     {"get", no_argument, &method, METHOD_GET},
     {"head", no_argument, &method, METHOD_HEAD},
     {"options", no_argument, &method, METHOD_OPTIONS},
@@ -90,6 +92,7 @@ Options:\n\
   -V|--version              Print version.\n\
   -0|--http10               Use HTTP/1.0 protocol.\n\
   -1|--http11               Use HTTP/1.1 protocol.\n\
+  -k|--keepalive            Connection: keep-alive.\n\
   -t|--time <sec>           Run benchmark for <sec> seconds. Default 30.\n\
   -p|--proxy <server:port>  Use proxy server for request.\n\
   -c|--clients <n>          Run <n> HTTP clients. Default one.\n\
@@ -110,6 +113,7 @@ int parse_cmdline(int argc, char** argv) {
         case 'V': puts(VERSION); exit(1);
         case '0': http = 0; break;
         case '1': http = 1; break;
+        case 'k': keepalive = 1; break;
         case 't': time = atoi(optarg); break;
         case 'c': clients = atoi(optarg); break;
         case 'p':
@@ -190,7 +194,9 @@ int main(int argc, char** argv) {
         strncpy(host, server, sizeof(host));
         free(server);
     }
-    printf("server %s:%d\n", host, port);
+    char Host[256];
+    snprintf(Host, sizeof(Host), "Host: %s:%d\r\n", host, port);
+    printf("%s", Host);
 
     // test connect
     int sock = Connect(host, port);
@@ -229,8 +235,14 @@ int main(int argc, char** argv) {
     }
     strcat(request, "\r\n");
     strcat(request, "User-Agent: webbench/1.18.3.15\r\n");
+    strcat(request, Host);
     strcat(request, "Cache-Control: no-cache\r\n");
-    strcat(request, "Connection: close\r\n");
+    if (keepalive) {
+        strcat(request, "Connection: keep-alive\r\n");
+    }
+    else {
+        strcat(request, "Connection: close\r\n");
+    }
     strcat(request, "\r\n");
     printf("%s", request);
 
@@ -258,36 +270,43 @@ int main(int argc, char** argv) {
             signal(SIGALRM, alarm_handler);
             alarm(time);
             int sock = -1;
-loop:
+            int len = strlen(request);
+            int wrbytes, rdbytes;
             while (1) {
+connect:
                 if (timerexpired) break;
-                sock = Connect(host, port);
-                if (sock <= 0) {
+                if (sock == -1) {
+                    sock = Connect(host, port);
+                }
+                if (sock < 0) {
                     ++failed;
                     continue;
                 }
-                int len = strlen(request);
-                int wrbytes = write(sock, request, len);
+write:
+                if (timerexpired) break;
+                wrbytes = write(sock, request, len);
                 //printf("write %d bytes\n", wrbytes);
                 if (wrbytes != len) {
                     ++failed;
-                    sock = -1;
-                    continue;
+                    goto close;
                 }
-                while (1) {
-                    if (timerexpired) break;
-                    int rdbytes = read(sock, buf, sizeof(buf));
-                    //printf("read %d bytes\n", rdbytes);
-                    if (rdbytes < 0) {
-                        ++failed;
-                        sock = -1;
-                        goto loop;
-                    }
-                    if (rdbytes == 0) break;
-                    bytes += rdbytes;
+                //printf("%s\n", request);
+read:
+                if (timerexpired) break;
+                rdbytes = read(sock, buf, sizeof(buf));
+                //printf("read %d bytes\n", rdbytes);
+                if (rdbytes <= 0) {
+                    ++failed;
+                    goto close;
                 }
-                close(sock);
+                //printf("%s\n", buf);
+                bytes += rdbytes;
                 ++succeed;
+close:
+                if (!keepalive) {
+                    close(sock);
+                    sock = -1;
+                }
             }
 
             fp = fdopen(mypipe[1], "w");

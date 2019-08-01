@@ -278,6 +278,17 @@ htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t rep
     return (htimer_t*)timer;
 }
 
+void htimer_reset(htimer_t* timer) {
+    if (timer->event_type != HEVENT_TYPE_TIMEOUT || timer->pending) {
+        return;
+    }
+    hloop_t* loop = timer->loop;
+    htimeout_t* timeout = (htimeout_t*)timer;
+    heap_remove(&loop->timers, &timer->node);
+    timer->next_timeout = hloop_now_hrtime(loop) + timeout->timeout*1000;
+    heap_insert(&loop->timers, &timer->node);
+}
+
 htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
                 int8_t minute,  int8_t hour, int8_t day,
                 int8_t week, int8_t month, uint32_t repeat) {

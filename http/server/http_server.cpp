@@ -50,52 +50,60 @@ static void on_read(hio_t* io, void* buf, int readbytes) {
     if (parser->get_state() == HP_MESSAGE_COMPLETE) {
         handler->handle_request();
         // prepare header body
+        // Connection:
+        bool keepalive = true;
+        auto iter = handler->req.headers.find("connection");
+        if (iter != handler->req.headers.end()) {
+            if (stricmp(iter->second.c_str(), "keep-alive") == 0) {
+                keepalive = true;
+            }
+            else if (stricmp(iter->second.c_str(), "close") == 0) {
+                keepalive = false;
+            }
+        }
+        if (keepalive) {
+            handler->res.headers["Connection"] = "keep-alive";
+        }
+        else {
+            handler->res.headers["Connection"] = "close";
+        }
+        // Date:
         time_t tt;
         time(&tt);
         char c_str[256] = {0};
         strftime(c_str, sizeof(c_str), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
         handler->res.headers["Date"] = c_str;
         std::string header = handler->res.dump(true, false);
-        const char* body = NULL;
-        int content_length = 0;
+        hbuf_t sendbuf;
+        bool send_in_one_packet = true;
         if (handler->fc) {
-            body = (const char*)handler->fc->filebuf.base;
-            content_length = handler->fc->filebuf.len;
+            handler->fc->prepend_header(header.c_str(), header.size());
+            sendbuf = handler->fc->httpbuf;
         }
         else {
-            body = handler->res.body.c_str();
-            content_length = handler->res.body.size();
-        }
-        bool send_in_one_packet;
-        if (content_length > (1<<20)) {
-            send_in_one_packet = false;
-        }
-        else {
-            send_in_one_packet = true;
-            if (content_length > 0) {
-                header.insert(header.size(), body, content_length);
+            if (handler->res.body.size() > (1<<20)) {
+                send_in_one_packet = false;
+            } else if (handler->res.body.size() != 0) {
+                header += handler->res.body;
             }
+            sendbuf.base = (char*)header.c_str();
+            sendbuf.len = header.size();
         }
         // send header/body
-        hwrite(io->loop, io->fd, header.c_str(), header.size());
-        if (!send_in_one_packet) {
+        hwrite(io->loop, io->fd, sendbuf.base, sendbuf.len);
+        if (send_in_one_packet == false) {
             // send body
-            hwrite(io->loop, io->fd, body, content_length);
+            hwrite(io->loop, io->fd, handler->res.body.data(), handler->res.body.size());
         }
+
         hlogi("[%s:%d][%s %s]=>[%d %s]",
             handler->srcip, handler->srcport,
             http_method_str(handler->req.method), handler->req.url.c_str(),
             handler->res.status_code, http_status_str(handler->res.status_code));
-        // Connection: Keep-Alive
-        bool keep_alive = false;
-        auto iter = handler->req.headers.find("connection");
-        if (iter != handler->req.headers.end()) {
-            if (stricmp(iter->second.c_str(), "keep-alive") == 0) {
-                keep_alive = true;
-            }
-        }
-        if (keep_alive) {
+
+        if (keepalive) {
             handler->init();
+            handler->keepalive();
         }
         else {
             hclose(io);
@@ -122,6 +130,11 @@ static void on_accept(hio_t* io, int connfd) {
     //printd("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
             //localip, ntohs(localaddr->sin_port),
             //peerip, ntohs(peeraddr->sin_port));
+
+    nonblocking(connfd);
+    HBuf* buf = (HBuf*)io->loop->userdata;
+    hio_t* connio = hread(io->loop, connfd, buf->base, buf->len, on_read);
+    connio->close_cb = on_close;
     // new HttpHandler
     // delete on_close
     HttpHandler* handler = new HttpHandler;
@@ -129,11 +142,7 @@ static void on_accept(hio_t* io, int connfd) {
     handler->files = &s_filecache;
     inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, handler->srcip, sizeof(handler->srcip));
     handler->srcport = ntohs(peeraddr->sin_port);
-
-    nonblocking(connfd);
-    HBuf* buf = (HBuf*)io->loop->userdata;
-    hio_t* connio = hread(io->loop, connfd, buf->base, buf->len, on_read);
-    connio->close_cb = on_close;
+    handler->io = connio;
     connio->userdata = handler;
 }
 

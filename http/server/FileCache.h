@@ -13,13 +13,17 @@
 #define INVALID_FD  -1
 #endif
 
+#define HTTP_HEADER_MAX_LENGTH      1024 // 1k
+
 typedef struct file_cache_s {
     //std::string filepath;
     struct stat st;
     time_t      open_time;
     time_t      stat_time;
     uint32_t    stat_cnt;
-    HBuf        filebuf;
+    HBuf        buf; // http_header + file_content
+    hbuf_t      filebuf;
+    hbuf_t      httpbuf;
     char        last_modified[64];
     char        etag[64];
     const char* content_type;
@@ -27,6 +31,19 @@ typedef struct file_cache_s {
     file_cache_s() {
         stat_cnt = 0;
         content_type = NULL;
+    }
+
+    void resize_buf(int filesize) {
+        buf.resize(HTTP_HEADER_MAX_LENGTH + filesize);
+        filebuf.base = buf.base + HTTP_HEADER_MAX_LENGTH;
+        filebuf.len = filesize;
+    }
+
+    void prepend_header(const char* header, int len) {
+        if (len > HTTP_HEADER_MAX_LENGTH) return;
+        httpbuf.base = filebuf.base - len;
+        httpbuf.len = len + filebuf.len;
+        memcpy(httpbuf.base, header, len);
     }
 } file_cache_t;
 
@@ -84,7 +101,7 @@ public:
                 fc->stat_cnt = 1;
                 cached_files[filepath] = fc;
             }
-            fc->filebuf.resize(fc->st.st_size);
+            fc->resize_buf(fc->st.st_size);
             read(fd, fc->filebuf.base, fc->filebuf.len);
             close(fd);
             time_t tt = fc->st.st_mtime;

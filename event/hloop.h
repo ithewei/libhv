@@ -202,6 +202,7 @@ htimer_t*   htimer_add_period(hloop_t* loop, htimer_cb cb,
                 int8_t minute DEFAULT(0),  int8_t hour  DEFAULT(-1), int8_t day DEFAULT(-1),
                 int8_t week   DEFAULT(-1), int8_t month DEFAULT(-1), uint32_t repeat DEFAULT(INFINITE));
 void        htimer_del(htimer_t* timer);
+void        htimer_reset(htimer_t* timer);
 
 // io
 // frist level apis

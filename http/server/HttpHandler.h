@@ -4,6 +4,9 @@
 #include "HttpService.h"
 #include "HttpParser.h"
 #include "FileCache.h"
+#include "hloop.h"
+
+#define HTTP_KEEPALIVE_TIMEOUT  75 // s
 
 /*
 <!DOCTYPE html>
@@ -37,6 +40,11 @@ static inline void make_http_status_page(http_status status_code, std::string& p
 </html>)";
 }
 
+static inline void on_keepalive_timeout(htimer_t* timer) {
+    hio_t* io = (hio_t*)timer->userdata;
+    hclose(io);
+}
+
 class HttpHandler {
 public:
     HttpService*            service;
@@ -47,11 +55,22 @@ public:
     HttpRequest             req;
     HttpResponse            res;
     file_cache_t*           fc;
+    hio_t*                  io;
+    htimer_t*               keepalive_timer;
 
     HttpHandler() {
         service = NULL;
         files = NULL;
+        io = NULL;
+        keepalive_timer = NULL;
         init();
+    }
+
+    ~HttpHandler() {
+        if (keepalive_timer) {
+            htimer_del(keepalive_timer);
+            keepalive_timer = NULL;
+        }
     }
 
     void init() {
@@ -59,6 +78,16 @@ public:
         req.init();
         res.init();
         fc = NULL;
+    }
+
+    void keepalive() {
+        if (keepalive_timer == NULL) {
+            keepalive_timer = htimer_add(io->loop, on_keepalive_timeout, HTTP_KEEPALIVE_TIMEOUT*1000, 1);
+            keepalive_timer->userdata = io;
+        }
+        else {
+            htimer_reset(keepalive_timer);
+        }
     }
 
     int handle_request() {
