@@ -109,6 +109,10 @@ public:
         http_major = 1;
         http_minor = 1;
         content_type = CONTENT_TYPE_NONE;
+    }
+
+    void reset() {
+        init();
         headers.clear();
         body.clear();
         json.clear();
@@ -247,15 +251,21 @@ public:
     std::string         url;
     QueryParams         query_params;
 
-    HttpRequest() {
+    HttpRequest() : HttpInfo() {
         init();
     }
 
     void init() {
-        HttpInfo::init();
         method = HTTP_GET;
         headers["User-Agent"] = DEFAULT_USER_AGENT;
         headers["Accept"] = "*/*";
+    }
+
+    void reset() {
+        HttpInfo::init();
+        init();
+        url.clear();
+        query_params.clear();
     }
 
     std::string dump_url() {
@@ -333,13 +343,17 @@ class HttpResponse : public HttpInfo {
 public:
     http_status         status_code;
 
-    HttpResponse() {
+    HttpResponse() : HttpInfo() {
         init();
     }
 
     void init() {
-        HttpInfo::init();
         status_code = HTTP_STATUS_OK;
+    }
+
+    void reset() {
+        HttpInfo::init();
+        init();
     }
 
     std::string dump(bool is_dump_headers = true, bool is_dump_body = false) {

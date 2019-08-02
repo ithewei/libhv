@@ -46,9 +46,13 @@ void on_connect(hio_t* io, int state) {
     }
     struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
     struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
+    char localip[64];
+    char peerip[64];
+    inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
+    inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
     printf("connect connfd=%d [%s:%d] => [%s:%d]\n", io->fd,
-            inet_ntoa(localaddr->sin_addr), ntohs(localaddr->sin_port),
-            inet_ntoa(peeraddr->sin_addr), ntohs(peeraddr->sin_port));
+            localip, ntohs(localaddr->sin_port),
+            peerip, ntohs(peeraddr->sin_port));
 
     // NOTE: just on loop, readbuf can be shared.
     hio_t* iostdin = hread(io->loop, 0, readbuf, RECV_BUFSIZE, on_stdin);

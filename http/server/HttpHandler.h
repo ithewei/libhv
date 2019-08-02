@@ -74,10 +74,14 @@ public:
     }
 
     void init() {
-        parser.parser_request_init(&req);
-        req.init();
-        res.init();
         fc = NULL;
+        parser.parser_request_init(&req);
+    }
+
+    void reset() {
+        init();
+        req.reset();
+        res.reset();
     }
 
     void keepalive() {

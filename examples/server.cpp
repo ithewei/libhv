@@ -35,8 +35,8 @@ void on_accept(hio_t* io, int connfd) {
     struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
     char localip[64];
     char peerip[64];
-    inet_ntop(AF_INET, &localaddr->sin_addr, localip, sizeof(localip));
-    inet_ntop(AF_INET, &peeraddr->sin_addr, peerip, sizeof(peerip));
+    inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
+    inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
     printf("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
             localip, ntohs(localaddr->sin_port),
             peerip, ntohs(peeraddr->sin_port));

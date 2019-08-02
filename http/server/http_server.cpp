@@ -102,7 +102,7 @@ static void on_read(hio_t* io, void* buf, int readbytes) {
             handler->res.status_code, http_status_str(handler->res.status_code));
 
         if (keepalive) {
-            handler->init();
+            handler->reset();
             handler->keepalive();
         }
         else {

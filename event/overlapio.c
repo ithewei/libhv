@@ -98,8 +98,8 @@ static void on_acceptex_complete(hio_t* io) {
         struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
         char localip[64];
         char peerip[64];
-        inet_ntop(AF_INET, &localaddr->sin_addr, localip, sizeof(localip));
-        inet_ntop(AF_INET, &peeraddr->sin_addr, peerip, sizeof(peerip));
+        inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
+        inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
         printd("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", listenfd, connfd,
                 localip, ntohs(localaddr->sin_port),
                 peerip, ntohs(peeraddr->sin_port));
@@ -131,8 +131,8 @@ static void on_connectex_complete(hio_t* io) {
         struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
         char localip[64];
         char peerip[64];
-        inet_ntop(AF_INET, &localaddr->sin_addr, localip, sizeof(localip));
-        inet_ntop(AF_INET, &peeraddr->sin_addr, peerip, sizeof(peerip));
+        inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
+        inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
         printd("connect connfd=%d [%s:%d] => [%s:%d]\n", io->fd,
                 localip, ntohs(localaddr->sin_port),
                 peerip, ntohs(peeraddr->sin_port));
@@ -238,7 +238,7 @@ hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_
     socklen_t addrlen = sizeof(struct sockaddr_in);
     memset(&peeraddr, 0, addrlen);
     peeraddr.sin_family = AF_INET;
-    inet_pton(AF_INET, host, &peeraddr.sin_addr);
+    inet_pton(peeraddr.sin_family, host, &peeraddr.sin_addr);
     if (peeraddr.sin_addr.s_addr == INADDR_NONE) {
         struct hostent* phe = gethostbyname(host);
         if (phe == NULL)    return NULL;

@@ -34,6 +34,13 @@ struct http_parser_userdata {
             header_value.clear();
         }
     }
+
+    void init() {
+        state = HP_START_REQ_OR_RES;
+        url.clear();
+        header_field.clear();
+        header_value.clear();
+    }
 };
 
 class HttpParser {
@@ -52,22 +59,21 @@ public:
         hp_settings.on_headers_complete = HttpParser::on_headers_complete;
         hp_settings.on_body             = HttpParser::on_body;
         hp_settings.on_message_complete = HttpParser::on_message_complete;
+        hp_parser.data = &hp_userdata;
     }
 
     void parser_request_init(HttpRequest* req) {
+        hp_userdata.init();
         hp_userdata.type = HTTP_REQUEST;
-        hp_userdata.state = HP_START_REQ_OR_RES;
         hp_userdata.payload = req;
         http_parser_init(&hp_parser, HTTP_REQUEST);
-        hp_parser.data = &hp_userdata;
     }
 
     void parser_response_init(HttpResponse* res) {
+        hp_userdata.init();
         hp_userdata.type = HTTP_RESPONSE;
-        hp_userdata.state = HP_START_REQ_OR_RES;
         hp_userdata.payload = res;
         http_parser_init(&hp_parser, HTTP_REQUEST);
-        hp_parser.data = &hp_userdata;
     }
 
     int execute(const char* data, size_t len) {

@@ -48,6 +48,7 @@ int Connect(const char* host, int port) {
 
 #define VERSION         "webbench/1.19.3.15"
 
+int verbose = 0;
 volatile int timerexpired = 0; // for timer
 int time    = 30;
 int clients = 1;
@@ -66,11 +67,12 @@ char buf[1460] = {0};
 
 int mypipe[2]; // IPC
 
-static const char options[] = "?hV01kt:p:c:";
+static const char options[] = "?hvV01kt:p:c:";
 
 static const struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
     {"version", no_argument, NULL, 'V'},
+    {"verbose", no_argument, NULL, 'v'},
     {"time", required_argument, NULL, 't'},
     {"proxy", required_argument, NULL, 'p'},
     {"clients", required_argument, NULL, 'c'},
@@ -90,6 +92,7 @@ void print_usage() {
 Options:\n\
   -?|-h|--help              Print this information.\n\
   -V|--version              Print version.\n\
+  -v|--verbose              Print verbose.\n\
   -0|--http10               Use HTTP/1.0 protocol.\n\
   -1|--http11               Use HTTP/1.1 protocol.\n\
   -k|--keepalive            Connection: keep-alive.\n\
@@ -111,6 +114,7 @@ int parse_cmdline(int argc, char** argv) {
         case '?':
         case 'h': print_usage(); exit(1);
         case 'V': puts(VERSION); exit(1);
+        case 'v': verbose = 1; break;
         case '0': http = 0; break;
         case '1': http = 1; break;
         case 'k': keepalive = 1; break;
@@ -285,21 +289,30 @@ connect:
 write:
                 if (timerexpired) break;
                 wrbytes = write(sock, request, len);
-                //printf("write %d bytes\n", wrbytes);
+                if (verbose) {
+                    printf("write %d bytes\n", wrbytes);
+                }
                 if (wrbytes != len) {
                     ++failed;
                     goto close;
                 }
-                //printf("%s\n", request);
+                if (verbose) {
+                    printf("%s\n", request);
+                }
 read:
                 if (timerexpired) break;
+                memset(buf, 0, sizeof(buf));
                 rdbytes = read(sock, buf, sizeof(buf));
-                //printf("read %d bytes\n", rdbytes);
+                if (verbose) {
+                    printf("read %d bytes\n", rdbytes);
+                }
                 if (rdbytes <= 0) {
                     ++failed;
                     goto close;
                 }
-                //printf("%s\n", buf);
+                if (verbose) {
+                    printf("%s\n", buf);
+                }
                 bytes += rdbytes;
                 ++succeed;
 close:
