@@ -77,7 +77,6 @@ error:
 int Ping(const char* host, int cnt) {
     static uint16_t seq = 0;
     char ip[64] = {0};
-    int ttl = 0;
     uint64_t start_tick, end_tick;
     uint64_t start_hrtime, end_hrtime;
     int timeout = 0;

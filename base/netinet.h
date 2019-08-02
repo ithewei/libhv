@@ -19,11 +19,11 @@ typedef struct icmp     icmp;
 // sizeof(iphdr_t) = 20
 typedef struct iphdr {
 #if BYTE_ORDER == LITTLE_ENDIAN
-    unsigned int ihl:4; // ip header length
-    unsigned int version:4;
+    uint8_t     ihl:4; // ip header length
+    uint8_t     version:4;
 #elif BYTE_ORDER == BIG_ENDIAN
-    unsigned int version:4;
-    unsigned int ihl:4;
+    uint8_t     version:4;
+    uint8_t     ihl:4;
 #else
 #error "BYTE_ORDER undefined!"
 #endif
@@ -111,7 +111,7 @@ typedef struct icmphdr {
             uint16_t    reserved;
             uint16_t    mtu;
         } frag;
-    }
+    } un;
 } icmphdr_t;
 
 typedef struct icmp {
