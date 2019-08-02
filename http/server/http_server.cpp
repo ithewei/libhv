@@ -50,6 +50,12 @@ static void on_read(hio_t* io, void* buf, int readbytes) {
     if (parser->get_state() == HP_MESSAGE_COMPLETE) {
         handler->handle_request();
         // prepare header body
+        // Server:
+        static char s_Server[64] = {'\0'};
+        if (s_Server[0] == '\0') {
+            snprintf(s_Server, sizeof(s_Server), "httpd/%s", get_compile_version());
+        }
+        handler->res.headers["Server"] = s_Server;
         // Connection:
         bool keepalive = true;
         auto iter = handler->req.headers.find("connection");
@@ -67,12 +73,6 @@ static void on_read(hio_t* io, void* buf, int readbytes) {
         else {
             handler->res.headers["Connection"] = "close";
         }
-        // Date:
-        time_t tt;
-        time(&tt);
-        char c_str[256] = {0};
-        strftime(c_str, sizeof(c_str), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
-        handler->res.headers["Date"] = c_str;
         std::string header = handler->res.dump(true, false);
         hbuf_t sendbuf;
         bool send_in_one_packet = true;

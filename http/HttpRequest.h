@@ -363,6 +363,11 @@ public:
         snprintf(c_str, sizeof(c_str), "HTTP/%d.%d %d %s\r\n", http_major, http_minor, status_code, http_status_str(status_code));
         str += c_str;
         if (is_dump_headers) {
+            // Date:
+            time_t tt;
+            time(&tt);
+            strftime(c_str, sizeof(c_str), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
+            headers["Date"] = c_str;
             dump_headers(str);
         }
         str += "\r\n";
