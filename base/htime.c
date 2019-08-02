@@ -36,7 +36,9 @@ inline unsigned long long gethrtime() {
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec*(unsigned long long)1000000 + ts.tv_nsec / 1000;
 #else
-    return clock() / (double)CLOCKS_PER_SEC * 1000000;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec*(unsigned long long)1000000 + tv.tv_usec;
 #endif
 }
 

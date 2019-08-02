@@ -239,10 +239,12 @@ hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_
     memset(&peeraddr, 0, addrlen);
     peeraddr.sin_family = AF_INET;
     inet_pton(peeraddr.sin_family, host, &peeraddr.sin_addr);
-    if (peeraddr.sin_addr.s_addr == INADDR_NONE) {
+    if (peeraddr.sin_addr.s_addr == 0 ||
+        peeraddr.sin_addr.s_addr == INADDR_NONE) {
         struct hostent* phe = gethostbyname(host);
         if (phe == NULL)    return NULL;
-        memcpy(&peeraddr.sin_addr, phe->h_addr, phe->h_length);
+        peeraddr.sin_family = phe->h_addrtype;
+        memcpy(&peeraddr.sin_addr, phe->h_addr_list[0], phe->h_length);
     }
     peeraddr.sin_port = htons(port);
     int connfd = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
@@ -258,14 +260,12 @@ hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_
     localaddr.sin_port = htons(0);
     if (bind(connfd, (struct sockaddr*)&localaddr, addrlen) < 0) {
         perror("bind");
-        closesocket(connfd);
-        return NULL;
+        goto error;
     }
     nonblocking(connfd);
     hio_t* io = hio_add(loop, hio_handle_events, connfd, WRITE_EVENT);
     if (io == NULL) {
-        closesocket(connfd);
-        return NULL;
+        goto error;
     }
     if (connect_cb) {
         io->connect_cb = connect_cb;
@@ -280,8 +280,7 @@ hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_
         &guidConnectEx, sizeof(guidConnectEx),
         &ConnectEx, sizeof(ConnectEx),
         &dwbytes, NULL, NULL) != 0) {
-        closesocket(connfd);
-        return NULL;
+        goto error;
     }
     // NOTE: free on_connectex_complete
     hoverlapped_t* hovlp = (hoverlapped_t*)malloc(sizeof(hoverlapped_t));
@@ -293,14 +292,14 @@ hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_
         int err = WSAGetLastError();
         if (err != ERROR_IO_PENDING) {
             fprintf(stderr, "AcceptEx error: %d\n", err);
-            return NULL;
+            goto error;
         }
     }
     return io;
 error:
     closesocket(connfd);
     return NULL;
-}
+};
 
 hio_t* hread (hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
     hio_t* io = hio_add(loop, hio_handle_events, fd, READ_EVENT);

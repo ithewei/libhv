@@ -18,6 +18,11 @@ int Listen(int port);
 // @return sockfd
 int Connect(const char* host, int port, int nonblock DEFAULT(0));
 
+// @param cnt: ping count
+// @return: ok count
+// @note: printd $CC -DPRINT_DEBUG
+int Ping(const char* host, int cnt DEFAULT(4));
+
 #ifdef OS_WIN
 typedef int socklen_t;
 static inline int blocking(int sockfd) {
@@ -65,11 +70,33 @@ static inline int tcp_keepalive(int sockfd, int on DEFAULT(1), int delay DEFAULT
     // TCP_KEEPCNT      => tcp_keepalive_probes
     // TCP_KEEPINTVL    => tcp_keepalive_intvl
     return setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPIDLE, (const char*)&delay, sizeof(int));
+#else
+    return 0;
 #endif
 }
 
 static inline int udp_broadcast(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(int));
+}
+
+// send timeout
+static inline int so_sndtimeo(int sockfd, int timeout) {
+#ifdef OS_WIN
+    return setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(int));
+#else
+    struct timeval tv = {timeout/1000, (timeout%1000)*1000};
+    return setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+#endif
+}
+
+// recv timeout
+static inline int so_rcvtimeo(int sockfd, int timeout) {
+#ifdef OS_WIN
+    return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(int));
+#else
+    struct timeval tv = {timeout/1000, (timeout%1000)*1000};
+    return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
 }
 
 END_EXTERN_C

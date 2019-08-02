@@ -3,7 +3,7 @@ TMPDIR=tmp
 
 default: all
 
-all: test loop client server httpd
+all: test ping loop client server httpd
 
 clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server examples $(TMPDIR)"
@@ -15,6 +15,10 @@ test: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp main.cpp.tmpl $(TMPDIR)/main.cpp
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils $(TMPDIR)"
+
+ping:
+	-rm base/hsocket.o
+	$(MAKEF) TARGET=$@ SRCDIRS="" SRCS="examples/ping.c base/hsocket.c base/htime.c base/RAII.cpp" INCDIRS="base" DEFINES="PRINT_DEBUG"
 
 loop: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
@@ -48,4 +52,4 @@ CURL_SRCS    += examples/curl.cpp base/hstring.cpp
 curl:
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" INCDIRS="$(CURL_INCDIRS)" SRCS="$(CURL_SRCS)" DEFINES="CURL_STATICLIB" LIBS="curl"
 
-.PHONY: clean prepare test loop client server httpd webbench curl
+.PHONY: clean prepare test ping loop client server httpd webbench curl

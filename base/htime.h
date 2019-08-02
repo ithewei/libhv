@@ -43,8 +43,14 @@ static inline void msleep(unsigned int ms) {
 static inline unsigned int gettick() {
 #ifdef OS_WIN
     return GetTickCount();
+#elif defined(OS_LINUX)
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 #else
-    return clock()*(unsigned long long)1000 / CLOCKS_PER_SEC;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 #endif
 }
 
