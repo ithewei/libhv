@@ -65,10 +65,7 @@ public:
 
     void cleanup() {
         if (cleanup_) {
-            if (base) {
-                free(base);
-                base = NULL;
-            }
+            SAFE_FREE(base);
             len = 0;
             cleanup_ = false;
         }
@@ -78,11 +75,10 @@ public:
         if (cap == len) return;
 
         if (base == NULL) {
-            base = (char*)malloc(cap);
-            memset(base, 0, cap);
+            SAFE_ALLOC(base, cap);
         }
         else {
-            base = (char*)realloc(base, cap);
+            base = (char*)safe_realloc(base, cap);
         }
         len = cap;
         cleanup_ = true;
@@ -115,7 +111,7 @@ public:
     void push_front(void* ptr, size_t len) {
         if (len > this->len - _size) {
             this->len = MAX(this->len, len)*2;
-            base = (char*)realloc(base, this->len);
+            base = (char*)safe_realloc(base, this->len);
         }
 
         if (_offset < len) {
@@ -132,7 +128,7 @@ public:
     void push_back(void* ptr, size_t len) {
         if (len > this->len - _size) {
             this->len = MAX(this->len, len)*2;
-            base = (char*)realloc(base, this->len);
+            base = (char*)safe_realloc(base, this->len);
         }
         else if (len > this->len - _offset - _size) {
             // move => start

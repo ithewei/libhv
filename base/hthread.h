@@ -17,7 +17,7 @@
 static inline int gettid() {
     return syscall(SYS_gettid);
 }
-#else
+#elif HAVE_PTHREAD_H
 #define gettid  pthread_self
 #endif
 

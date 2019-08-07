@@ -18,28 +18,26 @@ test: prepare
 
 ping:
 	-rm base/hsocket.o
-	$(MAKEF) TARGET=$@ SRCDIRS="" SRCS="examples/ping.c base/hsocket.c base/htime.c base/RAII.cpp" INCDIRS="base" DEFINES="PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS="" SRCS="examples/ping.c base/hsocket.c base/htime.c base/RAII.cpp" INCDIRS=". base" DEFINES="PRINT_DEBUG"
 
 loop: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/loop.c $(TMPDIR)/loop.c
+	cp examples/loop.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 client: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/client.cpp $(TMPDIR)/client.cpp
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/client.cpp $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 server: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/server.cpp $(TMPDIR)/server.cpp
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/server.cpp $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 httpd: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/httpd.cpp $(TMPDIR)/httpd.cpp
-	cp examples/httpd_conf.h $(TMPDIR)/httpd_conf.h
-	cp examples/http_api_test.h $(TMPDIR)/http_api_test.h
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/httpd.cpp examples/httpd_conf.h examples/http_api_test.h $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server $(TMPDIR)"
 
 webbench:
@@ -48,7 +46,7 @@ webbench:
 # curl
 CURL_SRCDIRS := http http/client
 CURL_INCDIRS += base utils http http/client
-CURL_SRCS    += examples/curl.cpp base/hstring.cpp
+CURL_SRCS    += examples/curl.cpp base/hstring.cpp base/hbase.c
 curl:
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" INCDIRS="$(CURL_INCDIRS)" SRCS="$(CURL_SRCS)" DEFINES="CURL_STATICLIB" LIBS="curl"
 

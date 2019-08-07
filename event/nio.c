@@ -6,38 +6,34 @@ static void nio_accept(hio_t* io) {
     //printd("nio_accept listenfd=%d\n", io->fd);
     socklen_t addrlen;
     if (io->localaddr == NULL) {
-        io->localaddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+        SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
     }
     if (io->peeraddr == NULL) {
-        io->peeraddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+        SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
     }
 accept:
-    addrlen = sizeof(struct sockaddr_in);
+    addrlen = sizeof(struct sockaddr_in6);
     int connfd = accept(io->fd, io->peeraddr, &addrlen);
     if (connfd < 0) {
-        if (sockerrno == NIO_EAGAIN) {
+        if (socket_errno() == EAGAIN) {
             //goto accept_done;
             return;
         }
         else {
-            io->error = sockerrno;
+            io->error = socket_errno();
             perror("accept");
             goto accept_error;
         }
     }
 
-    addrlen = sizeof(struct sockaddr_in);
+    addrlen = sizeof(struct sockaddr_in6);
     getsockname(connfd, io->localaddr, &addrlen);
     if (io->accept_cb) {
-        struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
-        struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
-        char localip[64];
-        char peerip[64];
-        inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
-        inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
-        printd("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
-                localip, ntohs(localaddr->sin_port),
-                peerip, ntohs(peeraddr->sin_port));
+        char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
+        char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+        printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
+                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
+                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
         printd("accept_cb------\n");
         io->accept_cb(io, connfd);
         printd("accept_cb======\n");
@@ -54,30 +50,26 @@ static void nio_connect(hio_t* io) {
     int state = 0;
     socklen_t addrlen;
     if (io->localaddr == NULL) {
-        io->localaddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
-        addrlen = sizeof(struct sockaddr_in);
+        SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
+        addrlen = sizeof(struct sockaddr_in6);
         getsockname(io->fd, io->localaddr, &addrlen);
     }
     if (io->peeraddr == NULL) {
-        io->peeraddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+        SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
     }
-    addrlen = sizeof(struct sockaddr_in);
+    addrlen = sizeof(struct sockaddr_in6);
     int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
-        io->error = sockerrno;
-        printd("connect failed: %s: %d\n", strerror(sockerrno), sockerrno);
+        io->error = socket_errno();
+        printd("connect failed: %s: %d\n", strerror(socket_errno()), socket_errno());
         state = 0;
     }
     else {
-        struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
-        struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
-        char localip[64];
-        char peerip[64];
-        inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
-        inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
-        printd("connect connfd=%d [%s:%d] => [%s:%d]\n", io->fd,
-                localip, ntohs(localaddr->sin_port),
-                peerip, ntohs(peeraddr->sin_port));
+        char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
+        char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+        printd("connect connfd=%d [%s] => [%s]\n", io->fd,
+                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
+                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
         state = 1;
     }
     if (io->connect_cb) {
@@ -104,12 +96,12 @@ read:
 #endif
     //printd("read retval=%d\n", nread);
     if (nread < 0) {
-        if (sockerrno == NIO_EAGAIN) {
+        if (socket_errno() == EAGAIN) {
             //goto read_done;
             return;
         }
         else {
-            io->error = sockerrno;
+            io->error = socket_errno();
             perror("read");
             goto read_error;
         }
@@ -149,12 +141,12 @@ write:
 #endif
     //printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
-        if (sockerrno == NIO_EAGAIN) {
+        if (socket_errno() == EAGAIN) {
             //goto write_done;
             return;
         }
         else {
-            io->error = sockerrno;
+            io->error = socket_errno();
             perror("write");
             goto write_error;
         }
@@ -267,13 +259,13 @@ try_write:
 #endif
         //printd("write retval=%d\n", nwrite);
         if (nwrite < 0) {
-            if (sockerrno == NIO_EAGAIN) {
+            if (socket_errno() == EAGAIN) {
                 nwrite = 0;
                 goto enqueue;
             }
             else {
                 perror("write");
-                io->error = sockerrno;
+                io->error = socket_errno();
                 goto write_error;
             }
         }
@@ -297,7 +289,7 @@ enqueue:
         rest.len = len;
         rest.offset = nwrite;
         // NOTE: free in nio_write;
-        rest.base = (char*)malloc(rest.len);
+        SAFE_ALLOC(rest.base, rest.len);
         if (rest.base == NULL) return io;
         memcpy(rest.base, (char*)buf, rest.len);
         if (io->write_queue.maxsize == 0) {

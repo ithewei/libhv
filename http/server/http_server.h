@@ -42,4 +42,7 @@ int main() {
  */
 int http_server_run(http_server_t* server, int wait = 1);
 
+// for SDK, just use for singleton
+int http_server_stop(http_server_t* server);
+
 #endif

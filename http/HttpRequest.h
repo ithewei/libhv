@@ -1,6 +1,7 @@
 #ifndef HTTP_REQUEST_H_
 #define HTTP_REQUEST_H_
 
+#include <time.h>
 #include <string.h>
 
 #include <string>

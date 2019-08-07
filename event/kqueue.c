@@ -25,22 +25,21 @@ typedef struct kqueue_ctx_s {
 
 static void kqueue_ctx_resize(kqueue_ctx_t* kqueue_ctx, int size) {
     int bytes = sizeof(struct kevent) * size;
-    kqueue_ctx->changes = (struct kevent*)realloc(kqueue_ctx->changes, bytes);
-    kqueue_ctx->events = (struct kevent*)realloc(kqueue_ctx->events, bytes);
+    kqueue_ctx->changes = (struct kevent*)safe_realloc(kqueue_ctx->changes, bytes);
+    kqueue_ctx->events = (struct kevent*)safe_realloc(kqueue_ctx->events, bytes);
     kqueue_ctx->capacity = size;
 }
 
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
-    kqueue_ctx_t* kqueue_ctx = (kqueue_ctx_t*)malloc(sizeof(kqueue_ctx_t));
+    kqueue_ctx_t* kqueue_ctx;
+    SAFE_ALLOC_SIZEOF(kqueue_ctx);
     kqueue_ctx->kqfd = kqueue();
     kqueue_ctx->capacity = EVENTS_INIT_SIZE;
     kqueue_ctx->nchanges = 0;
     int bytes = sizeof(struct kevent) * kqueue_ctx->capacity;
-    kqueue_ctx->changes = (struct kevent*)malloc(bytes);
-    memset(kqueue_ctx->changes, 0, bytes);
-    kqueue_ctx->events = (struct kevent*)malloc(bytes);
-    memset(kqueue_ctx->events, 0, bytes);
+    SAFE_ALLOC(kqueue_ctx->changes, bytes);
+    SAFE_ALLOC(kqueue_ctx->events, bytes);
     loop->iowatcher = kqueue_ctx;
     return 0;
 }

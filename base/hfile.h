@@ -1,12 +1,6 @@
 #ifndef HW_FILE_H_
 #define HW_FILE_H_
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-
 #include <string>
 
 #include "hdef.h"

@@ -1,4 +1,5 @@
 #include "hloop.h"
+#include "hbase.h"
 
 void on_idle(hidle_t* idle) {
     printf("on_idle: event_id=%lu\tpriority=%d\tuserdata=%ld\n", idle->event_id, idle->priority, (long)idle->userdata);
@@ -16,6 +17,8 @@ void cron_hourly(htimer_t* timer) {
 }
 
 int main() {
+    MEMCHECK;
+
     hloop_t loop;
     hloop_init(&loop);
     for (int i = HEVENT_LOWEST_PRIORITY; i <= HEVENT_HIGHEST_PRIORITY; ++i) {
@@ -23,11 +26,11 @@ int main() {
         idle->priority = i;
     }
     for (int i = 1; i <= 10; ++i) {
-        htimer_t* timer = htimer_add(&loop, on_timer, i*1000, i);
+        htimer_t* timer = htimer_add(&loop, on_timer, i*1000, 3);
         timer->userdata = (void*)i;
     }
     int minute = time(NULL)%3600/60;
-    htimer_add_period(&loop, cron_hourly, minute+1, -1, -1, -1, -1, INFINITE);
+    htimer_add_period(&loop, cron_hourly, minute+1, -1, -1, -1, -1, 1);
     hloop_run(&loop);
     return 0;
 }

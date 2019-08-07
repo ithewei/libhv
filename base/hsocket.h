@@ -10,6 +10,15 @@
 
 BEGIN_EXTERN_C
 
+static inline int socket_errno() {
+#ifdef OS_WIN
+    return WSAGetLastError();
+#else
+    return errno;
+#endif
+}
+char* socket_strerror(int err);
+
 // socket -> setsockopt -> bind -> listen
 // @return sockfd
 int Listen(int port);
@@ -34,15 +43,73 @@ static inline int nonblocking(int sockfd) {
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
 #define poll        WSAPoll
-#define sockerrno   WSAGetLastError()
-#define NIO_EAGAIN  WSAEWOULDBLOCK
+#undef  EAGAIN
+#define EAGAIN      WSAEWOULDBLOCK
+#undef  EINPROGRESS
+#define EINPROGRESS WSAEINPROGRESS
 #else
 #define blocking(s)     fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
 #define nonblocking(s)  fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK)
 #define closesocket close
-#define sockerrno   errno
-#define NIO_EAGAIN  EAGAIN
 #endif
+
+static inline const char* sockaddr_ntop(const struct sockaddr* addr, char *ip, int len) {
+    if (addr->sa_family == AF_INET) {
+        struct sockaddr_in* sin = (struct sockaddr_in*)addr;
+        return inet_ntop(AF_INET, &sin->sin_addr, ip, len);
+    }
+    else if (addr->sa_family == AF_INET6) {
+        struct sockaddr_in6* sin6 = (struct sockaddr_in6*)addr;
+        return inet_ntop(AF_INET6, &sin6->sin6_addr, ip, len);
+    }
+    return ip;
+}
+
+static inline uint16_t sockaddr_htons(const struct sockaddr* addr) {
+    if (addr->sa_family == AF_INET) {
+        struct sockaddr_in* sin = (struct sockaddr_in*)addr;
+        return htons(sin->sin_port);
+    }
+    else if (addr->sa_family == AF_INET6) {
+        struct sockaddr_in6* sin6 = (struct sockaddr_in6*)addr;
+        return htons(sin6->sin6_port);
+    }
+    return 0;
+}
+
+static inline void sockaddr_printf(const struct sockaddr* addr) {
+    char ip[INET6_ADDRSTRLEN] = {0};
+    int port = 0;
+    if (addr->sa_family == AF_INET) {
+        struct sockaddr_in* sin = (struct sockaddr_in*)addr;
+        inet_ntop(AF_INET, &sin->sin_addr, ip, sizeof(ip));
+        port = htons(sin->sin_port);
+    }
+    else if (addr->sa_family == AF_INET6) {
+        struct sockaddr_in6* sin6 = (struct sockaddr_in6*)addr;
+        inet_ntop(AF_INET6, &sin6->sin6_addr, ip, sizeof(ip));
+        port = htons(sin6->sin6_port);
+    }
+    printf("%s:%d\n", ip, port);
+}
+
+static inline const char* sockaddr_snprintf(const struct sockaddr* addr, char* buf, int len) {
+    int port = 0;
+    if (addr->sa_family == AF_INET) {
+        struct sockaddr_in* sin = (struct sockaddr_in*)addr;
+        inet_ntop(AF_INET, &sin->sin_addr, buf, len);
+        port = htons(sin->sin_port);
+    }
+    else if (addr->sa_family == AF_INET6) {
+        struct sockaddr_in6* sin6 = (struct sockaddr_in6*)addr;
+        inet_ntop(AF_INET6, &sin6->sin6_addr, buf, len);
+        port = htons(sin6->sin6_port);
+    }
+    char sport[16] = {0};
+    snprintf(sport, sizeof(sport), ":%d", port);
+    safe_strncat(buf, sport, len);
+    return buf;
+}
 
 static inline int tcp_nodelay(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&on, sizeof(int));
@@ -60,7 +127,7 @@ static inline int tcp_nopush(int sockfd, int on DEFAULT(1)) {
 
 static inline int tcp_keepalive(int sockfd, int on DEFAULT(1), int delay DEFAULT(60)) {
     if (setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, (const char*)&on, sizeof(int)) != 0) {
-        return sockerrno;
+        return socket_errno();
     }
 
 #ifdef TCP_KEEPALIVE

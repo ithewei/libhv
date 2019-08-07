@@ -3,6 +3,7 @@
 
 #include "hplatform.h"
 
+/*
 #ifdef OS_UNIX
 #include <netinet/in.h>
 #include <netinet/ip.h>
@@ -14,10 +15,11 @@ typedef struct udphdr   udphdr_t;
 typedef struct tcphdr   tcphdr_t;
 
 typedef struct icmphdr  icmphdr_t;
-typedef struct icmp     icmp;
+typedef struct icmp     icmp_t;
 #else
+*/
 // sizeof(iphdr_t) = 20
-typedef struct iphdr {
+typedef struct iphdr_s {
 #if BYTE_ORDER == LITTLE_ENDIAN
     uint8_t     ihl:4; // ip header length
     uint8_t     version:4;
@@ -40,7 +42,7 @@ typedef struct iphdr {
 } iphdr_t;
 
 // sizeof(udphdr_t) = 8
-typedef struct udphdr {
+typedef struct udphdr_s {
     uint16_t    source; // source port
     uint16_t    dest;   // dest   port
     uint16_t    len;    // udp length
@@ -48,7 +50,7 @@ typedef struct udphdr {
 } udphdr_t;
 
 // sizeof(tcphdr_t) = 20
-typedef struct tcphdr {
+typedef struct tcphdr_s {
     uint16_t    source; // source port
     uint16_t    dest;   // dest   port
     uint32_t    seq;    // sequence
@@ -97,7 +99,7 @@ typedef struct tcphdr {
 #define ICMP_ADDRESSREPLY	18	/* Address Mask Reply		*/
 
 // sizeof(icmphdr_t) = 8
-typedef struct icmphdr {
+typedef struct icmphdr_s {
     uint8_t     type;   // message type
     uint8_t     code;   // type sub-code
     uint16_t    checksum;
@@ -114,7 +116,7 @@ typedef struct icmphdr {
     } un;
 } icmphdr_t;
 
-typedef struct icmp {
+typedef struct icmp_s {
     uint8_t     icmp_type;
     uint8_t     icmp_code;
     uint16_t    icmp_cksum;
@@ -171,8 +173,8 @@ typedef struct icmp {
 #define	icmp_radv	icmp_dun.id_radv
 #define	icmp_mask	icmp_dun.id_mask
 #define	icmp_data	icmp_dun.id_data
-} icmp;
-#endif
+} icmp_t;
+//#endif
 
 static inline uint16_t checksum(uint8_t* buf, int len) {
     unsigned int sum = 0;

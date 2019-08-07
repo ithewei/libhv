@@ -62,7 +62,7 @@ endif
 ifeq ($(BUILD_TYPE), DEBUG)
 	DEFAULT_CFLAGS = -g
 endif
-DEFAULT_CFLAGS += -Wall -O3 -fPIC
+DEFAULT_CFLAGS += -Wall -O3 -fPIC -fvisibility=hidden
 ifndef CFLAGS
 CFLAGS := $(DEFAULT_CFLAGS) -std=c99 $(MAKE_CFLAGS)
 endif
@@ -98,9 +98,15 @@ ifeq ($(TARGET_TYPE), SHARED)
 	CPPFLAGS += -DDLL_EXPORTS
 endif
 endif
+
+ifeq ($(TARGET_TYPE), STATIC)
+	CPPFLAGS += -DBUILD_STATIC_LIB
+endif
+
 ifeq ($(BUILD_TYPE), DEBUG)
 	CPPFLAGS += -DDEBUG
 endif
+
 CPPFLAGS += $(addprefix -D, $(DEFINES))
 CPPFLAGS += $(addprefix -I, $(INCDIRS))
 CPPFLAGS += $(addprefix -I, $(SRCDIRS))

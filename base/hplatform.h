@@ -1,6 +1,8 @@
 #ifndef HW_PLATFORM_H_
 #define HW_PLATFORM_H_
 
+#include "hconfig.h"
+
 // OS
 #if defined(WIN64) || defined(_WIN64)
     #define OS_WIN64
@@ -49,6 +51,14 @@
 
 // CC
 // _MSC_VER
+#ifdef _MSC_VER
+#pragma warning (disable: 4100) // unused param
+#pragma warning (disable: 4819) // Unicode
+
+#undef  HAVE_PTHREAD_H
+#define HAVE_PTHREAD_H  0
+#endif
+
 // __MINGW32__
 // __GNUC__
 #ifdef __GNUC__
@@ -57,6 +67,18 @@
 #endif
 #endif
 // __clang__
+
+#ifndef BUILD_STATIC_LIB
+#ifdef _MSC_VER
+#define EXPORT  __declspec(dllexport)
+#elif defined(__GNUC__)
+#define EXPORT  __attribute__((visibility("default")))
+#else
+#define EXPORT
+#endif
+#else
+#define EXPORT
+#endif
 
 // ARCH
 #if defined(__i386) || defined(__i386__) || defined(_M_IX86)
@@ -103,23 +125,21 @@
     #include <direct.h>     // for mkdir,rmdir,chdir,getcwd
     #include <io.h>         // for open,close,read,write,lseek,tell
 
-    #define MKDIR(dir) mkdir(dir)
+    #define MKDIR(dir)      mkdir(dir)
 #else
     #include <unistd.h>
     #include <dirent.h>     // for mkdir,rmdir,chdir,getcwd
     #include <sys/time.h>   // for gettimeofday
 
     // socket
-    #include <sys/types.h>
     #include <sys/socket.h>
     #include <arpa/inet.h>
     #include <netinet/in.h>
     #include <netinet/tcp.h>
     #include <netinet/udp.h>
-    #include <fcntl.h>
     #include <netdb.h>  // for gethostbyname
 
-    #define MKDIR(dir) mkdir(dir, 0777)
+    #define MKDIR(dir)      mkdir(dir, 0777)
 #endif
 
 // ANSI C
@@ -137,8 +157,13 @@
 #include <errno.h>
 #include <signal.h>
 
-// c99
-#if defined(_MSC_VER) && _MSC_VER < 1700
+#if HAVE_STDBOOL_H
+#include <stdbool.h>
+#endif
+
+#if HAVE_STDINT_H
+#include <stdint.h>
+#elif defined(_MSC_VER) && _MSC_VER < 1700
 typedef __int8              int8_t;
 typedef __int16             int16_t;
 typedef __int32             int32_t;
@@ -147,20 +172,21 @@ typedef unsigned __int8     uint8_t;
 typedef unsigned __int16    uint16_t;
 typedef unsigned __int32    uint32_t;
 typedef unsigned __int64    uint64_t;
-#else
-#include <stdbool.h>
-#include <stdint.h>
 #endif
 
-// POSIX C
+#ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#endif
 
-#ifdef _MSC_VER
-#pragma warning (disable: 4100) // unused param
-#pragma warning (disable: 4819) // Unicode
-#else
+#if HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+
+#ifdef HAVE_PTHREAD_H
 #include <pthread.h>
 #endif
 

@@ -65,3 +65,6 @@ hw 是一套跨平台c++工具集，类名以H开头
 - make httpd: http服务（包含web service和api service)
 - make curl: 基于libcurl封装http客户端
 - make webbench: http服务压力测试程序
+
+### compile with print debug info
+- make all DEFINES=PRINT_DEBUG

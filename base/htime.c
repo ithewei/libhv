@@ -31,7 +31,7 @@ inline unsigned long long gethrtime() {
         return count.QuadPart / (double)s_freq * 1000000;
     }
     return 0;
-#elif defined(OS_LINUX)
+#elif HAVE_CLOCK_GETTIME
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec*(unsigned long long)1000000 + ts.tv_nsec / 1000;

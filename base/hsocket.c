@@ -2,12 +2,27 @@
 #include "htime.h"
 #include "netinet.h"
 
+char *socket_strerror(int err) {
+#ifdef OS_WIN
+    static char buffer[128];
+
+    FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM |
+        FORMAT_MESSAGE_IGNORE_INSERTS |
+        FORMAT_MESSAGE_MAX_WIDTH_MASK,
+        0, err, 0, buffer, sizeof(buffer), NULL);
+
+    return buffer;
+#else
+    return strerror(err);
+#endif
+}
+
 int Listen(int port) {
     // socket -> setsockopt -> bind -> listen
     int listenfd = socket(AF_INET, SOCK_STREAM, 0);
     if (listenfd < 0) {
         perror("socket");
-        return -sockerrno;
+        return -socket_errno();
     }
     struct sockaddr_in localaddr;
     socklen_t addrlen = sizeof(localaddr);
@@ -32,7 +47,7 @@ int Listen(int port) {
     return listenfd;
 error:
     closesocket(listenfd);
-    return sockerrno == 0 ? -1 : -sockerrno;
+    return socket_errno() > 0 ? -socket_errno() : -1;
 }
 
 int Connect(const char* host, int port, int nonblock) {
@@ -53,16 +68,16 @@ int Connect(const char* host, int port, int nonblock) {
     int connfd = socket(AF_INET, SOCK_STREAM, 0);
     if (connfd < 0) {
         perror("socket");
-        return -sockerrno;
+        return -socket_errno();
     }
     if (nonblock) {
         nonblocking(connfd);
     }
     int ret = connect(connfd, (struct sockaddr*)&peeraddr, addrlen);
 #ifdef OS_WIN
-    if (ret < 0 && sockerrno != WSAEWOULDBLOCK) {
+    if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
 #else
-    if (ret < 0 && sockerrno != EINPROGRESS) {
+    if (ret < 0 && socket_errno() != EINPROGRESS) {
 #endif
         perror("connect");
         goto error;
@@ -70,22 +85,22 @@ int Connect(const char* host, int port, int nonblock) {
     return connfd;
 error:
     closesocket(connfd);
-    return sockerrno == 0 ? -1 : -sockerrno;
+    return socket_errno() > 0 ? -socket_errno() : -1;
 }
 
 #define PING_TIMEOUT    1000 // ms
 int Ping(const char* host, int cnt) {
     static uint16_t seq = 0;
     char ip[64] = {0};
-    uint64_t start_tick, end_tick;
+    uint32_t start_tick, end_tick;
     uint64_t start_hrtime, end_hrtime;
     int timeout = 0;
     int sendbytes = 64;
     char sendbuf[64];
     char recvbuf[128]; // iphdr + icmp = 84 at least
-    struct icmp* icmp_req = (struct icmp*)sendbuf;
-    struct iphdr* ipheader = (struct iphdr*)recvbuf;
-    struct icmp* icmp_res;
+    icmp_t* icmp_req = (icmp_t*)sendbuf;
+    iphdr_t* ipheader = (iphdr_t*)recvbuf;
+    icmp_t* icmp_res;
     // ping stat
     int send_cnt = 0;
     int recv_cnt = 0;
@@ -118,7 +133,7 @@ int Ping(const char* host, int cnt) {
         if (errno == EPERM) {
             fprintf(stderr, "please use root or sudo to create a raw socket.\n");
         }
-        return -sockerrno;
+        return -socket_errno();
     }
 
     timeout = PING_TIMEOUT;
@@ -137,7 +152,7 @@ int Ping(const char* host, int cnt) {
     icmp_req->icmp_type = ICMP_ECHO;
     icmp_req->icmp_code = 0;
     icmp_req->icmp_id = getpid();
-    for (int i = 0; i < sendbytes - sizeof(struct icmphdr); ++i) {
+    for (int i = 0; i < sendbytes - sizeof(icmphdr_t); ++i) {
         icmp_req->icmp_data[i] = i;
     }
     start_tick = gettick();
@@ -166,7 +181,7 @@ int Ping(const char* host, int cnt) {
         int iphdr_len = ipheader->ihl * 4;
         int icmp_len = nrecv - iphdr_len;
         if (icmp_len == sendbytes) {
-            icmp_res = (struct icmp*)(recvbuf + ipheader->ihl*4);
+            icmp_res = (icmp_t*)(recvbuf + ipheader->ihl*4);
             if (icmp_res->icmp_type == ICMP_ECHOREPLY &&
                 icmp_res->icmp_id == getpid() &&
                 icmp_res->icmp_seq == seq) {
@@ -197,5 +212,5 @@ int Ping(const char* host, int cnt) {
     return ok_cnt;
 error:
     closesocket(sockfd);
-    return sockerrno == 0 ? -1 : -sockerrno;
+    return socket_errno() > 0 ? -socket_errno() : -1;
 }

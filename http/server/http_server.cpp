@@ -121,15 +121,13 @@ static void on_close(hio_t* io) {
 
 static void on_accept(hio_t* io, int connfd) {
     //printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
-    //struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
-    struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
-    //char localip[64];
-    //char peerip[64];
-    //inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
-    //inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
-    //printd("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
-            //localip, ntohs(localaddr->sin_port),
-            //peerip, ntohs(peeraddr->sin_port));
+    /*
+    char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
+    char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+    printf("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
+            sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
+            sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+    */
 
     nonblocking(connfd);
     HBuf* buf = (HBuf*)io->loop->userdata;
@@ -140,8 +138,8 @@ static void on_accept(hio_t* io, int connfd) {
     HttpHandler* handler = new HttpHandler;
     handler->service = (HttpService*)io->userdata;
     handler->files = &s_filecache;
-    inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, handler->srcip, sizeof(handler->srcip));
-    handler->srcport = ntohs(peeraddr->sin_port);
+    sockaddr_ntop(io->peeraddr, handler->srcip, sizeof(handler->srcip));
+    handler->srcport = sockaddr_htons(io->peeraddr);
     handler->io = connio;
     connio->userdata = handler;
 }
@@ -171,10 +169,14 @@ void fflush_log(hidle_t* idle) {
     hlog_fflush();
 }
 
+// for implement http_server_stop
+static hloop_t* s_loop = NULL;
+
 static void worker_proc(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
     int listenfd = server->listenfd;
     hloop_t loop;
+    s_loop = &loop;
     hloop_init(&loop);
     // one loop one readbuf.
     HBuf readbuf;
@@ -218,10 +220,6 @@ int http_server_run(http_server_t* server, int wait) {
         g_worker_processes_num = server->worker_processes;
         int bytes = g_worker_processes_num * sizeof(proc_ctx_t);
         g_worker_processes = (proc_ctx_t*)malloc(bytes);
-        if (g_worker_processes == NULL) {
-            perror("malloc");
-            abort();
-        }
         memset(g_worker_processes, 0, bytes);
         for (int i = 0; i < g_worker_processes_num; ++i) {
             proc_ctx_t* ctx = g_worker_processes + i;
@@ -231,11 +229,20 @@ int http_server_run(http_server_t* server, int wait) {
             ctx->proc_userdata = server;
             spawn_proc(ctx);
         }
+        if (wait) {
+            master_init(NULL);
+            master_proc(NULL);
+        }
     }
 
-    if (wait) {
-        master_init(NULL);
-        master_proc(NULL);
+    return 0;
+}
+
+// for SDK, just use for singleton
+int http_server_stop(http_server_t* server) {
+    if (s_loop) {
+        hloop_stop(s_loop);
+        s_loop = NULL;
     }
     return 0;
 }

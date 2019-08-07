@@ -29,6 +29,21 @@ typedef struct datetime_s {
 static inline void sleep(unsigned int s) {
     Sleep(s*1000);
 }
+
+static inline void usleep(unsigned int us) {
+    Sleep(us/1000);
+}
+
+#include <sys/timeb.h>
+static inline int gettimeofday(struct timeval *tv, struct timeval *tz) {
+  struct _timeb timebuffer;
+
+  _ftime( &timebuffer );
+
+  tv->tv_sec = (long) timebuffer.time;
+  tv->tv_usec = timebuffer.millitm * 1000;
+  return 0;
+}
 #endif
 
 static inline void msleep(unsigned int ms) {
@@ -43,7 +58,7 @@ static inline void msleep(unsigned int ms) {
 static inline unsigned int gettick() {
 #ifdef OS_WIN
     return GetTickCount();
-#elif defined(OS_LINUX)
+#elif HAVE_CLOCK_GETTIME
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;

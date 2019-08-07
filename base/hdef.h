@@ -2,6 +2,7 @@
 #define HW_DEF_H_
 
 #include "hplatform.h"
+#include "hbase.h"
 
 typedef float               float32;
 typedef double              float64;
@@ -139,19 +140,6 @@ typedef void (*procedure_t)(void* userdata);
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif
 
-#ifndef ARRAY_INIT
-#define ARRAY_INIT(type, p, size)\
-    do {\
-        size_t bytes = sizeof(*(p)) * size;\
-        p = (type*)malloc(bytes);\
-        memset(p, 0, bytes);\
-    } while (0)
-#endif
-
-#ifndef ARRAY_RESIZE
-#define ARRAY_RESIZE(type, p, newsize) do {p = (type*)realloc(p, sizeof(*(p)) * newsize);} while(0)
-#endif
-
 #ifndef SAFE_FREE
 #define SAFE_FREE(p)    do {if (p) {free(p); (p) = NULL;}} while(0)
 #endif
@@ -241,12 +229,6 @@ typedef void (*procedure_t)(void* userdata);
 #else
 #define prefetch(x)
 #endif
-#endif
-
-#ifdef PRINT_DEBUG
-#define printd printf
-#else
-#define printd(...)
 #endif
 
 // __cplusplus

@@ -1,18 +1,11 @@
 #ifndef HW_STRING_H_
 #define HW_STRING_H_
 
-#include <string.h>
-#ifdef _MSC_VER
-    #define strcasecmp stricmp
-    #define strncasecmp strnicmp
-#else
-    #include <strings.h>
-    #define stricmp     strcasecmp
-    #define strnicmp    strncasecmp
-#endif
-
 #include <string>
 #include <vector>
+
+#include "hbase.h"
+
 using std::string;
 typedef std::vector<string> StringList;
 
@@ -26,10 +19,6 @@ public:
 
 #define SPACE_CHARS     " \t\r\n"
 #define PAIR_CHARS      "{}[]()<>\"\"\'\'``"
-
-char* strupper(char* str);
-char* strlower(char* str);
-char* strreverse(char* str);
 
 string asprintf(const char* fmt, ...);
 StringList split(const string& str, char delim);

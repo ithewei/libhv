@@ -13,6 +13,7 @@
 
 static void hio_init(hio_t* io);
 static void hio_deinit(hio_t* io);
+static void hio_reset(hio_t* io);
 static void hio_free(hio_t* io);
 
 static int timers_compare(const struct heap_node* lhs, const struct heap_node* rhs) {
@@ -43,7 +44,7 @@ next:
 destroy:
         node = node->next;
         list_del(node->prev);
-        free(idle);
+        SAFE_FREE(idle);
     }
     return nidles;
 }
@@ -80,7 +81,7 @@ static int hloop_process_timers(hloop_t* loop) {
         continue;
 destroy:
         heap_dequeue(&loop->timers);
-        free(timer);
+        SAFE_FREE(timer);
     }
     return ntimers;
 }
@@ -151,7 +152,7 @@ process_timers:
             nidles= hloop_process_idles(loop);
         }
     }
-    printd("blocktime=%d nios=%d ntimers=%d nidles=%d nactives=%d npendings=%d\n", blocktime, nios, ntimers, nidles, loop->nactives, loop->npendings);
+    //printd("blocktime=%d nios=%d ntimers=%d nidles=%d nactives=%d npendings=%d\n", blocktime, nios, ntimers, nidles, loop->nactives, loop->npendings);
     return hloop_process_pendings(loop);
 }
 
@@ -174,27 +175,31 @@ int hloop_init(hloop_t* loop) {
 
 void hloop_cleanup(hloop_t* loop) {
     // pendings
+    printd("cleanup pendings...\n");
     for (int i = 0; i < HEVENT_PRIORITY_SIZE; ++i) {
         loop->pendings[i] = NULL;
     }
     // idles
+    printd("cleanup idles...\n");
     struct list_node* node = loop->idles.next;
     hidle_t* idle;
     while (node != &loop->idles) {
         idle = IDLE_ENTRY(node);
         node = node->next;
-        free(idle);
+        SAFE_FREE(idle);
     }
     list_init(&loop->idles);
     // timers
+    printd("cleanup timers...\n");
     htimer_t* timer;
     while (loop->timers.root) {
-        timer = TIMER_ENTRY(node);
+        timer = TIMER_ENTRY(loop->timers.root);
         heap_dequeue(&loop->timers);
-        free(timer);
+        SAFE_FREE(timer);
     }
     heap_init(&loop->timers, NULL);
     // ios
+    printd("cleanup ios...\n");
     for (int i = 0; i < loop->ios.maxsize; ++i) {
         hio_t* io = loop->ios.ptr[i];
         if (io) {
@@ -204,7 +209,7 @@ void hloop_cleanup(hloop_t* loop) {
     io_array_cleanup(&loop->ios);
     // iowatcher
     iowatcher_cleanup(loop);
-};
+}
 
 int hloop_run(hloop_t* loop) {
     loop->loop_cnt = 0;
@@ -223,7 +228,7 @@ int hloop_run(hloop_t* loop) {
     loop->end_hrtime = gethrtime();
     hloop_cleanup(loop);
     return 0;
-};
+}
 
 int hloop_stop(hloop_t* loop) {
     loop->status = HLOOP_STATUS_STOP;
@@ -245,8 +250,8 @@ int hloop_resume(hloop_t* loop) {
 }
 
 hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat) {
-    hidle_t* idle = (hidle_t*)malloc(sizeof(hidle_t));
-    memset(idle, 0, sizeof(hidle_t));
+    hidle_t* idle;
+    SAFE_ALLOC_SIZEOF(idle);
     idle->event_type = HEVENT_TYPE_IDLE;
     idle->priority = HEVENT_LOWEST_PRIORITY;
     idle->repeat = repeat;
@@ -264,8 +269,8 @@ void hidle_del(hidle_t* idle) {
 
 htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t repeat) {
     if (timeout == 0)   return NULL;
-    htimeout_t* timer = (htimeout_t*)malloc(sizeof(htimeout_t));
-    memset(timer, 0, sizeof(htimeout_t));
+    htimeout_t* timer;
+    SAFE_ALLOC_SIZEOF(timer);
     timer->event_type = HEVENT_TYPE_TIMEOUT;
     timer->priority = HEVENT_HIGHEST_PRIORITY;
     timer->repeat = repeat;
@@ -295,8 +300,8 @@ htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
     if (minute > 59 || hour > 23 || day > 31 || week > 6 || month > 12) {
         return NULL;
     }
-    hperiod_t* timer = (hperiod_t*)malloc(sizeof(hperiod_t));
-    memset(timer, 0, sizeof(hperiod_t));
+    hperiod_t* timer;
+    SAFE_ALLOC_SIZEOF(timer);
     timer->event_type = HEVENT_TYPE_PERIOD;
     timer->priority = HEVENT_HIGH_PRIORITY;
     timer->repeat = repeat;
@@ -326,6 +331,19 @@ void hio_init(hio_t* io) {
     //write_queue_init(&io->write_queue, 4);;
 }
 
+void hio_reset(hio_t* io) {
+    io->accept = io->connect = io->closed = 0;
+    io->error = 0;
+    io->events = io->revents = 0;
+    io->read_cb = NULL;
+    io->write_cb = NULL;
+    io->close_cb = 0;
+    io->accept_cb = 0;
+    io->connect_cb = 0;
+    io->event_index[0] = io->event_index[1] = -1;
+    io->hovlp = NULL;
+}
+
 void hio_deinit(hio_t* io) {
     offset_buf_t* pbuf = NULL;
     while (!write_queue_empty(&io->write_queue)) {
@@ -341,10 +359,11 @@ void hio_free(hio_t* io) {
     hio_deinit(io);
     SAFE_FREE(io->localaddr);
     SAFE_FREE(io->peeraddr);
-    free(io);
+    SAFE_FREE(io);
 }
 
 hio_t* hio_add(hloop_t* loop, hio_cb cb, int fd, int events) {
+    printd("hio_add fd=%d events=%d\n", fd, events);
     if (loop->ios.maxsize == 0) {
         io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
     }
@@ -356,13 +375,17 @@ hio_t* hio_add(hloop_t* loop, hio_cb cb, int fd, int events) {
 
     hio_t* io = loop->ios.ptr[fd];
     if (io == NULL) {
-        io = (hio_t*)malloc(sizeof(hio_t));
-        memset(io, 0, sizeof(hio_t));
+        SAFE_ALLOC_SIZEOF(io);
         loop->ios.ptr[fd] = io;
+        hio_init(io);
     }
 
-    if (!io->active || io->destroy) {
-        hio_init(io);
+    if (io->destroy) {
+        io->destroy = 0;
+        hio_reset(io);
+    }
+
+    if (!io->active) {
         EVENT_ADD(loop, io, cb);
         loop->nios++;
     }
@@ -377,13 +400,14 @@ hio_t* hio_add(hloop_t* loop, hio_cb cb, int fd, int events) {
 }
 
 void hio_del(hio_t* io, int events) {
+    printd("hio_del fd=%d io->events=%d events=%d\n", io->fd, io->events, events);
     if (io->destroy) return;
     iowatcher_del_event(io->loop, io->fd, events);
     io->events &= ~events;
     if (io->events == 0) {
         io->loop->nios--;
-        hio_deinit(io);
         EVENT_DEL(io);
+        hio_deinit(io);
     }
 }
 

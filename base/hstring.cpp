@@ -8,45 +8,6 @@
 #include <iostream>
 #include <sstream>
 
-char* strupper(char* str) {
-    char* p = str;
-    while (*p != '\0') {
-        if (*p >= 'a' && *p <= 'z') {
-            *p &= ~0x20;
-        }
-        ++p;
-    }
-    return str;
-}
-
-char* strlower(char* str) {
-    char* p = str;
-    while (*p != '\0') {
-        if (*p >= 'A' && *p <= 'Z') {
-            *p |= 0x20;
-        }
-        ++p;
-    }
-    return str;
-}
-
-char* strreverse(char* str) {
-    if (str == NULL) return NULL;
-    char* b = str;
-    char* e = str;
-    while(*e) {++e;}
-    --e;
-    char tmp;
-    while (e > b) {
-        tmp = *e;
-        *e = *b;
-        *b = tmp;
-        --e;
-        ++b;
-    }
-    return str;
-}
-
 static inline int vscprintf(const char* fmt, va_list ap) {
     return vsnprintf(NULL, 0, fmt, ap);
 }

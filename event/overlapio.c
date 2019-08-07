@@ -20,16 +20,14 @@ int post_acceptex(hio_t* listenio, hoverlapped_t* hovlp) {
         return WSAGetLastError();
     }
     if (hovlp == NULL) {
-        hovlp = (hoverlapped_t*)malloc(sizeof(hoverlapped_t));
-        memset(hovlp, 0, sizeof(hoverlapped_t));
-        hovlp->buf.len = 20 + (sizeof(SOCKADDR_IN) + 16) * 2;
-        hovlp->buf.buf = (char*)malloc(hovlp->buf.len);
-        memset(hovlp->buf.buf, 0, hovlp->buf.len);
+        SAFE_ALLOC_SIZEOF(hovlp);
+        hovlp->buf.len = 20 + sizeof(struct sockaddr_in6) * 2;
+        SAFE_ALLOC(hovlp->buf.buf, hovlp->buf.len);
     }
     hovlp->fd = connfd;
     hovlp->event = READ_EVENT;
     hovlp->io = listenio;
-    if (AcceptEx(listenio->fd, connfd, hovlp->buf.buf, 0, sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16,
+    if (AcceptEx(listenio->fd, connfd, hovlp->buf.buf, 0, sizeof(struct sockaddr_in6), sizeof(struct sockaddr_in6),
         &dwbytes, &hovlp->ovlp) != TRUE) {
         int err = WSAGetLastError();
         if (err != ERROR_IO_PENDING) {
@@ -42,8 +40,7 @@ int post_acceptex(hio_t* listenio, hoverlapped_t* hovlp) {
 
 int post_recv(hio_t* io, hoverlapped_t* hovlp) {
     if (hovlp == NULL) {
-        hovlp = (hoverlapped_t*)malloc(sizeof(hoverlapped_t));
-        memset(hovlp, 0, sizeof(hoverlapped_t));
+        SAFE_ALLOC_SIZEOF(hovlp);
     }
     hovlp->fd = io->fd;
     hovlp->event = READ_EVENT;
@@ -83,26 +80,22 @@ static void on_acceptex_complete(hio_t* io) {
     struct sockaddr* ppeeraddr = NULL;
     socklen_t localaddrlen;
     socklen_t peeraddrlen;
-    GetAcceptExSockaddrs(hovlp->buf.buf, 0, sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16,
+    GetAcceptExSockaddrs(hovlp->buf.buf, 0, sizeof(struct sockaddr_in6), sizeof(struct sockaddr_in6),
         &plocaladdr, &localaddrlen, &ppeeraddr, &peeraddrlen);
     if (io->localaddr == NULL) {
-        io->localaddr = (struct sockaddr*)malloc(localaddrlen);
+        SAFE_ALLOC(io->localaddr, localaddrlen);
     }
     memcpy(io->localaddr, plocaladdr, localaddrlen);
     if (io->peeraddr == NULL) {
-        io->peeraddr = (struct sockaddr*)malloc(peeraddrlen);
+        SAFE_ALLOC(io->peeraddr, peeraddrlen);
     }
     memcpy(io->peeraddr, ppeeraddr, peeraddrlen);
     if (io->accept_cb) {
-        struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
-        struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
-        char localip[64];
-        char peerip[64];
-        inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
-        inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
-        printd("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", listenfd, connfd,
-                localip, ntohs(localaddr->sin_port),
-                peerip, ntohs(peeraddr->sin_port));
+        char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
+        char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+        printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", listenfd, connfd,
+                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
+                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
         setsockopt(connfd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (const char*)&listenfd, sizeof(int));
         printd("accept_cb------\n");
         io->accept_cb(io, connfd);
@@ -117,25 +110,21 @@ static void on_connectex_complete(hio_t* io) {
     int state = hovlp->error == 0 ? 1 : 0;
     if (state == 1) {
         if (io->localaddr == NULL) {
-            io->localaddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+            SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
         }
         if (io->peeraddr == NULL) {
-            io->peeraddr = (struct sockaddr*)malloc(sizeof(struct sockaddr_in));
+            SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
         }
         setsockopt(io->fd, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, NULL, 0);
-        socklen_t addrlen = sizeof(struct sockaddr_in);
+        socklen_t addrlen = sizeof(struct sockaddr_in6);
         getsockname(io->fd, io->localaddr, &addrlen);
-        addrlen = sizeof(struct sockaddr_in);
+        addrlen = sizeof(struct sockaddr_in6);
         getpeername(io->fd, io->peeraddr, &addrlen);
-        struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
-        struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
-        char localip[64];
-        char peerip[64];
-        inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
-        inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
-        printd("connect connfd=%d [%s:%d] => [%s:%d]\n", io->fd,
-                localip, ntohs(localaddr->sin_port),
-                peerip, ntohs(peeraddr->sin_port));
+        char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
+        char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+        printd("connect connfd=%d [%s] => [%s]\n", io->fd,
+                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
+                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
     }
     else {
         io->error = hovlp->error;
@@ -186,8 +175,7 @@ static void on_wsasend_complete(hio_t* io) {
 end:
     if (io->hovlp) {
         SAFE_FREE(hovlp->buf.buf);
-        free(io->hovlp);
-        io->hovlp = NULL;
+        SAFE_FREE(io->hovlp);
     }
 }
 
@@ -283,8 +271,8 @@ hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_
         goto error;
     }
     // NOTE: free on_connectex_complete
-    hoverlapped_t* hovlp = (hoverlapped_t*)malloc(sizeof(hoverlapped_t));
-    memset(hovlp, 0, sizeof(hoverlapped_t));
+    hoverlapped_t* hovlp;
+    SAFE_ALLOC_SIZEOF(hovlp);
     hovlp->fd = connfd;
     hovlp->event = WRITE_EVENT;
     hovlp->io = io;
@@ -324,13 +312,13 @@ try_send:
     nwrite = send(fd, buf, len, 0);
     //printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
-        if (sockerrno == NIO_EAGAIN) {
+        if (socket_errno() == EAGAIN) {
             nwrite = 0;
             goto WSASend;
         }
         else {
             perror("write");
-            io->error = sockerrno;
+            io->error = socket_errno();
             goto write_error;
         }
     }
@@ -348,13 +336,13 @@ try_send:
     }
 WSASend:
     {
-        hoverlapped_t* hovlp = (hoverlapped_t*)malloc(sizeof(hoverlapped_t));
-        memset(hovlp, 0, sizeof(hoverlapped_t));
+        hoverlapped_t* hovlp;
+        SAFE_ALLOC_SIZEOF(hovlp);
         hovlp->fd = fd;
         hovlp->event = WRITE_EVENT;
         hovlp->buf.len = len - nwrite;
         // NOTE: free on_send_complete
-        hovlp->buf.buf = (char*)malloc(hovlp->buf.len);
+        SAFE_ALLOC(hovlp->buf.buf, hovlp->buf.len);
         memcpy(hovlp->buf.buf, buf + nwrite, hovlp->buf.len);
         hovlp->io = io;
         DWORD dwbytes = 0;
@@ -405,8 +393,7 @@ void   hclose   (hio_t* io) {
         if (hovlp->buf.buf != io->readbuf.base) {
             SAFE_FREE(hovlp->buf.buf);
         }
-        free(io->hovlp);
-        io->hovlp = NULL;
+        SAFE_FREE(io->hovlp);
     }
     if (io->close_cb) {
         printd("close_cb------\n");

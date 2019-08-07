@@ -20,7 +20,8 @@ typedef struct select_ctx_s {
 
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
-    select_ctx_t* select_ctx = (select_ctx_t*)malloc(sizeof(select_ctx_t));
+    select_ctx_t* select_ctx;
+    SAFE_ALLOC_SIZEOF(select_ctx);
     select_ctx->max_fd = -1;
     FD_ZERO(&select_ctx->readfds);
     FD_ZERO(&select_ctx->writefds);

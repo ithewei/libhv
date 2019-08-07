@@ -13,7 +13,8 @@ typedef struct iocp_ctx_s {
 
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher)    return 0;
-    iocp_ctx_t* iocp_ctx = (iocp_ctx_t*)malloc(sizeof(iocp_ctx_t));
+    iocp_ctx_t* iocp_ctx;
+    SAFE_ALLOC_SIZEOF(iocp_ctx);
     iocp_ctx->iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
     loop->iowatcher = iocp_ctx;
     return 0;

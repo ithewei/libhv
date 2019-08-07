@@ -1,4 +1,5 @@
 #include "hloop.h"
+#include "hsocket.h"
 
 #define RECV_BUFSIZE    4096
 static char readbuf[RECV_BUFSIZE];
@@ -31,15 +32,11 @@ void on_read(hio_t* io, void* buf, int readbytes) {
 
 void on_accept(hio_t* io, int connfd) {
     printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
-    struct sockaddr_in* localaddr = (struct sockaddr_in*)io->localaddr;
-    struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
-    char localip[64];
-    char peerip[64];
-    inet_ntop(localaddr->sin_family, &localaddr->sin_addr, localip, sizeof(localip));
-    inet_ntop(peeraddr->sin_family, &peeraddr->sin_addr, peerip, sizeof(peerip));
-    printf("accept listenfd=%d connfd=%d [%s:%d] <= [%s:%d]\n", io->fd, connfd,
-            localip, ntohs(localaddr->sin_port),
-            peerip, ntohs(peeraddr->sin_port));
+    char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
+    char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+    printf("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
+            sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
+            sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
 
     // one loop can use one readbuf
     hio_t* connio = hread(io->loop, connfd, readbuf, RECV_BUFSIZE, on_read);

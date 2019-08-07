@@ -20,7 +20,8 @@ typedef struct epoll_ctx_s {
 
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
-    epoll_ctx_t* epoll_ctx = (epoll_ctx_t*)malloc(sizeof(epoll_ctx_t));
+    epoll_ctx_t* epoll_ctx;
+    SAFE_ALLOC_SIZEOF(epoll_ctx);
     epoll_ctx->epfd = epoll_create(EVENTS_INIT_SIZE);
     events_init(&epoll_ctx->events, EVENTS_INIT_SIZE);
     loop->iowatcher = epoll_ctx;

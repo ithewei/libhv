@@ -37,8 +37,9 @@ class HVar {
     HVar(void* ptr) {data.ptr = ptr; type = POINTER;}
 
     ~HVar() {
-        if (type == STRING) {
-            SAFE_FREE(data.str);
+        if (type == STRING && data.str) {
+            free(data.str);
+            data.str = NULL;
         }
     }
 

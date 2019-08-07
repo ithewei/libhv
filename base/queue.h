@@ -10,6 +10,8 @@
 #include <stdlib.h> // for malloc,realloc,free
 #include <string.h> // for memset,memmove
 
+#include "hbase.h"
+
 // #include <deque>
 // typedef std::deque<type> qtype;
 #define QUEUE_DECL(type, qtype) \
@@ -49,10 +51,9 @@ static inline void qtype##_init(qtype* p, int maxsize) {\
     p->_offset = 0;\
     p->size = 0;\
     p->maxsize = maxsize;\
-    size_t bytes = sizeof(type) * maxsize;\
-    p->ptr = (type*)malloc(bytes);\
-    memset(p->ptr, 0, bytes);\
+    SAFE_ALLOC(p->ptr, sizeof(type) * maxsize);\
 }\
+\
 static inline void qtype##_clear(qtype* p) {\
     p->_offset = 0;\
     p->size = 0;\
@@ -60,17 +61,14 @@ static inline void qtype##_clear(qtype* p) {\
 }\
 \
 static inline void qtype##_cleanup(qtype* p) {\
-    if (p->ptr) {\
-        free(p->ptr);\
-        p->ptr = NULL;\
-    }\
+    SAFE_FREE(p->ptr);\
     p->_offset = p->size = p->maxsize = 0;\
 }\
 \
 static inline void qtype##_resize(qtype* p, int maxsize) {\
     p->maxsize = maxsize;\
     int bytes = sizeof(type) * maxsize;\
-    p->ptr = (type*)realloc(p->ptr, bytes);\
+    p->ptr = (type*)safe_realloc(p->ptr, bytes);\
 }\
 \
 static inline void qtype##_double_resize(qtype* p) {\

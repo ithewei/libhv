@@ -14,6 +14,8 @@
 #include <stdlib.h> // for malloc,realloc,free
 #include <string.h> // for memset,memmove
 
+#include "hbase.h"
+
 // #include <vector>
 // typedef std::vector<type> atype;
 #define ARRAY_DECL(type, atype) \
@@ -59,27 +61,23 @@ static inline type* atype##_back(atype* p) {\
 static inline void atype##_init(atype* p, int maxsize) {\
     p->size = 0;\
     p->maxsize = maxsize;\
-    size_t bytes = sizeof(type) * maxsize;\
-    p->ptr = (type*)malloc(bytes);\
-    memset(p->ptr, 0, bytes);\
+    SAFE_ALLOC(p->ptr, sizeof(type) * maxsize);\
 }\
+\
 static inline void atype##_clear(atype* p) {\
     p->size = 0;\
     memset(p->ptr, 0, sizeof(type) * p->maxsize);\
 }\
 \
 static inline void atype##_cleanup(atype* p) {\
-    if (p->ptr) {\
-        free(p->ptr);\
-        p->ptr = NULL;\
-    }\
+    SAFE_FREE(p->ptr);\
     p->size = p->maxsize = 0;\
 }\
 \
 static inline void atype##_resize(atype* p, int maxsize) {\
     p->maxsize = maxsize;\
     int bytes = sizeof(type) * maxsize;\
-    p->ptr = (type*)realloc(p->ptr, bytes);\
+    p->ptr = (type*)safe_realloc(p->ptr, bytes);\
 }\
 \
 static inline void atype##_double_resize(atype* p) {\
