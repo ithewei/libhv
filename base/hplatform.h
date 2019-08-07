@@ -174,7 +174,7 @@ typedef unsigned __int32    uint32_t;
 typedef unsigned __int64    uint64_t;
 #endif
 
-#ifdef HAVE_SYS_TYPES_H
+#if HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
 
@@ -182,11 +182,11 @@ typedef unsigned __int64    uint64_t;
 #include <sys/stat.h>
 #endif
 
-#ifdef HAVE_FCNTL_H
+#if HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
 
-#ifdef HAVE_PTHREAD_H
+#if HAVE_PTHREAD_H
 #include <pthread.h>
 #endif
 
