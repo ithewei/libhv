@@ -6,6 +6,8 @@
 
 #include "htime.h"  // for get_datetime
 
+static int      s_initialized = 0;
+static hlog_handler s_logger = DEFAULT_LOGGER;
 static char     s_logfile[256] = DEFAULT_LOG_FILE;
 static int      s_loglevel = DEFAULT_LOG_LEVEL;
 static bool     s_logcolor = false;
@@ -15,21 +17,76 @@ static char     s_logbuf[LOG_BUFSIZE];
 
 // for thread-safe
 #include "hmutex.h"
-#ifdef OS_WIN
 static hmutex_t  s_mutex;
-static honce_t   s_once = HONCE_INIT;
-static void WINAPI __mutex_init() {
-    hmutex_init(&s_mutex);
-}
-#define HLOG_LOCK\
-    honce(&s_once, __mutex_init);\
-    hmutex_lock(&s_mutex);
 
-#else
-static hmutex_t s_mutex = PTHREAD_MUTEX_INITIALIZER;
-#define HLOG_LOCK       hmutex_lock(&s_mutex);
-#endif
-#define HLOG_UNLOCK     hmutex_unlock(&s_mutex);
+void hlog_set_logger(hlog_handler fn) {
+    s_logger = fn;
+}
+
+void hlog_set_level(int level) {
+    s_loglevel = level;
+}
+
+void hlog_set_remain_days(int days) {
+    s_remain_days = days;
+}
+
+int hlog_printf(int level, const char* fmt, ...) {
+    if (level < s_loglevel)
+        return -10;
+
+    datetime_t now = datetime_now();
+    const char* pcolor = "";
+    const char* plevel = "";
+#define CASE_LOG(id, str, clr) \
+    case id: plevel = str; pcolor = clr; break;
+
+    switch (level) {
+        FOREACH_LOG(CASE_LOG)
+    }
+#undef CASE_LOG
+
+    if (!s_logcolor) {
+        pcolor = "";
+    }
+
+    if (!s_initialized) {
+        s_initialized = 1;
+        hmutex_init(&s_mutex);
+    }
+
+    // lock s_logbuf, s_logger
+    hmutex_lock(&s_mutex);
+    int len = snprintf(s_logbuf, LOG_BUFSIZE, "%s[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s]: ",
+        pcolor,
+        now.year, now.month, now.day, now.hour, now.min, now.sec, now.ms, plevel);
+
+    va_list ap;
+    va_start(ap, fmt);
+    len += vsnprintf(s_logbuf + len, LOG_BUFSIZE - len, fmt, ap);
+    va_end(ap);
+
+    if (s_logcolor) {
+        len += snprintf(s_logbuf + len, LOG_BUFSIZE - len, "%s", CL_CLR);
+    }
+
+    s_logger(s_logbuf, len);
+
+    hmutex_unlock(&s_mutex);
+    return len;
+}
+
+void hlog_enable_color(int on) {
+    s_logcolor = on;
+}
+
+void stdout_logger(const char* buf, int len) {
+    fprintf(stdout, "%s\n", buf);
+}
+
+void stderr_logger(const char* buf, int len) {
+    fprintf(stderr, "%s\n", buf);
+}
 
 static void ts_logfile(time_t ts, char* buf, int len) {
     struct tm* tm = localtime(&ts);
@@ -91,6 +148,15 @@ static FILE* shift_logfile() {
     return s_logfp;
 }
 
+void file_logger(const char* buf, int len) {
+    FILE* fp = shift_logfile();
+    if (fp == NULL) return;
+    fprintf(fp, "%s\n", buf);
+    if (s_fflush) {
+        fflush(fp);
+    }
+}
+
 int hlog_set_file(const char* logfile) {
     if (logfile == NULL || strlen(logfile) == 0)    return -10;
 
@@ -104,72 +170,15 @@ int hlog_set_file(const char* logfile) {
     return 0;
 }
 
-void hlog_set_level(int level) {
-    s_loglevel = level;
-}
-
-void hlog_set_remain_days(int days) {
-    s_remain_days = days;
-}
-
-void hlog_enable_color(int on) {
-    s_logcolor = on;
-}
-
-int hlog_printf(int level, const char* fmt, ...) {
-    if (level < s_loglevel)
-        return -10;
-
-    const char* pcolor = "";
-    const char* plevel = "";
-#define CASE_LOG(id, str, clr) \
-    case id: plevel = str; pcolor = clr; break;
-
-    switch (level) {
-        FOREACH_LOG(CASE_LOG)
-    }
-#undef CASE_LOG
-
-    HLOG_LOCK
-
-    FILE* fp = shift_logfile();
-    if (fp == NULL) {
-        HLOG_UNLOCK
-        return -20;
-    }
-
-    datetime_t now = datetime_now();
-    int len = snprintf(s_logbuf, LOG_BUFSIZE, "[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s]: ",
-        now.year, now.month, now.day, now.hour, now.min, now.sec, now.ms, plevel);
-
-    va_list ap;
-    va_start(ap, fmt);
-    len += vsnprintf(s_logbuf + len, LOG_BUFSIZE-len, fmt, ap);
-    va_end(ap);
-
-    if (s_logcolor) {
-        fprintf(fp, "%s%s%s\n", pcolor, s_logbuf, CL_CLR);
-    }
-    else {
-        fprintf(fp, "%s\n", s_logbuf);
-    }
-    if (s_fflush) {
-        fflush(fp);
-    }
-
-    HLOG_UNLOCK
-    return len;
-}
-
 void hlog_set_fflush(int on) {
     s_fflush = on;
 }
 
 void hlog_fflush() {
-    HLOG_LOCK
+    hmutex_lock(&s_mutex);
     FILE* fp = shift_logfile();
     if (fp) {
         fflush(fp);
     }
-    HLOG_UNLOCK
+    hmutex_unlock(&s_mutex);
 }

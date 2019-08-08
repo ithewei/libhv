@@ -44,28 +44,40 @@ enum LOG_LEVEL {
     LOG_LEVEL_SILENT
 };
 
+#define DEFAULT_LOGGER              file_logger
 #define DEFAULT_LOG_FILE            "default"
 #define DEFAULT_LOG_LEVEL           LOG_LEVEL_VERBOSE
 #define DEFAULT_LOG_REMAIN_DAYS     1
 #define LOG_BUFSIZE                 (1<<13)  // 8k
 #define MAX_LOG_FILESIZE            (1<<23)  // 8M
 
-int     hlog_set_file(const char* file);
+// logger
+typedef void (*hlog_handler)(const char* buf, int len);
+void    stderr_logger(const char* buf, int len);
+void    stdout_logger(const char* buf, int len);
+void    file_logger(const char* buf, int len);
+
+// common log settings
+void    hlog_set_logger(hlog_handler fn);
 void    hlog_set_level(int level);
 void    hlog_set_remain_days(int days);
-void    hlog_enable_color(int on);
+
 int     hlog_printf(int level, const char* fmt, ...);
-
-// NOTE: fflush cache page => disk, slow
-// fflush, default enable
-void    hlog_set_fflush(int on);
-void    hlog_fflush();
-
 #define hlogd(fmt, ...) hlog_printf(LOG_LEVEL_DEBUG, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hlogi(fmt, ...) hlog_printf(LOG_LEVEL_INFO,  fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hlogw(fmt, ...) hlog_printf(LOG_LEVEL_WARN,  fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hloge(fmt, ...) hlog_printf(LOG_LEVEL_ERROR, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hlogf(fmt, ...) hlog_printf(LOG_LEVEL_FATAL, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+
+// below for file logger
+int     hlog_set_file(const char* file);
+// NOTE: fflush cache page => disk, slow
+// fflush, default enable
+void    hlog_set_fflush(int on);
+void    hlog_fflush();
+
+// below for stdout/stderr logger
+void    hlog_enable_color(int on);
 
 // below for android
 #include "hplatform.h"
