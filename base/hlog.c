@@ -70,7 +70,7 @@ int hlog_printf(int level, const char* fmt, ...) {
         len += snprintf(s_logbuf + len, LOG_BUFSIZE - len, "%s", CL_CLR);
     }
 
-    s_logger(s_logbuf, len);
+    s_logger(level, s_logbuf, len);
 
     hmutex_unlock(&s_mutex);
     return len;
@@ -80,12 +80,12 @@ void hlog_enable_color(int on) {
     s_logcolor = on;
 }
 
-void stdout_logger(const char* buf, int len) {
-    fprintf(stdout, "%s\n", buf);
+void stdout_logger(int loglevel, const char* buf, int len) {
+    fprintf(stdout, "%s", buf);
 }
 
-void stderr_logger(const char* buf, int len) {
-    fprintf(stderr, "%s\n", buf);
+void stderr_logger(int loglevel, const char* buf, int len) {
+    fprintf(stderr, "%s", buf);
 }
 
 static void ts_logfile(time_t ts, char* buf, int len) {
@@ -148,10 +148,10 @@ static FILE* shift_logfile() {
     return s_logfp;
 }
 
-void file_logger(const char* buf, int len) {
+void file_logger(int loglevel, const char* buf, int len) {
     FILE* fp = shift_logfile();
     if (fp == NULL) return;
-    fprintf(fp, "%s\n", buf);
+    fprintf(fp, "%s", buf);
     if (s_fflush) {
         fflush(fp);
     }

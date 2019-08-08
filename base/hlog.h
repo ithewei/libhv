@@ -52,10 +52,10 @@ enum LOG_LEVEL {
 #define MAX_LOG_FILESIZE            (1<<23)  // 8M
 
 // logger
-typedef void (*hlog_handler)(const char* buf, int len);
-void    stderr_logger(const char* buf, int len);
-void    stdout_logger(const char* buf, int len);
-void    file_logger(const char* buf, int len);
+typedef void (*hlog_handler)(int loglevel, const char* buf, int len);
+void    stderr_logger(int loglevel, const char* buf, int len);
+void    stdout_logger(int loglevel, const char* buf, int len);
+void    file_logger(int loglevel, const char* buf, int len);
 
 // common log settings
 void    hlog_set_logger(hlog_handler fn);
@@ -63,11 +63,11 @@ void    hlog_set_level(int level);
 void    hlog_set_remain_days(int days);
 
 int     hlog_printf(int level, const char* fmt, ...);
-#define hlogd(fmt, ...) hlog_printf(LOG_LEVEL_DEBUG, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
-#define hlogi(fmt, ...) hlog_printf(LOG_LEVEL_INFO,  fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
-#define hlogw(fmt, ...) hlog_printf(LOG_LEVEL_WARN,  fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
-#define hloge(fmt, ...) hlog_printf(LOG_LEVEL_ERROR, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
-#define hlogf(fmt, ...) hlog_printf(LOG_LEVEL_FATAL, fmt " [%s:%d:%s]", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hlogd(fmt, ...) hlog_printf(LOG_LEVEL_DEBUG, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hlogi(fmt, ...) hlog_printf(LOG_LEVEL_INFO,  fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hlogw(fmt, ...) hlog_printf(LOG_LEVEL_WARN,  fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hloge(fmt, ...) hlog_printf(LOG_LEVEL_ERROR, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hlogf(fmt, ...) hlog_printf(LOG_LEVEL_FATAL, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 
 // below for file logger
 int     hlog_set_file(const char* file);
