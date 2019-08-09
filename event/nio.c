@@ -1,16 +1,11 @@
 #include "iowatcher.h"
 #ifndef EVENT_IOCP
+#include "hio.h"
 #include "hsocket.h"
 
 static void nio_accept(hio_t* io) {
     //printd("nio_accept listenfd=%d\n", io->fd);
     socklen_t addrlen;
-    if (io->localaddr == NULL) {
-        SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
-    }
-    if (io->peeraddr == NULL) {
-        SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
-    }
 accept:
     addrlen = sizeof(struct sockaddr_in6);
     int connfd = accept(io->fd, io->peeraddr, &addrlen);
@@ -25,9 +20,9 @@ accept:
             goto accept_error;
         }
     }
-
     addrlen = sizeof(struct sockaddr_in6);
     getsockname(connfd, io->localaddr, &addrlen);
+
     if (io->accept_cb) {
         char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
         char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
@@ -48,16 +43,7 @@ accept_error:
 static void nio_connect(hio_t* io) {
     //printd("nio_connect connfd=%d\n", io->fd);
     int state = 0;
-    socklen_t addrlen;
-    if (io->localaddr == NULL) {
-        SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
-        addrlen = sizeof(struct sockaddr_in6);
-        getsockname(io->fd, io->localaddr, &addrlen);
-    }
-    if (io->peeraddr == NULL) {
-        SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
-    }
-    addrlen = sizeof(struct sockaddr_in6);
+    socklen_t addrlen = sizeof(struct sockaddr_in6);
     int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
         io->error = socket_errno();
@@ -65,6 +51,8 @@ static void nio_connect(hio_t* io) {
         state = 0;
     }
     else {
+        addrlen = sizeof(struct sockaddr_in6);
+        getsockname(io->fd, io->localaddr, &addrlen);
         char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
         char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
         printd("connect connfd=%d [%s] => [%s]\n", io->fd,
@@ -89,11 +77,25 @@ static void nio_read(hio_t* io) {
     int   len = io->readbuf.len;
 read:
     memset(buf, 0, len);
+    switch (io->io_type) {
+    case HIO_TYPE_TCP:
 #ifdef OS_UNIX
-    nread = read(io->fd, buf, len);
+        nread = read(io->fd, buf, len);
 #else
-    nread = recv(io->fd, buf, len, 0);
+        nread = recv(io->fd, buf, len, 0);
 #endif
+        break;
+    case HIO_TYPE_UDP:
+    case HIO_TYPE_IP:
+    {
+        socklen_t addrlen = sizeof(struct sockaddr_in6);
+        nread = recvfrom(io->fd, buf, len, 0, io->peeraddr, &addrlen);
+    }
+        break;
+    default:
+        nread = read(io->fd, buf, len);
+        break;
+    }
     //printd("read retval=%d\n", nread);
     if (nread < 0) {
         if (socket_errno() == EAGAIN) {
@@ -134,11 +136,22 @@ write:
     offset_buf_t* pbuf = write_queue_front(&io->write_queue);
     char* buf = pbuf->base + pbuf->offset;
     int len = pbuf->len - pbuf->offset;
+    switch (io->io_type) {
+    case HIO_TYPE_TCP:
 #ifdef OS_UNIX
-    nwrite = write(io->fd, buf, len);
+        nwrite = write(io->fd, buf, len);
 #else
-    nwrite = send(io->fd, buf, len, 0);
+        nwrite = send(io->fd, buf, len, 0);
 #endif
+        break;
+    case HIO_TYPE_UDP:
+    case HIO_TYPE_IP:
+        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(struct sockaddr_in6));
+        break;
+    default:
+        nwrite = write(io->fd, buf, len);
+        break;
+    }
     //printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
         if (socket_errno() == EAGAIN) {
@@ -186,77 +199,65 @@ static void hio_handle_events(hio_t* io) {
         if (io->connect) {
             // NOTE: connect just do once
             // ONESHOT
-            hio_del(io, WRITE_EVENT);
             io->connect = 0;
 
             nio_connect(io);
         }
         else {
             nio_write(io);
-            // NOTE: del WRITE_EVENT, if write_queue empty
-            if (write_queue_empty(&io->write_queue)) {
-                hio_del(io, WRITE_EVENT);
-            }
+        }
+        // NOTE: del WRITE_EVENT, if write_queue empty
+        if (write_queue_empty(&io->write_queue)) {
+            hio_del(io, WRITE_EVENT);
         }
     }
 
     io->revents = 0;
 }
 
-hio_t* haccept  (hloop_t* loop, int listenfd, haccept_cb accept_cb) {
-    hio_t* io = hio_add(loop, hio_handle_events, listenfd, READ_EVENT);
-    if (io == NULL) return NULL;
-    if (accept_cb) {
-        io->accept_cb = accept_cb;
-    }
-    io->accept = 1;
-    nonblocking(listenfd);
-    return io;
+int hio_accept(hio_t* io) {
+    hio_add(io, hio_handle_events, READ_EVENT);
+    return 0;
 }
 
-hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
-    int connfd = Connect(host, port, 1);
-    if (connfd < 0) {
-        return NULL;
+int hio_connect(hio_t* io) {
+    int ret = connect(io->fd, io->peeraddr, sizeof(struct sockaddr_in6));
+#ifdef OS_WIN
+    if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
+#else
+    if (ret < 0 && socket_errno() != EINPROGRESS) {
+#endif
+        perror("connect");
+        hclose(io);
+        return ret;
     }
-    hio_t* io = hio_add(loop, hio_handle_events, connfd, WRITE_EVENT);
-    if (io == NULL) {
-        closesocket(connfd);
-        return NULL;
-    }
-    if (connect_cb) {
-        io->connect_cb = connect_cb;
-    }
-    io->connect = 1;
-    nonblocking(connfd);
-    return io;
+    return hio_add(io, hio_handle_events, WRITE_EVENT);
 }
 
-hio_t* hread    (hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
-    hio_t* io = hio_add(loop, hio_handle_events, fd, READ_EVENT);
-    if (io == NULL) return NULL;
-    io->readbuf.base = (char*)buf;
-    io->readbuf.len = len;
-    if (read_cb) {
-        io->read_cb = read_cb;
-    }
-    return io;
+int hio_read (hio_t* io) {
+    return hio_add(io, hio_handle_events, READ_EVENT);
 }
 
-hio_t* hwrite   (hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb write_cb) {
-    hio_t* io = hio_add(loop, hio_handle_events, fd, 0);
-    if (io == NULL) return NULL;
-    if (write_cb) {
-        io->write_cb = write_cb;
-    }
+int hio_write (hio_t* io, const void* buf, size_t len) {
     int nwrite = 0;
     if (write_queue_empty(&io->write_queue)) {
 try_write:
+        switch (io->io_type) {
+        case HIO_TYPE_TCP:
 #ifdef OS_UNIX
-        nwrite = write(fd, buf, len);
+            nwrite = write(io->fd, buf, len);
 #else
-        nwrite = send(fd, buf, len, 0);
+            nwrite = send(io->fd, buf, len, 0);
 #endif
+            break;
+        case HIO_TYPE_UDP:
+        case HIO_TYPE_IP:
+            nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(struct sockaddr_in6));
+            break;
+        default:
+            nwrite = write(io->fd, buf, len);
+            break;
+        }
         //printd("write retval=%d\n", nwrite);
         if (nwrite < 0) {
             if (socket_errno() == EAGAIN) {
@@ -272,52 +273,43 @@ try_write:
         if (nwrite == 0) {
             goto disconnect;
         }
-        if (write_cb) {
+        if (io->write_cb) {
             printd("try_write_cb------\n");
-            write_cb(io, buf, nwrite);
+            io->write_cb(io, buf, nwrite);
             printd("try_write_cb======\n");
         }
         if (nwrite == len) {
             //goto write_done;
-            return io;
+            return nwrite;
         }
-        hio_add(loop, hio_handle_events, fd, WRITE_EVENT);
+        hio_add(io, hio_handle_events, WRITE_EVENT);
     }
 enqueue:
     if (nwrite < len) {
         offset_buf_t rest;
         rest.len = len;
         rest.offset = nwrite;
-        // NOTE: free in nio_write;
+        // NOTE: free in nio_write
         SAFE_ALLOC(rest.base, rest.len);
-        if (rest.base == NULL) return io;
         memcpy(rest.base, (char*)buf, rest.len);
         if (io->write_queue.maxsize == 0) {
             write_queue_init(&io->write_queue, 4);
         }
         write_queue_push_back(&io->write_queue, &rest);
     }
-    return io;
+    return nwrite;
 write_error:
 disconnect:
     hclose(io);
-    return io;
+    return nwrite;
 }
 
-void   hclose   (hio_t* io) {
-    //printd("close fd=%d\n", io->fd);
-    if (io->closed) return;
+int hio_close (hio_t* io) {
 #ifdef OS_UNIX
     close(io->fd);
 #else
     closesocket(io->fd);
 #endif
-    io->closed = 1;
-    if (io->close_cb) {
-        printd("close_cb------\n");
-        io->close_cb(io);
-        printd("close_cb======\n");
-    }
-    hio_del(io, ALL_EVENTS);
+    return 0;
 }
 #endif

@@ -17,10 +17,10 @@ char *socket_strerror(int err) {
 #endif
 }
 
-int Listen(int port) {
-    // socket -> setsockopt -> bind -> listen
-    int listenfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (listenfd < 0) {
+int Bind(int port, int type) {
+    // socket -> setsockopt -> bind
+    int sockfd = socket(AF_INET, type, 0);
+    if (sockfd < 0) {
         perror("socket");
         return -socket_errno();
     }
@@ -28,7 +28,7 @@ int Listen(int port) {
     socklen_t addrlen = sizeof(localaddr);
     // NOTE: SO_REUSEADDR means that you can reuse sockaddr of TIME_WAIT status
     int reuseaddr = 1;
-    if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
         perror("setsockopt");
         goto error;
     }
@@ -36,34 +36,52 @@ int Listen(int port) {
     localaddr.sin_family = AF_INET;
     localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     localaddr.sin_port = htons(port);
-    if (bind(listenfd, (struct sockaddr*)&localaddr, addrlen) < 0) {
+    if (bind(sockfd, (struct sockaddr*)&localaddr, addrlen) < 0) {
         perror("bind");
         goto error;
     }
-    if (listen(listenfd, SOMAXCONN) < 0) {
-        perror("listen");
-        goto error;
-    }
-    return listenfd;
+    return sockfd;
 error:
-    closesocket(listenfd);
+    closesocket(sockfd);
     return socket_errno() > 0 ? -socket_errno() : -1;
 }
 
+int Listen(int port) {
+    int sockfd = Bind(port, SOCK_STREAM);
+    if (sockfd < 0) return sockfd;
+    if (listen(sockfd, SOMAXCONN) < 0) {
+        perror("listen");
+        goto error;
+    }
+    return sockfd;
+error:
+    closesocket(sockfd);
+    return socket_errno() > 0 ? -socket_errno() : -1;
+}
+
+int Resolver(const char* host, struct sockaddr* addr) {
+    // IPv4
+    struct sockaddr_in* addr4 = (struct sockaddr_in*)addr;
+    addr4->sin_family = AF_INET;
+    if (inet_pton(AF_INET, host, &addr4->sin_addr) == 1) {
+        return 0; // host is ip, so easy ;)
+    }
+    struct hostent* phe = gethostbyname(host);
+    if (phe == NULL) {
+        printd("unknown host %s\n", host);
+        return -h_errno;
+    }
+    memcpy(&addr4->sin_addr, phe->h_addr_list[0], phe->h_length);
+    return 0;
+}
+
 int Connect(const char* host, int port, int nonblock) {
-    // gethostbyname -> socket -> nonblocking -> connect
+    // Resolver -> socket -> nonblocking -> connect
     struct sockaddr_in peeraddr;
     socklen_t addrlen = sizeof(peeraddr);
     memset(&peeraddr, 0, addrlen);
-    peeraddr.sin_family = AF_INET;
-    inet_pton(peeraddr.sin_family, host, &peeraddr.sin_addr);
-    if (peeraddr.sin_addr.s_addr == 0 ||
-        peeraddr.sin_addr.s_addr == INADDR_NONE) {
-        struct hostent* phe = gethostbyname(host);
-        if (phe == NULL)    return -h_errno;
-        peeraddr.sin_family = phe->h_addrtype;
-        memcpy(&peeraddr.sin_addr, phe->h_addr_list[0], phe->h_length);
-    }
+    int ret = Resolver(host, (struct sockaddr*)&peeraddr);
+    if (ret != 0) return ret;
     peeraddr.sin_port = htons(port);
     int connfd = socket(AF_INET, SOCK_STREAM, 0);
     if (connfd < 0) {
@@ -73,7 +91,7 @@ int Connect(const char* host, int port, int nonblock) {
     if (nonblock) {
         nonblocking(connfd);
     }
-    int ret = connect(connfd, (struct sockaddr*)&peeraddr, addrlen);
+    ret = connect(connfd, (struct sockaddr*)&peeraddr, addrlen);
 #ifdef OS_WIN
     if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
 #else
@@ -114,18 +132,8 @@ int Ping(const char* host, int cnt) {
     struct sockaddr_in peeraddr;
     socklen_t addrlen = sizeof(peeraddr);
     memset(&peeraddr, 0, addrlen);
-    peeraddr.sin_family = AF_INET;
-    inet_pton(peeraddr.sin_family, host, &peeraddr.sin_addr);
-    if (peeraddr.sin_addr.s_addr == 0 ||
-        peeraddr.sin_addr.s_addr == INADDR_NONE) {
-        struct hostent* phe = gethostbyname(host);
-        if (phe == NULL) {
-            printd("unknown host %s\n", host);
-            return -h_errno;
-        }
-        peeraddr.sin_family = phe->h_addrtype;
-        memcpy(&peeraddr.sin_addr, phe->h_addr_list[0], phe->h_length);
-    }
+    int ret = Resolver(host, (struct sockaddr*)&peeraddr);
+    if (ret != 0) return ret;
     inet_ntop(peeraddr.sin_family, &peeraddr.sin_addr, ip, sizeof(ip));
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
     if (sockfd < 0) {
@@ -137,7 +145,7 @@ int Ping(const char* host, int cnt) {
     }
 
     timeout = PING_TIMEOUT;
-    int ret = so_sndtimeo(sockfd, timeout);
+    ret = so_sndtimeo(sockfd, timeout);
     if (ret < 0) {
         perror("setsockopt");
         goto error;

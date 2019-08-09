@@ -17,7 +17,7 @@ typedef struct nlog_client {
 
 static network_logger_t s_logger = {0};
 
-void on_close(hio_t* io) {
+static void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", io->fd, io->error);
     struct list_node* next = s_logger.clients.next;
     nlog_client* client;
@@ -33,7 +33,7 @@ void on_close(hio_t* io) {
     }
 }
 
-void on_read(hio_t* io, void* buf, int readbytes) {
+static void on_read(hio_t* io, void* buf, int readbytes) {
     printf("on_read fd=%d readbytes=%d\n", io->fd, readbytes);
     printf("< %s\n", buf);
     // nothing to do
@@ -70,7 +70,7 @@ void network_logger(int loglevel, const char* buf, int len) {
 hio_t* nlog_listen(hloop_t* loop, int port) {
     list_init(&s_logger.clients);
     s_logger.loop = loop;
-    s_logger.listenio = hlisten(loop, port, on_accept);
+    s_logger.listenio = create_tcp_server(loop, port, on_accept);
     return s_logger.listenio;
 }
 

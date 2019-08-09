@@ -9,8 +9,8 @@
 #include "HttpParser.h"
 #include "HttpHandler.h"
 
-#define RECV_BUFSIZE    4096
-#define SEND_BUFSIZE    4096
+#define RECV_BUFSIZE    8192
+#define SEND_BUFSIZE    8192
 
 static HttpService  s_default_service;
 static FileCache    s_filecache;
@@ -36,8 +36,8 @@ static void worker_init(void* userdata) {
 #endif
 }
 
-static void on_read(hio_t* io, void* buf, int readbytes) {
-    //printf("on_read fd=%d readbytes=%d\n", io->fd, readbytes);
+static void on_recv(hio_t* io, void* buf, int readbytes) {
+    //printf("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
     HttpHandler* handler = (HttpHandler*)io->userdata;
     HttpParser* parser = &handler->parser;
     // recv -> HttpParser -> HttpRequest -> handle_request -> HttpResponse -> send
@@ -90,10 +90,10 @@ static void on_read(hio_t* io, void* buf, int readbytes) {
             sendbuf.len = header.size();
         }
         // send header/body
-        hwrite(io->loop, io->fd, sendbuf.base, sendbuf.len);
+        hsend(io->loop, io->fd, sendbuf.base, sendbuf.len);
         if (send_in_one_packet == false) {
             // send body
-            hwrite(io->loop, io->fd, handler->res.body.data(), handler->res.body.size());
+            hsend(io->loop, io->fd, handler->res.body.data(), handler->res.body.size());
         }
 
         hlogi("[%s:%d][%s %s]=>[%d %s]",
@@ -129,9 +129,8 @@ static void on_accept(hio_t* io, int connfd) {
             sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
     */
 
-    nonblocking(connfd);
     HBuf* buf = (HBuf*)io->loop->userdata;
-    hio_t* connio = hread(io->loop, connfd, buf->base, buf->len, on_read);
+    hio_t* connio = hrecv(io->loop, connfd, buf->base, buf->len, on_recv);
     connio->close_cb = on_close;
     // new HttpHandler
     // delete on_close

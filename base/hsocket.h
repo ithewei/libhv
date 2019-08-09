@@ -19,11 +19,20 @@ static inline int socket_errno() {
 }
 char* socket_strerror(int err);
 
-// socket -> setsockopt -> bind -> listen
+// socket -> setsockopt -> bind
+// @param type: SOCK_STREAM(tcp) SOCK_DGRAM(udp)
+// @return sockfd
+int Bind(int port, int type DEFAULT(SOCK_STREAM));
+
+// Bind -> listen
 // @return sockfd
 int Listen(int port);
 
-// gethostbyname -> socket -> nonblocking -> connect
+// @param host: domain or ip
+// @retval 0:succeed
+int Resolver(const char* host, struct sockaddr* addr);
+
+// Resolver -> socket -> nonblocking -> connect
 // @return sockfd
 int Connect(const char* host, int port, int nonblock DEFAULT(0));
 
@@ -47,6 +56,8 @@ static inline int nonblocking(int sockfd) {
 #define EAGAIN      WSAEWOULDBLOCK
 #undef  EINPROGRESS
 #define EINPROGRESS WSAEINPROGRESS
+#undef  ENOTSOCK
+#define ENOTSOCK    WSAENOTSOCK
 #else
 #define blocking(s)     fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
 #define nonblocking(s)  fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK)

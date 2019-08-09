@@ -50,7 +50,17 @@ int post_recv(hio_t* io, hoverlapped_t* hovlp) {
     memset(hovlp->buf.buf, 0, hovlp->buf.len);
     DWORD dwbytes = 0;
     DWORD flags = 0;
-    int ret = WSARecv(io->fd, &hovlp->buf, 1, &dwbytes, &flags, &hovlp->ovlp, NULL);
+    int ret = 0;
+    if (io->io_type == HIO_TYPE_TCP) {
+        ret = WSARecv(io->fd, &hovlp->buf, 1, &dwbytes, &flags, &hovlp->ovlp, NULL);
+    }
+    else if (io->io_type == HIO_TYPE_UDP ||
+            io->io_type == HIO_TYPE_IP) {
+        ret = WSARecvFrom(io->fd, &hovlp->buf, 1, &dwbytes, &flags, io->peeraddr, &io->peeraddrlen, &hovlp->ovlp, NULL);
+    }
+    else {
+        ret = -1;
+    }
     printd("WSARecv ret=%d bytes=%u\n", ret, dwbytes);
     if (ret != 0) {
         int err = WSAGetLastError();
@@ -82,13 +92,7 @@ static void on_acceptex_complete(hio_t* io) {
     socklen_t peeraddrlen;
     GetAcceptExSockaddrs(hovlp->buf.buf, 0, sizeof(struct sockaddr_in6), sizeof(struct sockaddr_in6),
         &plocaladdr, &localaddrlen, &ppeeraddr, &peeraddrlen);
-    if (io->localaddr == NULL) {
-        SAFE_ALLOC(io->localaddr, localaddrlen);
-    }
     memcpy(io->localaddr, plocaladdr, localaddrlen);
-    if (io->peeraddr == NULL) {
-        SAFE_ALLOC(io->peeraddr, peeraddrlen);
-    }
     memcpy(io->peeraddr, ppeeraddr, peeraddrlen);
     if (io->accept_cb) {
         char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
@@ -109,12 +113,6 @@ static void on_connectex_complete(hio_t* io) {
     hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
     int state = hovlp->error == 0 ? 1 : 0;
     if (state == 1) {
-        if (io->localaddr == NULL) {
-            SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
-        }
-        if (io->peeraddr == NULL) {
-            SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
-        }
         setsockopt(io->fd, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, NULL, 0);
         socklen_t addrlen = sizeof(struct sockaddr_in6);
         getsockname(io->fd, io->localaddr, &addrlen);
@@ -206,65 +204,31 @@ static void hio_handle_events(hio_t* io) {
     io->revents = 0;
 }
 
-hio_t* haccept  (hloop_t* loop, int listenfd, haccept_cb accept_cb) {
-    hio_t* io = hio_add(loop, hio_handle_events, listenfd, READ_EVENT);
-    if (io == NULL) return NULL;
-    if (accept_cb) {
-        io->accept_cb = accept_cb;
-    }
-    io->accept = 1;
-    nonblocking(listenfd);
+int hio_accept (hio_t* io) {
     for (int i = 0; i < ACCEPTEX_NUM; ++i) {
         post_acceptex(io, NULL);
     }
-    return io;
+    return hio_add(io, hio_handle_events, READ_EVENT);
 }
 
-hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
-    // gethostbyname -> socket -> bind -> nonblocking -> ConnectEx
-    struct sockaddr_in peeraddr;
-    socklen_t addrlen = sizeof(struct sockaddr_in);
-    memset(&peeraddr, 0, addrlen);
-    peeraddr.sin_family = AF_INET;
-    inet_pton(peeraddr.sin_family, host, &peeraddr.sin_addr);
-    if (peeraddr.sin_addr.s_addr == 0 ||
-        peeraddr.sin_addr.s_addr == INADDR_NONE) {
-        struct hostent* phe = gethostbyname(host);
-        if (phe == NULL)    return NULL;
-        peeraddr.sin_family = phe->h_addrtype;
-        memcpy(&peeraddr.sin_addr, phe->h_addr_list[0], phe->h_length);
-    }
-    peeraddr.sin_port = htons(port);
-    int connfd = WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-    if (connfd < 0) {
-        perror("socket");
-        return NULL;
-    }
+int hio_connect (hio_t* io) {
     // NOTE: ConnectEx must call bind
     struct sockaddr_in localaddr;
+    socklen_t addrlen = sizeof(localaddr);
     memset(&localaddr, 0, addrlen);
     localaddr.sin_family = AF_INET;
     localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     localaddr.sin_port = htons(0);
-    if (bind(connfd, (struct sockaddr*)&localaddr, addrlen) < 0) {
+    if (bind(io->fd, (struct sockaddr*)&localaddr, addrlen) < 0) {
         perror("bind");
         goto error;
     }
-    nonblocking(connfd);
-    hio_t* io = hio_add(loop, hio_handle_events, connfd, WRITE_EVENT);
-    if (io == NULL) {
-        goto error;
-    }
-    if (connect_cb) {
-        io->connect_cb = connect_cb;
-    }
-    io->connect = 1;
     // ConnectEx
     io->connectex = 1;
     LPFN_CONNECTEX ConnectEx = NULL;
     GUID guidConnectEx = WSAID_CONNECTEX;
     DWORD dwbytes;
-    if (WSAIoctl(connfd, SIO_GET_EXTENSION_FUNCTION_POINTER,
+    if (WSAIoctl(io->fd, SIO_GET_EXTENSION_FUNCTION_POINTER,
         &guidConnectEx, sizeof(guidConnectEx),
         &ConnectEx, sizeof(ConnectEx),
         &dwbytes, NULL, NULL) != 0) {
@@ -273,43 +237,40 @@ hio_t* hconnect (hloop_t* loop, const char* host, int port, hconnect_cb connect_
     // NOTE: free on_connectex_complete
     hoverlapped_t* hovlp;
     SAFE_ALLOC_SIZEOF(hovlp);
-    hovlp->fd = connfd;
+    hovlp->fd = io->fd;
     hovlp->event = WRITE_EVENT;
     hovlp->io = io;
-    if (ConnectEx(connfd, (struct sockaddr*)&peeraddr, addrlen, NULL, 0, &dwbytes, &hovlp->ovlp) != TRUE) {
+    if (ConnectEx(io->fd, io->peeraddr, sizeof(struct sockaddr_in6), NULL, 0, &dwbytes, &hovlp->ovlp) != TRUE) {
         int err = WSAGetLastError();
         if (err != ERROR_IO_PENDING) {
             fprintf(stderr, "AcceptEx error: %d\n", err);
             goto error;
         }
     }
-    return io;
+    return hio_add(io, hio_handle_events, WRITE_EVENT);
 error:
-    closesocket(connfd);
-    return NULL;
+    hclose(io);
+    return 0;
 };
 
-hio_t* hread (hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
-    hio_t* io = hio_add(loop, hio_handle_events, fd, READ_EVENT);
-    if (io == NULL) return NULL;
-    io->readbuf.base = (char*)buf;
-    io->readbuf.len = len;
-    if (read_cb) {
-        io->read_cb = read_cb;
-    }
+int hio_read (hio_t* io) {
     post_recv(io, NULL);
-    return io;
+    return hio_add(io, hio_handle_events, READ_EVENT);
 }
 
-hio_t* hwrite (hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb write_cb) {
-    hio_t* io = hio_add(loop, hio_handle_events, fd, 0);
-    if (io == NULL) return NULL;
-    if (write_cb) {
-        io->write_cb = write_cb;
-    }
+int hio_write(hio_t* io, const void* buf, size_t len) {
     int nwrite = 0;
 try_send:
-    nwrite = send(fd, buf, len, 0);
+    if (io->io_type == HIO_TYPE_TCP) {
+        nwrite = send(io->fd, buf, len, 0);
+    }
+    else if (io->io_type == HIO_TYPE_UDP ||
+             io->io_type == HIO_TYPE_IP) {
+        nwrite = recvfrom(io->fd, buf, len, 0, io->peeraddr, &io->peeraddrlen);
+    }
+    else {
+        nwrite = -1;
+    }
     //printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
         if (socket_errno() == EAGAIN) {
@@ -325,20 +286,20 @@ try_send:
     if (nwrite == 0) {
         goto disconnect;
     }
-    if (write_cb) {
+    if (io->write_cb) {
         printd("try_write_cb------\n");
-        write_cb(io, buf, nwrite);
+        io->write_cb(io, buf, nwrite);
         printd("try_write_cb======\n");
     }
     if (nwrite == len) {
         //goto write_done;
-        return io;
+        return nwrite;
     }
 WSASend:
     {
         hoverlapped_t* hovlp;
         SAFE_ALLOC_SIZEOF(hovlp);
-        hovlp->fd = fd;
+        hovlp->fd = io->fd;
         hovlp->event = WRITE_EVENT;
         hovlp->buf.len = len - nwrite;
         // NOTE: free on_send_complete
@@ -347,7 +308,17 @@ WSASend:
         hovlp->io = io;
         DWORD dwbytes = 0;
         DWORD flags = 0;
-        int ret = WSASend(fd, &hovlp->buf, 1, &dwbytes, flags, &hovlp->ovlp, NULL);
+        int ret = 0;
+        if (io->io_type == HIO_TYPE_TCP) {
+            ret = WSASend(io->fd, &hovlp->buf, 1, &dwbytes, flags, &hovlp->ovlp, NULL);
+        }
+        else if (io->io_type == HIO_TYPE_UDP ||
+                 io->io_type == HIO_TYPE_IP) {
+            ret = WSASendTo(io->fd, &hovlp->buf, 1, &dwbytes, flags, io->peeraddr, io->peeraddrlen, &hovlp->ovlp, NULL);
+        }
+        else {
+            ret = -1;
+        }
         printd("WSASend ret=%d bytes=%u\n", ret, dwbytes);
         if (ret != 0) {
             int err = WSAGetLastError();
@@ -356,18 +327,16 @@ WSASend:
                 return NULL;
             }
         }
-        hio_add(loop, hio_handle_events, fd, WRITE_EVENT);
-        return io;
+        return hio_add(io, hio_handle_events, WRITE_EVENT);
     }
 write_error:
 disconnect:
     hclose(io);
-    return io;
+    return 0;
 }
 
-void   hclose   (hio_t* io) {
+void hio_close (hio_t* io) {
     //printd("close fd=%d\n", io->fd);
-    if (io->closed) return;
 #ifdef USE_DISCONNECTEX
     // DisconnectEx reuse socket
     if (io->connectex) {
@@ -386,7 +355,6 @@ void   hclose   (hio_t* io) {
 #else
     closesocket(io->fd);
 #endif
-    io->closed = 1;
     if (io->hovlp) {
         hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
         // NOTE: hread buf provided by caller
@@ -395,12 +363,6 @@ void   hclose   (hio_t* io) {
         }
         SAFE_FREE(io->hovlp);
     }
-    if (io->close_cb) {
-        printd("close_cb------\n");
-        io->close_cb(io);
-        printd("close_cb======\n");
-    }
-    hio_del(io, ALL_EVENTS);
 }
 
 #endif

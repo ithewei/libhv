@@ -3,7 +3,7 @@ TMPDIR=tmp
 
 default: all
 
-all: test ping loop client server httpd
+all: test ping loop tcp udp nc httpd
 
 clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server examples $(TMPDIR)"
@@ -25,14 +25,19 @@ loop: prepare
 	cp examples/loop.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
-client: prepare
+tcp: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/client.cpp $(TMPDIR)
+	cp examples/tcp.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
-server: prepare
+udp: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/server.cpp $(TMPDIR)
+	cp examples/udp.c $(TMPDIR)
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
+
+nc: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/nc.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 httpd: prepare
@@ -50,4 +55,4 @@ CURL_SRCS    += examples/curl.cpp base/hstring.cpp base/hbase.c
 curl:
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" INCDIRS="$(CURL_INCDIRS)" SRCS="$(CURL_SRCS)" DEFINES="CURL_STATICLIB" LIBS="curl"
 
-.PHONY: clean prepare test ping loop client server httpd webbench curl
+.PHONY: clean prepare test ping loop tcp udp nc httpd webbench curl

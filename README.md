@@ -1,6 +1,6 @@
 ## Intro
 
-hw 是一套跨平台c++工具集，类名以H开头
+hw 是一套跨平台c/c++基础组件，函数名/类名以h/H开头
 
 ## platform
 
@@ -61,7 +61,9 @@ hw 是一套跨平台c++工具集，类名以H开头
 - make all
 - make test: 服务端master-workers model
 - make loop: 事件循环(包含timer、io、idle)
-- make client server：非阻塞socket
+- make tcp:  tcp server
+- make udp:  udp server
+- make nc:   network client
 - make httpd: http服务（包含web service和api service)
 - make curl: 基于libcurl封装http客户端
 - make webbench: http服务压力测试程序
