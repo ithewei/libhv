@@ -18,6 +18,7 @@
 #define EVENT_INACTIVE(ev) \
     if (ev->active) {\
         ev->active = 0;\
+        ev->pending = 0; \
         ev->loop->nactives--;\
     }\
 
@@ -47,7 +48,6 @@
 #define EVENT_DEL(ev) \
     do {\
         EVENT_INACTIVE(ev);\
-        ev->pending = 1;\
         ev->destroy = 1;\
     } while(0)
 

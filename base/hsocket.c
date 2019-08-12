@@ -166,8 +166,8 @@ int Ping(const char* host, int cnt) {
     start_tick = gettick();
     while (cnt-- > 0) {
         // NOTE: checksum
-        icmp_req->icmp_cksum = 0;
         icmp_req->icmp_seq = ++seq;
+        icmp_req->icmp_cksum = 0;
         icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sendbytes);
         start_hrtime = gethrtime();
         int nsend = sendto(sockfd, sendbuf, sendbytes, 0, (struct sockaddr*)&peeraddr, addrlen);

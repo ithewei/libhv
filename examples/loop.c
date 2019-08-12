@@ -62,6 +62,7 @@ int main() {
         htimer_t* timer = htimer_add(&loop, on_timer, i*1000, 3);
         timer->userdata = (void*)i;
     }
+
     // test timer period
     int minute = time(NULL)%3600/60;
     htimer_add_period(&loop, cron_hourly, minute+1, -1, -1, -1, -1, INFINITE);
@@ -78,6 +79,5 @@ int main() {
     hread(&loop, STDIN_FILENO, buf, sizeof(buf), on_stdin);
 
     hloop_run(&loop);
-    nlog_close();
     return 0;
 }
