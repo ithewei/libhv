@@ -73,7 +73,7 @@ public:
         hp_userdata.init();
         hp_userdata.type = HTTP_RESPONSE;
         hp_userdata.payload = res;
-        http_parser_init(&hp_parser, HTTP_REQUEST);
+        http_parser_init(&hp_parser, HTTP_RESPONSE);
     }
 
     int execute(const char* data, size_t len) {

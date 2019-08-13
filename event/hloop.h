@@ -26,7 +26,7 @@ typedef void (*htimer_cb)   (htimer_t* timer);
 typedef void (*hio_cb)      (hio_t* io);
 
 typedef void (*haccept_cb)  (hio_t* io, int connfd);
-typedef void (*hconnect_cb) (hio_t* io, int state);
+typedef void (*hconnect_cb) (hio_t* io);
 typedef void (*hread_cb)    (hio_t* io, void* buf, int readbytes);
 typedef void (*hwrite_cb)   (hio_t* io, const void* buf, int writebytes);
 typedef void (*hclose_cb)   (hio_t* io);
@@ -115,6 +115,7 @@ typedef enum {
 
 struct hio_s {
     HEVENT_FIELDS
+    unsigned    ready       :1;
     unsigned    closed      :1;
     unsigned    accept      :1;
     unsigned    connect     :1;
@@ -130,7 +131,6 @@ struct hio_s {
     int         revents;
     struct sockaddr*    localaddr;
     struct sockaddr*    peeraddr;
-    int                 peeraddrlen;    // for WSARecvFrom
     hbuf_t              readbuf;        // for hread
     struct write_queue  write_queue;    // for hwrite
     // callbacks

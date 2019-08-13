@@ -20,6 +20,9 @@ typedef struct hoverlapped_s {
     int         bytes;
     int         error;
     hio_t*      io;
+    // for recvfrom
+    struct sockaddr* addr;
+    int         addrlen;
 } hoverlapped_t;
 
 int post_acceptex(hio_t* listenio, hoverlapped_t* hovlp);

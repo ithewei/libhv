@@ -29,9 +29,9 @@ accept:
         printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
                 sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
                 sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
-        printd("accept_cb------\n");
+        //printd("accept_cb------\n");
         io->accept_cb(io, connfd);
-        printd("accept_cb======\n");
+        //printd("accept_cb======\n");
     }
 
     goto accept;
@@ -42,13 +42,12 @@ accept_error:
 
 static void nio_connect(hio_t* io) {
     //printd("nio_connect connfd=%d\n", io->fd);
-    int state = 0;
     socklen_t addrlen = sizeof(struct sockaddr_in6);
     int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
         io->error = socket_errno();
         printd("connect failed: %s: %d\n", strerror(socket_errno()), socket_errno());
-        state = 0;
+        hclose(io);
     }
     else {
         addrlen = sizeof(struct sockaddr_in6);
@@ -58,15 +57,11 @@ static void nio_connect(hio_t* io) {
         printd("connect connfd=%d [%s] => [%s]\n", io->fd,
                 sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
                 sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
-        state = 1;
-    }
-    if (io->connect_cb) {
-        printd("connect_cb------\n");
-        io->connect_cb(io, state);
-        printd("connect_cb======\n");
-    }
-    if (state == 0) {
-        hclose(io);
+        if (io->connect_cb) {
+            //printd("connect_cb------\n");
+            io->connect_cb(io);
+            //printd("connect_cb======\n");
+        }
     }
 }
 
@@ -113,9 +108,9 @@ read:
     }
     //printd("> %s\n", buf);
     if (io->read_cb) {
-        printd("read_cb------\n");
+        //printd("read_cb------\n");
         io->read_cb(io, buf, nread);
-        printd("read_cb======\n");
+        //printd("read_cb======\n");
     }
     if (nread == len) {
         goto read;
@@ -168,9 +163,9 @@ write:
         goto disconnect;
     }
     if (io->write_cb) {
-        printd("write_cb------\n");
+        //printd("write_cb------\n");
         io->write_cb(io, buf, nwrite);
-        printd("write_cb======\n");
+        //printd("write_cb======\n");
     }
     pbuf->offset += nwrite;
     if (nwrite == len) {
@@ -196,6 +191,11 @@ static void hio_handle_events(hio_t* io) {
     }
 
     if ((io->events & WRITE_EVENT) && (io->revents & WRITE_EVENT)) {
+        // NOTE: del WRITE_EVENT, if write_queue empty
+        if (write_queue_empty(&io->write_queue)) {
+            iowatcher_del_event(io->loop, io->fd, WRITE_EVENT);
+            io->events &= ~WRITE_EVENT;
+        }
         if (io->connect) {
             // NOTE: connect just do once
             // ONESHOT
@@ -205,10 +205,6 @@ static void hio_handle_events(hio_t* io) {
         }
         else {
             nio_write(io);
-        }
-        // NOTE: del WRITE_EVENT, if write_queue empty
-        if (write_queue_empty(&io->write_queue)) {
-            hio_del(io, WRITE_EVENT);
         }
     }
 
@@ -230,6 +226,13 @@ int hio_connect(hio_t* io) {
         perror("connect");
         hclose(io);
         return ret;
+    }
+    if (ret == 0) {
+        // connect ok
+        if (io->connect_cb) {
+            io->connect_cb(io);
+        }
+        return 0;
     }
     return hio_add(io, hio_handle_events, WRITE_EVENT);
 }
@@ -274,9 +277,9 @@ try_write:
             goto disconnect;
         }
         if (io->write_cb) {
-            printd("try_write_cb------\n");
+            //printd("try_write_cb------\n");
             io->write_cb(io, buf, nwrite);
-            printd("try_write_cb======\n");
+            //printd("try_write_cb======\n");
         }
         if (nwrite == len) {
             //goto write_done;

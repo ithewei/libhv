@@ -1,0 +1,17 @@
+#ifndef HW_NMAP_H_
+#define HW_NMAP_H_
+
+#include <map>
+#include "hsocket.h"
+typedef std::map<uint32_t, int> Nmap;
+
+// ip = segment + host
+// segment16: 192.168.x.x
+// segment24: 192.168.1.x
+
+// @return up_cnt
+int nmap_discovery(Nmap* nmap);
+int segment_discovery(const char* segment16, Nmap* nmap);
+int host_discovery(const char* segment24, Nmap* nmap);
+
+#endif // HW_NMAP_H_

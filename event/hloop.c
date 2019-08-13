@@ -11,10 +11,10 @@
 #define PAUSE_TIME              10          // ms
 #define MAX_BLOCK_TIME          1000        // ms
 
-#define IO_ARRAY_INIT_SIZE      64
+#define IO_ARRAY_INIT_SIZE      1024
 static void hio_init(hio_t* io);
-static void hio_deinit(hio_t* io);
-static void hio_reset(hio_t* io);
+static void hio_ready(hio_t* io);
+static void hio_done(hio_t* io);
 static void hio_free(hio_t* io);
 
 static int timers_compare(const struct heap_node* lhs, const struct heap_node* rhs) {
@@ -140,14 +140,16 @@ process_timers:
         ntimers = hloop_process_timers(loop);
     }
 
-    if (loop->npendings == 0) {
+    int npendings = loop->npendings;
+    if (npendings == 0) {
         if (loop->nidles) {
             nidles= hloop_process_idles(loop);
         }
     }
     int ncbs = hloop_process_pendings(loop);
-    printd("blocktime=%d nios=%d ntimers=%d nidles=%d nactives=%d npendings=%d ncbs=%d\n",
-            blocktime, nios, ntimers, nidles, loop->nactives, loop->npendings, ncbs);
+    printd("blocktime=%d nios=%d/%u ntimers=%d/%u nidles=%d/%u nactives=%d npendings=%d ncbs=%d\n",
+            blocktime, nios/loop->nios, loop->nios, ntimers, loop->ntimers, nidles, loop->nidles,
+            loop->nactives, npendings, ncbs);
     return ncbs;
 }
 
@@ -198,7 +200,7 @@ void hloop_cleanup(hloop_t* loop) {
     for (int i = 0; i < loop->ios.maxsize; ++i) {
         hio_t* io = loop->ios.ptr[i];
         if (io) {
-            if (!(io->io_type&HIO_TYPE_STDIO)) {
+            if ((!(io->io_type&HIO_TYPE_STDIO)) && io->active) {
                 hclose(io);
             }
             hio_free(io);
@@ -354,7 +356,7 @@ static void fill_io_type(hio_t* io) {
     }
 }
 
-void hio_socket_init(hio_t* io) {
+static void hio_socket_init(hio_t* io) {
     // nonblocking
     nonblocking(io->fd);
     // fill io->localaddr io->peeraddr
@@ -362,7 +364,6 @@ void hio_socket_init(hio_t* io) {
         SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
     }
     if (io->peeraddr == NULL) {
-        io->peeraddrlen = sizeof(struct sockaddr_in6);
         SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
     }
     socklen_t addrlen = sizeof(struct sockaddr_in6);
@@ -380,21 +381,9 @@ void hio_socket_init(hio_t* io) {
     }
 }
 
-void hio_reset(hio_t* io) {
-    fill_io_type(io);
-    if (io->io_type & HIO_TYPE_SOCKET) {
-        hio_socket_init(io);
-    }
-}
-
-void hio_deinit(hio_t* io) {
-    offset_buf_t* pbuf = NULL;
-    while (!write_queue_empty(&io->write_queue)) {
-        pbuf = write_queue_front(&io->write_queue);
-        SAFE_FREE(pbuf->base);
-        write_queue_pop_front(&io->write_queue);
-    }
-    write_queue_cleanup(&io->write_queue);
+void hio_ready(hio_t* io) {
+    if (io->ready) return;
+    io->ready = 1;
     io->closed = 0;
     io->accept = io->connect = io->connectex = 0;
     io->recv = io->send = 0;
@@ -409,11 +398,26 @@ void hio_deinit(hio_t* io) {
     io->connect_cb = 0;
     io->event_index[0] = io->event_index[1] = -1;
     io->hovlp = NULL;
+    fill_io_type(io);
+    if (io->io_type & HIO_TYPE_SOCKET) {
+        hio_socket_init(io);
+    }
+}
+
+void hio_done(hio_t* io) {
+    io->ready = 0;
+    offset_buf_t* pbuf = NULL;
+    while (!write_queue_empty(&io->write_queue)) {
+        pbuf = write_queue_front(&io->write_queue);
+        SAFE_FREE(pbuf->base);
+        write_queue_pop_front(&io->write_queue);
+    }
+    write_queue_cleanup(&io->write_queue);
 }
 
 void hio_free(hio_t* io) {
     if (io == NULL) return;
-    hio_deinit(io);
+    hio_done(io);
     SAFE_FREE(io->localaddr);
     SAFE_FREE(io->peeraddr);
     SAFE_FREE(io);
@@ -438,6 +442,10 @@ hio_t* hio_get(hloop_t* loop, int fd) {
         loop->ios.ptr[fd] = io;
     }
 
+    if (!io->ready) {
+        hio_ready(io);
+    }
+
     return io;
 }
 
@@ -445,7 +453,7 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
     printd("hio_add fd=%d events=%d\n", io->fd, events);
     hloop_t* loop = io->loop;
     if (!io->active) {
-        hio_reset(io);
+        hio_ready(io);
         EVENT_ADD(loop, io, cb);
         loop->nios++;
     }
@@ -468,7 +476,7 @@ int hio_del(hio_t* io, int events) {
         io->loop->nios--;
         // NOTE: not EVENT_DEL, avoid free
         EVENT_INACTIVE(io);
-        hio_deinit(io);
+        hio_done(io);
     }
     return 0;
 }
@@ -482,7 +490,6 @@ void hio_setlocaladdr(hio_t* io, struct sockaddr* addr, int addrlen) {
 
 void hio_setpeeraddr (hio_t* io, struct sockaddr* addr, int addrlen) {
     if (io->peeraddr == NULL) {
-        io->peeraddrlen = sizeof(struct sockaddr_in6);
         SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
     }
     memcpy(io->peeraddr, addr, addrlen);
@@ -514,13 +521,13 @@ void hclose(hio_t* io) {
     printd("close fd=%d\n", io->fd);
     if (io->closed) return;
     io->closed = 1;
+    hio_del(io, ALL_EVENTS);
     hio_close(io);
     if (io->close_cb) {
         printd("close_cb------\n");
         io->close_cb(io);
         printd("close_cb======\n");
     }
-    hio_del(io, ALL_EVENTS);
 }
 
 hio_t* haccept(hloop_t* loop, int listenfd, haccept_cb accept_cb) {

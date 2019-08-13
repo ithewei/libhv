@@ -3,7 +3,7 @@ TMPDIR=tmp
 
 default: all
 
-all: test ping loop tcp udp nc httpd
+all: test ping loop tcp udp nc nmap httpd
 
 clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server examples $(TMPDIR)"
@@ -40,6 +40,16 @@ nc: prepare
 	cp examples/nc.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
+nmap: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/nmap.cpp $(TMPDIR)
+ifeq ($(OS), Windows)
+	# for nmap, on Windows platform, we suggest EVENT_POLL, not EVENT_IOCP
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)" DEFINES="PRINT_DEBUG EVENT_POLL"
+else
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)" DEFINES="PRINT_DEBUG"
+endif
+
 httpd: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/httpd.cpp examples/httpd_conf.h examples/http_api_test.h $(TMPDIR)
@@ -55,4 +65,4 @@ CURL_SRCS    += examples/curl.cpp base/hstring.cpp base/hbase.c
 curl:
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" INCDIRS="$(CURL_INCDIRS)" SRCS="$(CURL_SRCS)" DEFINES="CURL_STATICLIB" LIBS="curl"
 
-.PHONY: clean prepare test ping loop tcp udp nc httpd webbench curl
+.PHONY: clean prepare test ping loop tcp udp nc nmap httpd webbench curl

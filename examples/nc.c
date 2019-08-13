@@ -48,12 +48,8 @@ void on_close(hio_t* io) {
     hio_del(stdinio, READ_EVENT);
 }
 
-void on_connect(hio_t* io, int state) {
-    //printf("on_connect fd=%d state=%d\n", io->fd, state);
-    if (state == 0) {
-        printf("connect failed: %d: %s\n", io->error, strerror(io->error));
-        return;
-    }
+void on_connect(hio_t* io) {
+    //printf("on_connect fd=%d\n", io->fd, state);
     if (verbose) {
         char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
         char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};

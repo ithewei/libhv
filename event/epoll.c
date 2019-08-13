@@ -12,7 +12,6 @@
 #define EVENTS_INIT_SIZE    64
 ARRAY_DECL(struct epoll_event, events);
 
-
 typedef struct epoll_ctx_s {
     int                 epfd;
     struct events       events;
