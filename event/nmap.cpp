@@ -8,7 +8,9 @@
 typedef struct recvfrom_udata_s {
     Nmap*   nmap;
     int     send_cnt;
-    int     recv_cnt; int     up_cnt; } recvfrom_udata_t;
+    int     recv_cnt;
+    int     up_cnt;
+} recvfrom_udata_t;
 
 void on_timer(htimer_t* timer) {
     hloop_stop(timer->loop);

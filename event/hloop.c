@@ -147,9 +147,9 @@ process_timers:
         }
     }
     int ncbs = hloop_process_pendings(loop);
-    printd("blocktime=%d nios=%d/%u ntimers=%d/%u nidles=%d/%u nactives=%d npendings=%d ncbs=%d\n",
-            blocktime, nios/loop->nios, loop->nios, ntimers, loop->ntimers, nidles, loop->nidles,
-            loop->nactives, npendings, ncbs);
+    //printd("blocktime=%d nios=%d/%u ntimers=%d/%u nidles=%d/%u nactives=%d npendings=%d ncbs=%d\n",
+            //blocktime, nios/loop->nios, loop->nios, ntimers, loop->ntimers, nidles, loop->nidles,
+            //loop->nactives, npendings, ncbs);
     return ncbs;
 }
 
