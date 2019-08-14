@@ -160,15 +160,13 @@ append:
         }
     }
 
-    void fill_content_lenght() {
-        if (body.size() != 0) {
-            headers["Content-Length"] = std::to_string(body.size());
-        }
+    void fill_content_length() {
+        headers["Content-Length"] = std::to_string(body.size());
     }
 
     void dump_headers(std::string& str) {
         fill_content_type();
-        fill_content_lenght();
+        fill_content_length();
         for (auto& header: headers) {
             // %s: %s\r\n
             str += header.first;

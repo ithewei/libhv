@@ -68,14 +68,16 @@
 #endif
 // __clang__
 
-#ifndef BUILD_STATIC_LIB
-#ifdef _MSC_VER
+#ifdef BUILD_STATIC_LIB
+#define EXPORT
+#elif defined(OS_WIN)
+#ifdef DLL_EXPORTS
 #define EXPORT  __declspec(dllexport)
+#else
+#define EXPORT  __declspec(dllimport)
+#endif
 #elif defined(__GNUC__)
 #define EXPORT  __attribute__((visibility("default")))
-#else
-#define EXPORT
-#endif
 #else
 #define EXPORT
 #endif

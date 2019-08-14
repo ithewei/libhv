@@ -12,6 +12,10 @@ typedef struct recvfrom_udata_s {
     int     up_cnt;
 } recvfrom_udata_t;
 
+void on_idle(hidle_t* idle) {
+    hloop_stop(idle->loop);
+}
+
 void on_timer(htimer_t* timer) {
     hloop_stop(timer->loop);
 }
@@ -105,6 +109,7 @@ int nmap_discovery(Nmap* nmap) {
     }
 
     htimer_add(&loop, on_timer, MAX_RECVFROM_TIMEOUT, 1);
+    hidle_add(&loop, on_idle, 1);
 
     hloop_run(&loop);
     uint64_t end_hrtime = hloop_now_hrtime(&loop);
