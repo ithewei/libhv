@@ -6,7 +6,6 @@
 
 int host_discovery_task(std::string segment, void* nmap) {
     Nmap* hosts= (Nmap*)nmap;
-    printf("%p %s------------------------------------------------\n", nmap, segment.c_str());
     return host_discovery(segment.c_str(), hosts);
 }
 

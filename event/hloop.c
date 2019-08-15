@@ -17,6 +17,9 @@ static void hio_ready(hio_t* io);
 static void hio_done(hio_t* io);
 static void hio_free(hio_t* io);
 
+static void __hidle_del(hidle_t* idle);
+static void __htimer_del(htimer_t* timer);
+
 static int timers_compare(const struct heap_node* lhs, const struct heap_node* rhs) {
     return TIMER_ENTRY(lhs)->next_timeout < TIMER_ENTRY(rhs)->next_timeout;
 }
@@ -27,18 +30,15 @@ static int hloop_process_idles(hloop_t* loop) {
     hidle_t* idle = NULL;
     while (node != &loop->idles) {
         idle = IDLE_ENTRY(node);
+        node = node->next;
         if (idle->repeat != INFINITE) {
             --idle->repeat;
         }
         if (idle->repeat == 0) {
-            hidle_del(idle);
+            __hidle_del(idle);
         }
         EVENT_PENDING(idle);
         ++nidles;
-        node = node->next;
-        if (!idle->active) {
-            list_del(node->prev);
-        }
     }
     return nidles;
 }
@@ -56,14 +56,14 @@ static int hloop_process_timers(hloop_t* loop) {
             --timer->repeat;
         }
         if (timer->repeat == 0) {
-            htimer_del(timer);
+            __htimer_del(timer);
         }
-        EVENT_PENDING(timer);
-        ++ntimers;
-        heap_dequeue(&loop->timers);
-        if (timer->active) {
+        else {
+            heap_dequeue(&loop->timers);
             if (timer->event_type == HEVENT_TYPE_TIMEOUT) {
-                timer->next_timeout += ((htimeout_t*)timer)->timeout*1000;
+                while (timer->next_timeout <= now_hrtime) {
+                    timer->next_timeout += ((htimeout_t*)timer)->timeout*1000;
+                }
             }
             else if (timer->event_type == HEVENT_TYPE_PERIOD) {
                 hperiod_t* period = (hperiod_t*)timer;
@@ -72,6 +72,8 @@ static int hloop_process_timers(hloop_t* loop) {
             }
             heap_insert(&loop->timers, &timer->node);
         }
+        EVENT_PENDING(timer);
+        ++ntimers;
     }
     return ntimers;
 }
@@ -87,23 +89,24 @@ static int hloop_process_ios(hloop_t* loop, int timeout) {
 static int hloop_process_pendings(hloop_t* loop) {
     if (loop->npendings == 0) return 0;
 
-    hevent_t* prev = NULL;
+    hevent_t* cur = NULL;
     hevent_t* next = NULL;
     int ncbs = 0;
     for (int i = HEVENT_PRIORITY_SIZE-1; i >= 0; --i) {
-        next = loop->pendings[i];
-        while (next) {
-            if (next->pending && next->cb) {
-                next->cb(next);
-                ++ncbs;
+        cur = loop->pendings[i];
+        while (cur) {
+            next = cur->pending_next;
+            if (cur->pending) {
+                if (cur->active && cur->cb) {
+                    cur->cb(cur);
+                    ++ncbs;
+                }
+                cur->pending = 0;
+                if (cur->destroy) {
+                    EVENT_DEL(cur);
+                }
             }
-            prev = next;
-            next = next->pending_next;
-            prev->pending = 0;
-            prev->pending_next = NULL;
-            if (prev->destroy) {
-                SAFE_FREE(prev);
-            }
+            cur = next;
         }
         loop->pendings[i] = NULL;
     }
@@ -148,7 +151,7 @@ process_timers:
     }
     int ncbs = hloop_process_pendings(loop);
     //printd("blocktime=%d nios=%d/%u ntimers=%d/%u nidles=%d/%u nactives=%d npendings=%d ncbs=%d\n",
-            //blocktime, nios/loop->nios, loop->nios, ntimers, loop->ntimers, nidles, loop->nidles,
+            //blocktime, nios, loop->nios, ntimers, loop->ntimers, nidles, loop->nidles,
             //loop->nactives, npendings, ncbs);
     return ncbs;
 }
@@ -261,10 +264,17 @@ hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat) {
     return idle;
 }
 
+static void __hidle_del(hidle_t* idle) {
+    if (idle->destroy) return;
+    idle->destroy = 1;
+    list_del(&idle->node);
+    idle->loop->nidles--;
+}
+
 void hidle_del(hidle_t* idle) {
     if (!idle->active) return;
-    idle->loop->nidles--;
     EVENT_DEL(idle);
+    __hidle_del(idle);
 }
 
 htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t repeat) {
@@ -284,14 +294,22 @@ htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t rep
 }
 
 void htimer_reset(htimer_t* timer) {
-    if (timer->event_type != HEVENT_TYPE_TIMEOUT || timer->pending) {
+    if (timer->event_type != HEVENT_TYPE_TIMEOUT) {
         return;
     }
     hloop_t* loop = timer->loop;
     htimeout_t* timeout = (htimeout_t*)timer;
-    heap_remove(&loop->timers, &timer->node);
+    if (timer->pending) {
+        if (timer->repeat == 0) {
+            timer->repeat = 1;
+        }
+    }
+    else {
+        heap_remove(&loop->timers, &timer->node);
+    }
     timer->next_timeout = hloop_now_hrtime(loop) + timeout->timeout*1000;
     heap_insert(&loop->timers, &timer->node);
+    EVENT_RESET(timer);
 }
 
 htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
@@ -317,12 +335,17 @@ htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
     return (htimer_t*)timer;
 }
 
+static void __htimer_del(htimer_t* timer) {
+    if (timer->destroy) return;
+    heap_remove(&timer->loop->timers, &timer->node);
+    timer->loop->ntimers--;
+    timer->destroy = 1;
+}
+
 void htimer_del(htimer_t* timer) {
     if (!timer->active) return;
-    timer->loop->ntimers--;
+    __htimer_del(timer);
     EVENT_DEL(timer);
-    // NOTE: set timer->next_timeout to handle at next loop
-    timer->next_timeout = hloop_now_hrtime(timer->loop);
 }
 
 void hio_init(hio_t* io) {

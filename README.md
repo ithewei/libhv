@@ -60,10 +60,12 @@ hw 是一套跨平台c/c++基础组件，函数名/类名以h/H开头
 
 - make all
 - make test: 服务端master-workers model
+- make timer: 定时器测试
 - make loop: 事件循环(包含timer、io、idle)
 - make tcp:  tcp server
 - make udp:  udp server
 - make nc:   network client
+- make nmap: host discovery
 - make httpd: http服务（包含web service和api service)
 - make curl: 基于libcurl封装http客户端
 - make webbench: http服务压力测试程序

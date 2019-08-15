@@ -18,7 +18,6 @@
 #define EVENT_INACTIVE(ev) \
     if (ev->active) {\
         ev->active = 0;\
-        ev->pending = 0; \
         ev->loop->nactives--;\
     }\
 
@@ -28,12 +27,8 @@
             ev->pending = 1;\
             ev->loop->npendings++;\
             hevent_t** phead = &ev->loop->pendings[HEVENT_PRIORITY_INDEX(ev->priority)];\
-            if (*phead == NULL) {\
-                *phead = (hevent_t*)ev;\
-            } else {\
-                ev->pending_next = *phead;\
-                *phead = (hevent_t*)ev;\
-            }\
+            ev->pending_next = *phead;\
+            *phead = (hevent_t*)ev;\
         }\
     } while(0)
 
@@ -48,7 +43,16 @@
 #define EVENT_DEL(ev) \
     do {\
         EVENT_INACTIVE(ev);\
-        ev->destroy = 1;\
+        if (!ev->pending) {\
+            SAFE_FREE(ev);\
+        }\
+    } while(0)
+
+#define EVENT_RESET(ev) \
+    do {\
+        ev->destroy = 0;\
+        ev->active  = 1;\
+        ev->pending = 0;\
     } while(0)
 
 #endif // HW_EVENT_H_

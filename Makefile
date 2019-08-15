@@ -3,7 +3,7 @@ TMPDIR=tmp
 
 default: all
 
-all: test ping loop tcp udp nc nmap httpd
+all: test ping timer loop tcp udp nc nmap httpd
 
 clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server examples $(TMPDIR)"
@@ -19,6 +19,11 @@ test: prepare
 ping:
 	-rm base/hsocket.o
 	$(MAKEF) TARGET=$@ SRCDIRS="" SRCS="examples/ping.c base/hsocket.c base/htime.c base/RAII.cpp" INCDIRS=". base" DEFINES="PRINT_DEBUG"
+
+timer: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/timer.c $(TMPDIR)
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 loop: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
@@ -65,4 +70,4 @@ CURL_SRCS    += examples/curl.cpp base/hstring.cpp base/hbase.c
 curl:
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" INCDIRS="$(CURL_INCDIRS)" SRCS="$(CURL_SRCS)" DEFINES="CURL_STATICLIB" LIBS="curl"
 
-.PHONY: clean prepare test ping loop tcp udp nc nmap httpd webbench curl
+.PHONY: clean prepare test ping timer loop tcp udp nc nmap httpd webbench curl
