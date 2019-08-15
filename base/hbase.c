@@ -17,16 +17,17 @@ void* safe_malloc(size_t size) {
     return ptr;
 }
 
-void* safe_realloc(void* oldptr, size_t size) {
+void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize) {
     ++g_alloc_cnt;
     ++g_free_cnt;
-    void* ptr = realloc(oldptr, size);
+    void* ptr = realloc(oldptr, newsize);
     if (!ptr) {
         fprintf(stderr, "realloc failed!\n");
         exit(-1);
     }
-    if (!ptr) {
-
+    if (newsize > oldsize) {
+        int addsize = newsize - oldsize;
+        memset((char*)ptr + addsize, 0, addsize);
     }
     return ptr;
 }

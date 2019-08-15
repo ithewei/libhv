@@ -6,6 +6,12 @@
 HttpClient based libcurl
 ***************************************************************/
 #include "curl/curl.h"
+#ifdef _MSC_VER
+#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "wldap32.lib")
+#pragma comment(lib, "advapi32.lib")
+#pragma comment(lib, "crypt32.lib")
+#endif
 
 //#include "hlog.h"
 
@@ -50,7 +56,7 @@ static size_t s_body_cb(char *buf, size_t size, size_t cnt, void *userdata) {
 }
 
 #include <atomic>
-static std::atomic_flag s_curl_global_init(false);
+static std::atomic_flag s_curl_global_init = ATOMIC_FLAG_INIT;
 int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
     if (req == NULL || res == NULL) {
         return -1;

@@ -3,13 +3,16 @@ TMPDIR=tmp
 
 default: all
 
-all: test ping timer loop tcp udp nc nmap httpd
+all: libhw test ping timer loop tcp udp nc nmap httpd
 
 clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server examples $(TMPDIR)"
 
 prepare:
 	-mkdir -p $(TMPDIR)
+
+libhw:
+	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server"
 
 test: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
@@ -70,4 +73,4 @@ CURL_SRCS    += examples/curl.cpp base/hstring.cpp base/hbase.c
 curl:
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" INCDIRS="$(CURL_INCDIRS)" SRCS="$(CURL_SRCS)" DEFINES="CURL_STATICLIB" LIBS="curl"
 
-.PHONY: clean prepare test ping timer loop tcp udp nc nmap httpd webbench curl
+.PHONY: clean prepare libhw test ping timer loop tcp udp nc nmap httpd webbench curl

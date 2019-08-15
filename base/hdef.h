@@ -227,7 +227,7 @@ typedef void (*procedure_t)(void* userdata);
 #ifdef __GNUC__
 #define prefetch(x) __builtin_prefetch(x)
 #else
-#define prefetch(x)
+#define prefetch(x) (void)0
 #endif
 #endif
 

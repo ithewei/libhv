@@ -12,15 +12,15 @@ typedef struct recvfrom_udata_s {
     int     up_cnt;
 } recvfrom_udata_t;
 
-void on_idle(hidle_t* idle) {
+static void on_idle(hidle_t* idle) {
     hloop_stop(idle->loop);
 }
 
-void on_timer(htimer_t* timer) {
+static void on_timer(htimer_t* timer) {
     hloop_stop(timer->loop);
 }
 
-void on_recvfrom(hio_t* io, void* buf, int readbytes) {
+static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
     //printf("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
     //char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
     //char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};

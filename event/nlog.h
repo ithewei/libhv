@@ -15,7 +15,6 @@
     hlog_set_logger(network_logger);
     nlog_listen(&loop, DEFAULT_LOG_PORT);
     hloop_run(&loop);
-    nlog_close();
  */
 
 #include "hlog.h"
@@ -25,6 +24,5 @@
 
 void network_logger(int loglevel, const char* buf, int len);
 hio_t* nlog_listen(hloop_t* loop, int port);
-void nlog_close();
 
 #endif // HW_NLOG_H_

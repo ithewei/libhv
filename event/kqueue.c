@@ -25,8 +25,9 @@ typedef struct kqueue_ctx_s {
 
 static void kqueue_ctx_resize(kqueue_ctx_t* kqueue_ctx, int size) {
     int bytes = sizeof(struct kevent) * size;
-    kqueue_ctx->changes = (struct kevent*)safe_realloc(kqueue_ctx->changes, bytes);
-    kqueue_ctx->events = (struct kevent*)safe_realloc(kqueue_ctx->events, bytes);
+    int oldbytes = sizeof(struct kevent) * kqueue_ctx->capacity;
+    kqueue_ctx->changes = (struct kevent*)safe_realloc(kqueue_ctx->changes, bytes, oldbytes);
+    kqueue_ctx->events = (struct kevent*)safe_realloc(kqueue_ctx->events, bytes, oldbytes);
     kqueue_ctx->capacity = size;
 }
 

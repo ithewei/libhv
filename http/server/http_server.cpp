@@ -143,7 +143,7 @@ static void on_accept(hio_t* io, int connfd) {
     connio->userdata = handler;
 }
 
-void handle_cached_files(htimer_t* timer) {
+static void handle_cached_files(htimer_t* timer) {
     FileCache* pfc = (FileCache*)timer->userdata;
     if (pfc == NULL) {
         htimer_del(timer);
@@ -164,7 +164,7 @@ void handle_cached_files(htimer_t* timer) {
     }
 }
 
-void fflush_log(hidle_t* idle) {
+static void fflush_log(hidle_t* idle) {
     hlog_fflush();
 }
 

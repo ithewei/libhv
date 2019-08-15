@@ -78,7 +78,7 @@ public:
             SAFE_ALLOC(base, cap);
         }
         else {
-            base = (char*)safe_realloc(base, cap);
+            base = (char*)safe_realloc(base, cap, len);
         }
         len = cap;
         cleanup_ = true;
@@ -110,8 +110,9 @@ public:
 
     void push_front(void* ptr, size_t len) {
         if (len > this->len - _size) {
-            this->len = MAX(this->len, len)*2;
-            base = (char*)safe_realloc(base, this->len);
+            size_t newsize = MAX(this->len, len)*2;
+            base = (char*)safe_realloc(base, newsize, this->len);
+            this->len = newsize;
         }
 
         if (_offset < len) {
@@ -127,8 +128,9 @@ public:
 
     void push_back(void* ptr, size_t len) {
         if (len > this->len - _size) {
-            this->len = MAX(this->len, len)*2;
-            base = (char*)safe_realloc(base, this->len);
+            size_t newsize = MAX(this->len, len)*2;
+            base = (char*)safe_realloc(base, newsize, this->len);
+            this->len = newsize;
         }
         else if (len > this->len - _offset - _size) {
             // move => start

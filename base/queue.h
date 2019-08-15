@@ -66,9 +66,8 @@ static inline void qtype##_cleanup(qtype* p) {\
 }\
 \
 static inline void qtype##_resize(qtype* p, int maxsize) {\
+    p->ptr = (type*)safe_realloc(p->ptr, sizeof(type)*maxsize, sizeof(type)*p->maxsize);\
     p->maxsize = maxsize;\
-    int bytes = sizeof(type) * maxsize;\
-    p->ptr = (type*)safe_realloc(p->ptr, bytes);\
 }\
 \
 static inline void qtype##_double_resize(qtype* p) {\

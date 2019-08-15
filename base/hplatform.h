@@ -54,6 +54,7 @@
 #ifdef _MSC_VER
 #pragma warning (disable: 4100) // unused param
 #pragma warning (disable: 4819) // Unicode
+#pragma warning (disable: 4996) // _CRT_SECURE_NO_WARNINGS
 
 #undef  HAVE_PTHREAD_H
 #define HAVE_PTHREAD_H  0

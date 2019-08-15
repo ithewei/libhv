@@ -123,7 +123,7 @@ static void on_connectex_complete(hio_t* io) {
     hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
     io->error = hovlp->error;
     SAFE_FREE(io->hovlp);
-    if (io->errno != 0) {
+    if (io->error != 0) {
         hclose(io);
         return;
     }
@@ -333,7 +333,7 @@ WSASend:
         hovlp->buf.len = len - nwrite;
         // NOTE: free on_send_complete
         SAFE_ALLOC(hovlp->buf.buf, hovlp->buf.len);
-        memcpy(hovlp->buf.buf, buf + nwrite, hovlp->buf.len);
+        memcpy(hovlp->buf.buf, ((char*)buf) + nwrite, hovlp->buf.len);
         hovlp->io = io;
         DWORD dwbytes = 0;
         DWORD flags = 0;

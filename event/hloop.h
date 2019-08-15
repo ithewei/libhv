@@ -40,8 +40,8 @@ typedef enum {
     HEVENT_TYPE_IO      = 0x00001000,
 } hevent_type_e;
 
-#define HEVENT_LOWEST_PRIORITY     -5
-#define HEVENT_LOW_PRIORITY        -3
+#define HEVENT_LOWEST_PRIORITY    (-5)
+#define HEVENT_LOW_PRIORITY       (-3)
 #define HEVENT_NORMAL_PRIORITY      0
 #define HEVENT_HIGH_PRIORITY        3
 #define HEVENT_HIGHEST_PRIORITY     5

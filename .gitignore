@@ -28,3 +28,10 @@ dist
 
 # test
 test
+
+# msvc
+*.VC.db
+*.VC.VC.opendb
+*.vcxproj.filters
+Debug
+Release

@@ -17,7 +17,7 @@ static const uint8_t s_days[] = \
 //   1       3       5       7   8       10      12
     {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-inline unsigned long long gethrtime() {
+unsigned long long gethrtime() {
 #ifdef OS_WIN
     static LONGLONG s_freq = 0;
     if (s_freq == 0) {

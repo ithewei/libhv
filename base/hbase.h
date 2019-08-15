@@ -28,7 +28,7 @@ extern unsigned int g_alloc_cnt;
 extern unsigned int g_free_cnt;
 
 void* safe_malloc(size_t size);
-void* safe_realloc(void* oldptr, size_t size);
+void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize);
 void* safe_calloc(size_t nmemb, size_t size);
 void* safe_zalloc(size_t size);
 

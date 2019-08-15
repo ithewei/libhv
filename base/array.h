@@ -75,9 +75,8 @@ static inline void atype##_cleanup(atype* p) {\
 }\
 \
 static inline void atype##_resize(atype* p, int maxsize) {\
+    p->ptr = (type*)safe_realloc(p->ptr, sizeof(type) * maxsize, sizeof(type) * p->maxsize);\
     p->maxsize = maxsize;\
-    int bytes = sizeof(type) * maxsize;\
-    p->ptr = (type*)safe_realloc(p->ptr, bytes);\
 }\
 \
 static inline void atype##_double_resize(atype* p) {\
