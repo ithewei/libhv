@@ -4,10 +4,12 @@
 #include "nmap.h"
 #include "hthreadpool.h"
 
+/*
 int host_discovery_task(std::string segment, void* nmap) {
     Nmap* hosts= (Nmap*)nmap;
     return host_discovery(segment.c_str(), hosts);
 }
+*/
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -31,17 +33,38 @@ int main(int argc, char* argv[]) {
 
     if (n == 24) {
         Nmap nmap;
-        int ups = host_discovery(segment, &nmap);
-        return 0;
+        return host_discovery(segment, &nmap);
     }
 
     char ip[INET_ADDRSTRLEN];
     if (n == 16) {
-        Nmap nmap;
-        int up_nsegs = segment_discovery(segment, &nmap);
+        Nmap segs;
+        int up_nsegs = segment_discovery(segment, &segs);
         if (up_nsegs == 0) return 0;
+        Nmap hosts;
+        for (auto& pair : segs) {
+            if (pair.second == 1) {
+                uint32_t addr = pair.first;
+                uint8_t* p = (uint8_t*)&addr;
+                // 0,255 reserved
+                for (int i = 1; i < 255; ++i) {
+                    p[3] = i;
+                    hosts[addr] = 0;
+                }
+            }
+        }
+        nmap_discovery(&hosts);
+        // filter up hosts
+        std::vector<uint32_t> up_hosts;
+        for (auto& pair : hosts) {
+            if (pair.second == 1) {
+                up_hosts.push_back(pair.first);
+            }
+        }
+        // ThreadPool + host_discovery
+        /*
         if (up_nsegs == 1) {
-            for (auto& pair : nmap) {
+            for (auto& pair : segs) {
                 if (pair.second == 1) {
                     inet_ntop(AF_INET, (void*)&pair.first, ip, sizeof(ip));
                     Nmap hosts;
@@ -78,12 +101,14 @@ int main(int argc, char* argv[]) {
             }
         }
         delete[] hosts;
+        */
         // print up hosts
-        printf("Up hosts %d:\n", nhosts);
+        printf("Up hosts %lu:\n", up_hosts.size());
         for (auto& host : up_hosts) {
             inet_ntop(AF_INET, (void*)&host, ip, sizeof(ip));
             printf("%s\n", ip);
         }
+        return up_hosts.size();
     }
 
     return 0;

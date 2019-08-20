@@ -3,6 +3,8 @@
 
 #include <map>
 #include "hsocket.h"
+
+// addr => 0:down 1:up
 typedef std::map<uint32_t, int> Nmap;
 
 // ip = segment + host

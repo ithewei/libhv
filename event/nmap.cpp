@@ -154,7 +154,7 @@ int host_discovery(const char* segment24, Nmap* nmap) {
     p[1] = atoi(strlist[1].c_str());
     p[2] = atoi(strlist[2].c_str());
     printd("Nmap scan %u.%u.%u.x...\n", p[0], p[1], p[2]);
-    // 0,256 reserved
+    // 0,255 reserved
     nmap->clear();
     for (int i = 1; i < 255; ++i) {
         p[3] = i;

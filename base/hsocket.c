@@ -2,6 +2,10 @@
 #include "htime.h"
 #include "netinet.h"
 
+#ifdef OS_UNIX
+#include <sys/select.h>
+#endif
+
 char *socket_strerror(int err) {
 #ifdef OS_WIN
     static char buffer[128];
@@ -100,6 +104,38 @@ int Connect(const char* host, int port, int nonblock) {
         perror("connect");
         goto error;
     }
+    return connfd;
+error:
+    closesocket(connfd);
+    return socket_errno() > 0 ? -socket_errno() : -1;
+}
+
+int ConnectNonblock(const char* host, int port) {
+    return Connect(host, port, 1);
+}
+
+int ConnectTimeout(const char* host, int port, int ms) {
+    int connfd = Connect(host, port, 1);
+    if (connfd < 0) return connfd;
+    int err;
+    socklen_t optlen = sizeof(err);
+    struct timeval tv = {ms/1000, (ms%1000)*1000};
+    fd_set writefds;
+    FD_ZERO(&writefds);
+    FD_SET(connfd, &writefds);
+    int ret = select(connfd, 0, &writefds, 0, &tv);
+    if (ret < 0) {
+        perror("select");
+        goto error;
+    }
+    if (ret == 0) {
+        errno = ETIMEDOUT;
+        goto error;
+    }
+    if (getsockopt(connfd, SOL_SOCKET, SO_ERROR, (char*)&err, &optlen) < 0 || err != 0) {
+        goto error;
+    }
+    blocking(connfd);
     return connfd;
 error:
     closesocket(connfd);

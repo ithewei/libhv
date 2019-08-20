@@ -32,9 +32,13 @@ int Listen(int port);
 // @retval 0:succeed
 int Resolver(const char* host, struct sockaddr* addr);
 
-// Resolver -> socket -> nonblocking -> connect
 // @return sockfd
+// Resolver -> socket -> nonblocking -> connect
 int Connect(const char* host, int port, int nonblock DEFAULT(0));
+// Connect(host, port, 1)
+int ConnectNonblock(const char* host, int port);
+// Connect(host, port, 1) -> select -> blocking
+int ConnectTimeout(const char* host, int port, int ms);
 
 // @param cnt: ping count
 // @return: ok count
