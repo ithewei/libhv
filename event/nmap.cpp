@@ -60,6 +60,9 @@ int nmap_discovery(Nmap* nmap) {
         }
         return -socket_errno();
     }
+    int len = 425984; // 416K
+    socklen_t optlen = sizeof(len);
+    setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char*)&len, optlen);
 
     hloop_t loop;
     hloop_init(&loop);
@@ -84,7 +87,7 @@ int nmap_discovery(Nmap* nmap) {
     char recvbuf[128];
     hrecvfrom(&loop, sockfd, recvbuf, sizeof(recvbuf), on_recvfrom);
     // icmp
-    char sendbuf[64];
+    char sendbuf[44]; // 20IP + 44ICMP = 64
     icmp_t* icmp_req = (icmp_t*)sendbuf;
     icmp_req->icmp_type = ICMP_ECHO;
     icmp_req->icmp_code = 0;
