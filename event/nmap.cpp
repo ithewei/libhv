@@ -5,15 +5,58 @@
 
 #define MAX_RECVFROM_TIMEOUT    5000 // ms
 
-typedef struct recvfrom_udata_s {
+typedef struct nmap_udata_s {
     Nmap*   nmap;
+    hio_t*  io;
     int     send_cnt;
     int     recv_cnt;
     int     up_cnt;
-} recvfrom_udata_t;
+    int     idle_cnt;
+} nmap_udata_t;
+
+static int sendto_icmp(hio_t* io, Nmap* nmap) {
+    // icmp
+    char sendbuf[44]; // 20IP + 44ICMP = 64
+    icmp_t* icmp_req = (icmp_t*)sendbuf;
+    icmp_req->icmp_type = ICMP_ECHO;
+    icmp_req->icmp_code = 0;
+    icmp_req->icmp_id = getpid();
+    for (int i = 0; i < sizeof(sendbuf) - sizeof(icmphdr_t); ++i) {
+        icmp_req->icmp_data[i] = i;
+    }
+    struct sockaddr_in peeraddr;
+    int send_cnt = 0;
+    for (auto iter = nmap->begin(); iter != nmap->end(); ++iter) {
+        if (iter->second == 1) continue;
+        icmp_req->icmp_seq = iter->first;
+        icmp_req->icmp_cksum = 0;
+        icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sizeof(sendbuf));
+        socklen_t addrlen = sizeof(peeraddr);
+        memset(&peeraddr, 0, addrlen);
+        peeraddr.sin_family = AF_INET;
+        peeraddr.sin_addr.s_addr = iter->first;
+        hio_setpeeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
+        hsendto(io->loop, io->fd, sendbuf, sizeof(sendbuf), NULL);
+        ++send_cnt;
+        // NOTE: avoid SNDBUF full.
+        if (send_cnt % 1000 == 0) {
+            msleep(10);
+        }
+    }
+    return send_cnt;
+}
+
 
 static void on_idle(hidle_t* idle) {
-    hloop_stop(idle->loop);
+    nmap_udata_t* udata = (nmap_udata_t*)idle->userdata;
+    udata->idle_cnt++;
+    if (udata->idle_cnt == 1) {
+        // try again
+        sendto_icmp(udata->io, udata->nmap);
+    }
+    else {
+        hloop_stop(idle->loop);
+    }
 }
 
 static void on_timer(htimer_t* timer) {
@@ -27,9 +70,9 @@ static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
     //printf("[%s] <=> [%s]\n",
             //sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
             //sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
-    recvfrom_udata_t* udata = (recvfrom_udata_t*)io->userdata;
+    nmap_udata_t* udata = (nmap_udata_t*)io->userdata;
     if (++udata->recv_cnt == udata->send_cnt) {
-        hloop_stop(io->loop);
+        //hloop_stop(io->loop);
     }
     Nmap* nmap = udata->nmap;
     struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
@@ -41,13 +84,7 @@ static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
                 hloop_stop(io->loop);
             }
         }
-        else {
-            //hloop_stop(io->loop);
-        }
     }
-    //else {
-        //hloop_stop(io->loop);
-    //}
 }
 
 int nmap_discovery(Nmap* nmap) {
@@ -60,6 +97,7 @@ int nmap_discovery(Nmap* nmap) {
         }
         return -socket_errno();
     }
+    nonblocking(sockfd);
     int len = 425984; // 416K
     socklen_t optlen = sizeof(len);
     setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char*)&len, optlen);
@@ -68,7 +106,6 @@ int nmap_discovery(Nmap* nmap) {
     hloop_init(&loop);
     uint64_t start_hrtime = hloop_now_hrtime(&loop);
 
-    nonblocking(sockfd);
     hio_t* io = hio_get(&loop, sockfd);
     if (io == NULL) return -1;
     io->io_type = HIO_TYPE_IP;
@@ -78,48 +115,28 @@ int nmap_discovery(Nmap* nmap) {
     localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     hio_setlocaladdr(io, (struct sockaddr*)&localaddr, addrlen);
 
-    recvfrom_udata_t udata;
+    nmap_udata_t udata;
     udata.nmap = nmap;
-    udata.send_cnt = 0;
+    udata.io = io;
+    udata.send_cnt = sendto_icmp(io, nmap);
     udata.recv_cnt = 0;
     udata.up_cnt = 0;
+    udata.idle_cnt = 0;
     io->userdata = &udata;
+
     char recvbuf[128];
     hrecvfrom(&loop, sockfd, recvbuf, sizeof(recvbuf), on_recvfrom);
-    // icmp
-    char sendbuf[44]; // 20IP + 44ICMP = 64
-    icmp_t* icmp_req = (icmp_t*)sendbuf;
-    icmp_req->icmp_type = ICMP_ECHO;
-    icmp_req->icmp_code = 0;
-    icmp_req->icmp_id = getpid();
-    for (int i = 0; i < sizeof(sendbuf) - sizeof(icmphdr_t); ++i) {
-        icmp_req->icmp_data[i] = i;
-    }
-    auto iter = nmap->begin();
-    struct sockaddr_in peeraddr;
-    while (iter != nmap->end()) {
-        icmp_req->icmp_seq = iter->first;
-        icmp_req->icmp_cksum = 0;
-        icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sizeof(sendbuf));
-        socklen_t addrlen = sizeof(peeraddr);
-        memset(&peeraddr, 0, addrlen);
-        peeraddr.sin_family = AF_INET;
-        peeraddr.sin_addr.s_addr = iter->first;
-        hio_setpeeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
-        hsendto(&loop, sockfd, sendbuf, sizeof(sendbuf), NULL);
-        ++udata.send_cnt;
-        ++iter;
-    }
 
     htimer_add(&loop, on_timer, MAX_RECVFROM_TIMEOUT, 1);
-    hidle_add(&loop, on_idle, 1);
+    hidle_t* idle = hidle_add(&loop, on_idle, 3);
+    idle->userdata = &udata;
 
     hloop_run(&loop);
     uint64_t end_hrtime = hloop_now_hrtime(&loop);
 
     // print result
     char ip[INET_ADDRSTRLEN];
-    iter = nmap->begin();
+    auto iter = nmap->begin();
     while (iter != nmap->end()) {
         inet_ntop(AF_INET, (void*)&iter->first, ip, sizeof(ip));
         printd("%s\t is %s.\n", ip, iter->second == 0 ? "down" : "up");

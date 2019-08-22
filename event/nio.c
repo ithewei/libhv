@@ -2,6 +2,7 @@
 #ifndef EVENT_IOCP
 #include "hio.h"
 #include "hsocket.h"
+#include "hlog.h"
 
 static void nio_accept(hio_t* io) {
     //printd("nio_accept listenfd=%d\n", io->fd);
@@ -265,6 +266,7 @@ try_write:
         if (nwrite < 0) {
             if (socket_errno() == EAGAIN) {
                 nwrite = 0;
+                hlogw("try_write failed, enqueue!");
                 goto enqueue;
             }
             else {
