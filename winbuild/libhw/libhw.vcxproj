@@ -138,6 +138,7 @@
     <ClInclude Include="..\..\base\hbase.h" />
     <ClInclude Include="..\..\base\hbuf.h" />
     <ClInclude Include="..\..\base\hdef.h" />
+    <ClInclude Include="..\..\base\hdir.h" />
     <ClInclude Include="..\..\base\heap.h" />
     <ClInclude Include="..\..\base\herr.h" />
     <ClInclude Include="..\..\base\hfile.h" />
@@ -195,6 +196,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\base\hbase.c" />
+    <ClCompile Include="..\..\base\hdir.cpp" />
     <ClCompile Include="..\..\base\herr.c" />
     <ClCompile Include="..\..\base\hlog.c" />
     <ClCompile Include="..\..\base\hsocket.c" />
@@ -214,7 +216,6 @@
     <ClCompile Include="..\..\event\overlapio.c" />
     <ClCompile Include="..\..\event\poll.c" />
     <ClCompile Include="..\..\event\select.c" />
-    <ClCompile Include="..\..\http\client\http_client.cpp" />
     <ClCompile Include="..\..\http\HttpParser.cpp" />
     <ClCompile Include="..\..\http\http_content.cpp" />
     <ClCompile Include="..\..\http\http_parser.c" />

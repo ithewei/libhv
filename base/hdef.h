@@ -275,7 +275,7 @@ typedef std::map<std::string, std::string> keyval_t;
 #define BEGIN_NAMESPACE(ns)
 #define END_NAMESPACE(ns)
 
-#define EXTERN_C
+#define EXTERN_C    extern
 #define BEGIN_EXTERN_C
 #define END_EXTERN_C
 

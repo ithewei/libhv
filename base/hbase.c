@@ -99,6 +99,7 @@ char* safe_strncpy(char* dest, const char* src, size_t n) {
     while (*src != '\0' && --n > 0) {
         *dest++ = *src++;
     }
+    *dest = '\0';
     return ret;
 }
 
@@ -110,6 +111,7 @@ char* safe_strncat(char* dest, const char* src, size_t n) {
     while (*src != '\0' && --n > 0) {
         *dest++ = *src++;
     }
+    *dest = '\0';
     return ret;
 }
 
