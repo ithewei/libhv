@@ -48,12 +48,12 @@ void make_index_of_page(const char* dir, std::string& page, const char* url) {
                 len < AUTOINDEX_FILENAME_MAXLEN ? item.name : std::string(item.name, item.name+AUTOINDEX_FILENAME_MAXLEN-4).append("...").c_str(),
                 item.type == 'd' ? "/" : "");
         page += c_str;
-        page += std::string(AUTOINDEX_FILENAME_MAXLEN - len, ' ');
         if (strcmp(item.name, "..") != 0) {
             // mtime
             struct tm* tm = localtime(&item.mtime);
             snprintf(c_str, sizeof(c_str), "%04d-%02d-%02d %02d:%02d:%02d        ",
                     tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+            page += std::string(AUTOINDEX_FILENAME_MAXLEN - len, ' ');
             page += c_str;
             // size
             if (item.type == 'd') {
