@@ -28,14 +28,13 @@ void make_http_status_page(http_status status_code, std::string& page);
 <body>
   <h1>Index of /downloads/</h1>
   <hr>
-  <pre>
+<pre>
 <a href="../">../</a>
 <a href="docs/">docs/</a>                                             2019-08-23 15:27:48        -
 <a href="examples/">examples/</a>                                         2019-08-23 15:27:52        -
 <a href="README.txt">README.txt</a>                                        2019-08-23 19:15:42        0
 <a href="release/">release/</a>                                          2019-08-23 15:28:52        -
-
-  </pre>
+</pre>
   <hr>
 </body>
 </html>

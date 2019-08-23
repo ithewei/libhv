@@ -35,7 +35,7 @@ void make_index_of_page(const char* dir, std::string& page, const char* url) {
 <body>
   <h1>Index of %s</h1>
   <hr>
-  <pre>
+<pre>
 )", url, url);
     page += c_str;
     for (auto& item : dirs) {
@@ -79,8 +79,7 @@ void make_index_of_page(const char* dir, std::string& page, const char* url) {
         }
         page += "\r\n";
     }
-    page += R"(
-  </pre>
+    page += R"(</pre>
   <hr>
 </body>
 </html>)";
