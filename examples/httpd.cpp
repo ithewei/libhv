@@ -134,6 +134,11 @@ int parse_confile(const char* confile) {
     if (str.size() != 0) {
         g_http_service.error_page = str;
     }
+    // index_of
+    str = g_conf_ctx.parser->GetValue("index_of");
+    if (str.size() != 0) {
+        g_http_service.index_of = str;
+    }
 
     return 0;
 }

@@ -129,6 +129,12 @@
     #include <io.h>         // for open,close,read,write,lseek,tell
 
     #define MKDIR(dir)      mkdir(dir)
+    #ifndef S_ISREG
+    #define S_ISREG(st_mode) (((st_mode) & S_IFMT) == S_IFREG)
+    #endif
+    #ifndef S_ISDIR
+    #define S_ISDIR(st_mode) (((st_mode) & S_IFMT) == S_IFDIR)
+    #endif
 #else
     #include <unistd.h>
     #include <dirent.h>     // for mkdir,rmdir,chdir,getcwd

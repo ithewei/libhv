@@ -4,41 +4,10 @@
 #include "HttpService.h"
 #include "HttpParser.h"
 #include "FileCache.h"
+#include "http_page.h"
 #include "hloop.h"
 
 #define HTTP_KEEPALIVE_TIMEOUT  75 // s
-
-/*
-<!DOCTYPE html>
-<html>
-<head>
-  <title>404 Not Found</title>
-</head>
-<body>
-  <center><h1>404 Not Found</h1></center>
-  <hr>
-</body>
-</html>
- */
-static inline void make_http_status_page(http_status status_code, std::string& page) {
-    char szCode[8];
-    snprintf(szCode, sizeof(szCode), "%d ", status_code);
-    const char* status_message = http_status_str(status_code);
-    page += R"(<!DOCTYPE html>
-<html>
-<head>
-  <title>)";
-    page += szCode; page += status_message;
-    page += R"(</title>
-</head>
-<body>
-  <center><h1>)";
-    page += szCode; page += status_message;
-    page += R"(</h1></center>
-  <hr>
-</body>
-</html>)";
-}
 
 static inline void on_keepalive_timeout(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->userdata;
@@ -121,9 +90,15 @@ public:
             if (strcmp(req.url.c_str(), "/") == 0) {
                 filepath += service->home_page;
             }
-            fc = files->Open(filepath.c_str());
-            // Not Found
+            if (filepath.c_str()[filepath.size()-1] != '/' ||
+                (service->index_of.size() != 0 &&
+                 req.url.size() >= service->index_of.size() &&
+                 strnicmp(req.url.c_str(), service->index_of.c_str(), service->index_of.size()) == 0)) {
+                fc = files->Open(filepath.c_str(), (void*)req.url.c_str());
+            }
+
             if (fc == NULL) {
+                // Not Found
                 res.status_code = HTTP_STATUS_NOT_FOUND;
             }
             else {
@@ -156,7 +131,7 @@ public:
                 std::string filepath = service->document_root;
                 filepath += '/';
                 filepath += service->error_page;
-                fc = files->Open(filepath.c_str());
+                fc = files->Open(filepath.c_str(), NULL);
             }
             // status page
             if (fc == NULL && res.body.size() == 0) {

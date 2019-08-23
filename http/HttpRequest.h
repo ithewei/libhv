@@ -161,7 +161,10 @@ append:
     }
 
     void fill_content_length() {
-        headers["Content-Length"] = std::to_string(body.size());
+        auto iter = headers.find("Content-Length");
+        if (iter == headers.end()) {
+            headers["Content-Length"] = std::to_string(body.size());
+        }
     }
 
     void dump_headers(std::string& str) {

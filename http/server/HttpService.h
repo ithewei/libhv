@@ -41,6 +41,7 @@ struct HttpService {
     std::string document_root;
     std::string home_page;
     std::string error_page;
+    std::string index_of;
 
     HttpService() {
         preprocessor = NULL;

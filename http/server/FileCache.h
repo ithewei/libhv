@@ -6,14 +6,16 @@
 
 #include "hbuf.h"
 #include "hfile.h"
+#include "hstring.h"
+#include "hscope.h"
+#include "hdir.h"
+
 #include "md5.h"
 #include "HttpRequest.h" // for get_content_type_str_by_suffix
-
-#ifndef INVALID_FD
-#define INVALID_FD  -1
-#endif
+#include "http_page.h"
 
 #define HTTP_HEADER_MAX_LENGTH      1024 // 1k
+
 
 typedef struct file_cache_s {
     //std::string filepath;
@@ -70,9 +72,9 @@ public:
         cached_files.clear();
     }
 
-    file_cache_t* Open(const char* filepath) {
+    file_cache_t* Open(const char* filepath, void* ctx) {
         file_cache_t* fc = Get(filepath);
-        bool filechanged = false;
+        bool modified = false;
         if (fc) {
             time_t tt;
             time(&tt);
@@ -82,28 +84,48 @@ public:
                 fc->stat_time = tt;
                 fc->stat_cnt++;
                 if (mtime != fc->st.st_mtime) {
-                    filechanged = true;
+                    modified = true;
                     fc->stat_cnt = 1;
                 }
             }
         }
-        if (fc == NULL || filechanged) {
+        if (fc == NULL || modified) {
             int fd = open(filepath, O_RDONLY);
             if (fd < 0) {
                 return NULL;
             }
+            ScopeCleanup _(close, fd);
             if (fc == NULL) {
+                struct stat st;
+                fstat(fd, &st);
+                if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
+                    return NULL;
+                }
                 fc = new file_cache_t;
                 //fc->filepath = filepath;
-                fstat(fd, &fc->st);
+                fc->st = st;
                 time(&fc->open_time);
                 fc->stat_time = fc->open_time;
                 fc->stat_cnt = 1;
                 cached_files[filepath] = fc;
             }
-            fc->resize_buf(fc->st.st_size);
-            read(fd, fc->filebuf.base, fc->filebuf.len);
-            close(fd);
+            if (S_ISREG(fc->st.st_mode)) {
+                // FILE
+                fc->resize_buf(fc->st.st_size);
+                read(fd, fc->filebuf.base, fc->filebuf.len);
+                const char* suffix = strrchr(filepath, '.');
+                if (suffix) {
+                    fc->content_type = http_content_type_str_by_suffix(++suffix);
+                }
+            }
+            else if (S_ISDIR(fc->st.st_mode)) {
+                // DIR
+                std::string page;
+                make_index_of_page(filepath, page, (const char*)ctx);
+                fc->resize_buf(page.size());
+                memcpy(fc->filebuf.base, page.c_str(), page.size());
+                fc->content_type = http_content_type_str(TEXT_HTML);
+            }
             time_t tt = fc->st.st_mtime;
             strftime(fc->last_modified, sizeof(fc->last_modified), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
             MD5_CTX md5_ctx;
@@ -117,10 +139,6 @@ public:
                 md5 += 2;
             }
             fc->etag[32] = '\0';
-            const char* suffix = strrchr(filepath, '.');
-            if (suffix) {
-                fc->content_type = http_content_type_str_by_suffix(++suffix);
-            }
         }
         return fc;
     }
