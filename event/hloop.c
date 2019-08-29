@@ -396,7 +396,7 @@ static void hio_socket_init(hio_t* io) {
     // tcp_server peeraddr set by accept
     // udp_server peeraddr set by recvfrom
     // tcp_client/udp_client peeraddr set by hio_setpeeraddr
-    if (io->io_type == HIO_TYPE_TCP) {
+    if (io->io_type == HIO_TYPE_TCP || io->io_type == HIO_TYPE_SSL) {
         // tcp acceptfd
         addrlen = sizeof(struct sockaddr_in6);
         ret = getpeername(io->fd, io->peeraddr, &addrlen);
@@ -475,8 +475,11 @@ hio_t* hio_get(hloop_t* loop, int fd) {
 int hio_add(hio_t* io, hio_cb cb, int events) {
     printd("hio_add fd=%d events=%d\n", io->fd, events);
     hloop_t* loop = io->loop;
-    if (!io->active) {
+    if (!io->ready) {
         hio_ready(io);
+    }
+
+    if (!io->active) {
         EVENT_ADD(loop, io, cb);
         loop->nios++;
     }
@@ -611,7 +614,9 @@ hio_t* hrecv (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb
     hio_t* io = hio_get(loop, connfd);
     if (io == NULL) return NULL;
     io->recv = 1;
-    io->io_type = HIO_TYPE_TCP;
+    if (io->io_type != HIO_TYPE_SSL) {
+        io->io_type = HIO_TYPE_TCP;
+    }
     return hread(loop, connfd, buf, len, read_cb);
 }
 
@@ -619,7 +624,9 @@ hio_t* hsend (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb 
     hio_t* io = hio_get(loop, connfd);
     if (io == NULL) return NULL;
     io->send = 1;
-    io->io_type = HIO_TYPE_TCP;
+    if (io->io_type != HIO_TYPE_SSL) {
+        io->io_type = HIO_TYPE_TCP;
+    }
     return hwrite(loop, connfd, buf, len, write_cb);
 }
 
@@ -669,4 +676,10 @@ hio_t* create_udp_client(hloop_t* loop, const char* host, int port) {
     if (io == NULL) return NULL;
     hio_setpeeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
     return io;
+}
+
+int hio_enable_ssl(hio_t* io) {
+    printd("ssl fd=%d\n", io->fd);
+    io->io_type = HIO_TYPE_SSL;
+    return 0;
 }

@@ -65,6 +65,7 @@ static inline int nonblocking(int sockfd) {
 #else
 #define blocking(s)     fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
 #define nonblocking(s)  fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK)
+typedef int         SOCKET;
 #define closesocket close
 #endif
 

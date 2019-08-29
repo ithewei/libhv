@@ -4,12 +4,50 @@
 #include "hsocket.h"
 #include "hlog.h"
 
+#ifdef WITH_OPENSSL
+#include "openssl/ssl.h"
+#include "openssl/err.h"
+#include "ssl_ctx.h"
+
+static void ssl_do_handshark(hio_t* io) {
+    SSL* ssl = (SSL*)io->ssl;
+    printd("ssl handshark...\n");
+    int ret = SSL_do_handshake(ssl);
+    if (ret == 1) {
+        // handshark finish
+        iowatcher_del_event(io->loop, io->fd, READ_EVENT);
+        io->events &= ~READ_EVENT;
+        io->cb = NULL;
+        printd("ssl handshark finished.\n");
+        if (io->accept_cb) {
+            io->accept_cb(io);
+        }
+        else if (io->connect_cb) {
+            io->connect_cb(io);
+        }
+    }
+    else {
+        int errcode = SSL_get_error(ssl, ret);
+        if (errcode == SSL_ERROR_WANT_READ) {
+            if ((io->events & READ_EVENT) == 0) {
+                hio_add(io, ssl_do_handshark, READ_EVENT);
+            }
+        }
+        else {
+            hloge("ssl handshake failed: %d", errcode);
+            hclose(io);
+        }
+    }
+}
+#endif
+
 static void nio_accept(hio_t* io) {
     //printd("nio_accept listenfd=%d\n", io->fd);
     socklen_t addrlen;
 accept:
     addrlen = sizeof(struct sockaddr_in6);
     int connfd = accept(io->fd, io->peeraddr, &addrlen);
+    hio_t* connio = NULL;
     if (connfd < 0) {
         if (socket_errno() == EAGAIN) {
             //goto accept_done;
@@ -23,18 +61,39 @@ accept:
     }
     addrlen = sizeof(struct sockaddr_in6);
     getsockname(connfd, io->localaddr, &addrlen);
+    connio = hio_get(io->loop, connfd);
 
-    if (io->accept_cb) {
-        char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-        char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
-        printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
-                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
-        //printd("accept_cb------\n");
-        io->accept_cb(io, connfd);
-        //printd("accept_cb======\n");
+#ifdef WITH_OPENSSL
+    if (io->io_type == HIO_TYPE_SSL) {
+        SSL_CTX* ssl_ctx = (SSL_CTX*)g_ssl_ctx;
+        if (ssl_ctx == NULL) {
+            goto accept_error;
+        }
+        SSL* ssl = SSL_new(ssl_ctx);
+        SSL_set_fd(ssl, connfd);
+        connio->ssl = ssl;
+        connio->accept_cb = io->accept_cb;
+        connio->userdata = io->userdata;
+        hio_enable_ssl(connio);
+        //int ret = SSL_accept(ssl);
+        SSL_set_accept_state(ssl);
+        ssl_do_handshark(connio);
     }
+#endif
 
+    if (io->io_type != HIO_TYPE_SSL) {
+        // NOTE: SSL call accept_cb after handshark finished
+        if (io->accept_cb) {
+            char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
+            char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+            printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
+                    sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
+                    sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+            //printd("accept_cb------\n");
+            io->accept_cb(connio);
+            //printd("accept_cb======\n");
+        }
+    }
     goto accept;
 
 accept_error:
@@ -48,7 +107,7 @@ static void nio_connect(hio_t* io) {
     if (ret < 0) {
         io->error = socket_errno();
         printd("connect failed: %s: %d\n", strerror(socket_errno()), socket_errno());
-        hclose(io);
+        goto connect_failed;
     }
     else {
         addrlen = sizeof(struct sockaddr_in6);
@@ -58,12 +117,33 @@ static void nio_connect(hio_t* io) {
         printd("connect connfd=%d [%s] => [%s]\n", io->fd,
                 sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
                 sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
-        if (io->connect_cb) {
-            //printd("connect_cb------\n");
-            io->connect_cb(io);
-            //printd("connect_cb======\n");
+#ifdef WITH_OPENSSL
+        if (io->io_type == HIO_TYPE_SSL) {
+            SSL_CTX* ssl_ctx = (SSL_CTX*)g_ssl_ctx;
+            if (ssl_ctx == NULL) {
+                goto connect_failed;
+            }
+            SSL* ssl = SSL_new(ssl_ctx);
+            SSL_set_fd(ssl, io->fd);
+            io->ssl = ssl;
+            //int ret = SSL_connect(ssl);
+            SSL_set_connect_state(ssl);
+            ssl_do_handshark(io);
         }
+#endif
+        if (io->io_type != HIO_TYPE_SSL) {
+            // NOTE: SSL call connect_cb after handshark finished
+            if (io->connect_cb) {
+                //printd("connect_cb------\n");
+                io->connect_cb(io);
+                //printd("connect_cb======\n");
+            }
+        }
+        return;
     }
+
+connect_failed:
+    hclose(io);
 }
 
 static void nio_read(hio_t* io) {
@@ -74,6 +154,11 @@ static void nio_read(hio_t* io) {
 read:
     memset(buf, 0, len);
     switch (io->io_type) {
+#ifdef WITH_OPENSSL
+    case HIO_TYPE_SSL:
+        nread = SSL_read((SSL*)io->ssl, buf, len);
+        break;
+#endif
     case HIO_TYPE_TCP:
 #ifdef OS_UNIX
         nread = read(io->fd, buf, len);
@@ -133,6 +218,11 @@ write:
     char* buf = pbuf->base + pbuf->offset;
     int len = pbuf->len - pbuf->offset;
     switch (io->io_type) {
+#ifdef WITH_OPENSSL
+    case HIO_TYPE_SSL:
+        nwrite = SSL_write((SSL*)io->ssl, buf, len);
+        break;
+#endif
     case HIO_TYPE_TCP:
 #ifdef OS_UNIX
         nwrite = write(io->fd, buf, len);
@@ -247,6 +337,11 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
     if (write_queue_empty(&io->write_queue)) {
 try_write:
         switch (io->io_type) {
+#ifdef WITH_OPENSSL
+        case HIO_TYPE_SSL:
+            nwrite = SSL_write((SSL*)io->ssl, buf, len);
+            break;
+#endif
         case HIO_TYPE_TCP:
 #ifdef OS_UNIX
             nwrite = write(io->fd, buf, len);
@@ -314,6 +409,11 @@ int hio_close (hio_t* io) {
     close(io->fd);
 #else
     closesocket(io->fd);
+#endif
+#ifdef WITH_OPENSSL
+    if (io->ssl) {
+        SSL_free((SSL*)io->ssl);
+    }
 #endif
     return 0;
 }

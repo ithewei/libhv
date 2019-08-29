@@ -28,7 +28,6 @@ struct http_parser_userdata {
 
     void handle_header() {
         if (header_field.size() != 0 && header_value.size() != 0) {
-            strlower((char*)header_field.c_str());
             payload->headers[header_field] = header_value;
             header_field.clear();
             header_value.clear();

@@ -2,18 +2,12 @@
 
 #include "hstring.h"
 
+#ifdef WITH_CURL
+
 /***************************************************************
 HttpClient based libcurl
 ***************************************************************/
 #include "curl/curl.h"
-#ifdef _MSC_VER
-#pragma comment(lib, "ws2_32.lib")
-#pragma comment(lib, "wldap32.lib")
-#pragma comment(lib, "advapi32.lib")
-#pragma comment(lib, "crypt32.lib")
-#endif
-
-//#include "hlog.h"
 
 static size_t s_formget_cb(void *arg, const char *buf, size_t len) {
     return len;
@@ -55,15 +49,9 @@ static size_t s_body_cb(char *buf, size_t size, size_t cnt, void *userdata) {
     return size*cnt;
 }
 
-#include <atomic>
-static std::atomic_flag s_curl_global_init = ATOMIC_FLAG_INIT;
 int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
     if (req == NULL || res == NULL) {
         return -1;
-    }
-
-    if (!s_curl_global_init.test_and_set()) {
-        curl_global_init(CURL_GLOBAL_ALL);
     }
 
     CURL* handle = curl_easy_init();
@@ -71,6 +59,9 @@ int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
     // SSL
     curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, 0);
     curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, 0);
+
+    // TCP_NODELAY
+    curl_easy_setopt(handle, CURLOPT_TCP_NODELAY, 1);
 
     // method
     curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, http_method_str(req->method));
@@ -165,3 +156,146 @@ int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
 const char* http_client_strerror(int errcode) {
     return curl_easy_strerror((CURLcode)errcode);
 }
+#else
+#include "herr.h"
+#include "hsocket.h"
+#include "HttpParser.h"
+#include "ssl_ctx.h"
+#ifdef WITH_OPENSSL
+#include "openssl/ssl.h"
+#endif
+int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
+    // connect -> send -> recv -> http_parser
+    int ssl_enable = 0;
+    if (strncmp(req->url.c_str(), "https", 5) == 0) {
+        ssl_enable = 1;
+#ifdef WITH_OPENSSL
+        if (g_ssl_ctx == NULL) {
+            ssl_ctx_init(NULL, NULL, NULL);
+        }
+#else
+        fprintf(stderr, "Please recompile WITH_OPENSSL\n");
+        return ERR_INVALID_PROTOCOL;
+#endif
+    }
+    time_t start_time = time(NULL);
+    time_t cur_time;
+    std::string http = req->dump(true, true);
+    auto Host = req->headers.find("Host");
+    if (Host == req->headers.end()) {
+        return ERR_INVALID_PARAM;
+    }
+    StringList strlist = split(Host->second, ':');
+    std::string host;
+    int port = 80;
+    host = strlist[0];
+    if (strlist.size() == 2) {
+        port = atoi(strlist[1].c_str());
+    }
+    int blocktime = 3000;
+    if (timeout > 0) {
+        blocktime = MIN(timeout*1000, blocktime);
+    }
+    SOCKET connfd = ConnectTimeout(host.c_str(), port, blocktime);
+    if (connfd < 0) {
+        return socket_errno();
+    }
+#ifdef WITH_OPENSSL
+    SSL* ssl = NULL;
+    if (ssl_enable) {
+        ssl = SSL_new((SSL_CTX*)g_ssl_ctx);
+        SSL_set_fd(ssl, connfd);
+        if (SSL_connect(ssl) != 1) {
+            fprintf(stderr, "SSL handshark failed: %d\n", SSL_get_error(ssl, -1));
+        }
+    }
+#endif
+    tcp_nodelay(connfd, 1);
+    int err = 0;
+    HttpParser parser;
+    parser.parser_response_init(res);
+    char recvbuf[1024] = {0};
+send:
+    int total_nsend = 0;
+    int nsend = 0;
+    int nrecv = 0;
+    while (1) {
+        if (timeout > 0) {
+            cur_time = time(NULL);
+            if (cur_time - start_time >= timeout) {
+                err = ERR_TASK_TIMEOUT;
+                goto ret;
+            }
+            so_sndtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
+        }
+#ifdef WITH_OPENSSL
+        if (ssl_enable) {
+            nsend = SSL_write(ssl, http.c_str()+total_nsend, http.size()-total_nsend);
+        }
+#endif
+        if (!ssl_enable) {
+            nsend = send(connfd, http.c_str()+total_nsend, http.size()-total_nsend, 0);
+        }
+        if (nsend <= 0) {
+            err = socket_errno();
+            goto ret;
+        }
+        total_nsend += nsend;
+        if (total_nsend == http.size()) {
+            break;
+        }
+    }
+recv:
+    while(1) {
+        if (timeout > 0) {
+            cur_time = time(NULL);
+            if (cur_time - start_time >= timeout) {
+                err = ERR_TASK_TIMEOUT;
+                goto ret;
+            }
+            so_rcvtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
+        }
+#ifdef WITH_OPENSSL
+        if (ssl_enable) {
+            nrecv = SSL_read(ssl, recvbuf, sizeof(recvbuf));
+        }
+#endif
+        if (!ssl_enable) {
+            nrecv = recv(connfd, recvbuf, sizeof(recvbuf), 0);
+        }
+        if (nrecv <= 0) {
+            err = socket_errno();
+            goto ret;
+        }
+        int nparse = parser.execute(recvbuf, nrecv);
+        if (nparse != nrecv || parser.get_errno() != HPE_OK) {
+            err = ERR_PARSE;
+            goto ret;
+        }
+        if (parser.get_state() == HP_MESSAGE_COMPLETE) {
+            err = 0;
+            break;
+        }
+        if (timeout > 0) {
+            cur_time = time(NULL);
+            if (cur_time - start_time >= timeout) {
+                err = ERR_TASK_TIMEOUT;
+                goto ret;
+            }
+            so_rcvtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
+        }
+    }
+ret:
+#ifdef WITH_OPENSSL
+    if (ssl) {
+        SSL_free(ssl);
+    }
+#endif
+    closesocket(connfd);
+    return err;
+}
+
+const char* http_client_strerror(int errcode) {
+    return socket_strerror(errcode);
+}
+#endif

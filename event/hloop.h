@@ -1,5 +1,6 @@
 #ifndef HW_LOOP_H_
-#define HW_LOOP_H_ 
+#define HW_LOOP_H_
+
 #include "hdef.h"
 
 BEGIN_EXTERN_C
@@ -25,7 +26,7 @@ typedef void (*hidle_cb)    (hidle_t* idle);
 typedef void (*htimer_cb)   (htimer_t* timer);
 typedef void (*hio_cb)      (hio_t* io);
 
-typedef void (*haccept_cb)  (hio_t* io, int connfd);
+typedef void (*haccept_cb)  (hio_t* io);
 typedef void (*hconnect_cb) (hio_t* io);
 typedef void (*hread_cb)    (hio_t* io, void* buf, int readbytes);
 typedef void (*hwrite_cb)   (hio_t* io, const void* buf, int writebytes);
@@ -105,12 +106,15 @@ typedef enum {
     HIO_TYPE_STDIN   = 0x00000001,
     HIO_TYPE_STDOUT  = 0x00000002,
     HIO_TYPE_STDERR  = 0x00000004,
-    HIO_TYPE_STDIO   = HIO_TYPE_STDIN|HIO_TYPE_STDOUT|HIO_TYPE_STDERR,
+    HIO_TYPE_STDIO   = 0x0000000F,
+
     HIO_TYPE_FILE    = 0x00000010,
-    HIO_TYPE_TCP     = 0x00000100,
+
+    HIO_TYPE_IP      = 0x00000100,
     HIO_TYPE_UDP     = 0x00001000,
-    HIO_TYPE_IP      = 0x00010000,
-    HIO_TYPE_SOCKET  = HIO_TYPE_TCP|HIO_TYPE_UDP|HIO_TYPE_IP
+    HIO_TYPE_TCP     = 0x00010000,
+    HIO_TYPE_SSL     = 0x00020000,
+    HIO_TYPE_SOCKET  = 0x00FFFF00,
 } hio_type_e;
 
 struct hio_s {
@@ -142,6 +146,7 @@ struct hio_s {
 //private:
     int         event_index[2]; // for poll,kqueue
     void*       hovlp;          // for iocp/overlapio
+    void*       ssl;            // for SSL
 };
 
 typedef enum {
@@ -259,6 +264,9 @@ hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite
 hio_t* create_udp_server(hloop_t* loop, int port);
 // @udp_client: resolver -> socket -> hio_get -> hio_setpeeraddr
 hio_t* create_udp_client(hloop_t* loop, const char* host, int port);
+
+// ssl
+int hio_enable_ssl(hio_t* io);
 
 END_EXTERN_C
 

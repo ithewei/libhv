@@ -21,16 +21,16 @@ void on_recv(hio_t* io, void* buf, int readbytes) {
     hsend(io->loop, io->fd, buf, readbytes, NULL);
 }
 
-void on_accept(hio_t* io, int connfd) {
-    printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
+void on_accept(hio_t* io) {
+    printf("on_accept connfd=%d\n", io->fd);
     char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
     char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
-    printf("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
+    printf("accept connfd=%d [%s] <= [%s]\n", io->fd,
             sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
             sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
 
-    hio_t* connio = hrecv(io->loop, connfd, recvbuf, RECV_BUFSIZE, on_recv);
-    connio->close_cb = on_close;
+    hrecv(io->loop, io->fd, recvbuf, RECV_BUFSIZE, on_recv);
+    io->close_cb = on_close;
 }
 
 int main(int argc, char** argv) {

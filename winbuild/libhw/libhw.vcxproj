@@ -161,6 +161,7 @@
     <ClInclude Include="..\..\base\list.h" />
     <ClInclude Include="..\..\base\netinet.h" />
     <ClInclude Include="..\..\base\queue.h" />
+    <ClInclude Include="..\..\base\ssl_ctx.h" />
     <ClInclude Include="..\..\event\hevent.h" />
     <ClInclude Include="..\..\event\hio.h" />
     <ClInclude Include="..\..\event\hloop.h" />
@@ -204,6 +205,7 @@
     <ClCompile Include="..\..\base\htime.c" />
     <ClCompile Include="..\..\base\hversion.c" />
     <ClCompile Include="..\..\base\RAII.cpp" />
+    <ClCompile Include="..\..\base\ssl_ctx.c" />
     <ClCompile Include="..\..\event\epoll.c" />
     <ClCompile Include="..\..\event\evport.c" />
     <ClCompile Include="..\..\event\hloop.c" />
@@ -216,6 +218,7 @@
     <ClCompile Include="..\..\event\overlapio.c" />
     <ClCompile Include="..\..\event\poll.c" />
     <ClCompile Include="..\..\event\select.c" />
+    <ClCompile Include="..\..\http\client\http_client.cpp" />
     <ClCompile Include="..\..\http\HttpParser.cpp" />
     <ClCompile Include="..\..\http\http_content.cpp" />
     <ClCompile Include="..\..\http\http_parser.c" />

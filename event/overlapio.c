@@ -86,8 +86,9 @@ static void on_acceptex_complete(hio_t* io) {
     printd("on_acceptex_complete------\n");
     hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
     int listenfd = io->fd;
-    LPFN_GETACCEPTEXSOCKADDRS GetAcceptExSockaddrs = NULL;
     int connfd = hovlp->fd;
+    /*
+    LPFN_GETACCEPTEXSOCKADDRS GetAcceptExSockaddrs = NULL;
     GUID guidGetAcceptExSockaddrs = WSAID_GETACCEPTEXSOCKADDRS;
     DWORD dwbytes = 0;
     if (WSAIoctl(connfd, SIO_GET_EXTENSION_FUNCTION_POINTER,
@@ -104,15 +105,20 @@ static void on_acceptex_complete(hio_t* io) {
         &plocaladdr, &localaddrlen, &ppeeraddr, &peeraddrlen);
     memcpy(io->localaddr, plocaladdr, localaddrlen);
     memcpy(io->peeraddr, ppeeraddr, peeraddrlen);
+    */
     if (io->accept_cb) {
+        /*
         char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
         char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
         printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", listenfd, connfd,
                 sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
                 sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+        */
         setsockopt(connfd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (const char*)&listenfd, sizeof(int));
         //printd("accept_cb------\n");
-        io->accept_cb(io, connfd);
+        hio_t* connio = hio_get(io->loop, connfd);
+        connio->userdata = io->userdata;
+        io->accept_cb(connio);
         //printd("accept_cb======\n");
     }
     post_acceptex(io, hovlp);

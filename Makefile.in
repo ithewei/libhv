@@ -115,6 +115,15 @@ CPPFLAGS += $(addprefix -I, $(SRCDIRS))
 ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
 endif
+ifneq ($(findstring WITH_CURL, $(DEFINES)), )
+override LIBS += curl
+ifeq ($(OS), Windows)
+LIBS += wldap32 advapi32 crypt32
+endif
+endif
+ifneq ($(findstring WITH_OPENSSL, $(DEFINES)), )
+override LIBS += ssl crypto
+endif
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
 LDFLAGS += $(addprefix -l, $(LIBS))
 

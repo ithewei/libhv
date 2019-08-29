@@ -123,7 +123,7 @@ int ConnectTimeout(const char* host, int port, int ms) {
     fd_set writefds;
     FD_ZERO(&writefds);
     FD_SET(connfd, &writefds);
-    int ret = select(connfd, 0, &writefds, 0, &tv);
+    int ret = select(connfd+1, 0, &writefds, 0, &tv);
     if (ret < 0) {
         perror("select");
         goto error;

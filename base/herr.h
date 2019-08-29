@@ -16,6 +16,7 @@
     F(ERR_INVALID_JSON,     1012,   "invalid json")     \
     F(ERR_INVALID_XML,      1013,   "invalid xml")      \
     F(ERR_INVALID_FMT,      1014,   "invalid format")   \
+    F(ERR_INVALID_PROTOCOL, 1015,   "invalid protocol") \
     \
     F(ERR_MISMATCH,         1020,   "mismatch")         \
     F(ERR_REQUEST,          1021,   "error request")    \

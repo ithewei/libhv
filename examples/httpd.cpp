@@ -1,11 +1,13 @@
 #include "h.h"
 #include "hmain.h"
-#include "httpd_conf.h"
+#include "iniparser.h"
+
 #include "http_server.h"
 #include "http_api_test.h"
+#include "ssl_ctx.h"
 
-httpd_conf_ctx_t g_conf_ctx;
-HttpService g_http_service;
+http_server_t   g_http_server;
+HttpService     g_http_service;
 
 static void print_version();
 static void print_help();
@@ -45,40 +47,42 @@ void print_help() {
 }
 
 int parse_confile(const char* confile) {
-    int ret = g_conf_ctx.parser->LoadFromFile(confile);
+    IniParser ini;
+    int ret = ini.LoadFromFile(confile);
     if (ret != 0) {
         printf("Load confile [%s] failed: %d\n", confile, ret);
         exit(-40);
     }
 
     // logfile
-    string str = g_conf_ctx.parser->GetValue("logfile");
+    string str = ini.GetValue("logfile");
     if (!str.empty()) {
         strncpy(g_main_ctx.logfile, str.c_str(), sizeof(g_main_ctx.logfile));
     }
     hlog_set_file(g_main_ctx.logfile);
     // loglevel
-    const char* szLoglevel = g_conf_ctx.parser->GetValue("loglevel").c_str();
+    const char* szLoglevel = ini.GetValue("loglevel").c_str();
+    int loglevel = LOG_LEVEL_DEBUG;
     if (stricmp(szLoglevel, "VERBOSE") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_VERBOSE;
+        loglevel = LOG_LEVEL_VERBOSE;
     } else if (stricmp(szLoglevel, "DEBUG") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_DEBUG;
+        loglevel = LOG_LEVEL_DEBUG;
     } else if (stricmp(szLoglevel, "INFO") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_INFO;
+        loglevel = LOG_LEVEL_INFO;
     } else if (stricmp(szLoglevel, "WARN") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_WARN;
+        loglevel = LOG_LEVEL_WARN;
     } else if (stricmp(szLoglevel, "ERROR") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_ERROR;
+        loglevel = LOG_LEVEL_ERROR;
     } else if (stricmp(szLoglevel, "FATAL") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_FATAL;
+        loglevel = LOG_LEVEL_FATAL;
     } else if (stricmp(szLoglevel, "SILENT") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_SILENT;
+        loglevel = LOG_LEVEL_SILENT;
     } else {
-        g_conf_ctx.loglevel = LOG_LEVEL_VERBOSE;
+        loglevel = LOG_LEVEL_VERBOSE;
     }
-    hlog_set_level(g_conf_ctx.loglevel);
+    hlog_set_level(loglevel);
     // log_remain_days
-    str = g_conf_ctx.parser->GetValue("log_remain_days");
+    str = ini.GetValue("log_remain_days");
     if (!str.empty()) {
         hlog_set_remain_days(atoi(str.c_str()));
     }
@@ -86,7 +90,7 @@ int parse_confile(const char* confile) {
 
     // worker_processes
     int worker_processes = 0;
-    str = g_conf_ctx.parser->GetValue("worker_processes");
+    str = ini.GetValue("worker_processes");
     if (str.size() != 0) {
         if (strcmp(str.c_str(), "auto") == 0) {
             worker_processes = get_ncpu();
@@ -96,7 +100,7 @@ int parse_confile(const char* confile) {
             worker_processes = atoi(str.c_str());
         }
     }
-    g_conf_ctx.worker_processes = LIMIT(0, worker_processes, MAXNUM_WORKER_PROCESSES);
+    g_http_server.worker_processes = LIMIT(0, worker_processes, MAXNUM_WORKER_PROCESSES);
 
     // port
     int port = 0;
@@ -105,39 +109,56 @@ int parse_confile(const char* confile) {
         port = atoi(szPort);
     }
     if (port == 0) {
-        port = atoi(g_conf_ctx.parser->GetValue("port").c_str());
+        port = atoi(ini.GetValue("port").c_str());
     }
     if (port == 0) {
         printf("Please config listen port!\n");
         exit(-10);
     }
-    g_conf_ctx.port = port;
+    g_http_server.port = port;
 
     // http server
     // base_url
-    str = g_conf_ctx.parser->GetValue("base_url");
+    str = ini.GetValue("base_url");
     if (str.size() != 0) {
         g_http_service.base_url = str;
     }
     // document_root
-    str = g_conf_ctx.parser->GetValue("document_root");
+    str = ini.GetValue("document_root");
     if (str.size() != 0) {
         g_http_service.document_root = str;
     }
     // home_page
-    str = g_conf_ctx.parser->GetValue("home_page");
+    str = ini.GetValue("home_page");
     if (str.size() != 0) {
         g_http_service.home_page = str;
     }
     // error_page
-    str = g_conf_ctx.parser->GetValue("error_page");
+    str = ini.GetValue("error_page");
     if (str.size() != 0) {
         g_http_service.error_page = str;
     }
     // index_of
-    str = g_conf_ctx.parser->GetValue("index_of");
+    str = ini.GetValue("index_of");
     if (str.size() != 0) {
         g_http_service.index_of = str;
+    }
+    // ssl
+    str = ini.GetValue("ssl");
+    if (str.size() != 0) {
+        if (strcmp(str.c_str(), "on") == 0) {
+            g_http_server.ssl = 1;
+            std::string crt_file = ini.GetValue("ssl_certificate");
+            std::string key_file = ini.GetValue("ssl_privatekey");
+            std::string ca_file = ini.GetValue("ssl_ca_certificate");
+            if (ssl_ctx_init(crt_file.c_str(), key_file.c_str(), ca_file.c_str()) != 0) {
+                hlogi("SSL certificate verify failed!");
+                exit(0);
+            }
+            else {
+                hlogi("SSL certificate verify ok!");
+            }
+        }
     }
 
     return 0;
@@ -190,8 +211,7 @@ int main(int argc, char** argv) {
         exit(0);
     }
 
-    // g_conf_ctx
-    conf_ctx_init(&g_conf_ctx);
+    // parse_confile
     const char* confile = get_arg("c");
     if (confile) {
         strncpy(g_main_ctx.confile, confile, sizeof(g_main_ctx.confile));
@@ -237,10 +257,7 @@ int main(int argc, char** argv) {
 #undef XXX
 
     // http_server
-    http_server_t srv;
-    srv.port = g_conf_ctx.port;
-    srv.worker_processes = g_conf_ctx.worker_processes;
-    srv.service = &g_http_service;
-    ret = http_server_run(&srv);
+    g_http_server.service = &g_http_service;
+    ret = http_server_run(&g_http_server);
     return ret;
 }

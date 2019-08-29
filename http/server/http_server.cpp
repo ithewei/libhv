@@ -119,19 +119,19 @@ static void on_close(hio_t* io) {
     }
 }
 
-static void on_accept(hio_t* io, int connfd) {
-    //printf("on_accept listenfd=%d connfd=%d\n", io->fd, connfd);
+static void on_accept(hio_t* io) {
+    //printf("on_accept connfd=%d\n", io->fd);
     /*
     char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
     char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
-    printf("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
+    printf("accept connfd=%d [%s] <= [%s]\n", io->fd,
             sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
             sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
     */
 
     HBuf* buf = (HBuf*)io->loop->userdata;
-    hio_t* connio = hrecv(io->loop, connfd, buf->base, buf->len, on_recv);
-    connio->close_cb = on_close;
+    hrecv(io->loop, io->fd, buf->base, buf->len, on_recv);
+    io->close_cb = on_close;
     // new HttpHandler
     // delete on_close
     HttpHandler* handler = new HttpHandler;
@@ -139,8 +139,8 @@ static void on_accept(hio_t* io, int connfd) {
     handler->files = &s_filecache;
     sockaddr_ntop(io->peeraddr, handler->srcip, sizeof(handler->srcip));
     handler->srcport = sockaddr_htons(io->peeraddr);
-    handler->io = connio;
-    connio->userdata = handler;
+    handler->io = io;
+    io->userdata = handler;
 }
 
 static void handle_cached_files(htimer_t* timer) {
@@ -183,6 +183,9 @@ static void worker_proc(void* userdata) {
     loop.userdata = &readbuf;
     hio_t* listenio = haccept(&loop, listenfd, on_accept);
     listenio->userdata = server->service;
+    if (server->ssl) {
+        hio_enable_ssl(listenio);
+    }
     // fflush logfile when idle
     hlog_set_fflush(0);
     hidle_add(&loop, fflush_log, INFINITE);

@@ -8,6 +8,7 @@ typedef struct http_server_s {
     int port;
     HttpService* service;
     int worker_processes;
+    int ssl;
 //private:
     int listenfd;
 
@@ -16,6 +17,7 @@ typedef struct http_server_s {
         port = DEFAULT_HTTP_PORT;
         service = NULL;
         worker_processes = 0;
+        ssl = 0;
         listenfd = -1;
     }
 #endif
