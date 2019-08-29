@@ -95,6 +95,7 @@ public:
             }
             std::this_thread::yield();
         }
+        return 0;
     }
 
     // return a future, calling future.get() will wait task done and return RetType.
