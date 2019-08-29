@@ -261,7 +261,8 @@ int main(int argc, char** argv) {
     FILE* fp = NULL;
     int succeed = 0, failed = 0, bytes = 0;
     int childs = clients;
-    for (int i = 0; i < childs; ++i) {
+    int i;
+    for (i = 0; i < childs; ++i) {
         pid = fork();
         if (pid < 0) {
             perror("fork");

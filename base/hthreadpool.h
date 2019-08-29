@@ -12,11 +12,11 @@
 #include <memory>
 #include <utility>
 
-#include "hlog.h"
+//#include "hlog.h"
 #include "hthread.h"
 
 class HThreadPool {
- public:
+public:
     using Task = std::function<void()>;
 
     HThreadPool(int size = std::thread::hardware_concurrency())
@@ -32,7 +32,7 @@ class HThreadPool {
             status = RUNNING;
             for (int i = 0; i < pool_size; ++i) {
                 workers.emplace_back(std::thread([this]{
-                    hlogd("work thread[%X] running...", gettid());
+                    //hlogd("work thread[%X] running...", gettid());
                     while (status != STOP) {
                         while (status == PAUSE) {
                             std::this_thread::yield();
@@ -40,20 +40,20 @@ class HThreadPool {
 
                         Task task;
                         {
-                            std::unique_lock<std::mutex> locker(mutex);
-                            cond.wait(locker, [this]{
+                            std::unique_lock<std::mutex> locker(_mutex);
+                            _cond.wait(locker, [this]{
                                 return status == STOP || !tasks.empty();
                             });
 
                             if (status == STOP) return;
 
                             if (!tasks.empty()) {
+                                --idle_num;
                                 task = std::move(tasks.front());
                                 tasks.pop();
                             }
                         }
 
-                        --idle_num;
                         task();
                         ++idle_num;
                     }
@@ -66,9 +66,9 @@ class HThreadPool {
     int stop() {
         if (status != STOP) {
             status = STOP;
-            cond.notify_all();
-            for (auto& thread : workers) {
-                thread.join();
+            _cond.notify_all();
+            for (auto& worker : workers) {
+                worker.join();
             }
         }
         return 0;
@@ -88,6 +88,15 @@ class HThreadPool {
         return 0;
     }
 
+    int wait() {
+        while (1) {
+            if (status == STOP || (tasks.empty() && idle_num == pool_size)) {
+                break;
+            }
+            std::this_thread::yield();
+        }
+    }
+
     // return a future, calling future.get() will wait task done and return RetType.
     // commit(fn, args...)
     // commit(std::bind(&Class::mem_fn, &obj))
@@ -99,31 +108,31 @@ class HThreadPool {
             std::bind(std::forward<Fn>(fn), std::forward<Args>(args)...));
         std::future<RetType> future = task->get_future();
         {
-            std::lock_guard<std::mutex> locker(mutex);
+            std::lock_guard<std::mutex> locker(_mutex);
             tasks.emplace([task]{
                 (*task)();
             });
         }
 
-        cond.notify_one();
+        _cond.notify_one();
         return future;
     }
 
- public:
-    int pool_size;
-    std::atomic<int> idle_num;
-
+public:
     enum Status {
         STOP,
         RUNNING,
         PAUSE,
     };
+    int                 pool_size;
     std::atomic<Status> status;
-    std::vector<std::thread> workers;
+    std::atomic<int>    idle_num;
+    std::vector<std::thread>    workers;
+    std::queue<Task>            tasks;
 
-    std::queue<Task> tasks;
-    std::mutex        mutex;
-    std::condition_variable cond;
+protected:
+    std::mutex              _mutex;
+    std::condition_variable _cond;
 };
 
 #endif  // HW_THREAD_POOL_H_

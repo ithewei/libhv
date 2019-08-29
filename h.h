@@ -12,6 +12,7 @@
 #include "hversion.h"
 
 // c
+#include "hbase.h"
 #include "hsysinfo.h"
 #include "hproc.h"
 #include "hmath.h"
@@ -29,6 +30,7 @@
 #include "hgui.h"
 #include "hbuf.h"
 #include "hfile.h"
+#include "hdir.h"
 #include "hscope.h"
 #include "hthread.h"
 #include "hthreadpool.h"
