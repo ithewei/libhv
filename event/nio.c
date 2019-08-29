@@ -62,6 +62,8 @@ accept:
     addrlen = sizeof(struct sockaddr_in6);
     getsockname(connfd, io->localaddr, &addrlen);
     connio = hio_get(io->loop, connfd);
+    // NOTE: inherit from listenio
+    connio->userdata = io->userdata;
 
 #ifdef WITH_OPENSSL
     if (io->io_type == HIO_TYPE_SSL) {
@@ -73,7 +75,6 @@ accept:
         SSL_set_fd(ssl, connfd);
         connio->ssl = ssl;
         connio->accept_cb = io->accept_cb;
-        connio->userdata = io->userdata;
         hio_enable_ssl(connio);
         //int ret = SSL_accept(ssl);
         SSL_set_accept_state(ssl);
