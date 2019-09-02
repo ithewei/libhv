@@ -119,6 +119,7 @@ static int hloop_process_events(hloop_t* loop) {
     int nios, ntimers, nidles;
     nios = ntimers = nidles = 0;
 
+    // calc blocktime
     int32_t blocktime = MAX_BLOCK_TIME;
     hloop_update_time(loop);
     if (loop->timers.root) {
@@ -167,7 +168,7 @@ int hloop_init(hloop_t* loop) {
     //io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
     // iowatcher: init when iowatcher_add_event
     //iowatcher_init(loop);
-    // time
+    // NOTE: init start_time here, because htimer_add use it.
     time(&loop->start_time);
     loop->start_hrtime = loop->cur_hrtime = gethrtime();
     return 0;

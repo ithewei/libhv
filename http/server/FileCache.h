@@ -98,16 +98,20 @@ public:
             if (fc == NULL) {
                 struct stat st;
                 fstat(fd, &st);
-                if (!S_ISREG(st.st_mode) && !S_ISDIR(st.st_mode)) {
+                if (S_ISREG(st.st_mode) ||
+                    (S_ISDIR(st.st_mode) &&
+                     filepath[strlen(filepath)-1] == '/')) {
+                    fc = new file_cache_t;
+                    //fc->filepath = filepath;
+                    fc->st = st;
+                    time(&fc->open_time);
+                    fc->stat_time = fc->open_time;
+                    fc->stat_cnt = 1;
+                    cached_files[filepath] = fc;
+                }
+                else {
                     return NULL;
                 }
-                fc = new file_cache_t;
-                //fc->filepath = filepath;
-                fc->st = st;
-                time(&fc->open_time);
-                fc->stat_time = fc->open_time;
-                fc->stat_cnt = 1;
-                cached_files[filepath] = fc;
             }
             if (S_ISREG(fc->st.st_mode)) {
                 // FILE

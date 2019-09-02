@@ -188,6 +188,7 @@ struct hloop_s {
 // loop
 int hloop_init(hloop_t* loop);
 //void hloop_cleanup(hloop_t* loop);
+// NOTE: when no active events, loop will quit.
 int hloop_run(hloop_t* loop);
 int hloop_stop(hloop_t* loop);
 int hloop_pause(hloop_t* loop);
