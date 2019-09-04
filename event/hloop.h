@@ -4,7 +4,10 @@
 #include "hdef.h"
 
 BEGIN_EXTERN_C
-typedef struct hloop_s  hloop_t; typedef struct hevent_s hevent_t; 
+
+typedef struct hloop_s  hloop_t;
+typedef struct hevent_s hevent_t;
+
 typedef struct hidle_s      hidle_t;
 typedef struct htimer_s     htimer_t;
 typedef struct htimeout_s   htimeout_t;
