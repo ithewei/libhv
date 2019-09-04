@@ -1,11 +1,12 @@
 #include "hloop.h"
 #include "hevent.h"
-#include "hio.h"
 #include "iowatcher.h"
 
 #include "hdef.h"
+#include "hbase.h"
 #include "hlog.h"
 #include "hmath.h"
+#include "htime.h"
 #include "hsocket.h"
 
 #define PAUSE_TIME              10          // ms
@@ -157,8 +158,7 @@ process_timers:
     return ncbs;
 }
 
-int hloop_init(hloop_t* loop) {
-    memset(loop, 0, sizeof(hloop_t));
+static void hloop_init(hloop_t* loop) {
     loop->status = HLOOP_STATUS_STOP;
     // idles
     list_init(&loop->idles);
@@ -171,10 +171,9 @@ int hloop_init(hloop_t* loop) {
     // NOTE: init start_time here, because htimer_add use it.
     time(&loop->start_time);
     loop->start_hrtime = loop->cur_hrtime = gethrtime();
-    return 0;
 }
 
-void hloop_cleanup(hloop_t* loop) {
+static void hloop_cleanup(hloop_t* loop) {
     // pendings
     printd("cleanup pendings...\n");
     for (int i = 0; i < HEVENT_PRIORITY_SIZE; ++i) {
@@ -205,7 +204,7 @@ void hloop_cleanup(hloop_t* loop) {
         hio_t* io = loop->ios.ptr[i];
         if (io) {
             if ((!(io->io_type&HIO_TYPE_STDIO)) && io->active) {
-                hclose(io);
+                hio_close(io);
             }
             hio_free(io);
         }
@@ -215,8 +214,24 @@ void hloop_cleanup(hloop_t* loop) {
     iowatcher_cleanup(loop);
 }
 
+hloop_t* hloop_new(int flags) {
+    hloop_t* loop;
+    SAFE_ALLOC_SIZEOF(loop);
+    memset(loop, 0, sizeof(hloop_t));
+    hloop_init(loop);
+    loop->flags |= flags;
+    return loop;
+}
+
+void hloop_free(hloop_t** pp) {
+    if (pp && *pp) {
+        hloop_cleanup(*pp);
+        SAFE_FREE(*pp);
+        *pp = NULL;
+    }
+}
+
 int hloop_run(hloop_t* loop) {
-    loop->loop_cnt = 0;
     loop->status = HLOOP_STATUS_RUNNING;
     while (loop->status != HLOOP_STATUS_STOP) {
         if (loop->status == HLOOP_STATUS_PAUSE) {
@@ -227,10 +242,16 @@ int hloop_run(hloop_t* loop) {
         ++loop->loop_cnt;
         if (loop->nactives == 0) break;
         hloop_process_events(loop);
+        if (loop->flags & HLOOP_FLAG_RUN_ONCE) {
+            break;
+        }
     }
     loop->status = HLOOP_STATUS_STOP;
     loop->end_hrtime = gethrtime();
-    hloop_cleanup(loop);
+    if (loop->flags & HLOOP_FLAG_AUTO_FREE) {
+        hloop_cleanup(loop);
+        SAFE_FREE(loop);
+    }
     return 0;
 }
 
@@ -251,6 +272,26 @@ int hloop_resume(hloop_t* loop) {
         loop->status = HLOOP_STATUS_RUNNING;
     }
     return 0;
+}
+
+void hloop_update_time(hloop_t* loop) {
+    loop->cur_hrtime = gethrtime();
+}
+
+time_t hloop_now(hloop_t* loop) {
+    return loop->start_time + (loop->cur_hrtime - loop->start_hrtime) / 1000000;
+}
+
+uint64_t hloop_now_hrtime(hloop_t* loop) {
+    return loop->start_time*1e6 + (loop->cur_hrtime - loop->start_hrtime);
+}
+
+void  hloop_set_userdata(hloop_t* loop, void* userdata) {
+    loop->userdata = userdata;
+}
+
+void* hloop_userdata(hloop_t* loop) {
+    return loop->userdata;
 }
 
 hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat) {
@@ -508,20 +549,6 @@ int hio_del(hio_t* io, int events) {
     return 0;
 }
 
-void hio_setlocaladdr(hio_t* io, struct sockaddr* addr, int addrlen) {
-    if (io->localaddr == NULL) {
-        SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
-    }
-    memcpy(io->localaddr, addr, addrlen);
-}
-
-void hio_setpeeraddr (hio_t* io, struct sockaddr* addr, int addrlen) {
-    if (io->peeraddr == NULL) {
-        SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
-    }
-    memcpy(io->peeraddr, addr, addrlen);
-}
-
 hio_t* hread(hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
     hio_t* io = hio_get(loop, fd);
     if (io == NULL) return NULL;
@@ -544,19 +571,6 @@ hio_t* hwrite(hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb writ
     return io;
 }
 
-void hclose(hio_t* io) {
-    printd("close fd=%d\n", io->fd);
-    if (io->closed) return;
-    io->closed = 1;
-    hio_del(io, ALL_EVENTS);
-    hio_close(io);
-    if (io->close_cb) {
-        printd("close_cb------\n");
-        io->close_cb(io);
-        printd("close_cb======\n");
-    }
-}
-
 hio_t* haccept(hloop_t* loop, int listenfd, haccept_cb accept_cb) {
     hio_t* io = hio_get(loop, listenfd);
     if (io == NULL) return NULL;
@@ -577,6 +591,42 @@ hio_t* hconnect (hloop_t* loop, int connfd, hconnect_cb connect_cb) {
     }
     hio_connect(io);
     return io;
+}
+
+hio_t* hrecv (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb) {
+    //hio_t* io = hio_get(loop, connfd);
+    //if (io == NULL) return NULL;
+    //io->recv = 1;
+    //if (io->io_type != HIO_TYPE_SSL) {
+        //io->io_type = HIO_TYPE_TCP;
+    //}
+    return hread(loop, connfd, buf, len, read_cb);
+}
+
+hio_t* hsend (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb write_cb) {
+    //hio_t* io = hio_get(loop, connfd);
+    //if (io == NULL) return NULL;
+    //io->send = 1;
+    //if (io->io_type != HIO_TYPE_SSL) {
+        //io->io_type = HIO_TYPE_TCP;
+    //}
+    return hwrite(loop, connfd, buf, len, write_cb);
+}
+
+hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb read_cb) {
+    //hio_t* io = hio_get(loop, sockfd);
+    //if (io == NULL) return NULL;
+    //io->recvfrom = 1;
+    //io->io_type = HIO_TYPE_UDP;
+    return hread(loop, sockfd, buf, len, read_cb);
+}
+
+hio_t* hsendto (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb) {
+    //hio_t* io = hio_get(loop, sockfd);
+    //if (io == NULL) return NULL;
+    //io->sendto = 1;
+    //io->io_type = HIO_TYPE_UDP;
+    return hwrite(loop, sockfd, buf, len, write_cb);
 }
 
 hio_t* create_tcp_server (hloop_t* loop, int port, haccept_cb accept_cb) {
@@ -606,46 +656,11 @@ hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb
     }
     hio_t* io = hio_get(loop, connfd);
     if (io == NULL) return NULL;
-    hio_setpeeraddr(io, (struct sockaddr*)&addr, addrlen);
+    hio_set_peeraddr(io, (struct sockaddr*)&addr, addrlen);
     hconnect(loop, connfd, connect_cb);
     return io;
 }
 
-hio_t* hrecv (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb) {
-    hio_t* io = hio_get(loop, connfd);
-    if (io == NULL) return NULL;
-    io->recv = 1;
-    if (io->io_type != HIO_TYPE_SSL) {
-        io->io_type = HIO_TYPE_TCP;
-    }
-    return hread(loop, connfd, buf, len, read_cb);
-}
-
-hio_t* hsend (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb write_cb) {
-    hio_t* io = hio_get(loop, connfd);
-    if (io == NULL) return NULL;
-    io->send = 1;
-    if (io->io_type != HIO_TYPE_SSL) {
-        io->io_type = HIO_TYPE_TCP;
-    }
-    return hwrite(loop, connfd, buf, len, write_cb);
-}
-
-hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb read_cb) {
-    hio_t* io = hio_get(loop, sockfd);
-    if (io == NULL) return NULL;
-    io->recvfrom = 1;
-    io->io_type = HIO_TYPE_UDP;
-    return hread(loop, sockfd, buf, len, read_cb);
-}
-
-hio_t* hsendto (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb) {
-    hio_t* io = hio_get(loop, sockfd);
-    if (io == NULL) return NULL;
-    io->sendto = 1;
-    io->io_type = HIO_TYPE_UDP;
-    return hwrite(loop, sockfd, buf, len, write_cb);
-}
 
 // @server: socket -> bind -> hrecvfrom
 hio_t* create_udp_server(hloop_t* loop, int port) {
@@ -656,7 +671,7 @@ hio_t* create_udp_server(hloop_t* loop, int port) {
     return hio_get(loop, bindfd);
 }
 
-// @client: Resolver -> socket -> hio_get -> hio_setpeeraddr
+// @client: Resolver -> socket -> hio_get -> hio_set_peeraddr
 hio_t* create_udp_client(hloop_t* loop, const char* host, int port) {
     // IPv4
     struct sockaddr_in peeraddr;
@@ -675,12 +690,7 @@ hio_t* create_udp_client(hloop_t* loop, const char* host, int port) {
 
     hio_t* io = hio_get(loop, sockfd);
     if (io == NULL) return NULL;
-    hio_setpeeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
+    hio_set_peeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
     return io;
 }
 
-int hio_enable_ssl(hio_t* io) {
-    printd("ssl fd=%d\n", io->fd);
-    io->io_type = HIO_TYPE_SSL;
-    return 0;
-}

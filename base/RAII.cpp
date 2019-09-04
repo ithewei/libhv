@@ -45,7 +45,9 @@ static CurlRAII s_curl;
 class OpensslRAII {
 public:
     OpensslRAII() {
-        OPENSSL_init_ssl(OPENSSL_INIT_SSL_DEFAULT, NULL);
+        //OPENSSL_init_ssl(OPENSSL_INIT_SSL_DEFAULT, NULL);
+        SSL_load_error_strings();
+        SSL_library_init();
     }
 
     ~OpensslRAII() {

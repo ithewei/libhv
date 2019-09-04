@@ -10,8 +10,8 @@
 #define HTTP_KEEPALIVE_TIMEOUT  75 // s
 
 static inline void on_keepalive_timeout(htimer_t* timer) {
-    hio_t* io = (hio_t*)timer->userdata;
-    hclose(io);
+    hio_t* io = (hio_t*)hevent_userdata(timer);
+    hio_close(io);
 }
 
 class HttpHandler {
@@ -55,8 +55,8 @@ public:
 
     void keepalive() {
         if (keepalive_timer == NULL) {
-            keepalive_timer = htimer_add(io->loop, on_keepalive_timeout, HTTP_KEEPALIVE_TIMEOUT*1000, 1);
-            keepalive_timer->userdata = io;
+            keepalive_timer = htimer_add(hevent_loop(io), on_keepalive_timeout, HTTP_KEEPALIVE_TIMEOUT*1000, 1);
+            hevent_set_userdata(keepalive_timer, io);
         }
         else {
             htimer_reset(keepalive_timer);

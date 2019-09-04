@@ -4,20 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef _MSC_VER
-    #define strcasecmp stricmp
-    #define strncasecmp strnicmp
-#else
-    #include <strings.h>
-    #define stricmp     strcasecmp
-    #define strnicmp    strncasecmp
-#endif
 
-#ifdef PRINT_DEBUG
-#define printd printf
-#else
-#define printd(...)
-#endif
+#include "hdef.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,6 +20,7 @@ void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize);
 void* safe_calloc(size_t nmemb, size_t size);
 void* safe_zalloc(size_t size);
 
+#undef  SAFE_ALLOC
 #define SAFE_ALLOC(ptr, size)\
     do {\
         void** pptr = (void**)&(ptr);\
@@ -41,6 +30,7 @@ void* safe_zalloc(size_t size);
 
 #define SAFE_ALLOC_SIZEOF(ptr)  SAFE_ALLOC(ptr, sizeof(*(ptr)))
 
+#undef  SAFE_FREE
 #define SAFE_FREE(ptr)\
     do {\
         if (ptr) {\

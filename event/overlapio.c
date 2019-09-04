@@ -3,6 +3,7 @@
 
 #ifdef EVENT_IOCP
 #include "overlapio.h"
+#include "hevent.h"
 
 #define ACCEPTEX_NUM    10
 
@@ -130,7 +131,7 @@ static void on_connectex_complete(hio_t* io) {
     io->error = hovlp->error;
     SAFE_FREE(io->hovlp);
     if (io->error != 0) {
-        hclose(io);
+        hio_close(io);
         return;
     }
     if (io->connect_cb) {
@@ -155,7 +156,7 @@ static void on_wsarecv_complete(hio_t* io) {
     hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
     if (hovlp->bytes == 0) {
         io->error = WSAGetLastError();
-        hclose(io);
+        hio_close(io);
         return;
     }
 
@@ -189,7 +190,7 @@ static void on_wsasend_complete(hio_t* io) {
     hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
     if (hovlp->bytes == 0) {
         io->error = WSAGetLastError();
-        hclose(io);
+        hio_close(io);
         goto end;
     }
     if (io->write_cb) {
@@ -282,7 +283,7 @@ int hio_connect (hio_t* io) {
     }
     return hio_add(io, hio_handle_events, WRITE_EVENT);
 error:
-    hclose(io);
+    hio_close(io);
     return 0;
 };
 
@@ -366,12 +367,15 @@ WSASend:
     }
 write_error:
 disconnect:
-    hclose(io);
+    hio_close(io);
     return 0;
 }
 
-void hio_close (hio_t* io) {
-    //printd("close fd=%d\n", io->fd);
+int hio_close (hio_t* io) {
+    printd("close fd=%d\n", io->fd);
+    if (io->closed) return 0;
+    io->closed = 1;
+    hio_del(io, ALL_EVENTS);
 #ifdef USE_DISCONNECTEX
     // DisconnectEx reuse socket
     if (io->connectex) {
@@ -399,6 +403,12 @@ void hio_close (hio_t* io) {
         SAFE_FREE(hovlp->addr);
         SAFE_FREE(io->hovlp);
     }
+    if (io->close_cb) {
+        printd("close_cb------\n");
+        io->close_cb(io);
+        printd("close_cb======\n");
+    }
+    return 0;
 }
 
 #endif

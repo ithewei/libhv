@@ -2,7 +2,6 @@
 #define HW_DEF_H_
 
 #include "hplatform.h"
-#include "hbase.h"
 
 typedef float               float32;
 typedef double              float64;
@@ -23,14 +22,26 @@ typedef union {
     void*       ptr;
 } var;
 
-#ifdef _MSC_VER
-typedef int pid_t;
-typedef int gid_t;
-typedef int uid_t;
-#endif
-
 typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
+
+#ifdef _MSC_VER
+    typedef int pid_t;
+    typedef int gid_t;
+    typedef int uid_t;
+    #define strcasecmp stricmp
+    #define strncasecmp strnicmp
+#else
+    #include <strings.h>
+    #define stricmp     strcasecmp
+    #define strnicmp    strncasecmp
+#endif
+
+#ifdef PRINT_DEBUG
+#define printd printf
+#else
+#define printd(...)
+#endif
 
 #ifndef MAX_PATH
 #define MAX_PATH          260

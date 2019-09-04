@@ -18,47 +18,41 @@ hio_t*      sockio = NULL;
 int verbose = 0;
 
 void on_recv(hio_t* io, void* buf, int readbytes) {
-    //printf("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
+    //printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     if (verbose) {
         char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
         char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
         printf("[%s] <=> [%s]\n",
-                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+                sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
+                sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
     }
     printf("%s", (char*)buf);
     fflush(stdout);
 }
 
 void on_stdin(hio_t* io, void* buf, int readbytes) {
-    //printf("on_stdin fd=%d readbytes=%d\n", io->fd, readbytes);
+    //printf("on_stdin fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     //printf("> %s\n", buf);
 
-    if (protocol == 1) {
-        hsend(sockio->loop, sockio->fd, buf, readbytes, NULL);
-    }
-    else if (protocol == 2) {
-        hsendto(sockio->loop, sockio->fd, buf, readbytes, NULL);
-        hrecvfrom(sockio->loop, sockio->fd, recvbuf, RECV_BUFSIZE, on_recv);
-    }
+    hio_write(sockio, buf, readbytes);
 }
 
 void on_close(hio_t* io) {
-    //printf("on_close fd=%d error=%d\n", io->fd, io->error);
+    //printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
     hio_del(stdinio, READ_EVENT);
 }
 
 void on_connect(hio_t* io) {
-    //printf("on_connect fd=%d\n", io->fd, state);
+    //printf("on_connect fd=%d\n", hio_fd(io));
     if (verbose) {
         char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
         char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
-        printf("connect connfd=%d [%s] => [%s]\n", io->fd,
-                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+        printf("connect connfd=%d [%s] => [%s]\n", hio_fd(io),
+                sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
+                sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
     }
 
-    hrecv(io->loop, io->fd, recvbuf, RECV_BUFSIZE, on_recv);
+    hio_read(io);
 }
 
 int main(int argc, char** argv) {
@@ -94,11 +88,10 @@ Examples: nc 127.0.0.1 80\n\
 
     MEMCHECK;
 
-    hloop_t loop;
-    hloop_init(&loop);
+    hloop_t* loop = hloop_new(0);
 
     // stdin
-    stdinio = hread(&loop, 0, recvbuf, RECV_BUFSIZE, on_stdin);
+    stdinio = hread(loop, 0, recvbuf, RECV_BUFSIZE, on_stdin);
     if (stdinio == NULL) {
         return -20;
     }
@@ -106,19 +99,23 @@ Examples: nc 127.0.0.1 80\n\
     // socket
     if (protocol == 1) {
         // tcp
-        sockio = create_tcp_client(&loop, host, port, on_connect);
+        sockio = create_tcp_client(loop, host, port, on_connect);
     }
     else if (protocol == 2) {
         // udp
-        sockio = create_udp_client(&loop, host, port);
+        sockio = create_udp_client(loop, host, port);
+        hio_read(sockio);
     }
     if (sockio == NULL) {
         return -20;
     }
-    //printf("sockfd=%d\n", sockio->fd);
-    sockio->close_cb = on_close;
+    //printf("sockfd=%d\n", hio_fd(sockio));
+    hio_setcb_close(sockio, on_close);
+    hio_setcb_read(sockio, on_recv);
+    hio_set_readbuf(sockio, recvbuf, RECV_BUFSIZE);
 
-    hloop_run(&loop);
+    hloop_run(loop);
+    hloop_free(&loop);
 
     return 0;
 }

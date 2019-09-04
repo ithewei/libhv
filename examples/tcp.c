@@ -5,32 +5,34 @@
 static char recvbuf[RECV_BUFSIZE];
 
 void on_close(hio_t* io) {
-    printf("on_close fd=%d error=%d\n", io->fd, io->error);
+    printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
 }
 
 void on_recv(hio_t* io, void* buf, int readbytes) {
-    printf("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
+    printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
     char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
     printf("[%s] <=> [%s]\n",
-            sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-            sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+            sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
+            sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
     printf("< %s\n", buf);
     // echo
     printf("> %s\n", buf);
-    hsend(io->loop, io->fd, buf, readbytes, NULL);
+    hio_write(io, buf, readbytes);
 }
 
 void on_accept(hio_t* io) {
-    printf("on_accept connfd=%d\n", io->fd);
+    printf("on_accept connfd=%d\n", hio_fd(io));
     char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
     char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
-    printf("accept connfd=%d [%s] <= [%s]\n", io->fd,
-            sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-            sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+    printf("accept connfd=%d [%s] <= [%s]\n", hio_fd(io),
+            sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
+            sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
 
-    hrecv(io->loop, io->fd, recvbuf, RECV_BUFSIZE, on_recv);
-    io->close_cb = on_close;
+    hio_setcb_close(io, on_close);
+    hio_setcb_read(io, on_recv);
+    hio_set_readbuf(io, recvbuf, RECV_BUFSIZE);
+    hio_read(io);
 }
 
 int main(int argc, char** argv) {
@@ -40,13 +42,13 @@ int main(int argc, char** argv) {
     }
     int port = atoi(argv[1]);
 
-    hloop_t loop;
-    hloop_init(&loop);
-    hio_t* listenio = create_tcp_server(&loop, port, on_accept);
+    hloop_t* loop = hloop_new(0);
+    hio_t* listenio = create_tcp_server(loop, port, on_accept);
     if (listenio == NULL) {
         return -20;
     }
-    printf("listenfd=%d\n", listenio->fd);
-    hloop_run(&loop);
+    printf("listenfd=%d\n", hio_fd(listenio));
+    hloop_run(loop);
+    hloop_free(&loop);
     return 0;
 }

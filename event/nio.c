@@ -1,6 +1,6 @@
 #include "iowatcher.h"
 #ifndef EVENT_IOCP
-#include "hio.h"
+#include "hevent.h"
 #include "hsocket.h"
 #include "hlog.h"
 
@@ -35,7 +35,7 @@ static void ssl_do_handshark(hio_t* io) {
         }
         else {
             hloge("ssl handshake failed: %d", errcode);
-            hclose(io);
+            hio_close(io);
         }
     }
 }
@@ -98,7 +98,7 @@ accept:
     goto accept;
 
 accept_error:
-    hclose(io);
+    hio_close(io);
 }
 
 static void nio_connect(hio_t* io) {
@@ -144,7 +144,7 @@ static void nio_connect(hio_t* io) {
     }
 
 connect_failed:
-    hclose(io);
+    hio_close(io);
 }
 
 static void nio_read(hio_t* io) {
@@ -205,7 +205,7 @@ read:
     return;
 read_error:
 disconnect:
-    hclose(io);
+    hio_close(io);
 }
 
 static void nio_write(hio_t* io) {
@@ -269,7 +269,7 @@ write:
     return;
 write_error:
 disconnect:
-    hclose(io);
+    hio_close(io);
 }
 
 static void hio_handle_events(hio_t* io) {
@@ -316,7 +316,7 @@ int hio_connect(hio_t* io) {
     if (ret < 0 && socket_errno() != EINPROGRESS) {
 #endif
         perror("connect");
-        hclose(io);
+        hio_close(io);
         return ret;
     }
     if (ret == 0) {
@@ -401,11 +401,15 @@ enqueue:
     return nwrite;
 write_error:
 disconnect:
-    hclose(io);
+    hio_close(io);
     return nwrite;
 }
 
 int hio_close (hio_t* io) {
+    printd("close fd=%d\n", io->fd);
+    if (io->closed) return 0;
+    io->closed = 1;
+    hio_del(io, ALL_EVENTS);
 #ifdef OS_UNIX
     close(io->fd);
 #else
@@ -416,6 +420,11 @@ int hio_close (hio_t* io) {
         SSL_free((SSL*)io->ssl);
     }
 #endif
+    if (io->close_cb) {
+        printd("close_cb------\n");
+        io->close_cb(io);
+        printd("close_cb======\n");
+    }
     return 0;
 }
 #endif

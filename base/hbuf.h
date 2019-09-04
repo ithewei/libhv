@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "hdef.h"
+#include "hbase.h"
 
 typedef struct hbuf_s {
     char*  base;

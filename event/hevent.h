@@ -1,9 +1,113 @@
 #ifndef HW_EVENT_H_
 #define HW_EVENT_H_
 
-#include "hloop.h"
+#include "array.h"
+#include "list.h"
+#include "heap.h"
+#include "queue.h"
 
-#include "hdef.h"
+#include "hloop.h"
+#include "hbuf.h"
+
+typedef enum {
+    HLOOP_STATUS_STOP,
+    HLOOP_STATUS_RUNNING,
+    HLOOP_STATUS_PAUSE
+} hloop_status_e;
+
+ARRAY_DECL(hio_t*, io_array);
+
+struct hloop_s {
+    uint32_t    flags;
+    hloop_status_e status;
+    time_t      start_time; // s
+    uint64_t    start_hrtime; // us
+    uint64_t    end_hrtime;
+    uint64_t    cur_hrtime;
+    uint64_t    loop_cnt;
+    void*       userdata;
+//private:
+    // events
+    uint64_t                    event_counter;
+    uint32_t                    nactives;
+    uint32_t                    npendings;
+    // pendings: with priority as array.index
+    hevent_t*                   pendings[HEVENT_PRIORITY_SIZE];
+    // idles
+    struct list_head            idles;
+    uint32_t                    nidles;
+    // timers
+    struct heap                 timers;
+    uint32_t                    ntimers;
+    // ios: with fd as array.index
+    struct io_array             ios;
+    uint32_t                    nios;
+    void*                       iowatcher;
+};
+
+struct hidle_s {
+    HEVENT_FIELDS
+    uint32_t    repeat;
+//private:
+    struct list_node node;
+};
+
+#define HTIMER_FIELDS                   \
+    HEVENT_FIELDS                       \
+    uint32_t    repeat;                 \
+    uint64_t    next_timeout;           \
+    struct heap_node node;
+
+struct htimer_s {
+    HTIMER_FIELDS
+};
+
+struct htimeout_s {
+    HTIMER_FIELDS
+    uint32_t    timeout;                \
+};
+
+struct hperiod_s {
+    HTIMER_FIELDS
+    int8_t      minute;
+    int8_t      hour;
+    int8_t      day;
+    int8_t      week;
+    int8_t      month;
+};
+
+QUEUE_DECL(offset_buf_t, write_queue);
+struct hio_s {
+    HEVENT_FIELDS
+    unsigned    ready       :1;
+    unsigned    closed      :1;
+    unsigned    accept      :1;
+    unsigned    connect     :1;
+    unsigned    connectex   :1; // for ConnectEx/DisconnectEx
+    unsigned    recv        :1;
+    unsigned    send        :1;
+    unsigned    recvfrom    :1;
+    unsigned    sendto      :1;
+    int         fd;
+    hio_type_e  io_type;
+    int         error;
+    int         events;
+    int         revents;
+    struct sockaddr*    localaddr;
+    struct sockaddr*    peeraddr;
+    hbuf_t              readbuf;        // for hread
+    struct write_queue  write_queue;    // for hwrite
+    // callbacks
+    hread_cb    read_cb;
+    hwrite_cb   write_cb;
+    hclose_cb   close_cb;
+    haccept_cb  accept_cb;
+    hconnect_cb connect_cb;
+//private:
+    int         event_index[2]; // for poll,kqueue
+    void*       hovlp;          // for iocp/overlapio
+    void*       ssl;            // for SSL
+};
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)

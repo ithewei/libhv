@@ -4,17 +4,7 @@
 #include "hdef.h"
 
 BEGIN_EXTERN_C
-
-#include "htime.h"
-#include "array.h"
-#include "list.h"
-#include "heap.h"
-#include "queue.h"
-#include "hbuf.h"
-
-typedef struct hloop_s  hloop_t;
-typedef struct hevent_s hevent_t;
-
+typedef struct hloop_s  hloop_t; typedef struct hevent_s hevent_t; 
 typedef struct hidle_s      hidle_t;
 typedef struct htimer_s     htimer_t;
 typedef struct htimeout_s   htimeout_t;
@@ -68,38 +58,14 @@ struct hevent_s {
     HEVENT_FIELDS
 };
 
-struct hidle_s {
-    HEVENT_FIELDS
-    uint32_t    repeat;
-//private:
-    struct list_node node;
-};
+#define hevent_set_priority(ev, prio)   ((hevent_t*)(ev))->priority = prio
+#define hevent_set_userdata(ev, udata)  ((hevent_t*)(ev))->userdata = (void*)udata
 
-#define HTIMER_FIELDS                   \
-    HEVENT_FIELDS                       \
-    uint32_t    repeat;                 \
-    uint64_t    next_timeout;           \
-    struct heap_node node;
-
-struct htimer_s {
-    HTIMER_FIELDS
-};
-
-struct htimeout_s {
-    HTIMER_FIELDS
-    uint32_t    timeout;                \
-};
-
-struct hperiod_s {
-    HTIMER_FIELDS
-    int8_t      minute;
-    int8_t      hour;
-    int8_t      day;
-    int8_t      week;
-    int8_t      month;
-};
-
-QUEUE_DECL(offset_buf_t, write_queue);
+#define hevent_loop(ev)         (((hevent_t*)(ev))->loop)
+#define hevent_type(ev)         (((hevent_t*)(ev))->event_type)
+#define hevent_id(ev)           (((hevent_t*)(ev))->event_id)
+#define hevent_priority(ev)     (((hevent_t*)(ev))->priority)
+#define hevent_userdata(ev)     (((hevent_t*)(ev))->userdata)
 
 typedef enum {
     HIO_TYPE_UNKNOWN = 0,
@@ -117,94 +83,24 @@ typedef enum {
     HIO_TYPE_SOCKET  = 0x00FFFF00,
 } hio_type_e;
 
-struct hio_s {
-    HEVENT_FIELDS
-    unsigned    ready       :1;
-    unsigned    closed      :1;
-    unsigned    accept      :1;
-    unsigned    connect     :1;
-    unsigned    connectex   :1; // for ConnectEx/DisconnectEx
-    unsigned    recv        :1;
-    unsigned    send        :1;
-    unsigned    recvfrom    :1;
-    unsigned    sendto      :1;
-    int         fd;
-    hio_type_e  io_type;
-    int         error;
-    int         events;
-    int         revents;
-    struct sockaddr*    localaddr;
-    struct sockaddr*    peeraddr;
-    hbuf_t              readbuf;        // for hread
-    struct write_queue  write_queue;    // for hwrite
-    // callbacks
-    hread_cb    read_cb;
-    hwrite_cb   write_cb;
-    hclose_cb   close_cb;
-    haccept_cb  accept_cb;
-    hconnect_cb connect_cb;
-//private:
-    int         event_index[2]; // for poll,kqueue
-    void*       hovlp;          // for iocp/overlapio
-    void*       ssl;            // for SSL
-};
-
-typedef enum {
-    HLOOP_STATUS_STOP,
-    HLOOP_STATUS_RUNNING,
-    HLOOP_STATUS_PAUSE
-} hloop_status_e;
-
-ARRAY_DECL(hio_t*, io_array);
-
-struct hloop_s {
-    hloop_status_e status;
-    time_t      start_time;
-    // hrtime: us
-    uint64_t    start_hrtime;
-    uint64_t    end_hrtime;
-    uint64_t    cur_hrtime;
-    uint64_t    loop_cnt;
-    void*       userdata;
-//private:
-    // events
-    uint64_t                    event_counter;
-    uint32_t                    nactives;
-    uint32_t                    npendings;
-    // pendings: with priority as array.index
-    hevent_t*                   pendings[HEVENT_PRIORITY_SIZE];
-    // idles
-    struct list_head            idles;
-    uint32_t                    nidles;
-    // timers
-    struct heap                 timers;
-    uint32_t                    ntimers;
-    // ios: with fd as array.index
-    struct io_array             ios;
-    uint32_t                    nios;
-    void*                       iowatcher;
-};
-
 // loop
-int hloop_init(hloop_t* loop);
-//void hloop_cleanup(hloop_t* loop);
+#define HLOOP_FLAG_RUN_ONCE    0x00000001
+#define HLOOP_FLAG_AUTO_FREE   0x00000002
+hloop_t* hloop_new(int flags DEFAULT(HLOOP_FLAG_AUTO_FREE));
+// WARN: Not allow to call hloop_free when HLOOP_INIT_FLAG_AUTO_FREE set.
+void hloop_free(hloop_t** pp);
 // NOTE: when no active events, loop will quit.
 int hloop_run(hloop_t* loop);
 int hloop_stop(hloop_t* loop);
 int hloop_pause(hloop_t* loop);
 int hloop_resume(hloop_t* loop);
 
-static inline void hloop_update_time(hloop_t* loop) {
-    loop->cur_hrtime = gethrtime();
-}
+void     hloop_update_time(hloop_t* loop);
+time_t   hloop_now(hloop_t* loop); // s
+uint64_t hloop_now_hrtime(hloop_t* loop); // us
 
-static inline time_t hloop_now(hloop_t* loop) {
-    return loop->start_time + (loop->cur_hrtime - loop->start_hrtime) / 1000000;
-}
-
-static inline uint64_t hloop_now_hrtime(hloop_t* loop) {
-    return loop->start_time*1e6 + (loop->cur_hrtime - loop->start_hrtime);
-}
+void  hloop_set_userdata(hloop_t* loop, void* userdata);
+void* hloop_userdata(hloop_t* loop);
 
 // idle
 hidle_t*    hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT(INFINITE));
@@ -229,7 +125,7 @@ void        htimer_del(htimer_t* timer);
 void        htimer_reset(htimer_t* timer);
 
 // io
-// low-level api
+//-----------------------low-level apis---------------------------------------
 #define READ_EVENT  0x0001
 #define WRITE_EVENT 0x0004
 #define ALL_EVENTS  READ_EVENT|WRITE_EVENT
@@ -237,37 +133,68 @@ hio_t* hio_get(hloop_t* loop, int fd);
 int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(READ_EVENT));
 int    hio_del(hio_t* io, int events DEFAULT(ALL_EVENTS));
 
-void hio_setlocaladdr(hio_t* io, struct sockaddr* addr, int addrlen);
-void hio_setpeeraddr (hio_t* io, struct sockaddr* addr, int addrlen);
+int hio_fd    (hio_t* io);
+int hio_error (hio_t* io);
+hio_type_e hio_type(hio_t* io);
+struct sockaddr* hio_localaddr(hio_t* io);
+struct sockaddr* hio_peeraddr (hio_t* io);
 
-// high-level api
+void hio_set_readbuf(hio_t* io, void* buf, size_t len);
+// ssl
+int  hio_enable_ssl(hio_t* io);
+
+void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
+void hio_setcb_connect  (hio_t* io, hconnect_cb connect_cb);
+void hio_setcb_read     (hio_t* io, hread_cb    read_cb);
+void hio_setcb_write    (hio_t* io, hwrite_cb   write_cb);
+void hio_setcb_close    (hio_t* io, hclose_cb   close_cb);
+
+// NOTE: don't forget to call hio_set_readbuf
+int hio_read   (hio_t* io);
+int hio_write  (hio_t* io, const void* buf, size_t len);
+int hio_close  (hio_t* io);
+int hio_accept (hio_t* io);
+int hio_connect(hio_t* io);
+
+//------------------high-level apis-------------------------------------------
+// hio_get -> hio_set_readbuf -> hio_setcb_read -> hio_read
 hio_t* hread    (hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb);
+// hio_get -> hio_setcb_write -> hio_write
 hio_t* hwrite   (hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
-void   hclose   (hio_t* io);
+// hio_get -> hio_close
+void   hclose   (hloop_t* loop, int fd);
 
 // tcp
+// hio_get -> hio_setcb_accept -> hio_accept
 hio_t* haccept  (hloop_t* loop, int listenfd, haccept_cb accept_cb);
+// hio_get -> hio_setcb_connect -> hio_connect
 hio_t* hconnect (hloop_t* loop, int connfd,   hconnect_cb connect_cb);
+// hio_get -> hio_set_readbuf -> hio_setcb_read -> hio_read
 hio_t* hrecv    (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb);
+// hio_get -> hio_setcb_write -> hio_write
 hio_t* hsend    (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 
-// @tcp_server: socket -> bind -> listen -> haccept
-hio_t* create_tcp_server (hloop_t* loop, int port, haccept_cb accept_cb);
-// @tcp_client: resolver -> socket -> hio_get -> hio_setpeeraddr -> hconnect
-hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
-
 // udp/ip
-// NOTE: recvfrom/sendto struct sockaddr* addr save in io->peeraddr
+// for HIO_TYPE_IP
+void hio_set_type(hio_t* io, hio_type_e type);
+void hio_set_localaddr(hio_t* io, struct sockaddr* addr, int addrlen);
+void hio_set_peeraddr (hio_t* io, struct sockaddr* addr, int addrlen);
+// NOTE: must call hio_set_peeraddr before hrecvfrom/hsendto
+// hio_get -> hio_set_readbuf -> hio_setcb_read -> hio_read
 hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb read_cb);
+// hio_get -> hio_setcb_write -> hio_write
 hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 
-// @udp_server: socket -> bind -> hio_get
-hio_t* create_udp_server(hloop_t* loop, int port);
-// @udp_client: resolver -> socket -> hio_get -> hio_setpeeraddr
-hio_t* create_udp_client(hloop_t* loop, const char* host, int port);
+//----------------- top-level apis---------------------------------------------
+// @tcp_server: socket -> bind -> listen -> haccept
+hio_t* create_tcp_server (hloop_t* loop, int port, haccept_cb accept_cb);
+// @tcp_client: resolver -> socket -> hio_get -> hio_set_peeraddr -> hconnect
+hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 
-// ssl
-int hio_enable_ssl(hio_t* io);
+// @udp_server: socket -> bind -> hio_get
+hio_t* create_udp_server (hloop_t* loop, int port);
+// @udp_client: resolver -> socket -> hio_get -> hio_set_peeraddr
+hio_t* create_udp_client (hloop_t* loop, const char* host, int port);
 
 END_EXTERN_C
 

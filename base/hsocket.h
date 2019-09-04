@@ -3,6 +3,7 @@
 
 #include "hplatform.h"
 #include "hdef.h"
+#include "hbase.h"
 
 #ifdef _MSC_VER
 #pragma comment(lib, "ws2_32.lib")

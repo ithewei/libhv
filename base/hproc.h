@@ -1,5 +1,5 @@
-#ifndef H_PROC_H_
-#define H_PROC_H_
+#ifndef HW_PROC_H_
+#define HW_PROC_H_
 
 #include "hplatform.h"
 #include "hdef.h"
@@ -65,4 +65,4 @@ static inline int spawn_proc(proc_ctx_t* ctx) {
 }
 #endif
 
-#endif // H_PROC_H_
+#endif // HW_PROC_H_

@@ -126,8 +126,8 @@ public:
         PAUSE,
     };
     int                 pool_size;
-    std::atomic<Status> status;
     std::atomic<int>    idle_num;
+    std::atomic<Status> status;
     std::vector<std::thread>    workers;
     std::queue<Task>            tasks;
 

@@ -37,14 +37,14 @@ static void worker_init(void* userdata) {
 }
 
 static void on_recv(hio_t* io, void* buf, int readbytes) {
-    //printf("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
-    HttpHandler* handler = (HttpHandler*)io->userdata;
+    //printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
+    HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     HttpParser* parser = &handler->parser;
     // recv -> HttpParser -> HttpRequest -> handle_request -> HttpResponse -> send
     int nparse = parser->execute((char*)buf, readbytes);
     if (nparse != readbytes || parser->get_errno() != HPE_OK) {
         hloge("[%s:%d] http parser error: %s", handler->srcip, handler->srcport, http_errno_description(parser->get_errno()));
-        hclose(io);
+        hio_close(io);
         return;
     }
     if (parser->get_state() == HP_MESSAGE_COMPLETE) {
@@ -90,10 +90,10 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
             sendbuf.len = header.size();
         }
         // send header/body
-        hsend(io->loop, io->fd, sendbuf.base, sendbuf.len);
+        hio_write(io, sendbuf.base, sendbuf.len);
         if (send_in_one_packet == false) {
             // send body
-            hsend(io->loop, io->fd, handler->res.body.data(), handler->res.body.size());
+            hio_write(io, handler->res.body.data(), handler->res.body.size());
         }
 
         hlogi("[%s:%d][%s %s]=>[%d %s]",
@@ -106,45 +106,47 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
             handler->keepalive();
         }
         else {
-            hclose(io);
+            hio_close(io);
         }
     }
 }
 
 static void on_close(hio_t* io) {
-    HttpHandler* handler = (HttpHandler*)io->userdata;
+    HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     if (handler) {
         delete handler;
-        io->userdata = NULL;
+        hevent_set_userdata(io, NULL);
     }
 }
 
 static void on_accept(hio_t* io) {
-    //printf("on_accept connfd=%d\n", io->fd);
+    //printf("on_accept connfd=%d\n", hio_fd(io));
     /*
     char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
     char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
-    printf("accept connfd=%d [%s] <= [%s]\n", io->fd,
-            sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-            sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+    printf("accept connfd=%d [%s] <= [%s]\n", hio_fd(io),
+            sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
+            sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
     */
 
-    HBuf* buf = (HBuf*)io->loop->userdata;
-    hrecv(io->loop, io->fd, buf->base, buf->len, on_recv);
-    io->close_cb = on_close;
+    HBuf* buf = (HBuf*)hloop_userdata(hevent_loop(io));
+    hio_setcb_close(io, on_close);
+    hio_setcb_read(io, on_recv);
+    hio_set_readbuf(io, buf->base, buf->len);
+    hio_read(io);
     // new HttpHandler
     // delete on_close
     HttpHandler* handler = new HttpHandler;
-    handler->service = (HttpService*)io->userdata;
+    handler->service = (HttpService*)hevent_userdata(io);
     handler->files = &s_filecache;
-    sockaddr_ntop(io->peeraddr, handler->srcip, sizeof(handler->srcip));
-    handler->srcport = sockaddr_htons(io->peeraddr);
+    sockaddr_ntop(hio_peeraddr(io), handler->srcip, sizeof(handler->srcip));
+    handler->srcport = sockaddr_htons(hio_peeraddr(io));
     handler->io = io;
-    io->userdata = handler;
+    hevent_set_userdata(io, handler);
 }
 
 static void handle_cached_files(htimer_t* timer) {
-    FileCache* pfc = (FileCache*)timer->userdata;
+    FileCache* pfc = (FileCache*)hevent_userdata(timer);
     if (pfc == NULL) {
         htimer_del(timer);
         return;
@@ -174,25 +176,25 @@ static hloop_t* s_loop = NULL;
 static void worker_proc(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
     int listenfd = server->listenfd;
-    hloop_t loop;
-    s_loop = &loop;
-    hloop_init(&loop);
+    hloop_t* loop = hloop_new(0);
+    s_loop = loop;
     // one loop one readbuf.
     HBuf readbuf;
     readbuf.resize(RECV_BUFSIZE);
-    loop.userdata = &readbuf;
-    hio_t* listenio = haccept(&loop, listenfd, on_accept);
-    listenio->userdata = server->service;
+    hloop_set_userdata(loop, &readbuf);
+    hio_t* listenio = haccept(loop, listenfd, on_accept);
+    hevent_set_userdata(listenio, server->service);
     if (server->ssl) {
         hio_enable_ssl(listenio);
     }
     // fflush logfile when idle
     hlog_set_fflush(0);
-    hidle_add(&loop, fflush_log, INFINITE);
+    hidle_add(loop, fflush_log, INFINITE);
     // timer handle_cached_files
-    htimer_t* timer = htimer_add(&loop, handle_cached_files, s_filecache.file_cached_time*1000);
-    timer->userdata = &s_filecache;
-    hloop_run(&loop);
+    htimer_t* timer = htimer_add(loop, handle_cached_files, s_filecache.file_cached_time*1000);
+    hevent_set_userdata(timer, &s_filecache);
+    hloop_run(loop);
+    hloop_free(&loop);
 }
 
 int http_server_run(http_server_t* server, int wait) {

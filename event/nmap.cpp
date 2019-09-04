@@ -1,7 +1,8 @@
 #include "nmap.h"
 #include "hloop.h"
-#include "netinet.h"
+#include "hevent.h"
 #include "hstring.h"
+#include "netinet.h"
 
 #define MAX_RECVFROM_TIMEOUT    5000 // ms
 #define MAX_SENDTO_PERSOCKET    1024
@@ -52,9 +53,8 @@ static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
 }
 
 int nmap_discovery(Nmap* nmap) {
-    hloop_t loop;
-    hloop_init(&loop);
-    uint64_t start_hrtime = hloop_now_hrtime(&loop);
+    hloop_t* loop = hloop_new(0);
+    uint64_t start_hrtime = hloop_now_hrtime(loop);
 
     nmap_udata_t udata;
     udata.nmap = nmap;
@@ -62,7 +62,7 @@ int nmap_discovery(Nmap* nmap) {
     udata.recv_cnt = 0;
     udata.up_cnt = 0;
     udata.idle_cnt = 0;
-    loop.userdata = &udata;
+    loop->userdata = &udata;
 
     char recvbuf[128];
     // icmp
@@ -93,15 +93,15 @@ int nmap_discovery(Nmap* nmap) {
             socklen_t optlen = sizeof(len);
             setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char*)&len, optlen);
 
-            io = hio_get(&loop, sockfd);
+            io = hio_get(loop, sockfd);
             if (io == NULL) return -1;
             io->io_type = HIO_TYPE_IP;
             struct sockaddr_in localaddr;
             socklen_t addrlen = sizeof(localaddr);
             memset(&localaddr, 0, addrlen);
             localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-            hio_setlocaladdr(io, (struct sockaddr*)&localaddr, addrlen);
-            hrecvfrom(&loop, sockfd, recvbuf, sizeof(recvbuf), on_recvfrom);
+            hio_set_localaddr(io, (struct sockaddr*)&localaddr, addrlen);
+            hrecvfrom(loop, sockfd, recvbuf, sizeof(recvbuf), on_recvfrom);
         }
         icmp_req->icmp_seq = iter->first;
         icmp_req->icmp_cksum = 0;
@@ -110,16 +110,17 @@ int nmap_discovery(Nmap* nmap) {
         memset(&peeraddr, 0, addrlen);
         peeraddr.sin_family = AF_INET;
         peeraddr.sin_addr.s_addr = iter->first;
-        hio_setpeeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
+        hio_set_peeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
         hsendto(io->loop, io->fd, sendbuf, sizeof(sendbuf), NULL);
         ++udata.send_cnt;
     }
 
-    htimer_add(&loop, on_timer, MAX_RECVFROM_TIMEOUT, 1);
-    hidle_add(&loop, on_idle, 3);
+    htimer_add(loop, on_timer, MAX_RECVFROM_TIMEOUT, 1);
+    hidle_add(loop, on_idle, 3);
 
-    hloop_run(&loop);
-    uint64_t end_hrtime = hloop_now_hrtime(&loop);
+    hloop_run(loop);
+    uint64_t end_hrtime = hloop_now_hrtime(loop);
+    hloop_free(&loop);
 
     // print result
     char ip[INET_ADDRSTRLEN];
