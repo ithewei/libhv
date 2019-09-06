@@ -85,6 +85,11 @@ public:
         }
         else if (req.method == HTTP_GET) {
             // web service
+            // check url
+            if (*req.url.c_str() != '/' || strstr(req.url.c_str(), "/../")) {
+                res.status_code = HTTP_STATUS_BAD_REQUEST;
+                goto make_http_status_page;
+            }
             std::string filepath = service->document_root;
             filepath += req.url.c_str();
             if (strcmp(req.url.c_str(), "/") == 0) {
@@ -124,6 +129,7 @@ public:
             res.status_code = HTTP_STATUS_NOT_IMPLEMENTED;
         }
 
+make_http_status_page:
         // html page
         if (res.status_code >= 400 && res.body.size() == 0) {
             // error page
