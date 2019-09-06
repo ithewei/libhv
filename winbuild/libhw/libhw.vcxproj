@@ -163,7 +163,6 @@
     <ClInclude Include="..\..\base\queue.h" />
     <ClInclude Include="..\..\base\ssl_ctx.h" />
     <ClInclude Include="..\..\event\hevent.h" />
-    <ClInclude Include="..\..\event\hio.h" />
     <ClInclude Include="..\..\event\hloop.h" />
     <ClInclude Include="..\..\event\iowatcher.h" />
     <ClInclude Include="..\..\event\nlog.h" />
@@ -208,6 +207,7 @@
     <ClCompile Include="..\..\base\ssl_ctx.c" />
     <ClCompile Include="..\..\event\epoll.c" />
     <ClCompile Include="..\..\event\evport.c" />
+    <ClCompile Include="..\..\event\hevent.c" />
     <ClCompile Include="..\..\event\hloop.c" />
     <ClCompile Include="..\..\event\iocp.c" />
     <ClCompile Include="..\..\event\kqueue.c" />
