@@ -26,8 +26,7 @@ void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize) {
         exit(-1);
     }
     if (newsize > oldsize) {
-        int addsize = newsize - oldsize;
-        memset((char*)ptr + addsize, 0, addsize);
+        memset((char*)ptr + oldsize, 0, newsize - oldsize);
     }
     return ptr;
 }
