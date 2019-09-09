@@ -335,7 +335,7 @@ static int __http_session_send(http_session_t* hss, HttpRequest* req, HttpRespon
     // connect -> send -> recv -> http_parser
     int err = 0;
     int timeout = hss->timeout;
-    SOCKET connfd = hss->fd;
+    int connfd = hss->fd;
 
     // use_tls ?
     int use_tls = hss->use_tls;

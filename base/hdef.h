@@ -111,6 +111,15 @@ typedef void (*procedure_t)(void* userdata);
 #define LIMIT(lower, v, upper) ((v) < (lower) ? (lower) : (v) > (upper) ? (upper) : (v))
 #endif
 
+#ifndef SWAP
+#define SWAP(type, a, b) \
+    do {\
+        type x = a;\
+        a = b;\
+        b = x;\
+    } while(0)
+#endif
+
 #ifndef BITSET
 #define BITSET(p, n) (*(p) |= (1u << (n)))
 #endif
