@@ -89,7 +89,6 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     }
 
     // Upgrade: h2
-    /*
     auto iter_upgrade = req->headers.find("upgrade");
     if (iter_upgrade != req->headers.end()) {
         hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, iter_upgrade->second.c_str());
@@ -116,7 +115,6 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             return;
         }
     }
-    */
 
     int ret = handler->HandleRequest();
     // prepare headers body

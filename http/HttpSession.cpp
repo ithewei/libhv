@@ -413,6 +413,11 @@ public:
         if (res->ContentLength() == 0) {
             flags |= NGHTTP2_FLAG_END_STREAM;
         }
+        if (stream_id == -1) {
+            // upgrade
+            nghttp2_session_upgrade(session, NULL, 0, NULL);
+            stream_id = 1;
+        }
         nghttp2_submit_headers(session, flags, stream_id, NULL, &nvs[0], nvs.size(), NULL);
         // avoid DATA_SOURCE_COPY, we do not use nghttp2_submit_data
         // data_prd.read_callback = data_source_read_callback;
