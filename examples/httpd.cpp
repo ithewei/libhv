@@ -2,7 +2,7 @@
 #include "hmain.h"
 #include "iniparser.h"
 
-#include "http_server.h"
+#include "HttpServer.h"
 #include "http_api_test.h"
 #include "ssl_ctx.h"
 

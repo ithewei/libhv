@@ -9,6 +9,9 @@
 #pragma comment(lib, "ws2_32.lib")
 #endif
 
+#define LOCALHOST   "127.0.0.1"
+#define ANYADDR     "0.0.0.0"
+
 BEGIN_EXTERN_C
 
 static inline int socket_errno() {
@@ -20,18 +23,18 @@ static inline int socket_errno() {
 }
 char* socket_strerror(int err);
 
-// socket -> setsockopt -> bind
-// @param type: SOCK_STREAM(tcp) SOCK_DGRAM(udp)
-// @return sockfd
-int Bind(int port, int type DEFAULT(SOCK_STREAM));
-
-// Bind -> listen
-// @return sockfd
-int Listen(int port);
-
 // @param host: domain or ip
 // @retval 0:succeed
 int Resolver(const char* host, struct sockaddr* addr);
+
+// socket -> setsockopt -> bind
+// @param type: SOCK_STREAM(tcp) SOCK_DGRAM(udp)
+// @return sockfd
+int Bind(int port, const char* host DEFAULT(ANYADDR), int type DEFAULT(SOCK_STREAM));
+
+// Bind -> listen
+// @return sockfd
+int Listen(int port, const char* host DEFAULT(ANYADDR));
 
 // @return sockfd
 // Resolver -> socket -> nonblocking -> connect
@@ -39,7 +42,8 @@ int Connect(const char* host, int port, int nonblock DEFAULT(0));
 // Connect(host, port, 1)
 int ConnectNonblock(const char* host, int port);
 // Connect(host, port, 1) -> select -> blocking
-int ConnectTimeout(const char* host, int port, int ms);
+#define DEFAULT_CONNECT_TIMEOUT 5000 // ms
+int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
 
 // @param cnt: ping count
 // @return: ok count

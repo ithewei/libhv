@@ -5,7 +5,7 @@
 
 #include "hstring.h"
 
-#include "HttpRequest.h"
+#include "httpdef.h" // for http_content_type_str_by_suffix
 
 #ifndef LOWER
 #define LOWER(c)    ((c) | 0x20)

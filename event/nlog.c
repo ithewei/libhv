@@ -72,6 +72,6 @@ void network_logger(int loglevel, const char* buf, int len) {
 hio_t* nlog_listen(hloop_t* loop, int port) {
     list_init(&s_logger.clients);
     s_logger.loop = loop;
-    s_logger.listenio = create_tcp_server(loop, port, on_accept);
+    s_logger.listenio = create_tcp_server(loop, "0.0.0.0", port, on_accept);
     return s_logger.listenio;
 }

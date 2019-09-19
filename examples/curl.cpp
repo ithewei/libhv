@@ -9,6 +9,13 @@
 
 #include "http_client.h"
 
+static int  http_version = 1;
+static bool verbose = false;
+static const char* url = NULL;
+static const char* method = NULL;
+static const char* headers = NULL;
+static const char* data = NULL;
+
 static const char* options = "hVvX:H:d:";
 static const struct option long_options[] = {
     {"help",    no_argument,        NULL,   'h'},
@@ -17,6 +24,7 @@ static const struct option long_options[] = {
     {"method",  required_argument,  NULL,   'X'},
     {"header",  required_argument,  NULL,   'H'},
     {"data",    required_argument,  NULL,   'd'},
+    {"http2",   no_argument,        &http_version, 2},
     {NULL,      0,                  NULL,   0}
 };
 static const char* help = R"(Options:
@@ -26,6 +34,7 @@ static const char* help = R"(Options:
     -X|--method         Set http method.
     -H|--header         Add http headers, format -H "Content-Type:application/json Accept:*/*"
     -d|--data           Set http body.
+       --http2          Use http2
 Examples:
     curl -v localhost:8086
     curl -v localhost:8086/v1/api/query?page_no=1&page_size=10
@@ -46,11 +55,6 @@ void print_help() {
     print_version();
 }
 
-bool verbose = false;
-static const char* url = NULL;
-static const char* method = NULL;
-static const char* headers = NULL;
-static const char* data = NULL;
 int parse_cmdline(int argc, char* argv[]) {
     int opt;
     int opt_idx;
@@ -62,9 +66,7 @@ int parse_cmdline(int argc, char* argv[]) {
         case 'X': method = optarg; break;
         case 'H': headers = optarg; break;
         case 'd': data = optarg; break;
-        default:
-            print_usage();
-            exit(-1);
+        default: break;
         }
     }
 
@@ -88,6 +90,10 @@ int main(int argc, char* argv[]) {
 
     int ret = 0;
     HttpRequest req;
+    if (http_version == 2) {
+        req.http_major = 2;
+        req.http_minor = 0;
+    }
     req.url = url;
     if (method) {
         req.method = http_method_enum(method);
@@ -134,14 +140,14 @@ int main(int argc, char* argv[]) {
     HttpResponse res;
     ret = http_client_send(&req, &res, 0);
     if (verbose) {
-        printf("%s\n", req.dump(true,true).c_str());
+        printf("%s\n", req.Dump(true,true).c_str());
     }
     if (ret != 0) {
         printf("* Failed:%s:%d\n", http_client_strerror(ret), ret);
     }
     else {
         if (verbose) {
-            printf("%s\n", res.dump(true,true).c_str());
+            printf("%s\n", res.Dump(true,true).c_str());
         }
         else {
             printf("%s\n", res.body.c_str());

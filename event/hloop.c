@@ -629,8 +629,8 @@ hio_t* hsendto (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_c
     return hwrite(loop, sockfd, buf, len, write_cb);
 }
 
-hio_t* create_tcp_server (hloop_t* loop, int port, haccept_cb accept_cb) {
-    int listenfd = Listen(port);
+hio_t* create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb) {
+    int listenfd = Listen(port, host);
     if (listenfd < 0) {
         return NULL;
     }
@@ -663,8 +663,8 @@ hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb
 
 
 // @server: socket -> bind -> hrecvfrom
-hio_t* create_udp_server(hloop_t* loop, int port) {
-    int bindfd = Bind(port, SOCK_DGRAM);
+hio_t* create_udp_server(hloop_t* loop, const char* host, int port) {
+    int bindfd = Bind(port, host, SOCK_DGRAM);
     if (bindfd < 0) {
         return NULL;
     }

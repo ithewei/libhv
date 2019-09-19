@@ -190,12 +190,12 @@ hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite
 
 //----------------- top-level apis---------------------------------------------
 // @tcp_server: socket -> bind -> listen -> haccept
-hio_t* create_tcp_server (hloop_t* loop, int port, haccept_cb accept_cb);
+hio_t* create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 // @tcp_client: resolver -> socket -> hio_get -> hio_set_peeraddr -> hconnect
 hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 
 // @udp_server: socket -> bind -> hio_get
-hio_t* create_udp_server (hloop_t* loop, int port);
+hio_t* create_udp_server (hloop_t* loop, const char* host, int port);
 // @udp_client: resolver -> socket -> hio_get -> hio_set_peeraddr
 hio_t* create_udp_client (hloop_t* loop, const char* host, int port);
 

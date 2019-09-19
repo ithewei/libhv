@@ -156,6 +156,10 @@ typedef void (*procedure_t)(void* userdata);
 #define IS_HEX(c) (IS_NUM(c) || ((c) >= 'a' && (c) <= 'f') || ((c) >= 'A' && (c) <= 'F'))
 #endif
 
+#ifndef IS_GRAPH
+#define IS_GRAPH(c) ((c) >= 0x20 && (c) <= 0x7E)
+#endif
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(*(a)))
 #endif

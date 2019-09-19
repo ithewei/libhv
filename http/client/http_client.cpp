@@ -9,7 +9,7 @@
 #else
 #include "herr.h"
 #include "hsocket.h"
-#include "HttpParser.h"
+#include "HttpSession.h"
 #include "ssl_ctx.h"
 #endif
 
@@ -17,37 +17,45 @@
 #include "openssl/ssl.h"
 #endif
 
-struct http_session_s {
-    int          use_tls;
+struct http_client_s {
     std::string  host;
     int          port;
-    int          timeout;
+    int          tls;
+    int          http_version;
+    int          timeout; // s
     http_headers headers;
 //private:
 #ifdef WITH_CURL
     CURL* curl;
 #else
     int fd;
+    HttpSession* session;
 #endif
 #ifdef WITH_OPENSSL
     SSL* ssl;
 #endif
 
-    http_session_s() {
-        use_tls = 0;
+    http_client_s() {
         port = DEFAULT_HTTP_PORT;
+        tls = 0;
+        http_version = 1;
         timeout = DEFAULT_HTTP_TIMEOUT;
 #ifdef WITH_CURL
         curl = NULL;
 #else
         fd = -1;
+        session = NULL;
 #endif
 #ifdef WITH_OPENSSL
         ssl = NULL;
 #endif
     }
 
-    ~http_session_s() {
+    ~http_client_s() {
+        Close();
+    }
+
+    void Close() {
 #ifdef WITH_OPENSSL
         if (ssl) {
             SSL_free(ssl);
@@ -64,77 +72,79 @@ struct http_session_s {
             closesocket(fd);
             fd = -1;
         }
+        if (session) {
+            delete session;
+            session = NULL;
+        }
 #endif
     }
 };
 
-static int __http_session_send(http_session_t* hss, HttpRequest* req, HttpResponse* res);
+static int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res);
 
-http_session_t* http_session_new(const char* host, int port) {
-    http_session_t* hss = new http_session_t;
-    hss->host = host;
-    hss->port = port;
-    hss->headers["Host"] = asprintf("%s:%d", host, port);
-    hss->headers["Connection"] = "keep-alive";
-    return hss;
+http_client_t* http_client_new(const char* host, int port, int tls) {
+    http_client_t* cli = new http_client_t;
+    cli->tls = tls;
+    cli->port = port;
+    if (host) {
+        cli->host = host;
+        cli->headers["Host"] = asprintf("%s:%d", host, port);
+    }
+    cli->headers["Connection"] = "keep-alive";
+    return cli;
 }
 
-int http_session_del(http_session_t* hss) {
-    if (hss == NULL) return 0;
-    delete hss;
+int http_client_del(http_client_t* cli) {
+    if (cli == NULL) return 0;
+    delete cli;
     return 0;
 }
 
-int http_session_set_timeout(http_session_t* hss, int timeout) {
-    hss->timeout = timeout;
+int http_client_set_timeout(http_client_t* cli, int timeout) {
+    cli->timeout = timeout;
     return 0;
 }
 
-int http_session_clear_headers(http_session_t* hss) {
-    hss->headers.clear();
+int http_client_clear_headers(http_client_t* cli) {
+    cli->headers.clear();
     return 0;
 }
 
-int http_session_set_header(http_session_t* hss, const char* key, const char* value) {
-    hss->headers[key] = value;
+int http_client_set_header(http_client_t* cli, const char* key, const char* value) {
+    cli->headers[key] = value;
     return 0;
 }
 
-int http_session_del_header(http_session_t* hss, const char* key) {
-    auto iter = hss->headers.find(key);
-    if (iter != hss->headers.end()) {
-        hss->headers.erase(iter);
+int http_client_del_header(http_client_t* cli, const char* key) {
+    auto iter = cli->headers.find(key);
+    if (iter != cli->headers.end()) {
+        cli->headers.erase(iter);
     }
     return 0;
 }
 
-const char* http_session_get_header(http_session_t* hss, const char* key) {
-    auto iter = hss->headers.find(key);
-    if (iter != hss->headers.end()) {
+const char* http_client_get_header(http_client_t* cli, const char* key) {
+    auto iter = cli->headers.find(key);
+    if (iter != cli->headers.end()) {
         return iter->second.c_str();
     }
     return NULL;
 }
 
-int http_session_send(http_session_t* hss, HttpRequest* req, HttpResponse* res) {
-    for (auto& pair : hss->headers) {
+int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) {
+    for (auto& pair : cli->headers) {
         req->headers[pair.first] = pair.second;
     }
-    return __http_session_send(hss, req, res);
+    return __http_client_send(cli, req, res);
 }
 
 int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
-    http_session_t hss;
-    hss.timeout = timeout;
-    return __http_session_send(&hss, req, res);
+    http_client_t cli;
+    cli.timeout = timeout;
+    return __http_client_send(&cli, req, res);
 }
 
 #ifdef WITH_CURL
-
-static size_t s_formget_cb(void *arg, const char *buf, size_t len) {
-    return len;
-}
-
 static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
     if (buf == NULL || userdata == NULL)    return 0;
 
@@ -145,10 +155,17 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
     if (pos == string::npos) {
         if (strncmp(buf, "HTTP/", 5) == 0) {
             // status line
-            // HTTP/1.1 200 OK\r\n
             //hlogd("%s", buf);
             int http_major,http_minor,status_code;
-            sscanf(buf, "HTTP/%d.%d %d", &http_major, &http_minor, &status_code);
+            if (buf[5] == '1') {
+                // HTTP/1.1 200 OK\r\n
+                sscanf(buf, "HTTP/%d.%d %d", &http_major, &http_minor, &status_code);
+            }
+            else if (buf[5] == '2') {
+                // HTTP/2 200\r\n
+                sscanf(buf, "HTTP/%d %d", &http_major, &status_code);
+                http_minor = 0;
+            }
             res->http_major = http_major;
             res->http_minor = http_minor;
             res->status_code = (http_status)status_code;
@@ -171,20 +188,26 @@ static size_t s_body_cb(char *buf, size_t size, size_t cnt, void *userdata) {
     return size*cnt;
 }
 
-int __http_session_send(http_session_t* hss, HttpRequest* req, HttpResponse* res) {
+int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) {
     if (req == NULL || res == NULL) {
         return -1;
     }
 
-    if (hss->curl == NULL) {
-        hss->curl = curl_easy_init();
+    if (cli->curl == NULL) {
+        cli->curl = curl_easy_init();
     }
-    CURL* curl = hss->curl;
-    int timeout = hss->timeout;
+    CURL* curl = cli->curl;
 
     // SSL
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
+
+    // http2
+    if (req->http_major == 2) {
+        //curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_0);
+        //No Connection: Upgrade
+        curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+    }
 
     // TCP_NODELAY
     curl_easy_setopt(curl, CURLOPT_TCP_NODELAY, 1);
@@ -193,12 +216,12 @@ int __http_session_send(http_session_t* hss, HttpRequest* req, HttpResponse* res
     curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, http_method_str(req->method));
 
     // url
-    std::string url = req->dump_url();
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    //hlogd("%s %s HTTP/%d.%d", http_method_str(req->method), url.c_str(), req->http_major, req->http_minor);
+    req->DumpUrl();
+    curl_easy_setopt(curl, CURLOPT_URL, req->url.c_str());
+    //hlogd("%s %s HTTP/%d.%d", http_method_str(req->method), req->url.c_str(), req->http_major, req->http_minor);
 
-    // header
-    req->fill_content_type();
+    // headers
+    req->FillContentType();
     struct curl_slist *headers = NULL;
     for (auto& pair : req->headers) {
         string header = pair.first;
@@ -212,7 +235,7 @@ int __http_session_send(http_session_t* hss, HttpRequest* req, HttpResponse* res
     struct curl_httppost* httppost = NULL;
     struct curl_httppost* lastpost = NULL;
     if (req->body.size() == 0) {
-        req->dump_body();
+        req->DumpBody();
         if (req->body.size() == 0 &&
             req->content_type == MULTIPART_FORM_DATA) {
             for (auto& pair : req->mp) {
@@ -231,7 +254,6 @@ int __http_session_send(http_session_t* hss, HttpRequest* req, HttpResponse* res
             }
             if (httppost) {
                 curl_easy_setopt(curl, CURLOPT_HTTPPOST, httppost);
-                curl_formget(httppost, NULL, s_formget_cb);
             }
         }
     }
@@ -240,8 +262,8 @@ int __http_session_send(http_session_t* hss, HttpRequest* req, HttpResponse* res
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, req->body.size());
     }
 
-    if (timeout > 0) {
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, timeout);
+    if (cli->timeout > 0) {
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, cli->timeout);
     }
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, s_body_cb);
@@ -281,29 +303,29 @@ const char* http_client_strerror(int errcode) {
     return curl_easy_strerror((CURLcode)errcode);
 }
 #else
-static int __http_session_connect(http_session_t* hss) {
+static int __http_client_connect(http_client_t* cli) {
     int blocktime = MAX_CONNECT_TIMEOUT;
-    if (hss->timeout > 0) {
-        blocktime = MIN(hss->timeout*1000, blocktime);
+    if (cli->timeout > 0) {
+        blocktime = MIN(cli->timeout*1000, blocktime);
     }
-    int connfd = ConnectTimeout(hss->host.c_str(), hss->port, blocktime);
+    int connfd = ConnectTimeout(cli->host.c_str(), cli->port, blocktime);
     if (connfd < 0) {
         return socket_errno();
     }
     tcp_nodelay(connfd, 1);
 
-    if (hss->use_tls) {
+    if (cli->tls) {
 #ifdef WITH_OPENSSL
         if (g_ssl_ctx == NULL) {
             ssl_ctx_init(NULL, NULL, NULL);
         }
-        hss->ssl = SSL_new((SSL_CTX*)g_ssl_ctx);
-        SSL_set_fd(hss->ssl, connfd);
-        if (SSL_connect(hss->ssl) != 1) {
-            int err = SSL_get_error(hss->ssl, -1);
+        cli->ssl = SSL_new((SSL_CTX*)g_ssl_ctx);
+        SSL_set_fd(cli->ssl, connfd);
+        if (SSL_connect(cli->ssl) != 1) {
+            int err = SSL_get_error(cli->ssl, -1);
             fprintf(stderr, "SSL handshark failed: %d\n", err);
-            SSL_free(hss->ssl);
-            hss->ssl = NULL;
+            SSL_free(cli->ssl);
+            cli->ssl = NULL;
             closesocket(connfd);
             return err;
         }
@@ -313,104 +335,86 @@ static int __http_session_connect(http_session_t* hss) {
         return ERR_INVALID_PROTOCOL;
 #endif
     }
-    hss->fd = connfd;
+
+    if (cli->session == NULL) {
+        cli->session = HttpSession::New(HTTP_CLIENT, (http_version)cli->http_version);
+    }
+
+    cli->fd = connfd;
     return 0;
 }
 
-static int __http_session_close(http_session_t* hss) {
-#ifdef WITH_OPENSSL
-    if (hss->ssl) {
-        SSL_free(hss->ssl);
-        hss->ssl = NULL;
-    }
-#endif
-    if (hss->fd > 0) {
-        closesocket(hss->fd);
-        hss->fd = -1;
-    }
-    return 0;
-}
-
-static int __http_session_send(http_session_t* hss, HttpRequest* req, HttpResponse* res) {
+int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) {
     // connect -> send -> recv -> http_parser
     int err = 0;
-    int timeout = hss->timeout;
-    int connfd = hss->fd;
+    int timeout = cli->timeout;
+    int connfd = cli->fd;
 
-    // use_tls ?
-    int use_tls = hss->use_tls;
-    if (strncmp(req->url.c_str(), "https", 5) == 0) {
-        hss->use_tls = use_tls = 1;
+    req->ParseUrl();
+    if (cli->host.size() == 0) {
+        cli->host = req->host;
+        cli->port = req->port;
     }
-
-    // parse host:port from Headers
-    std::string http = req->dump(true, true);
-    if (hss->host.size() == 0) {
-        auto Host = req->headers.find("Host");
-        if (Host == req->headers.end()) {
-            return ERR_INVALID_PARAM;
-        }
-        StringList strlist = split(Host->second, ':');
-        hss->host = strlist[0];
-        if (strlist.size() == 2) {
-            hss->port = atoi(strlist[1].c_str());
-        }
-        else {
-            hss->port = DEFAULT_HTTP_PORT;
-        }
+    if (cli->tls == 0) {
+        cli->tls = req->https;
     }
+    cli->http_version = req->http_major;
 
     time_t start_time = time(NULL);
     time_t cur_time;
     int fail_cnt = 0;
 connect:
     if (connfd <= 0) {
-        int ret = __http_session_connect(hss);
+        int ret = __http_client_connect(cli);
         if (ret != 0) {
             return ret;
         }
-        connfd = hss->fd;
+        connfd = cli->fd;
     }
 
-    HttpParser parser;
-    parser.parser_response_init(res);
+    cli->session->SubmitRequest(req);
     char recvbuf[1024] = {0};
     int total_nsend, nsend, nrecv;
 send:
-    total_nsend = nsend = nrecv = 0;
-    while (1) {
-        if (timeout > 0) {
-            cur_time = time(NULL);
-            if (cur_time - start_time >= timeout) {
-                return ERR_TASK_TIMEOUT;
+    char* data = NULL;
+    size_t len  = 0;
+    while (cli->session->GetSendData(&data, &len)) {
+        total_nsend = 0;
+        while (1) {
+            if (timeout > 0) {
+                cur_time = time(NULL);
+                if (cur_time - start_time >= timeout) {
+                    return ERR_TASK_TIMEOUT;
+                }
+                so_sndtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
             }
-            so_sndtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
-        }
 #ifdef WITH_OPENSSL
-        if (use_tls) {
-            nsend = SSL_write(hss->ssl, http.c_str()+total_nsend, http.size()-total_nsend);
-        }
+            if (cli->tls) {
+                nsend = SSL_write(cli->ssl, data+total_nsend, len-total_nsend);
+            }
 #endif
-        if (!use_tls) {
-            nsend = send(connfd, http.c_str()+total_nsend, http.size()-total_nsend, 0);
-        }
-        if (nsend <= 0) {
-            if (++fail_cnt == 1) {
-                // maybe keep-alive timeout, try again
-                __http_session_close(hss);
-                goto connect;
+            if (!cli->tls) {
+                nsend = send(connfd, data+total_nsend, len-total_nsend, 0);
             }
-            else {
-                return socket_errno();
+            if (nsend <= 0) {
+                if (++fail_cnt == 1) {
+                    // maybe keep-alive timeout, try again
+                    cli->Close();
+                    goto connect;
+                }
+                else {
+                    return socket_errno();
+                }
             }
-        }
-        total_nsend += nsend;
-        if (total_nsend == http.size()) {
-            break;
+            total_nsend += nsend;
+            if (total_nsend == len) {
+                break;
+            }
         }
     }
+    cli->session->InitResponse(res);
 recv:
-    while(1) {
+    do {
         if (timeout > 0) {
             cur_time = time(NULL);
             if (cur_time - start_time >= timeout) {
@@ -419,32 +423,21 @@ recv:
             so_rcvtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
         }
 #ifdef WITH_OPENSSL
-        if (use_tls) {
-            nrecv = SSL_read(hss->ssl, recvbuf, sizeof(recvbuf));
+        if (cli->tls) {
+            nrecv = SSL_read(cli->ssl, recvbuf, sizeof(recvbuf));
         }
 #endif
-        if (!use_tls) {
+        if (!cli->tls) {
             nrecv = recv(connfd, recvbuf, sizeof(recvbuf), 0);
         }
         if (nrecv <= 0) {
             return socket_errno();
         }
-        int nparse = parser.execute(recvbuf, nrecv);
-        if (nparse != nrecv || parser.get_errno() != HPE_OK) {
+        int nparse = cli->session->FeedRecvData(recvbuf, nrecv);
+        if (nparse != nrecv) {
             return ERR_PARSE;
         }
-        if (parser.get_state() == HP_MESSAGE_COMPLETE) {
-            err = 0;
-            break;
-        }
-        if (timeout > 0) {
-            cur_time = time(NULL);
-            if (cur_time - start_time >= timeout) {
-                return ERR_TASK_TIMEOUT;
-            }
-            so_rcvtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
-        }
-    }
+    } while(cli->session->WantRecv());
     return err;
 }
 

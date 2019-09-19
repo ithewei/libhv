@@ -1,7 +1,7 @@
 #ifndef HTTP_API_TEST_H_
 #define HTTP_API_TEST_H_
 
-#include "HttpRequest.h"
+#include "HttpServer.h"
 
 // XXX(path, method, handler)
 #define HTTP_API_MAP(XXX) \
@@ -13,15 +13,14 @@
 
 
 inline int http_api_preprocessor(HttpRequest* req, HttpResponse* res) {
-    //printf("%s\n", req->dump(true, true).c_str());
-    req->parse_url();
-    req->parse_body();
+    //printf("%s\n", req->Dump(true, true).c_str());
+    req->ParseBody();
     return 0;
 }
 
 inline int http_api_postprocessor(HttpRequest* req, HttpResponse* res) {
-    res->dump_body();
-    //printf("%s\n", res->dump(true, true).c_str());
+    res->DumpBody();
+    //printf("%s\n", res->Dump(true, true).c_str());
     return 0;
 }
 

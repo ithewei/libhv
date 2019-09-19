@@ -121,6 +121,9 @@ ifeq ($(OS), Windows)
 LIBS += wldap32 advapi32 crypt32
 endif
 endif
+ifneq ($(findstring WITH_NGHTTP2, $(DEFINES)), )
+override LIBS += nghttp2
+endif
 ifneq ($(findstring WITH_OPENSSL, $(DEFINES)), )
 override LIBS += ssl crypto
 endif

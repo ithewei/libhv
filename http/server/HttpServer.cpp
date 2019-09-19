@@ -1,16 +1,17 @@
-#include "http_server.h"
+#include "HttpServer.h"
 
 #include "h.h"
 #include "hmain.h"
 #include "hloop.h"
-#include "hbuf.h"
 
+#include "http2def.h"
 #include "FileCache.h"
-#include "HttpParser.h"
 #include "HttpHandler.h"
 
 #define RECV_BUFSIZE    8192
 #define SEND_BUFSIZE    8192
+#define MIN_HTTP_REQUEST        "GET / HTTP/1.1\r\n\r\n"
+#define MIN_HTTP_REQUEST_LEN    18
 
 static HttpService  s_default_service;
 static FileCache    s_filecache;
@@ -36,55 +37,128 @@ static void worker_init(void* userdata) {
 #endif
 }
 
-static void on_recv(hio_t* io, void* buf, int readbytes) {
+static void on_recv(hio_t* io, void* _buf, int readbytes) {
     //printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
+    const char* buf = (const char*)_buf;
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
-    HttpParser* parser = &handler->parser;
-    // recv -> HttpParser -> HttpRequest -> handle_request -> HttpResponse -> send
-    int nparse = parser->execute((char*)buf, readbytes);
-    if (nparse != readbytes || parser->get_errno() != HPE_OK) {
-        hloge("[%s:%d] http parser error: %s", handler->srcip, handler->srcport, http_errno_description(parser->get_errno()));
+    // HTTP1 / HTTP2 -> HttpSession -> InitRequest
+    // recv -> FeedRecvData -> !WantRecv -> HttpRequest ->
+    // HandleRequest -> HttpResponse -> SubmitResponse -> while (GetSendData) -> send
+    if (handler->session == NULL) {
+        // base check
+        if (readbytes < MIN_HTTP_REQUEST_LEN) {
+            hloge("[%s:%d] http request too small", handler->ip, handler->port);
+            hio_close(io);
+            return;
+        }
+        for (int i = 0; i < 3; ++i) {
+            if (!IS_GRAPH(buf[i])) {
+                hloge("[%s:%d] http check failed", handler->ip, handler->port);
+                hio_close(io);
+                return;
+            }
+        }
+        http_version version = HTTP_V1;
+        if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
+            version = HTTP_V2;
+            handler->req.http_major = 2;
+            handler->req.http_minor = 0;
+        }
+        handler->session = HttpSession::New(HTTP_SERVER, version);
+        if (handler->session == NULL) {
+            hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, (int)version);
+            hio_close(io);
+            return;
+        }
+        handler->session->InitRequest(&handler->req);
+    }
+
+    HttpSession* session = handler->session;
+    HttpRequest* req = &handler->req;
+    HttpResponse* res = &handler->res;
+
+    int nfeed = session->FeedRecvData((const char*)buf, readbytes);
+    if (nfeed != readbytes) {
+        hloge("[%s:%d] http parse error: %s", handler->ip, handler->port, session->StrError(session->GetError()));
         hio_close(io);
         return;
     }
-    if (parser->get_state() == HP_MESSAGE_COMPLETE) {
-        handler->handle_request();
-        // prepare header body
-        // Server:
-        static char s_Server[64] = {'\0'};
-        if (s_Server[0] == '\0') {
-            snprintf(s_Server, sizeof(s_Server), "httpd/%s", get_compile_version());
-        }
-        handler->res.headers["Server"] = s_Server;
-        // Connection:
-        bool keepalive = true;
-        auto iter = handler->req.headers.find("connection");
-        if (iter != handler->req.headers.end()) {
-            if (stricmp(iter->second.c_str(), "keep-alive") == 0) {
-                keepalive = true;
+
+    if (session->WantRecv()) {
+        return;
+    }
+
+    // Upgrade: h2
+    /*
+    auto iter_upgrade = req->headers.find("upgrade");
+    if (iter_upgrade != req->headers.end()) {
+        hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, iter_upgrade->second.c_str());
+        // h2/h2c
+        if (strnicmp(iter_upgrade->second.c_str(), "h2", 2) == 0) {
+            hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
+            SAFE_DELETE(handler->session);
+            session = handler->session = HttpSession::New(HTTP_SERVER, HTTP_V2);
+            if (session == NULL) {
+                hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
+                hio_close(io);
+                return;
             }
-            else if (stricmp(iter->second.c_str(), "close") == 0) {
-                keepalive = false;
-            }
-        }
-        if (keepalive) {
-            handler->res.headers["Connection"] = "keep-alive";
+            HttpRequest http1_req = *req;
+            session->InitRequest(req);
+            *req = http1_req;
+            req->http_major = 2;
+            req->http_minor = 0;
+            // HTTP2_Settings: ignore
+            //session->FeedRecvData(HTTP2_Settings, );
         }
         else {
-            handler->res.headers["Connection"] = "close";
+            hio_close(io);
+            return;
         }
-        std::string header = handler->res.dump(true, false);
+    }
+    */
+
+    int ret = handler->HandleRequest();
+    // prepare headers body
+    // Server:
+    static char s_Server[64] = {'\0'};
+    if (s_Server[0] == '\0') {
+        snprintf(s_Server, sizeof(s_Server), "httpd/%s", get_compile_version());
+    }
+    res->headers["Server"] = s_Server;
+    // Connection:
+    bool keepalive = true;
+    auto iter_keepalive = req->headers.find("connection");
+    if (iter_keepalive != req->headers.end()) {
+        if (stricmp(iter_keepalive->second.c_str(), "keep-alive") == 0) {
+            keepalive = true;
+        }
+        else if (stricmp(iter_keepalive->second.c_str(), "close") == 0) {
+            keepalive = false;
+        }
+    }
+    if (keepalive) {
+        res->headers["Connection"] = "keep-alive";
+    }
+    else {
+        res->headers["Connection"] = "close";
+    }
+
+    if (req->http_major == 1) {
+        std::string header = res->Dump(true, false);
         hbuf_t sendbuf;
         bool send_in_one_packet = true;
+        int content_length = res->ContentLength();
         if (handler->fc) {
+            // no copy filebuf, more efficient
             handler->fc->prepend_header(header.c_str(), header.size());
             sendbuf = handler->fc->httpbuf;
         }
         else {
-            if (handler->res.body.size() > (1<<20)) {
+            if (content_length > (1<<20)) {
                 send_in_one_packet = false;
-            } else if (handler->res.body.size() != 0) {
-                header += handler->res.body;
+            } else if (content_length != 0) {
+                header.insert(header.size(), (const char*)res->Content(), content_length);
             }
             sendbuf.base = (char*)header.c_str();
             sendbuf.len = header.size();
@@ -93,34 +167,44 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
         hio_write(io, sendbuf.base, sendbuf.len);
         if (send_in_one_packet == false) {
             // send body
-            hio_write(io, handler->res.body.data(), handler->res.body.size());
+            hio_write(io, res->Content(), content_length);
         }
+    }
+    else if (req->http_major == 2) {
+        session->SubmitResponse(res);
+        char* data = NULL;
+        size_t len = 0;
+        while (session->GetSendData(&data, &len)) {
+            hio_write(io, data, len);
+        }
+    }
 
-        hlogi("[%s:%d][%s %s]=>[%d %s]",
-            handler->srcip, handler->srcport,
-            http_method_str(handler->req.method), handler->req.url.c_str(),
-            handler->res.status_code, http_status_str(handler->res.status_code));
+    hlogi("[%s:%d][%s %s]=>[%d %s]",
+        handler->ip, handler->port,
+        http_method_str(req->method), req->path.c_str(),
+        res->status_code, http_status_str(res->status_code));
 
-        if (keepalive) {
-            handler->reset();
-            handler->keepalive();
-        }
-        else {
-            hio_close(io);
-        }
+    if (keepalive) {
+        handler->KeepAlive();
+        handler->Reset();
+        session->InitRequest(req);
+    }
+    else {
+        hio_close(io);
     }
 }
 
 static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     if (handler) {
+        SAFE_DELETE(handler->session);
         delete handler;
         hevent_set_userdata(io, NULL);
     }
 }
 
 static void on_accept(hio_t* io) {
-    //printf("on_accept connfd=%d\n", hio_fd(io));
+    printd("on_accept connfd=%d\n", hio_fd(io));
     /*
     char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
     char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
@@ -139,8 +223,8 @@ static void on_accept(hio_t* io) {
     HttpHandler* handler = new HttpHandler;
     handler->service = (HttpService*)hevent_userdata(io);
     handler->files = &s_filecache;
-    sockaddr_ntop(hio_peeraddr(io), handler->srcip, sizeof(handler->srcip));
-    handler->srcport = sockaddr_htons(hio_peeraddr(io));
+    sockaddr_ntop(hio_peeraddr(io), handler->ip, sizeof(handler->ip));
+    handler->port = sockaddr_htons(hio_peeraddr(io));
     handler->io = io;
     hevent_set_userdata(io, handler);
 }
@@ -207,7 +291,7 @@ int http_server_run(http_server_t* server, int wait) {
         server->service = &s_default_service;
     }
     // port
-    server->listenfd = Listen(server->port);
+    server->listenfd = Listen(server->port, server->host);
     if (server->listenfd < 0) return server->listenfd;
 
 #ifdef OS_WIN

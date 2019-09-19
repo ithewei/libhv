@@ -21,48 +21,6 @@ char *socket_strerror(int err) {
 #endif
 }
 
-int Bind(int port, int type) {
-    // socket -> setsockopt -> bind
-    int sockfd = socket(AF_INET, type, 0);
-    if (sockfd < 0) {
-        perror("socket");
-        return -socket_errno();
-    }
-    struct sockaddr_in localaddr;
-    socklen_t addrlen = sizeof(localaddr);
-    // NOTE: SO_REUSEADDR means that you can reuse sockaddr of TIME_WAIT status
-    int reuseaddr = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
-        perror("setsockopt");
-        goto error;
-    }
-    memset(&localaddr, 0, addrlen);
-    localaddr.sin_family = AF_INET;
-    localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-    localaddr.sin_port = htons(port);
-    if (bind(sockfd, (struct sockaddr*)&localaddr, addrlen) < 0) {
-        perror("bind");
-        goto error;
-    }
-    return sockfd;
-error:
-    closesocket(sockfd);
-    return socket_errno() > 0 ? -socket_errno() : -1;
-}
-
-int Listen(int port) {
-    int sockfd = Bind(port, SOCK_STREAM);
-    if (sockfd < 0) return sockfd;
-    if (listen(sockfd, SOMAXCONN) < 0) {
-        perror("listen");
-        goto error;
-    }
-    return sockfd;
-error:
-    closesocket(sockfd);
-    return socket_errno() > 0 ? -socket_errno() : -1;
-}
-
 int Resolver(const char* host, struct sockaddr* addr) {
     // IPv4
     struct sockaddr_in* addr4 = (struct sockaddr_in*)addr;
@@ -77,6 +35,58 @@ int Resolver(const char* host, struct sockaddr* addr) {
     }
     memcpy(&addr4->sin_addr, phe->h_addr_list[0], phe->h_length);
     return 0;
+}
+
+int Bind(int port, const char* host, int type) {
+    struct sockaddr_in localaddr;
+    socklen_t addrlen = sizeof(localaddr);
+    memset(&localaddr, 0, addrlen);
+    localaddr.sin_family = AF_INET;
+    if (host) {
+        int ret = Resolver(host, (struct sockaddr*)&localaddr);
+        if (ret != 0) return ret;
+    }
+    else {
+        localaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    }
+    localaddr.sin_port = htons(port);
+
+    // socket -> setsockopt -> bind
+    int sockfd = socket(AF_INET, type, 0);
+    if (sockfd < 0) {
+        perror("socket");
+        return -socket_errno();
+    }
+
+    // NOTE: SO_REUSEADDR means that you can reuse sockaddr of TIME_WAIT status
+    int reuseaddr = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
+        perror("setsockopt");
+        goto error;
+    }
+
+    if (bind(sockfd, (struct sockaddr*)&localaddr, addrlen) < 0) {
+        perror("bind");
+        goto error;
+    }
+
+    return sockfd;
+error:
+    closesocket(sockfd);
+    return socket_errno() > 0 ? -socket_errno() : -1;
+}
+
+int Listen(int port, const char* host) {
+    int sockfd = Bind(port, host, SOCK_STREAM);
+    if (sockfd < 0) return sockfd;
+    if (listen(sockfd, SOMAXCONN) < 0) {
+        perror("listen");
+        goto error;
+    }
+    return sockfd;
+error:
+    closesocket(sockfd);
+    return socket_errno() > 0 ? -socket_errno() : -1;
 }
 
 int Connect(const char* host, int port, int nonblock) {

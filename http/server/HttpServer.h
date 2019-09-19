@@ -3,21 +3,24 @@
 
 #include "HttpService.h"
 
-#define DEFAULT_HTTP_PORT   80
 typedef struct http_server_s {
+    char host[64];
     int port;
+    int ssl;
+    int http_version;
     HttpService* service;
     int worker_processes;
-    int ssl;
 //private:
     int listenfd;
 
 #ifdef __cplusplus
     http_server_s() {
+        strcpy(host, "0.0.0.0");
         port = DEFAULT_HTTP_PORT;
+        ssl = 0;
+        http_version = 1;
         service = NULL;
         worker_processes = 0;
-        ssl = 0;
         listenfd = -1;
     }
 #endif
