@@ -330,11 +330,11 @@ public:
     }
 
     virtual int FeedRecvData(const char* data, size_t len) {
-        int ret = nghttp2_session_mem_recv(session, (const uint8_t*)data, len);
+        size_t ret = nghttp2_session_mem_recv(session, (const uint8_t*)data, len);
         if (ret != len) {
             error = ret;
         }
-        return ret;
+        return (int)ret;
     }
 
     virtual bool WantRecv() {

@@ -29,13 +29,13 @@ public:
     KeyValue            kv;         // X_WWW_FORM_URLENCODED
 
     HttpPayload() {
+        type = HTTP_BOTH;
         Init();
     }
 
     virtual ~HttpPayload() {}
 
     void Init() {
-        type = HTTP_BOTH;
         http_major = 1;
         http_minor = 1;
         content = NULL;

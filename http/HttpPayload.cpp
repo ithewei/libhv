@@ -179,10 +179,10 @@ void HttpRequest::DumpUrl() {
         // url begin with path
         str += url;
     }
-    else if (path.size() != 0 && *path.c_str() == '/') {
+    else if (path.size() > 1 && *path.c_str() == '/') {
         str += path;
     }
-    else {
+    else if (url.size() == 0) {
         str += '/';
     }
     // ?query
