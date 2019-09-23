@@ -10,6 +10,7 @@
 #include "http_client.h"
 
 static int  http_version = 1;
+static int  grpc         = 0;
 static bool verbose = false;
 static const char* url = NULL;
 static const char* method = NULL;
@@ -25,6 +26,7 @@ static const struct option long_options[] = {
     {"header",  required_argument,  NULL,   'H'},
     {"data",    required_argument,  NULL,   'd'},
     {"http2",   no_argument,        &http_version, 2},
+    {"grpc",    no_argument,        &grpc,  1},
     {NULL,      0,                  NULL,   0}
 };
 static const char* help = R"(Options:
@@ -35,6 +37,7 @@ static const char* help = R"(Options:
     -H|--header         Add http headers, format -H "Content-Type:application/json Accept:*/*"
     -d|--data           Set http body.
        --http2          Use http2
+       --grpc           Use grpc over http2
 Examples:
     curl -v localhost:8086
     curl -v localhost:8086/v1/api/query?page_no=1&page_size=10
@@ -90,6 +93,10 @@ int main(int argc, char* argv[]) {
 
     int ret = 0;
     HttpRequest req;
+    if (grpc) {
+        http_version = 2;
+        req.content_type = APPLICATION_GRPC;
+    }
     if (http_version == 2) {
         req.http_major = 2;
         req.http_minor = 0;

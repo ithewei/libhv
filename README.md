@@ -92,3 +92,6 @@ hw 是一套跨平台c/c++基础组件，函数名/类名以h/H开头
 
 #### compile WITH_CURL
 - make DEFINES="WITH_CURL CURL_STATICLIB"
+
+### compile WITH_NGHTTP2
+- make DEFINES=WITH_NGHTTP2
