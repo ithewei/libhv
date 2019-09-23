@@ -17,8 +17,7 @@ static nghttp2_nv make_nv2(const char* name, const char* value,
     nghttp2_nv nv;
     nv.name = (uint8_t*)name;
     nv.value = (uint8_t*)value;
-    nv.namelen = namelen;
-    nv.valuelen = valuelen;
+    nv.namelen = namelen; nv.valuelen = valuelen;
     nv.flags = NGHTTP2_NV_FLAG_NONE;
     return nv;
 }
@@ -103,16 +102,36 @@ int Http2Session::GetSendData(char** data, size_t* len) {
         printd("HTTP2 DATA framehd-------------------\n");
         if (submited->ContentType() == APPLICATION_GRPC) {
             printd("grpc DATA framehd-----------------\n");
-            if (type == HTTP_SERVER) {
-                // grpc server send grpc_status in HTTP2 header frame
-                framehd.flags = HTTP2_FLAG_NONE;
-            }
-            framehd.length += GRPC_MESSAGE_HDLEN;
             grpc_message_hd msghd;
             msghd.flags = 0;
             msghd.length = content_length;
+
+            if (type == HTTP_SERVER) {
+                // grpc server send grpc-status in HTTP2 header frame
+                framehd.flags = HTTP2_FLAG_NONE;
+
+#ifdef TEST_PROTOBUF
+                // @test protobuf
+                // message StringMessage {
+                //     string str = 1;
+                // }
+                int protobuf_taglen = 0;
+                int tag = PROTOBUF_MAKE_TAG(1, WIRE_TYPE_LENGTH_DELIMITED);
+                unsigned char* p = frame_hdbuf + HTTP2_FRAME_HDLEN + GRPC_MESSAGE_HDLEN;
+                int bytes = varint_encode(tag, p);
+                protobuf_taglen += bytes;
+                p += bytes;
+                bytes = varint_encode(content_length, p);
+                protobuf_taglen += bytes;
+                msghd.length += protobuf_taglen;
+                framehd.length += protobuf_taglen;
+                *len += protobuf_taglen;
+#endif
+            }
+
             grpc_message_hd_pack(&msghd, frame_hdbuf + HTTP2_FRAME_HDLEN);
-            *len = HTTP2_FRAME_HDLEN + GRPC_MESSAGE_HDLEN;
+            framehd.length += GRPC_MESSAGE_HDLEN;
+            *len += GRPC_MESSAGE_HDLEN;
         }
         http2_frame_hd_pack(&framehd, frame_hdbuf);
     }
@@ -137,7 +156,7 @@ int Http2Session::GetSendData(char** data, size_t* len) {
                 // grpc HEADERS grpc-status
                 printd("grpc HEADERS grpc-status-----------------\n");
                 int flags = NGHTTP2_FLAG_END_STREAM | NGHTTP2_FLAG_END_HEADERS;
-                nghttp2_nv nv = make_nv("grpc_status", "0");
+                nghttp2_nv nv = make_nv("grpc-status", "0");
                 nghttp2_submit_headers(session, flags, stream_id, NULL, &nv, 1, NULL);
                 *len = nghttp2_session_mem_send(session, (const uint8_t**)data);
             }
@@ -164,6 +183,16 @@ bool Http2Session::WantRecv() {
 int Http2Session::SubmitRequest(HttpRequest* req) {
     submited = req;
 
+    req->FillContentType();
+    req->FillContentLength();
+    if (req->ContentType() == APPLICATION_GRPC) {
+        req->method = HTTP_POST;
+        req->headers["te"] = "trailers";
+        req->headers["user-agent"] = "grpc-c++/1.16.0 grpc-c/6.0.0 (linux; nghttp2; hw)";
+        req->headers["accept-encoding"] = "identity";
+        req->headers["grpc-accept-encoding"] = "identity";
+    }
+
     std::vector<nghttp2_nv> nvs;
     char c_str[256] = {0};
     req->ParseUrl();
@@ -179,8 +208,6 @@ int Http2Session::SubmitRequest(HttpRequest* req) {
         snprintf(c_str, sizeof(c_str), "%s:%d", req->host.c_str(), req->port);
         nvs.push_back(make_nv(":authority", c_str));
     }
-    req->FillContentType();
-    req->FillContentLength();
     const char* name;
     const char* value;
     for (auto& header : req->headers) {
@@ -212,22 +239,28 @@ int Http2Session::SubmitRequest(HttpRequest* req) {
 int Http2Session::SubmitResponse(HttpResponse* res) {
     submited = res;
 
-    std::vector<nghttp2_nv> nvs;
-    char c_str[256] = {0};
-    snprintf(c_str, sizeof(c_str), "%d", res->status_code);
-    nvs.push_back(make_nv(":status", c_str));
     res->FillContentType();
     res->FillContentLength();
-
-    const char* name;
-    const char* value;
     if (parsed && parsed->ContentType() == APPLICATION_GRPC) {
         // correct content_type: application/grpc
         if (res->ContentType() != APPLICATION_GRPC) {
             res->content_type = APPLICATION_GRPC;
             res->headers["content-type"] = http_content_type_str(APPLICATION_GRPC);
         }
+        //res->headers["accept-encoding"] = "identity";
+        //res->headers["grpc-accept-encoding"] = "identity";
+        //res->headers["grpc-status"] = "0";
+#ifdef TEST_PROTOBUF
+        res->status_code = HTTP_STATUS_OK;
+#endif
     }
+
+    std::vector<nghttp2_nv> nvs;
+    char c_str[256] = {0};
+    snprintf(c_str, sizeof(c_str), "%d", res->status_code);
+    nvs.push_back(make_nv(":status", c_str));
+    const char* name;
+    const char* value;
     for (auto& header : res->headers) {
         name = header.first.c_str();
         value = header.second.c_str();
@@ -252,7 +285,6 @@ int Http2Session::SubmitResponse(HttpResponse* res) {
     nghttp2_submit_headers(session, flags, stream_id, NULL, &nvs[0], nvs.size(), NULL);
     // avoid DATA_SOURCE_COPY, we do not use nghttp2_submit_data
     // data_prd.read_callback = data_source_read_callback;
-    //stream_id = nghttp2_submit_request(session, NULL, &nvs[0], nvs.size(), &data_prd, NULL);
     //nghttp2_submit_response(session, stream_id, &nvs[0], nvs.size(), &data_prd);
     stream_closed = 0;
     state = HSS_SEND_HEADERS;
@@ -362,6 +394,8 @@ int on_frame_recv_callback(nghttp2_session *session,
             printd("on_stream_closed stream_id=%d\n", hss->stream_id);
             hss->stream_closed = 1;
         }
+        break;
+    case NGHTTP2_PING:
         break;
     default:
         break;

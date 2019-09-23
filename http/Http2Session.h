@@ -29,7 +29,8 @@ public:
     int stream_id;
     int stream_closed;
     // http2_frame_hd + grpc_message_hd
-    unsigned char                   frame_hdbuf[HTTP2_FRAME_HDLEN+GRPC_MESSAGE_HDLEN];
+    // at least HTTP2_FRAME_HDLEN + GRPC_MESSAGE_HDLEN = 9 + 5 = 14
+    unsigned char                   frame_hdbuf[32];
 
     Http2Session(http_session_type type = HTTP_CLIENT);
     virtual ~Http2Session();
