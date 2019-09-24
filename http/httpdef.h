@@ -157,6 +157,8 @@ enum http_method {
     XX(APPLICATION_URLENCODED,  application/x-www-form-urlencoded, kv)  \
     XX(MULTIPART_FORM_DATA,     multipart/form-data,               mp)  \
 
+#define X_WWW_FORM_URLENCODED   APPLICATION_URLENCODED // for compatibility
+
 enum http_content_type {
 #define XX(name, string, suffix)   name,
     CONTENT_TYPE_NONE,
