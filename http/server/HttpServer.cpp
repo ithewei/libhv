@@ -89,6 +89,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         return;
     }
 
+#ifdef WITH_NGHTTP2
     if (session->version == HTTP_V2) {
         // HTTP2 extra processing steps
         Http2Session* h2s = (Http2Session*)session;
@@ -135,6 +136,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             return;
         }
     }
+#endif
 
     int ret = handler->HandleRequest();
     // prepare headers body
