@@ -67,6 +67,10 @@ int Http1Session::InitRequest(HttpRequest* req) {
     req->Reset();
     parsed = req;
     http_parser_init(&parser, HTTP_REQUEST);
+    state = HP_START_REQ_OR_RES;
+    url.clear();
+    header_field.clear();
+    header_value.clear();
     return 0;
 }
 
@@ -74,6 +78,9 @@ int Http1Session::InitResponse(HttpResponse* res) {
     res->Reset();
     parsed = res;
     http_parser_init(&parser, HTTP_RESPONSE);
+    url.clear();
+    header_field.clear();
+    header_value.clear();
     return 0;
 }
 

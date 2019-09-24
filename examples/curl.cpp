@@ -16,8 +16,9 @@ static const char* url = NULL;
 static const char* method = NULL;
 static const char* headers = NULL;
 static const char* data = NULL;
+static int  send_count   = 1;
 
-static const char* options = "hVvX:H:d:";
+static const char* options = "hVvX:H:d:n:";
 static const struct option long_options[] = {
     {"help",    no_argument,        NULL,   'h'},
     {"verion",  no_argument,        NULL,   'V'},
@@ -27,6 +28,7 @@ static const struct option long_options[] = {
     {"data",    required_argument,  NULL,   'd'},
     {"http2",   no_argument,        &http_version, 2},
     {"grpc",    no_argument,        &grpc,  1},
+    {"count",   required_argument,  NULL,   'n'},
     {NULL,      0,                  NULL,   0}
 };
 static const char* help = R"(Options:
@@ -36,6 +38,7 @@ static const char* help = R"(Options:
     -X|--method         Set http method.
     -H|--header         Add http headers, format -H "Content-Type:application/json Accept:*/*"
     -d|--data           Set http body.
+    -n|--count          Send request count, used for test keep-alive
        --http2          Use http2
        --grpc           Use grpc over http2
 Examples:
@@ -69,6 +72,7 @@ int parse_cmdline(int argc, char* argv[]) {
         case 'X': method = optarg; break;
         case 'H': headers = optarg; break;
         case 'd': data = optarg; break;
+        case 'n': send_count = atoi(optarg); break;
         default: break;
         }
     }
@@ -145,7 +149,9 @@ int main(int argc, char* argv[]) {
         req.body = data;
     }
     HttpResponse res;
-    ret = http_client_send(&req, &res, 0);
+    http_client_t* hc = http_client_new();
+send:
+    ret = http_client_send(hc, &req, &res);
     if (verbose) {
         printf("%s\n", req.Dump(true,true).c_str());
     }
@@ -160,5 +166,15 @@ int main(int argc, char* argv[]) {
             printf("%s\n", res.body.c_str());
         }
     }
+    if (--send_count > 0) {
+        printf("send again later...%d\n", send_count);
+#ifdef _WIN32
+        Sleep(3*1000);
+#else
+        sleep(3);
+#endif
+        goto send;
+    }
+    http_client_del(hc);
     return ret;
 }
