@@ -43,7 +43,7 @@ inline int http_api_mp(HttpRequest* req, HttpResponse* res) {
 }
 
 inline int http_api_kv(HttpRequest*req, HttpResponse* res) {
-    if (req->content_type != X_WWW_FORM_URLENCODED) {
+    if (req->content_type != APPLICATION_URLENCODED) {
         res->status_code = HTTP_STATUS_BAD_REQUEST;
         return 0;
     }

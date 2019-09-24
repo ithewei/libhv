@@ -137,8 +137,9 @@ enum http_method {
     HTTP_CUSTOM_METHOD
 };
 
+// MIME: https://www.iana.org/assignments/media-types/media-types.xhtml
 // http_content_type
-// XX(name, string, suffix)
+// XX(name, mime, suffix)
 #define HTTP_CONTENT_TYPE_MAP(XX) \
     XX(TEXT_PLAIN,              text/plain,               txt)          \
     XX(TEXT_HTML,               text/html,                html)         \
@@ -146,11 +147,14 @@ enum http_method {
     XX(IMAGE_JPEG,              image/jpeg,               jpg)          \
     XX(IMAGE_PNG,               image/png,                png)          \
     XX(IMAGE_GIF,               image/gif,                gif)          \
+    XX(IMAGE_BMP,               image/bmp,                bmp)          \
+    XX(IMAGE_SVG,               image/svg,                svg)          \
+    XX(APPLICATION_OCTET_STREAM,application/octet-stream, bin)          \
     XX(APPLICATION_JAVASCRIPT,  application/javascript,   js)           \
     XX(APPLICATION_XML,         application/xml,          xml)          \
     XX(APPLICATION_JSON,        application/json,         json)         \
     XX(APPLICATION_GRPC,        application/grpc,         grpc)         \
-    XX(X_WWW_FORM_URLENCODED,   application/x-www-form-urlencoded, kv)  \
+    XX(APPLICATION_URLENCODED,  application/x-www-form-urlencoded, kv)  \
     XX(MULTIPART_FORM_DATA,     multipart/form-data,               mp)  \
 
 enum http_content_type {
