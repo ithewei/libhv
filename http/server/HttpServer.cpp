@@ -7,6 +7,7 @@
 #include "http2def.h"
 #include "FileCache.h"
 #include "HttpHandler.h"
+#include "Http2Session.h"
 
 #define RECV_BUFSIZE    8192
 #define SEND_BUFSIZE    8192
@@ -86,6 +87,25 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
     if (session->WantRecv()) {
         return;
+    }
+
+    if (session->version == HTTP_V2) {
+        // HTTP2 extra processing steps
+        Http2Session* h2s = (Http2Session*)session;
+        if (h2s->state == HSS_RECV_PING) {
+            char* data = NULL;
+            size_t len = 0;
+            while (session->GetSendData(&data, &len)) {
+                hio_write(io, data, len);
+            }
+            return;
+        }
+        else if (
+                h2s->state != HSS_RECV_HEADERS &&
+                h2s->state != HSS_RECV_DATA) {
+            // ignore other http2 frame
+            return;
+        }
     }
 
     // Upgrade: h2

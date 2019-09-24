@@ -44,7 +44,6 @@ static ssize_t data_source_read_callback(nghttp2_session *session,
 
 
 Http2Session::Http2Session(http_session_type type) {
-    this->type = type;
     if (cbs == NULL) {
         nghttp2_session_callbacks_new(&cbs);
         nghttp2_session_callbacks_set_on_header_callback(cbs, on_header_callback);
@@ -57,7 +56,6 @@ Http2Session::Http2Session(http_session_type type) {
     }
     else if (type == HTTP_SERVER) {
         nghttp2_session_server_new(&session, cbs, NULL);
-        state = HSS_SEND_SETTINGS;
     }
     nghttp2_session_set_user_data(session, this);
     submited = NULL;
@@ -70,6 +68,9 @@ Http2Session::Http2Session(http_session_type type) {
     };
     nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, settings, ARRAY_SIZE(settings));
     state = HSS_SEND_SETTINGS;
+
+    //nghttp2_submit_ping(session, NGHTTP2_FLAG_NONE, NULL);
+    //state = HSS_SEND_PING;
 }
 
 Http2Session::~Http2Session() {
@@ -152,7 +153,7 @@ int Http2Session::GetSendData(char** data, size_t* len) {
     else if (state == HSS_SEND_DATA) {
         state = HSS_SEND_DONE;
         if (submited->ContentType() == APPLICATION_GRPC) {
-            if (type == HTTP_SERVER) {
+            if (type == HTTP_SERVER && stream_closed) {
                 // grpc HEADERS grpc-status
                 printd("grpc HEADERS grpc-status-----------------\n");
                 int flags = NGHTTP2_FLAG_END_STREAM | NGHTTP2_FLAG_END_HEADERS;
@@ -169,6 +170,7 @@ int Http2Session::GetSendData(char** data, size_t* len) {
 
 int Http2Session::FeedRecvData(const char* data, size_t len) {
     printd("nghttp2_session_mem_recv %d\n", len);
+    state = HSS_RECVING;
     size_t ret = nghttp2_session_mem_recv(session, (const uint8_t*)data, len);
     if (ret != len) {
         error = ret;
@@ -177,7 +179,13 @@ int Http2Session::FeedRecvData(const char* data, size_t len) {
 }
 
 bool Http2Session::WantRecv() {
-    return stream_id == -1 || stream_closed == 0;
+    if (stream_id == -1) return true;
+    if (stream_closed) return false;
+    if (state == HSS_RECV_DATA ||
+        state == HSS_RECV_PING) {
+        return false;
+    }
+    return true;
 }
 
 int Http2Session::SubmitRequest(HttpRequest* req) {
@@ -248,6 +256,8 @@ int Http2Session::SubmitResponse(HttpResponse* res) {
             res->headers["content-type"] = http_content_type_str(APPLICATION_GRPC);
         }
         //res->headers["accept-encoding"] = "identity";
+        //hss->state = HSS_RECV_PING;
+        //break;
         //res->headers["grpc-accept-encoding"] = "identity";
         //res->headers["grpc-status"] = "0";
 #ifdef TEST_PROTOBUF
@@ -395,7 +405,22 @@ int on_frame_recv_callback(nghttp2_session *session,
             hss->stream_closed = 1;
         }
         break;
+    default:
+        break;
+    }
+
+    switch (frame->hd.type) {
+    case NGHTTP2_DATA:
+        hss->state = HSS_RECV_DATA;
+        break;
+    case NGHTTP2_HEADERS:
+        hss->state = HSS_RECV_HEADERS;
+        break;
+    case NGHTTP2_SETTINGS:
+        hss->state = HSS_RECV_SETTINGS;
+        break;
     case NGHTTP2_PING:
+        hss->state = HSS_RECV_PING;
         break;
     default:
         break;

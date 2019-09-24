@@ -5,6 +5,9 @@
 
 class HttpSession {
 public:
+    http_version        version;
+    http_session_type   type;
+
     static HttpSession* New(http_session_type type = HTTP_CLIENT, http_version version = HTTP_V1);
     virtual ~HttpSession() {}
 

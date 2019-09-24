@@ -11,15 +11,20 @@
 enum http2_session_state {
     HSS_SEND_MAGIC,
     HSS_SEND_SETTINGS,
+    HSS_SEND_PING,
     HSS_SEND_HEADERS,
     HSS_SEND_DATA_FRAME_HD,
     HSS_SEND_DATA,
-    HSS_SEND_DONE
+    HSS_SEND_DONE,
+    HSS_RECVING,
+    HSS_RECV_SETTINGS,
+    HSS_RECV_PING,
+    HSS_RECV_HEADERS,
+    HSS_RECV_DATA,
 };
 
 class Http2Session : public HttpSession {
 public:
-    http_session_type               type;
     static nghttp2_session_callbacks* cbs;
     nghttp2_session*                session;
     http2_session_state             state;
