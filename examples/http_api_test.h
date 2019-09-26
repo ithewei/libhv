@@ -8,6 +8,7 @@
     XXX("/json",    POST,   http_api_json)      \
     XXX("/mp",      POST,   http_api_mp)        \
     XXX("/kv",      POST,   http_api_kv)        \
+    XXX("/grpc",    POST,   http_api_grpc)      \
     XXX("/query",   GET,    http_api_query)     \
     XXX("/echo",    POST,   http_api_echo)      \
 
@@ -39,6 +40,18 @@ inline int http_api_mp(HttpRequest* req, HttpResponse* res) {
         return 0;
     }
     res->mp = req->mp;
+    return 0;
+}
+
+inline int http_api_grpc(HttpRequest* req, HttpResponse* res) {
+    if (req->content_type != APPLICATION_GRPC) {
+        res->status_code = HTTP_STATUS_BAD_REQUEST;
+        return 0;
+    }
+    // parse protobuf: ParseFromString
+    // req->body;
+    // serailize protobuf: SerializeAsString
+    // res->body;
     return 0;
 }
 

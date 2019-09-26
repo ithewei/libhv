@@ -9,6 +9,8 @@ static int on_message_begin(http_parser* parser);
 static int on_headers_complete(http_parser* parser);
 static int on_message_complete(http_parser* parser);
 
+http_parser_settings* Http1Session::cbs = NULL;
+
 Http1Session::Http1Session(http_session_type type) {
     if (cbs == NULL) {
         cbs = (http_parser_settings*)malloc(sizeof(http_parser_settings));
@@ -31,68 +33,6 @@ Http1Session::Http1Session(http_session_type type) {
 
 Http1Session::~Http1Session() {
 }
-
-int Http1Session::GetSendData(char** data, size_t* len) {
-    if (!submited) {
-        *data = NULL;
-        *len = 0;
-        return 0;
-    }
-    sendbuf = submited->Dump(true, true);
-    submited = NULL;
-    *data = (char*)sendbuf.data();
-    *len = sendbuf.size();
-    return sendbuf.size();
-}
-
-int Http1Session::FeedRecvData(const char* data, size_t len) {
-    return http_parser_execute(&parser, cbs, data, len);
-}
-
-bool Http1Session::WantRecv() {
-    return state != HP_MESSAGE_COMPLETE;
-}
-
-int Http1Session::SubmitRequest(HttpRequest* req) {
-    submited = req;
-    return 0;
-}
-
-int Http1Session::SubmitResponse(HttpResponse* res) {
-    submited = res;
-    return 0;
-}
-
-int Http1Session::InitRequest(HttpRequest* req) {
-    req->Reset();
-    parsed = req;
-    http_parser_init(&parser, HTTP_REQUEST);
-    state = HP_START_REQ_OR_RES;
-    url.clear();
-    header_field.clear();
-    header_value.clear();
-    return 0;
-}
-
-int Http1Session::InitResponse(HttpResponse* res) {
-    res->Reset();
-    parsed = res;
-    http_parser_init(&parser, HTTP_RESPONSE);
-    url.clear();
-    header_field.clear();
-    header_value.clear();
-    return 0;
-}
-
-int Http1Session::GetError() {
-    return parser.http_errno;
-}
-
-const char* Http1Session::StrError(int error) {
-    return http_errno_description((enum http_errno)error);
-}
-
-http_parser_settings* Http1Session::cbs = NULL;
 
 int on_url(http_parser* parser, const char *at, size_t length) {
     printd("on_url:%.*s\n", (int)length, at);

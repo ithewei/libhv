@@ -16,7 +16,8 @@ enum http2_session_state {
     HSS_SEND_DATA_FRAME_HD,
     HSS_SEND_DATA,
     HSS_SEND_DONE,
-    HSS_RECVING,
+
+    HSS_WANT_RECV,
     HSS_RECV_SETTINGS,
     HSS_RECV_PING,
     HSS_RECV_HEADERS,
@@ -42,7 +43,31 @@ public:
 
     virtual int GetSendData(char** data, size_t* len);
     virtual int FeedRecvData(const char* data, size_t len);
-    virtual bool WantRecv();
+
+    virtual int GetState() {
+        return (int)state;
+    }
+
+    virtual bool WantRecv() {
+        return state == HSS_WANT_RECV;
+    }
+
+    virtual bool WantSend() {
+        return state != HSS_WANT_RECV;
+    }
+
+    virtual bool IsComplete() {
+        // HTTP2_HEADERS / HTTP2_DATA EOS
+        return (state == HSS_RECV_HEADERS || state == HSS_RECV_DATA) && stream_closed == 1;
+    }
+
+    virtual int GetError() {
+        return error;
+    }
+
+    virtual const char* StrError(int error) {
+        return nghttp2_http2_strerror(error);
+    }
 
     // client
     // SubmitRequest -> while(GetSendData) {send} -> InitResponse -> do {recv -> FeedRecvData} while(WantRecv)
@@ -54,8 +79,6 @@ public:
     virtual int InitRequest(HttpRequest* req);
     virtual int SubmitResponse(HttpResponse* res);
 
-    virtual int GetError();
-    virtual const char* StrError(int error);
 };
 
 #endif

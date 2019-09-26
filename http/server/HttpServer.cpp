@@ -101,15 +101,17 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             }
             return;
         }
-        else if (
-                h2s->state != HSS_RECV_HEADERS &&
-                h2s->state != HSS_RECV_DATA) {
+        else if ((h2s->state == HSS_RECV_HEADERS && req->method != HTTP_POST) || h2s->state == HSS_RECV_DATA) {
+            goto handle_request;
+        }
+        else {
             // ignore other http2 frame
             return;
         }
     }
 
     // Upgrade: h2
+    {
     auto iter_upgrade = req->headers.find("upgrade");
     if (iter_upgrade != req->headers.end()) {
         hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, iter_upgrade->second.c_str());
@@ -136,8 +138,10 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             return;
         }
     }
+    }
 #endif
 
+handle_request:
     int ret = handler->HandleRequest();
     // prepare headers body
     // Server:

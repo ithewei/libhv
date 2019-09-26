@@ -437,7 +437,7 @@ recv:
         if (nparse != nrecv) {
             return ERR_PARSE;
         }
-    } while(cli->session->WantRecv());
+    } while(!cli->session->IsComplete());
     return err;
 }
 

@@ -13,7 +13,23 @@ public:
 
     virtual int GetSendData(char** data, size_t* len) = 0;
     virtual int FeedRecvData(const char* data, size_t len) = 0;
+
+    // Http1Session: http_parser_state
+    // Http2Session: http2_session_state
+    virtual int GetState() = 0;
+
+    // Http1Session: GetState() != HP_MESSAGE_COMPLETE
+    // Http2Session: GetState() == HSS_WANT_RECV
     virtual bool WantRecv() = 0;
+
+    // Http1Session: GetState() == HP_MESSAGE_COMPLETE
+    // Http2Session: GetState() == HSS_WANT_SEND
+    virtual bool WantSend() = 0;
+
+    // IsComplete: Is recved HttpRequest or HttpResponse complete?
+    // Http1Session: GetState() == HP_MESSAGE_COMPLETE
+    // Http2Session: (state == HSS_RECV_HEADERS || state == HSS_RECV_DATA) && stream_closed
+    virtual bool IsComplete() = 0;
 
     // client
     // SubmitRequest -> while(GetSendData) {send} -> InitResponse -> do {recv -> FeedRecvData} while(WantRecv)
