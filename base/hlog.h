@@ -1,13 +1,15 @@
 #ifndef HW_LOG_H_
 #define HW_LOG_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*
  * hlog is thread-safe
  */
+
+#include <stdio.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define CL_CLR      "\033[0m"       /* 恢复颜色 */
 #define CL_BLACK    "\033[30m"      /* 黑色字 */
@@ -28,68 +30,87 @@ extern "C" {
 #define CL_SKYB_WHT "\033[46;37m"   /* 天蓝底白字 */
 #define CL_WHT_BLK  "\033[47;30m"   /* 白底黑字 */
 
-// F(id, str, clr)
-#define FOREACH_LOG(F) \
-    F(LOG_LEVEL_DEBUG, "DEBUG", CL_WHITE) \
-    F(LOG_LEVEL_INFO,  "INFO ", CL_GREEN) \
-    F(LOG_LEVEL_WARN,  "WARN ", CL_YELLOW) \
-    F(LOG_LEVEL_ERROR, "ERROR", CL_RED) \
-    F(LOG_LEVEL_FATAL, "FATAL", CL_RED_WHT)
+// XXX(id, str, clr)
+#define LOG_LEVEL_MAP(XXX) \
+    XXX(LOG_LEVEL_DEBUG, "DEBUG", CL_WHITE)     \
+    XXX(LOG_LEVEL_INFO,  "INFO ", CL_GREEN)     \
+    XXX(LOG_LEVEL_WARN,  "WARN ", CL_YELLOW)    \
+    XXX(LOG_LEVEL_ERROR, "ERROR", CL_RED)       \
+    XXX(LOG_LEVEL_FATAL, "FATAL", CL_RED_WHT)
 
-enum LOG_LEVEL {
+typedef enum {
     LOG_LEVEL_VERBOSE = 0,
-#define ENUM_LOG_LEVEL(id, str, clr) id,
-    FOREACH_LOG(ENUM_LOG_LEVEL)
-#undef  ENUM_LOG_LEVEL
+#define XXX(id, str, clr) id,
+    LOG_LEVEL_MAP(XXX)
+#undef  XXX
     LOG_LEVEL_SILENT
-};
+} log_level_e;
 
-#define DEFAULT_LOGGER              file_logger
 #define DEFAULT_LOG_FILE            "default"
 #define DEFAULT_LOG_LEVEL           LOG_LEVEL_VERBOSE
 #define DEFAULT_LOG_REMAIN_DAYS     1
-#define LOG_BUFSIZE                 (1<<13)  // 8k
-#define MAX_LOG_FILESIZE            (1<<23)  // 8M
+#define DEFAULT_LOG_MAX_BUFSIZE     (1<<13)  // 8k
+#define DEFAULT_LOG_MAX_FILESIZE    (1<<23)  // 8M
 
-// logger
-typedef void (*hlog_handler)(int loglevel, const char* buf, int len);
-void    stderr_logger(int loglevel, const char* buf, int len);
-void    stdout_logger(int loglevel, const char* buf, int len);
-void    file_logger(int loglevel, const char* buf, int len);
+// logger: default file_logger
+// network_logger() see event/nlog.h
+typedef void (*logger_handler)(int loglevel, const char* buf, int len);
 
-// common log settings
-void    hlog_set_logger(hlog_handler fn);
-void    hlog_set_level(int level);
-void    hlog_set_remain_days(int days);
+void stdout_logger(int loglevel, const char* buf, int len);
+void stderr_logger(int loglevel, const char* buf, int len);
+void file_logger(int loglevel, const char* buf, int len);
 
-int     hlog_printf(int level, const char* fmt, ...);
-#define hlogd(fmt, ...) hlog_printf(LOG_LEVEL_DEBUG, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
-#define hlogi(fmt, ...) hlog_printf(LOG_LEVEL_INFO,  fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
-#define hlogw(fmt, ...) hlog_printf(LOG_LEVEL_WARN,  fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
-#define hloge(fmt, ...) hlog_printf(LOG_LEVEL_ERROR, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
-#define hlogf(fmt, ...) hlog_printf(LOG_LEVEL_FATAL, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+typedef struct logger_s logger_t;
+logger_t* logger_create();
+void logger_destroy(logger_t* logger);
+
+void logger_set_handler(logger_t* logger, logger_handler fn);
+void logger_set_level(logger_t* logger, int level);
+void logger_set_max_bufsize(logger_t* logger, unsigned int bufsize);
+void logger_enable_color(logger_t* logger, int on);
+int  logger_print(logger_t* logger, int level, const char* fmt, ...);
 
 // below for file logger
-int     hlog_set_file(const char* file);
-// NOTE: fflush cache page => disk, slow
-// fflush, default enable
-void    hlog_set_fflush(int on);
-void    hlog_fflush();
+void logger_set_file(logger_t* logger, const char* filepath);
+void logger_set_max_filesize(logger_t* logger, unsigned long long filesize);
+void logger_set_remain_days(logger_t* logger, int days);
+void logger_enable_fsync(logger_t* logger, int on);
+void logger_fsync(logger_t* logger);
 
-// below for stdout/stderr logger
-void    hlog_enable_color(int on);
+// hlog: default logger instance
+logger_t* default_logger();
+
+// macro hlog*
+#define hlog default_logger()
+#define hlog_set_file(filepath)         logger_set_file(hlog, filepath)
+#define hlog_set_level(level)           logger_set_level(hlog, level)
+#define hlog_set_max_filesize(filesize) logger_set_max_filesize(hlog, filesize)
+#define hlog_set_remain_days(days)      logger_set_remain_days(hlog, days)
+
+#define hlogd(fmt, ...) logger_print(hlog, LOG_LEVEL_DEBUG, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hlogi(fmt, ...) logger_print(hlog, LOG_LEVEL_INFO,  fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hlogw(fmt, ...) logger_print(hlog, LOG_LEVEL_WARN,  fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hloge(fmt, ...) logger_print(hlog, LOG_LEVEL_ERROR, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
+#define hlogf(fmt, ...) logger_print(hlog, LOG_LEVEL_FATAL, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 
 // below for android
-#include "hplatform.h"
-#ifdef OS_ANDROID
+#if defined(ANDROID) || defined(__ANDROID__)
 #include <android/log.h>
 #define LOG_TAG "JNI"
-#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
-#define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
-#define LOGW(...) __android_log_print(ANDROID_LOG_WARN,  LOG_TAG, __VA_ARGS__)
-#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
-#define LOGF(...) __android_log_print(ANDROID_LOG_FATAL, LOG_TAG, __VA_ARGS__)
-#else
+#undef  hlogd
+#undef  hlogi
+#undef  hlogw
+#undef  hloge
+#undef  hlogf
+#define hlogd(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#define hlogi(...) __android_log_print(ANDROID_LOG_INFO,  LOG_TAG, __VA_ARGS__)
+#define hlogw(...) __android_log_print(ANDROID_LOG_WARN,  LOG_TAG, __VA_ARGS__)
+#define hloge(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define hlogf(...) __android_log_print(ANDROID_LOG_FATAL, LOG_TAG, __VA_ARGS__)
+#endif
+
+// macro alias
+#if !defined(LOGD) && !defined(LOGI) && !defined(LOGW) && !defined(LOGE) && !defined(LOGF)
 #define LOGD    hlogd
 #define LOGI    hlogi
 #define LOGW    hlogw

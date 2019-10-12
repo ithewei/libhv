@@ -69,7 +69,7 @@ int main() {
 
     // test network_logger
     htimer_add(loop, timer_write_log, 1000, INFINITE);
-    hlog_set_logger(mylogger);
+    logger_set_handler(hlog, mylogger);
     hlog_set_file("loop.log");
     nlog_listen(loop, DEFAULT_LOG_PORT);
 

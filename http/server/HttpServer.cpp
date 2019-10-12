@@ -275,7 +275,7 @@ static void handle_cached_files(htimer_t* timer) {
 }
 
 static void fflush_log(hidle_t* idle) {
-    hlog_fflush();
+    logger_fsync(hlog);
 }
 
 // for implement http_server_stop
@@ -296,7 +296,7 @@ static void worker_proc(void* userdata) {
         hio_enable_ssl(listenio);
     }
     // fflush logfile when idle
-    hlog_set_fflush(0);
+    logger_enable_fsync(hlog, 0);
     hidle_add(loop, fflush_log, INFINITE);
     // timer handle_cached_files
     htimer_t* timer = htimer_add(loop, handle_cached_files, s_filecache.file_cached_time*1000);
