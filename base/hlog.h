@@ -49,8 +49,8 @@ typedef enum {
 #define DEFAULT_LOG_FILE            "default"
 #define DEFAULT_LOG_LEVEL           LOG_LEVEL_VERBOSE
 #define DEFAULT_LOG_REMAIN_DAYS     1
-#define DEFAULT_LOG_MAX_BUFSIZE     (1<<13)  // 8k
-#define DEFAULT_LOG_MAX_FILESIZE    (1<<23)  // 8M
+#define DEFAULT_LOG_MAX_BUFSIZE     (1<<14)  // 16k
+#define DEFAULT_LOG_MAX_FILESIZE    (1<<24)  // 16M
 
 // logger: default file_logger
 // network_logger() see event/nlog.h
