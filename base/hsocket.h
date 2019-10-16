@@ -21,34 +21,7 @@ static inline int socket_errno() {
     return errno;
 #endif
 }
-char* socket_strerror(int err);
-
-// @param host: domain or ip
-// @retval 0:succeed
-int Resolver(const char* host, struct sockaddr* addr);
-
-// socket -> setsockopt -> bind
-// @param type: SOCK_STREAM(tcp) SOCK_DGRAM(udp)
-// @return sockfd
-int Bind(int port, const char* host DEFAULT(ANYADDR), int type DEFAULT(SOCK_STREAM));
-
-// Bind -> listen
-// @return sockfd
-int Listen(int port, const char* host DEFAULT(ANYADDR));
-
-// @return sockfd
-// Resolver -> socket -> nonblocking -> connect
-int Connect(const char* host, int port, int nonblock DEFAULT(0));
-// Connect(host, port, 1)
-int ConnectNonblock(const char* host, int port);
-// Connect(host, port, 1) -> select -> blocking
-#define DEFAULT_CONNECT_TIMEOUT 5000 // ms
-int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
-
-// @param cnt: ping count
-// @return: ok count
-// @note: printd $CC -DPRINT_DEBUG
-int Ping(const char* host, int cnt DEFAULT(4));
+const char* socket_strerror(int err);
 
 #ifdef OS_WIN
 typedef int socklen_t;
@@ -75,63 +48,121 @@ typedef int         SOCKET;
 #define closesocket close
 #endif
 
-static inline const char* sockaddr_ntop(const struct sockaddr* addr, char *ip, int len) {
-    if (addr->sa_family == AF_INET) {
-        struct sockaddr_in* sin = (struct sockaddr_in*)addr;
-        return inet_ntop(AF_INET, &sin->sin_addr, ip, len);
+typedef union {
+    struct sockaddr     sa;
+    struct sockaddr_in  sin;
+    struct sockaddr_in6 sin6;
+} sockaddr_un;
+
+// @param host: domain or ip
+// @retval 0:succeed
+int Resolver(const char* host, sockaddr_un* addr);
+
+static inline socklen_t sockaddrlen(sockaddr_un* addr) {
+    if (addr->sa.sa_family == AF_INET) {
+        return sizeof(struct sockaddr_in);
     }
-    else if (addr->sa_family == AF_INET6) {
-        struct sockaddr_in6* sin6 = (struct sockaddr_in6*)addr;
-        return inet_ntop(AF_INET6, &sin6->sin6_addr, ip, len);
+    else if (addr->sa.sa_family == AF_INET6) {
+        return sizeof(struct sockaddr_in6);
+    }
+    return sizeof(sockaddr_un);
+}
+
+static inline const char* sockaddr_ip(sockaddr_un* addr, char *ip, int len) {
+    if (addr->sa.sa_family == AF_INET) {
+        return inet_ntop(AF_INET, &addr->sin.sin_addr, ip, len);
+    }
+    else if (addr->sa.sa_family == AF_INET6) {
+        return inet_ntop(AF_INET6, &addr->sin6.sin6_addr, ip, len);
     }
     return ip;
 }
 
-static inline uint16_t sockaddr_htons(const struct sockaddr* addr) {
-    if (addr->sa_family == AF_INET) {
-        struct sockaddr_in* sin = (struct sockaddr_in*)addr;
-        return htons(sin->sin_port);
+static inline uint16_t sockaddr_port(sockaddr_un* addr) {
+    uint16_t port = 0;
+    if (addr->sa.sa_family == AF_INET) {
+        port = htons(addr->sin.sin_port);
     }
-    else if (addr->sa_family == AF_INET6) {
-        struct sockaddr_in6* sin6 = (struct sockaddr_in6*)addr;
-        return htons(sin6->sin6_port);
+    else if (addr->sa.sa_family == AF_INET6) {
+        port = htons(addr->sin6.sin6_port);
     }
+    return port;
+}
+
+static inline void sockaddr_set_port(sockaddr_un* addr, int port) {
+    if (addr->sa.sa_family == AF_INET) {
+        addr->sin.sin_port = ntohs(port);
+    }
+    else if (addr->sa.sa_family == AF_INET6) {
+        addr->sin6.sin6_port = ntohs(port);
+    }
+}
+
+//#define INET_ADDRSTRLEN   16
+//#define INET6_ADDRSTRLEN  46
+#define SOCKADDR_STRLEN     64 // ipv4:port | [ipv6]:port
+#define SOCKADDR_STR(addr, buf) sockaddr_str((sockaddr_un*)addr, buf, sizeof(buf))
+// NOTE: typeof(addr)=[sockaddr*, sockaddr_in*, sockaddr_in6*, sockaddr_un*]
+// char buf[SOCKADDR_STRLEN] = {0};
+// SOCKADDR_STR(addr, buf);
+
+static inline const char* sockaddr_str(sockaddr_un* addr, char* buf, int len) {
+    char ip[SOCKADDR_STRLEN] = {0};
+    uint16_t port = 0;
+    if (addr->sa.sa_family == AF_INET) {
+        inet_ntop(AF_INET, &addr->sin.sin_addr, ip, len);
+        port = htons(addr->sin.sin_port);
+        snprintf(buf, len, "%s:%d", ip, port);
+    }
+    else if (addr->sa.sa_family == AF_INET6) {
+        inet_ntop(AF_INET6, &addr->sin6.sin6_addr, ip, len);
+        port = htons(addr->sin6.sin6_port);
+        snprintf(buf, len, "[%s]:%d", ip, port);
+    }
+    return buf;
+}
+
+static inline void sockaddr_print(sockaddr_un* addr) {
+    char buf[SOCKADDR_STRLEN] = {0};
+    sockaddr_str(addr, buf, sizeof(buf));
+    puts(buf);
+}
+
+static inline int sockaddr_assign(sockaddr_un* addr, const char* host, int port) {
+    if (host) {
+        int ret = Resolver(host, addr);
+        if (ret != 0) return ret;
+    }
+    else {
+        addr->sin.sin_family = AF_INET;
+        addr->sin.sin_addr.s_addr = htonl(INADDR_ANY);
+    }
+    sockaddr_set_port(addr, port);
     return 0;
 }
 
-static inline void sockaddr_printf(const struct sockaddr* addr) {
-    char ip[INET6_ADDRSTRLEN] = {0};
-    int port = 0;
-    if (addr->sa_family == AF_INET) {
-        struct sockaddr_in* sin = (struct sockaddr_in*)addr;
-        inet_ntop(AF_INET, &sin->sin_addr, ip, sizeof(ip));
-        port = htons(sin->sin_port);
-    }
-    else if (addr->sa_family == AF_INET6) {
-        struct sockaddr_in6* sin6 = (struct sockaddr_in6*)addr;
-        inet_ntop(AF_INET6, &sin6->sin6_addr, ip, sizeof(ip));
-        port = htons(sin6->sin6_port);
-    }
-    printf("%s:%d\n", ip, port);
-}
+// socket -> setsockopt -> bind
+// @param type: SOCK_STREAM(tcp) SOCK_DGRAM(udp)
+// @return sockfd
+int Bind(int port, const char* host DEFAULT(ANYADDR), int type DEFAULT(SOCK_STREAM));
 
-static inline const char* sockaddr_snprintf(const struct sockaddr* addr, char* buf, int len) {
-    int port = 0;
-    if (addr->sa_family == AF_INET) {
-        struct sockaddr_in* sin = (struct sockaddr_in*)addr;
-        inet_ntop(AF_INET, &sin->sin_addr, buf, len);
-        port = htons(sin->sin_port);
-    }
-    else if (addr->sa_family == AF_INET6) {
-        struct sockaddr_in6* sin6 = (struct sockaddr_in6*)addr;
-        inet_ntop(AF_INET6, &sin6->sin6_addr, buf, len);
-        port = htons(sin6->sin6_port);
-    }
-    char sport[16] = {0};
-    snprintf(sport, sizeof(sport), ":%d", port);
-    safe_strncat(buf, sport, len);
-    return buf;
-}
+// Bind -> listen
+// @return sockfd
+int Listen(int port, const char* host DEFAULT(ANYADDR));
+
+// @return sockfd
+// Resolver -> socket -> nonblocking -> connect
+int Connect(const char* host, int port, int nonblock DEFAULT(0));
+// Connect(host, port, 1)
+int ConnectNonblock(const char* host, int port);
+// Connect(host, port, 1) -> select -> blocking
+#define DEFAULT_CONNECT_TIMEOUT 5000 // ms
+int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
+
+// @param cnt: ping count
+// @return: ok count
+// @note: printd $CC -DPRINT_DEBUG
+int Ping(const char* host, int cnt DEFAULT(4));
 
 static inline int tcp_nodelay(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&on, sizeof(int));

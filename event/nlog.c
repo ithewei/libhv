@@ -41,11 +41,11 @@ static void on_read(hio_t* io, void* buf, int readbytes) {
 
 static void on_accept(hio_t* io) {
     printd("on_accept connfd=%d\n", hio_fd(io));
-    char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-    char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
     printd("accept connfd=%d [%s] <= [%s]\n", hio_fd(io),
-            sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
-            sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
+            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
 
     static char s_readbuf[256] = {0};
     hio_set_readbuf(io, s_readbuf, sizeof(s_readbuf));

@@ -10,11 +10,11 @@ void on_close(hio_t* io) {
 
 void on_recv(hio_t* io, void* buf, int readbytes) {
     printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
-    char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-    char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
     printf("[%s] <=> [%s]\n",
-            sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
-            sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
+            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     printf("< %s\n", buf);
     // echo
     printf("> %s\n", buf);
@@ -23,11 +23,11 @@ void on_recv(hio_t* io, void* buf, int readbytes) {
 
 void on_accept(hio_t* io) {
     printf("on_accept connfd=%d\n", hio_fd(io));
-    char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-    char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
     printf("accept connfd=%d [%s] <= [%s]\n", hio_fd(io),
-            sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
-            sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
+            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
 
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);

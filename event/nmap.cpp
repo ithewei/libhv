@@ -30,11 +30,11 @@ static void on_timer(htimer_t* timer) {
 
 static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
     //printf("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
-    //char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-    //char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+    //char localaddrstr[SOCKADDR_STRLEN] = {0};
+    //char peeraddrstr[SOCKADDR_STRLEN] = {0};
     //printf("[%s] <=> [%s]\n",
-            //sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-            //sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+            //SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            //SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     nmap_udata_t* udata = (nmap_udata_t*)io->loop->userdata;
     if (++udata->recv_cnt == udata->send_cnt) {
         //hloop_stop(io->loop);

@@ -1,4 +1,5 @@
 #include "hevent.h"
+#include "hsocket.h"
 
 int hio_fd(hio_t* io) {
     return io->fd;
@@ -21,7 +22,7 @@ struct sockaddr* hio_peeraddr(hio_t* io) {
 }
 
 void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
-    io->readbuf.base = buf;
+    io->readbuf.base = (char*)buf;
     io->readbuf.len = len;
 }
 
@@ -57,14 +58,14 @@ void hio_set_type(hio_t* io, hio_type_e type) {
 
 void hio_set_localaddr(hio_t* io, struct sockaddr* addr, int addrlen) {
     if (io->localaddr == NULL) {
-        SAFE_ALLOC(io->localaddr, sizeof(struct sockaddr_in6));
+        SAFE_ALLOC(io->localaddr, sizeof(sockaddr_un));
     }
     memcpy(io->localaddr, addr, addrlen);
 }
 
 void hio_set_peeraddr (hio_t* io, struct sockaddr* addr, int addrlen) {
     if (io->peeraddr == NULL) {
-        SAFE_ALLOC(io->peeraddr, sizeof(struct sockaddr_in6));
+        SAFE_ALLOC(io->peeraddr, sizeof(sockaddr_un));
     }
     memcpy(io->peeraddr, addr, addrlen);
 }

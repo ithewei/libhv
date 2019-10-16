@@ -230,11 +230,11 @@ static void on_close(hio_t* io) {
 static void on_accept(hio_t* io) {
     printd("on_accept connfd=%d\n", hio_fd(io));
     /*
-    char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-    char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
     printf("accept connfd=%d [%s] <= [%s]\n", hio_fd(io),
-            sockaddr_snprintf(hio_localaddr(io), localaddrstr, sizeof(localaddrstr)),
-            sockaddr_snprintf(hio_peeraddr(io), peeraddrstr, sizeof(peeraddrstr)));
+            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
 
     HBuf* buf = (HBuf*)hloop_userdata(hevent_loop(io));
@@ -247,8 +247,8 @@ static void on_accept(hio_t* io) {
     HttpHandler* handler = new HttpHandler;
     handler->service = (HttpService*)hevent_userdata(io);
     handler->files = &s_filecache;
-    sockaddr_ntop(hio_peeraddr(io), handler->ip, sizeof(handler->ip));
-    handler->port = sockaddr_htons(hio_peeraddr(io));
+    sockaddr_ip((sockaddr_un*)hio_peeraddr(io), handler->ip, sizeof(handler->ip));
+    handler->port = sockaddr_port((sockaddr_un*)hio_peeraddr(io));
     handler->io = io;
     hevent_set_userdata(io, handler);
 }

@@ -109,11 +109,11 @@ static void on_acceptex_complete(hio_t* io) {
     */
     if (io->accept_cb) {
         /*
-        char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-        char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+        char localaddrstr[SOCKADDR_STRLEN] = {0};
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
         printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", listenfd, connfd,
-                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+                SOCKADDR_STR(io->localaddr, localaddrstr),
+                SOCKADDR_STR(io->peeraddr, peeraddrstr));
         */
         setsockopt(connfd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (const char*)&listenfd, sizeof(int));
         //printd("accept_cb------\n");
@@ -140,11 +140,11 @@ static void on_connectex_complete(hio_t* io) {
         getsockname(io->fd, io->localaddr, &addrlen);
         addrlen = sizeof(struct sockaddr_in6);
         getpeername(io->fd, io->peeraddr, &addrlen);
-        char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-        char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+        char localaddrstr[SOCKADDR_STRLEN] = {0};
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
         printd("connect connfd=%d [%s] => [%s]\n", io->fd,
-                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+                SOCKADDR_STR(io->localaddr, localaddrstr),
+                SOCKADDR_STR(io->peeraddr, peeraddrstr));
         //printd("connect_cb------\n");
         io->connect_cb(io);
         //printd("connect_cb======\n");
@@ -285,7 +285,7 @@ int hio_connect (hio_t* io) {
 error:
     hio_close(io);
     return 0;
-};
+}
 
 int hio_read (hio_t* io) {
     post_recv(io, NULL);

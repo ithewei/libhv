@@ -45,7 +45,7 @@ static void nio_accept(hio_t* io) {
     //printd("nio_accept listenfd=%d\n", io->fd);
     socklen_t addrlen;
 accept:
-    addrlen = sizeof(struct sockaddr_in6);
+    addrlen = sizeof(sockaddr_un);
     int connfd = accept(io->fd, io->peeraddr, &addrlen);
     hio_t* connio = NULL;
     if (connfd < 0) {
@@ -59,7 +59,7 @@ accept:
             goto accept_error;
         }
     }
-    addrlen = sizeof(struct sockaddr_in6);
+    addrlen = sizeof(sockaddr_un);
     getsockname(connfd, io->localaddr, &addrlen);
     connio = hio_get(io->loop, connfd);
     // NOTE: inherit from listenio
@@ -85,11 +85,11 @@ accept:
     if (io->io_type != HIO_TYPE_SSL) {
         // NOTE: SSL call accept_cb after handshark finished
         if (io->accept_cb) {
-            char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-            char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+            char localaddrstr[SOCKADDR_STRLEN] = {0};
+            char peeraddrstr[SOCKADDR_STRLEN] = {0};
             printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
-                    sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-                    sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+                    SOCKADDR_STR(io->localaddr, localaddrstr),
+                    SOCKADDR_STR(io->peeraddr, peeraddrstr));
             //printd("accept_cb------\n");
             io->accept_cb(connio);
             //printd("accept_cb======\n");
@@ -103,7 +103,7 @@ accept_error:
 
 static void nio_connect(hio_t* io) {
     //printd("nio_connect connfd=%d\n", io->fd);
-    socklen_t addrlen = sizeof(struct sockaddr_in6);
+    socklen_t addrlen = sizeof(sockaddr_un);
     int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
         io->error = socket_errno();
@@ -111,13 +111,13 @@ static void nio_connect(hio_t* io) {
         goto connect_failed;
     }
     else {
-        addrlen = sizeof(struct sockaddr_in6);
+        addrlen = sizeof(sockaddr_un);
         getsockname(io->fd, io->localaddr, &addrlen);
-        char localaddrstr[INET6_ADDRSTRLEN+16] = {0};
-        char peeraddrstr[INET6_ADDRSTRLEN+16] = {0};
+        char localaddrstr[SOCKADDR_STRLEN] = {0};
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
         printd("connect connfd=%d [%s] => [%s]\n", io->fd,
-                sockaddr_snprintf(io->localaddr, localaddrstr, sizeof(localaddrstr)),
-                sockaddr_snprintf(io->peeraddr, peeraddrstr, sizeof(peeraddrstr)));
+                SOCKADDR_STR(io->localaddr, localaddrstr),
+                SOCKADDR_STR(io->peeraddr, peeraddrstr));
 #ifdef WITH_OPENSSL
         if (io->io_type == HIO_TYPE_SSL) {
             SSL_CTX* ssl_ctx = (SSL_CTX*)g_ssl_ctx;
@@ -170,7 +170,7 @@ read:
     case HIO_TYPE_UDP:
     case HIO_TYPE_IP:
     {
-        socklen_t addrlen = sizeof(struct sockaddr_in6);
+        socklen_t addrlen = sizeof(sockaddr_un);
         nread = recvfrom(io->fd, buf, len, 0, io->peeraddr, &addrlen);
     }
         break;
@@ -233,7 +233,7 @@ write:
         break;
     case HIO_TYPE_UDP:
     case HIO_TYPE_IP:
-        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(struct sockaddr_in6));
+        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_un));
         break;
     default:
         nwrite = write(io->fd, buf, len);
@@ -309,7 +309,7 @@ int hio_accept(hio_t* io) {
 }
 
 int hio_connect(hio_t* io) {
-    int ret = connect(io->fd, io->peeraddr, sizeof(struct sockaddr_in6));
+    int ret = connect(io->fd, io->peeraddr, sizeof(sockaddr_un));
 #ifdef OS_WIN
     if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
 #else
@@ -352,7 +352,7 @@ try_write:
             break;
         case HIO_TYPE_UDP:
         case HIO_TYPE_IP:
-            nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(struct sockaddr_in6));
+            nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_un));
             break;
         default:
             nwrite = write(io->fd, buf, len);
