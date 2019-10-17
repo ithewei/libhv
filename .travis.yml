@@ -1,0 +1,12 @@
+language: c++
+
+compiler: gcc
+
+os:
+    - linux
+    - windows
+    - osx
+
+script:
+    - make unittest
+    - make all
