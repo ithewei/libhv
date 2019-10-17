@@ -5,7 +5,6 @@ compiler: gcc
 os:
     - linux
     - osx
-    - windows
 
 script:
     - make unittest
