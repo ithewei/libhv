@@ -12,4 +12,4 @@ bin/curl -v localhost:8080
 bin/curl -v localhost:8080/downloads/
 
 # http api service
-bin/curl -v -X POST localhost:8086/v1/api/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
+bin/curl -v -X POST localhost:8080/v1/api/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
