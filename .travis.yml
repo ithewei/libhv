@@ -1,11 +1,11 @@
-language: c++
+language: cpp
 
 compiler: gcc
 
 os:
     - linux
-    - windows
     - osx
+    - windows
 
 script:
     - make unittest

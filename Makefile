@@ -9,7 +9,7 @@ clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server examples $(TMPDIR)"
 
 prepare:
-	-mkdir -p $(TMPDIR)
+	-mkdir -p $(TMPDIR) lib bin
 	-rm base/RAII.o
 
 libhw:
@@ -60,13 +60,13 @@ httpd: prepare
 	cp examples/httpd.cpp examples/http_api_test.h $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server $(TMPDIR)"
 
-curl:
+curl: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/curl.cpp $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)"
 	#$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)" DEFINES="$(DEFINES) WITH_CURL CURL_STATICLIB"
 
-unittest:
+unittest: prepare
 	$(CC)  -std=c99   -I. -Ibase         -o bin/ping       unittest/ping_test.c          base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -std=c99   -I. -Ibase         -o bin/connect    unittest/connect_test.c       base/hsocket.c base/htime.c
 	$(CXX) -std=c++11 -I. -Ibase         -o bin/defer      unittest/defer_test.cpp
@@ -75,7 +75,7 @@ unittest:
 	$(CXX) -std=c++11 -I. -Ibase -Iutils -o bin/ifconfig   unittest/ifconfig_test.cpp    utils/ifconfig.cpp
 
 # UNIX only
-webbench:
+webbench: prepare
 	$(CC) -o bin/webbench unittest/webbench.c
 
 .PHONY: clean prepare libhw test timer loop tcp udp nc nmap httpd curl unittest webbench
