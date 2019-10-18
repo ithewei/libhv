@@ -6,6 +6,17 @@ os:
     - linux
     - osx
 
+#before_install:
+  #- pip install --user cpp-coveralls
+
 script:
     - make unittest
     - make all
+
+#after_success:
+    #- coveralls
+        #--exclude cert
+        #--exclude crc
+        #--exclude etc
+        #--exclude html
+        #--gcov-options '\-lp';
