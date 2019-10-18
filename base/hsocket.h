@@ -159,6 +159,9 @@ int ConnectNonblock(const char* host, int port);
 #define DEFAULT_CONNECT_TIMEOUT 5000 // ms
 int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
 
+// Just implement Socketpair(AF_INET, SOCK_STREAM, 0, sv);
+int Socketpair(int family, int type, int protocol, int sv[2]);
+
 // @param cnt: ping count
 // @return: ok count
 // @note: printd $CC -DPRINT_DEBUG

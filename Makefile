@@ -69,6 +69,7 @@ curl: prepare
 unittest: prepare
 	$(CC)  -std=c99   -I. -Ibase         -o bin/ping       unittest/ping_test.c          base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -std=c99   -I. -Ibase         -o bin/connect    unittest/connect_test.c       base/hsocket.c base/htime.c
+	$(CC)  -std=c99   -I. -Ibase         -o bin/socketpair unittest/socketpair_test.c    base/hsocket.c base/htime.c
 	$(CXX) -std=c++11 -I. -Ibase         -o bin/defer      unittest/defer_test.cpp
 	$(CXX) -std=c++11 -I. -Ibase         -o bin/threadpool unittest/threadpool_test.cpp  -pthread
 	$(CXX) -std=c++11 -I. -Ibase         -o bin/ls         unittest/listdir_test.cpp     base/hdir.cpp base/hbase.c

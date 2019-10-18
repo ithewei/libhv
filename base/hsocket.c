@@ -170,6 +170,75 @@ error:
     return socket_errno() > 0 ? -socket_errno() : -1;
 }
 
+int Socketpair(int family, int type, int protocol, int sv[2]) {
+#ifdef OS_UNIX
+    if (family == AF_UNIX) {
+        return socketpair(family, type, protocol, sv);
+    }
+#endif
+    if (family != AF_INET || type != SOCK_STREAM) {
+        return -1;
+    }
+    int listenfd, connfd, acceptfd;
+    listenfd = connfd = acceptfd = INVALID_SOCKET;
+    struct sockaddr_in localaddr;
+    socklen_t addrlen = sizeof(localaddr);
+    memset(&localaddr, 0, addrlen);
+    localaddr.sin_family = AF_INET;
+    localaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    localaddr.sin_port = 0;
+    // listener
+    listenfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (listenfd < 0) {
+        perror("socket");
+        goto error;
+    }
+    if (bind(listenfd, (struct sockaddr*)&localaddr, addrlen) < 0) {
+        perror("bind");
+        goto error;
+    }
+    if (listen(listenfd, 1) < 0) {
+        perror("listen");
+        goto error;
+    }
+    if (getsockname(listenfd, (struct sockaddr*)&localaddr, &addrlen) < 0) {
+        perror("getsockname");
+        goto error;
+    }
+    // connector
+    connfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (connfd < 0) {
+        perror("socket");
+        goto error;
+    }
+    if (connect(connfd, (struct sockaddr*)&localaddr, addrlen) < 0) {
+        perror("connect");
+        goto error;
+    }
+    // acceptor
+    acceptfd = accept(listenfd, (struct sockaddr*)&localaddr, &addrlen);
+    if (acceptfd < 0) {
+        perror("accept");
+        goto error;
+    }
+
+    closesocket(listenfd);
+    sv[0] = connfd;
+    sv[1] = acceptfd;
+    return 0;
+error:
+    if (listenfd != INVALID_SOCKET) {
+        closesocket(listenfd);
+    }
+    if (connfd != INVALID_SOCKET) {
+        closesocket(connfd);
+    }
+    if (acceptfd != INVALID_SOCKET) {
+        closesocket(acceptfd);
+    }
+    return -1;
+}
+
 #define PING_TIMEOUT    1000 // ms
 int Ping(const char* host, int cnt) {
     static uint16_t seq = 0;
