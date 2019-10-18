@@ -1,4 +1,5 @@
-[![travis build status](https://travis-ci.org/ithewei/hw.svg?branch=master)](https://travis-ci.org/ithewei/hw)
+[![Build Status](https://travis-ci.org/ithewei/hw.svg?branch=master)](https://travis-ci.org/ithewei/hw)
+[![Coverage Status](https://coveralls.io/repos/github/ithewei/hw/badge.svg?branch=master)](https://coveralls.io/github/ithewei/hw?branch=master)
 
 ## Intro
 
