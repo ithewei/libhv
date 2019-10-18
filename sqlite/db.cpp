@@ -77,16 +77,10 @@ int dbtable_exist(HDB hdb, const char* table_name) {
     where += '\'';
     return dbtable_count(hdb, "sqlite_master", where.c_str());
 }
-// select count(*) from $table_name where $where;
+
 int dbtable_count(HDB hdb, const char* table_name, const char* where) {
     std::string sql;
-    sql = "select count(*) from ";
-    sql += table_name;
-    if (where) {
-        sql += " where ";
-        sql += where;
-    }
-    sql += ';';
+    sql_count(sql, table_name, where);
     DBTable table;
     if (db_exec_with_result(hdb, sql.c_str(), &table) == SQL_OK) {
         return atoi(table[1][0].c_str());
@@ -94,81 +88,27 @@ int dbtable_count(HDB hdb, const char* table_name, const char* where) {
     return 0;
 }
 
-// select keys from $table_name where $where limit $limit order by $column ASC|DESC;
 int dbtable_select(HDB hdb, const char* table_name, const char* keys, const char* where, DBTable* table, const KeyVal* options) {
     std::string sql;
-    sql = "select ";
-    if (keys) {
-        sql += keys;
-    }
-    else {
-        sql += '*';
-    }
-    sql += " from ";
-    sql += table_name;
-    if (where) {
-        sql += " where ";
-        sql += where;
-    }
-    if (options) {
-        for (KeyVal::const_iterator iter = options->begin(); iter != options->end(); ++iter) {
-            sql += ' ';
-            sql += iter->first;
-            sql += ' ';
-            sql += iter->second;
-        }
-    }
-    sql += ';';
+    sql_select(sql, table_name, keys, where, options);
     return db_exec_with_result(hdb, sql.c_str(), table);
 }
 
-// insert into $table_name ($keys) values ($values);
 int dbtable_insert(HDB hdb, const char* table_name, const char* keys, const char* values) {
     std::string sql;
-    sql = "insert into ";
-    sql += table_name;
-    if (keys) {
-        sql += " (";
-        sql += keys;
-        sql += ')';
-    }
-    if (values) {
-        sql += " values ";
-        sql += '(';
-        sql += values;
-        sql += ')';
-    }
-    sql += ';';
+    sql_insert(sql, table_name, keys, values);
     return db_exec(hdb, sql.c_str());
 }
 
-// update $table_name set $set where $where;
 int dbtable_update(HDB hdb, const char* table_name, const char* set, const char* where) {
     std::string sql;
-    sql = "update ";
-    sql += table_name;
-    if (set) {
-        sql += " set ";
-        sql += set;
-    }
-    if (where) {
-        sql += " where ";
-        sql += where;
-    }
-    sql += ';';
+    sql_update(sql, table_name, set, where);
     return db_exec(hdb, sql.c_str());
 }
 
-// delete from $table_name where $where;
 int dbtable_delete(HDB hdb, const char* table_name, const char* where) {
     std::string sql;
-    sql = "delete from ";
-    sql += table_name;
-    if (where) {
-        sql += " where ";
-        sql += where;
-    }
-    sql += ';';
+    sql_delete(sql, table_name, where);
     return db_exec(hdb, sql.c_str());
 }
 ////////////////////////////////////////////////////////////////////////////////
