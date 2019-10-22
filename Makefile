@@ -72,6 +72,7 @@ unittest: prepare
 	$(CC)  -std=c99   -I. -Ibase         -o bin/socketpair unittest/socketpair_test.c    base/hsocket.c base/htime.c
 	$(CXX) -std=c++11 -I. -Ibase         -o bin/defer      unittest/defer_test.cpp
 	$(CXX) -std=c++11 -I. -Ibase         -o bin/threadpool unittest/threadpool_test.cpp  -pthread
+	$(CXX) -std=c++11 -I. -Ibase         -o bin/objectpool unittest/objectpool_test.cpp  -pthread
 	$(CXX) -std=c++11 -I. -Ibase         -o bin/ls         unittest/listdir_test.cpp     base/hdir.cpp base/hbase.c
 	$(CXX) -std=c++11 -I. -Ibase -Iutils -o bin/ifconfig   unittest/ifconfig_test.cpp    utils/ifconfig.cpp
 

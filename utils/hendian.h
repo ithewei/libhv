@@ -7,7 +7,7 @@
 #include "hplatform.h"
 #include "hdef.h"
 
-int detect_endian() {
+static inline int detect_endian() {
     union {
         char c;
         short s;
