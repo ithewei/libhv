@@ -86,6 +86,9 @@ logger_t* default_logger();
 #define hlog_set_level(level)           logger_set_level(hlog, level)
 #define hlog_set_max_filesize(filesize) logger_set_max_filesize(hlog, filesize)
 #define hlog_set_remain_days(days)      logger_set_remain_days(hlog, days)
+#define hlog_enable_fsync()             logger_enable_fsync(hlog, 1)
+#define hlog_disable_fsync()            logger_enable_fsync(hlog, 0)
+#define hlog_fsync()                    logger_fsync(hlog)
 
 #define hlogd(fmt, ...) logger_print(hlog, LOG_LEVEL_DEBUG, fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
 #define hlogi(fmt, ...) logger_print(hlog, LOG_LEVEL_INFO,  fmt " [%s:%d:%s]\n", ## __VA_ARGS__, __FILE__, __LINE__, __FUNCTION__)
