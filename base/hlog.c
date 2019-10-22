@@ -75,7 +75,7 @@ logger_t* logger_create() {
     int local_hour = local_tm->tm_hour;
     struct tm* gmt_tm = gmtime(&ts);
     int gmt_hour = gmt_tm->tm_hour;
-    s_gmtoff = local_hour - gmt_hour;
+    s_gmtoff = (local_hour - gmt_hour) * SECONDS_PER_HOUR;
 
     logger_t* logger = (logger_t*)malloc(sizeof(logger_t));
     logger_init(logger);
@@ -149,7 +149,7 @@ static void ts_logfile(const char* filepath, time_t ts, char* buf, int len) {
 
 static FILE* shift_logfile(logger_t* logger) {
     time_t ts_now = time(NULL);
-    int interval_days = logger->last_logfile_ts == 0 ? 0 : (ts_now+s_gmtoff) / SECONDS_PER_DAY - (logger->last_logfile_ts + s_gmtoff) / SECONDS_PER_DAY;;
+    int interval_days = logger->last_logfile_ts == 0 ? 0 : (ts_now+s_gmtoff) / SECONDS_PER_DAY - (logger->last_logfile_ts+s_gmtoff) / SECONDS_PER_DAY;;
     if (logger->fp_ == NULL || interval_days > 0) {
         // close old logfile
         if (logger->fp_) {
