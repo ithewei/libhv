@@ -100,6 +100,12 @@ int dbtable_insert(HDB hdb, const char* table_name, const char* keys, const char
     return db_exec(hdb, sql.c_str());
 }
 
+int dbtable_replace(HDB hdb, const char* table_name, const char* keys, const char* values) {
+    std::string sql;
+    sql_replace(sql, table_name, keys, values);
+    return db_exec(hdb, sql.c_str());
+}
+
 int dbtable_update(HDB hdb, const char* table_name, const char* set, const char* where) {
     std::string sql;
     sql_update(sql, table_name, set, where);

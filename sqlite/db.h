@@ -29,6 +29,7 @@ int dbtable_exist(HDB hdb, const char* table_name);
 int dbtable_count(HDB hdb, const char* table_name, const char* where);
 int dbtable_select(HDB hdb, const char* table_name, const char* keys, const char* where, DBTable* table, const KeyVal* options=NULL);
 int dbtable_insert(HDB hdb, const char* table_name, const char* keys, const char* values);
+int dbtable_replace(HDB hdb, const char* table_name, const char* keys, const char* values);
 int dbtable_update(HDB hdb, const char* table_name, const char* set, const char* where);
 int dbtable_delete(HDB hdb, const char* table_name, const char* where);
 

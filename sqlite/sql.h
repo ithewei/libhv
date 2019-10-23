@@ -11,6 +11,8 @@ void sql_count(std::string& sql, const char* table_name, const char* where = NUL
 void sql_select(std::string& sql, const char* table_name, const char* keys = "*", const char* where = NULL, const KeyVal* options = NULL);
 // insert into $table_name ($keys) values ($values);
 void sql_insert(std::string& sql, const char* table_name, const char* keys, const char* values);
+// replace into $table_name ($keys) values ($values);
+void sql_replace(std::string& sql, const char* table_name, const char* keys, const char* values);
 // update $table_name set $set where $where;
 void sql_update(std::string& sql, const char* table_name, const char* set, const char* where = NULL);
 // delete from $table_name where $where;

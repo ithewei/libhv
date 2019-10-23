@@ -52,6 +52,23 @@ void sql_insert(std::string& sql, const char* table_name, const char* keys, cons
     }
     sql += ';';
 }
+// replace into $table_name ($keys) values ($values);
+void sql_replace(std::string& sql, const char* table_name, const char* keys, const char* values) {
+    sql = "replace into ";
+    sql += table_name;
+    if (keys) {
+        sql += " (";
+        sql += keys;
+        sql += ')';
+    }
+    if (values) {
+        sql += " values ";
+        sql += '(';
+        sql += values;
+        sql += ')';
+    }
+    sql += ';';
+}
 // update $table_name set $set where $where;
 void sql_update(std::string& sql, const char* table_name, const char* set, const char* where) {
     sql = "update ";
