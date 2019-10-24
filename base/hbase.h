@@ -60,6 +60,9 @@ char* safe_strncpy(char* dest, const char* src, size_t n);
 // safe_strncpy n = sizeof(dest_buf)
 char* safe_strncat(char* dest, const char* src, size_t n);
 
+// 1 y on yes true enable
+bool getboolean(const char* str);
+
 #ifdef __cplusplus
 } // extern "C"
 #endif

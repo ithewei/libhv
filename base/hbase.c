@@ -114,3 +114,16 @@ char* safe_strncat(char* dest, const char* src, size_t n) {
     return ret;
 }
 
+bool getboolean(const char* str) {
+    if (str == NULL) return false;
+    int len = strlen(str);
+    if (len == 0) return false;
+    switch (len) {
+    case 1: return *str == '1' || *str == 'y' || *str == 'Y';
+    case 2: return stricmp(str, "on") == 0;
+    case 3: return stricmp(str, "yes") == 0;
+    case 4: return stricmp(str, "true") == 0;
+    case 6: return stricmp(str, "enable") == 0;
+    default: return false;
+    }
+}

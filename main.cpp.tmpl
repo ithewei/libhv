@@ -118,7 +118,14 @@ int parse_confile(const char* confile) {
     if (!str.empty()) {
         hlog_set_remain_days(atoi(str.c_str()));
     }
+    // log_fsync
+    str = g_conf_ctx.parser->GetValue("log_fsync");
+    if (!str.empty()) {
+        logger_enable_fsync(hlog, getboolean(str.c_str()));
+    }
+    // first log here
     hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
+    hlog_fsync();
 
     // worker_processes
     int worker_processes = 0;
@@ -272,14 +279,14 @@ int main(int argc, char** argv) {
             return ERR_MALLOC;
         }
         memset(g_worker_processes, 0, bytes);
-        for (int i = 0; i < g_worker_processes_num; ++i) {
-            proc_ctx_t* ctx = &g_worker_processes[i];
+        proc_ctx_t* ctx = g_worker_processes;
+        for (int i = 0; i < g_worker_processes_num; ++i, ++ctx) {
             ctx->init = worker_init;
             ctx->init_userdata = NULL;
             ctx->proc = worker_proc;
             ctx->proc_userdata = NULL;
             spawn_proc(ctx);
-            hlogi("worker[%d] start/running, pid=%d", i, ctx->pid);
+            hlogi("workers[%d] start/running, pid=%d", i, ctx->pid);
         }
 
         hlogi("master start/running, pid=%d", g_main_ctx.pid);

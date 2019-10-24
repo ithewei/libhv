@@ -1,10 +1,6 @@
 #ifndef HW_THREAD_H_
 #define HW_THREAD_H_
 
-#include <thread>
-#include <atomic>
-#include <chrono>
-
 #include "hplatform.h"
 #include "hdef.h"
 
@@ -21,6 +17,33 @@ static inline int gettid() {
 #define gettid  pthread_self
 #endif
 
+#ifdef OS_WIN
+typedef HANDLE      hthread_t;
+typedef DWORD WINAPI (*hthread_routine)(void*);
+#define HTHREAD_ROUTINE(fname) DWORD WINAPI fname(void* userdata)
+static inline hthread_t hthread_create(hthread_routine fn, void* userdata) {
+    return CreateThread(NULL, 0, fn, userdata, 0, NULL);
+}
+
+static inline int hthread_join(hthread_t th) {
+    return WaitForSingleObject(th, INFINITE);
+}
+#else
+typedef pthread_t   hthread_t;
+typedef void* (*hthread_routine)(void*);
+#define HTHREAD_ROUTINE(fname) void* fname(void* userdata)
+static inline hthread_t hthread_create(hthread_routine fn, void* userdata) {
+    pthread_t th;
+    pthread_create(&th, NULL, fn, userdata);
+    return th;
+}
+
+static inline int hthread_join(hthread_t th) {
+    return pthread_join(th, NULL);
+}
+#endif
+
+#ifdef __cplusplus
 /************************************************
  * HThread
  * Status: STOP,RUNNING,PAUSE
@@ -28,6 +51,10 @@ static inline int gettid() {
  * first-level virtual: doTask
  * second-level virtual: run
 ************************************************/
+#include <thread>
+#include <atomic>
+#include <chrono>
+
 class HThread {
  public:
     HThread() {
@@ -147,5 +174,6 @@ class HThread {
     std::chrono::system_clock::time_point base_tp;   // for SLEEP_UNTIL
     uint32_t sleep_ms;
 };
+#endif
 
 #endif  // HW_THREAD_H_
