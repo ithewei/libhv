@@ -183,14 +183,29 @@ static FILE* shift_logfile(logger_t* logger) {
     // open today logfile
     if (logger->fp_ == NULL) {
         ts_logfile(logger->filepath, ts_now, logger->cur_logfile, sizeof(logger->cur_logfile));
-        logger->fp_ = fopen(logger->cur_logfile, "a"); // NOTE: append-mode for multi-processes
+        logger->fp_ = fopen(logger->cur_logfile, "a");
         logger->last_logfile_ts = ts_now;
     }
 
-    if (logger->fp_ && ftell(logger->fp_) > logger->max_filesize) {
-        fclose(logger->fp_);
-        logger->fp_ = NULL;
-        logger->fp_ = fopen(logger->cur_logfile, "w");
+    // ftruncate
+    // NOTE; estimate can_write_cnt to avoid frequent fseek/ftell
+    static int s_can_write_cnt = 0;
+    if (logger->fp_ && --s_can_write_cnt < 0) {
+        fseek(logger->fp_, 0, SEEK_END);
+        long filesize = ftell(logger->fp_);
+        if (filesize > logger->max_filesize) {
+            fclose(logger->fp_);
+            logger->fp_ = NULL;
+            logger->fp_ = fopen(logger->cur_logfile, "w");
+            // reopen with O_APPEND for multi-processes
+            if (logger->fp_) {
+                fclose(logger->fp_);
+                logger->fp_ = fopen(logger->cur_logfile, "a");
+            }
+        }
+        else {
+            s_can_write_cnt = (logger->max_filesize - filesize) / logger->bufsize;
+        }
     }
 
     return logger->fp_;
