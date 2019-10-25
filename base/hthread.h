@@ -19,7 +19,7 @@ static inline int gettid() {
 
 #ifdef OS_WIN
 typedef HANDLE      hthread_t;
-typedef DWORD WINAPI (*hthread_routine)(void*);
+typedef DWORD (WINAPI *hthread_routine)(void*);
 #define HTHREAD_ROUTINE(fname) DWORD WINAPI fname(void* userdata)
 static inline hthread_t hthread_create(hthread_routine fn, void* userdata) {
     return CreateThread(NULL, 0, fn, userdata, 0, NULL);

@@ -12,7 +12,7 @@
 
 #define honce_t             INIT_ONCE
 #define HONCE_INIT          INIT_ONCE_STATIC_INIT
-typedef void (WINAPI *honce_fn)();
+typedef void (*honce_fn)();
 static inline BOOL WINAPI s_once_func(INIT_ONCE* once, PVOID arg, PVOID* _) {
     honce_fn fn = (honce_fn)arg;
     fn();
