@@ -52,6 +52,9 @@ typedef KeyValue    QueryParams;
 std::string dump_query_params(QueryParams& query_params);
 int         parse_query_params(const char* query_string, QueryParams& query_params);
 
+// NOTE: WITHOUT_HTTP_CONTENT
+// ndk-r10e no std::to_string and can't compile modern json.hpp
+#ifndef WITHOUT_HTTP_CONTENT
 // Json
 #include "json.hpp"
 using Json = nlohmann::json;
@@ -104,5 +107,7 @@ typedef MAP<std::string, FormData>          MultiPart;
 #define DEFAULT_MULTIPART_BOUNDARY  "----WebKitFormBoundary7MA4YWxkTrZu0gW"
 std::string dump_multipart(MultiPart& mp, const char* boundary = DEFAULT_MULTIPART_BOUNDARY);
 int         parse_multipart(std::string& str, MultiPart& mp, const char* boundary);
+
+#endif
 
 #endif // HTTP_CONTENT_H_

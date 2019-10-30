@@ -11,6 +11,7 @@ void HttpPayload::FillContentType() {
         goto append;
     }
 
+#ifndef WITHOUT_HTTP_CONTENT
     if (content_type == CONTENT_TYPE_NONE) {
         if (json.size() != 0) {
             content_type = APPLICATION_JSON;
@@ -25,11 +26,14 @@ void HttpPayload::FillContentType() {
             content_type = TEXT_PLAIN;
         }
     }
+#endif
 
     if (content_type != CONTENT_TYPE_NONE) {
         headers["Content-Type"] = http_content_type_str(content_type);
     }
+
 append:
+#ifndef WITHOUT_HTTP_CONTENT
     if (content_type == MULTIPART_FORM_DATA) {
         auto iter = headers.find("Content-Type");
         if (iter != headers.end()) {
@@ -41,6 +45,8 @@ append:
             }
         }
     }
+#endif
+    return;
 }
 
 void HttpPayload::FillContentLength() {
@@ -49,7 +55,7 @@ void HttpPayload::FillContentLength() {
         if (content_length == 0) {
             content_length = body.size();
         }
-        headers["Content-Length"] = std::to_string(content_length);
+        headers["Content-Length"] = asprintf("%d", content_length);
     }
     else {
         content_length = atoi(iter->second.c_str());
@@ -76,6 +82,7 @@ void HttpPayload::DumpBody() {
         return;
     }
     FillContentType();
+#ifndef WITHOUT_HTTP_CONTENT
     switch(content_type) {
     case APPLICATION_JSON:
         body = dump_json(json);
@@ -101,6 +108,7 @@ void HttpPayload::DumpBody() {
         // nothing to do
         break;
     }
+#endif
 }
 
 int HttpPayload::ParseBody() {
@@ -108,6 +116,7 @@ int HttpPayload::ParseBody() {
         return -1;
     }
     FillContentType();
+#ifndef WITHOUT_HTTP_CONTENT
     switch(content_type) {
     case APPLICATION_JSON:
         return parse_json(body.c_str(), json);
@@ -130,6 +139,8 @@ int HttpPayload::ParseBody() {
         // nothing to do
         return 0;
     }
+#endif
+    return 0;
 }
 
 std::string HttpPayload::Dump(bool is_dump_headers, bool is_dump_body) {

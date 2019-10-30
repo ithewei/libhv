@@ -4,9 +4,9 @@
 #include <string>
 #include <map>
 
+#include "hstring.h"
 #include "httpdef.h"
 #include "http_content.h"
-#include "hstring.h"
 
 typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
 typedef std::string                                         http_body;
@@ -24,9 +24,11 @@ public:
     void*               content;    // DATA_NO_COPY
     int                 content_length;
     http_content_type   content_type;
+#ifndef WITHOUT_HTTP_CONTENT
     Json                json;       // APPLICATION_JSON
     MultiPart           mp;         // FORM_DATA
     KeyValue            kv;         // X_WWW_FORM_URLENCODED
+#endif
 
     HttpPayload() {
         type = HTTP_BOTH;
@@ -47,9 +49,11 @@ public:
         Init();
         headers.clear();
         body.clear();
+#ifndef WITHOUT_HTTP_CONTENT
         json.clear();
         mp.clear();
         kv.clear();
+#endif
     }
 
     // structured-content -> content_type <-> headers Content-Type

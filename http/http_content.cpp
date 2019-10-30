@@ -143,6 +143,7 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
     return query_params.size() == 0 ? -1 : 0;
 }
 
+#ifndef WITHOUT_HTTP_CONTENT
 std::string dump_json(Json& json) {
     return json.dump();
 }
@@ -325,3 +326,4 @@ int parse_multipart(std::string& str, MultiPart& mp, const char* boundary) {
     multipart_parser_free(parser);
     return nparse == str.size() ? 0 : -1;
 }
+#endif
