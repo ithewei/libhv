@@ -7,6 +7,11 @@ using grpc::Server;
 using grpc::Service;
 using grpc::ServerCompletionQueue;
 
+// GRPC_DEFAULT_MAX_RECV_MESSAGE_LENGTH = 4M
+// GRPC_DEFAULT_MAX_SEND_MESSAGE_LENGTH = 4M
+#define GRPC_MAX_RECV_MESSAGE_LENGTH    1<<24 // 16M
+#define GRPC_MAX_SEND_MESSAGE_LENGTH    1<<24 // 16M
+
 class GrpcServer {
 public:
     GrpcServer(int port) : _port(port) {
@@ -16,6 +21,8 @@ public:
         build_.AddChannelArgument(GRPC_ARG_KEEPALIVE_TIME_MS,    30000);
         build_.AddChannelArgument(GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 5000);
         build_.AddChannelArgument(GRPC_ARG_KEEPALIVE_PERMIT_WITHOUT_CALLS, 1);
+        build_.SetMaxReceiveMessageSize(GRPC_MAX_RECV_MESSAGE_LENGTH);
+        build_.SetMaxSendMessageSize(GRPC_MAX_SEND_MESSAGE_LENGTH);
     }
 
     void RegisterService(Service* service) {

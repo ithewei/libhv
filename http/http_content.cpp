@@ -3,49 +3,58 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "hdef.h"
 #include "hstring.h"
 
 #include "httpdef.h" // for http_content_type_str_by_suffix
-
-#ifndef LOWER
-#define LOWER(c)    ((c) | 0x20)
-#endif
-
-#ifndef UPPER
-#define UPPER(c)    ((c) & ~0x20)
-#endif
-
-#ifndef IS_NUM
-#define IS_NUM(c)   ((c) >= '0' && (c) <= '9')
-#endif
-
-#ifndef IS_ALPHA
-#define IS_ALPHA(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'F'))
-#endif
-
-#ifndef IS_ALPHANUM
-#define IS_ALPHANUM(c) (IS_NUM(c) || IS_ALPHA(c))
-#endif
-
-#ifndef IS_HEX
-#define IS_HEX(c) (IS_NUM(c) || ((c) >= 'a' && (c) <= 'f') || ((c) >= 'A' && (c) <= 'F'))
-#endif
-
-#ifndef C2I
-#define C2I(c)  ((c)-'0')
-#endif
 
 static char hex2i(char hex) {
     if (hex >= '0' && hex <= '9') {
         return hex - '0';
     }
-    if (hex >= 'A' && hex <= 'F') {
-        return hex - 'A';
-    }
-    if (hex >= 'a' && hex <= 'f') {
-        return hex - 'a';
+    switch (hex) {
+        case 'A': case 'a': return 10;
+        case 'B': case 'b': return 11;
+        case 'C': case 'c': return 12;
+        case 'D': case 'd': return 13;
+        case 'E': case 'e': return 14;
+        case 'F': case 'f': return 15;
+        default: break;
     }
     return 0;
+}
+
+/*
+bool Curl_isunreserved(unsigned char in)
+{
+    switch(in) {
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+    case 'a': case 'b': case 'c': case 'd': case 'e':
+    case 'f': case 'g': case 'h': case 'i': case 'j':
+    case 'k': case 'l': case 'm': case 'n': case 'o':
+    case 'p': case 'q': case 'r': case 's': case 't':
+    case 'u': case 'v': case 'w': case 'x': case 'y': case 'z':
+    case 'A': case 'B': case 'C': case 'D': case 'E':
+    case 'F': case 'G': case 'H': case 'I': case 'J':
+    case 'K': case 'L': case 'M': case 'N': case 'O':
+    case 'P': case 'Q': case 'R': case 'S': case 'T':
+    case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
+    case '-': case '.': case '_': case '~':
+      return TRUE;
+    default:
+      break;
+    }
+    return FLASE;
+}
+*/
+
+static inline bool is_unambiguous(char c) {
+    return IS_ALPHANUM(c) ||
+           c == '-' ||
+           c == '_' ||
+           c == '.' ||
+           c == '~';
 }
 
 // scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
@@ -54,20 +63,12 @@ static std::string escape(const std::string& param) {
     const char* p = param.c_str();
     char escape[4] = {0};
     while (*p != '\0') {
-        if (*p == ' ' ||
-            *p == ':' ||
-            *p == '/' ||
-            *p == '@' ||
-            *p == '?' ||
-            *p == '=' ||
-            *p == '&' ||
-            *p == '#' ||
-            *p == '%') {
-            sprintf(escape, "%%%02X", *p);
-            str += escape;
+        if (is_unambiguous(*p)) {
+            str += *p;
         }
         else {
-            str += *p;
+            sprintf(escape, "%%%02X", *p);
+            str += escape;
         }
         ++p;
     }
@@ -83,10 +84,11 @@ static std::string unescape(const char* escape_param) {
             IS_HEX(p[2])) {
             str += (hex2i(p[1]) << 4 | hex2i(p[2]));
             p += 3;
-            continue;
         }
-        str += *p;
-        ++p;
+        else {
+            str += *p;
+            ++p;
+        }
     }
     return str;
 }
@@ -105,9 +107,11 @@ std::string dump_query_params(QueryParams& query_params) {
 }
 
 int parse_query_params(const char* query_string, QueryParams& query_params) {
+    printf("%s\n", query_string);
     const char* p = strchr(query_string, '?');
     p = p ? p+1 : query_string;
-    p = unescape(p).c_str();
+    std::string unescape_string = unescape(p);
+    p = unescape_string.c_str();
 
     enum {
         s_key,
@@ -126,10 +130,12 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
             }
             state = s_key;
             key = p+1;
+            printf("key=%s %p\n", key, key);
         }
         else if (*p == '=') {
             state = s_value;
             value = p+1;
+            printf("value=%s %p\n", value, value);
         }
         else {
             state == s_key ? ++key_len : ++value_len;

@@ -63,18 +63,6 @@ typedef void (*procedure_t)(void* userdata);
 #define INFINITE    (uint32_t)-1
 #endif
 
-#ifndef CR
-#define CR      '\r'
-#endif
-
-#ifndef LF
-#define LF      '\n'
-#endif
-
-#ifndef CRLF
-#define CRLF    "\r\n"
-#endif
-
 #ifndef IN
 #define IN
 #endif
@@ -111,25 +99,41 @@ typedef void (*procedure_t)(void* userdata);
 #define LIMIT(lower, v, upper) ((v) < (lower) ? (lower) : (v) > (upper) ? (upper) : (v))
 #endif
 
-#ifndef SWAP
-#define SWAP(type, a, b) \
-    do {\
-        type x = a;\
-        a = b;\
-        b = x;\
-    } while(0)
-#endif
-
 #ifndef BITSET
 #define BITSET(p, n) (*(p) |= (1u << (n)))
 #endif
 
-#ifndef BITCLEAR
-#define BITCLEAR(p, n) (*(p) &= ~(1u << (n)))
+#ifndef BITCLR
+#define BITCLR(p, n) (*(p) &= ~(1u << (n)))
 #endif
 
 #ifndef BITGET
 #define BITGET(i, n) ((i) & (1u << (n)))
+#endif
+
+// ASCII:
+// [0, 0x20)    control-charaters
+// [0x20, 0x7F) printable-charaters
+//
+// 0x0A => LF
+// 0x0D => CR
+// 0x20 => SPACE
+// 0x7F => DEL
+//
+// [0x09, 0x0D] => \t\n\v\f\r
+// [0x30, 0x39] => 0~9
+// [0x41, 0x5A] => A~Z
+// [0x61, 0x7A] => a~z
+#ifndef CR
+#define CR      '\r'
+#endif
+
+#ifndef LF
+#define LF      '\n'
+#endif
+
+#ifndef CRLF
+#define CRLF    "\r\n"
 #endif
 
 #ifndef LOWER
@@ -144,8 +148,16 @@ typedef void (*procedure_t)(void* userdata);
 #define IS_NUM(c)   ((c) >= '0' && (c) <= '9')
 #endif
 
+#ifndef IS_UPPER
+#define IS_UPPER(c) (((c) >= 'A' && (c) <= 'Z'))
+#endif
+
+#ifndef IS_LOWER
+#define IS_LOWER(c) (((c) >= 'a' && (c) <= 'z'))
+#endif
+
 #ifndef IS_ALPHA
-#define IS_ALPHA(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'F'))
+#define IS_ALPHA(c) (((c) >= 'a' && (c) <= 'z') || ((c) >= 'A' && (c) <= 'Z'))
 #endif
 
 #ifndef IS_ALPHANUM
@@ -156,8 +168,12 @@ typedef void (*procedure_t)(void* userdata);
 #define IS_HEX(c) (IS_NUM(c) || ((c) >= 'a' && (c) <= 'f') || ((c) >= 'A' && (c) <= 'F'))
 #endif
 
+#ifndef IS_CNTRL
+#define IS_CNTRL(c) ((c) >= 0 && (c) < 0x20)
+#endif
+
 #ifndef IS_GRAPH
-#define IS_GRAPH(c) ((c) >= 0x20 && (c) <= 0x7E)
+#define IS_GRAPH(c) ((c) >= 0x20 && (c) < 0x7F)
 #endif
 
 #ifndef ARRAY_SIZE
