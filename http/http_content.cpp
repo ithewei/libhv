@@ -107,7 +107,6 @@ std::string dump_query_params(QueryParams& query_params) {
 }
 
 int parse_query_params(const char* query_string, QueryParams& query_params) {
-    printf("%s\n", query_string);
     const char* p = strchr(query_string, '?');
     p = p ? p+1 : query_string;
     std::string unescape_string = unescape(p);
@@ -130,12 +129,10 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
             }
             state = s_key;
             key = p+1;
-            printf("key=%s %p\n", key, key);
         }
         else if (*p == '=') {
             state = s_value;
             value = p+1;
-            printf("value=%s %p\n", value, value);
         }
         else {
             state == s_key ? ++key_len : ++value_len;
