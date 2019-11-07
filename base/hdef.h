@@ -5,11 +5,6 @@
 
 typedef float               float32;
 typedef double              float64;
-
-typedef unsigned char       BYTE;
-typedef unsigned short      WORD;
-typedef int                 BOOL;
-
 typedef void*               handle;
 
 typedef union {
@@ -29,7 +24,7 @@ typedef void (*procedure_t)(void* userdata);
     typedef int pid_t;
     typedef int gid_t;
     typedef int uid_t;
-    #define strcasecmp stricmp
+    #define strcasecmp  stricmp
     #define strncasecmp strnicmp
 #else
     #include <strings.h>
@@ -202,6 +197,12 @@ typedef void (*procedure_t)(void* userdata);
 #endif
 
 #ifndef OS_WIN
+typedef unsigned char       BYTE;
+typedef unsigned short      WORD;
+
+typedef int                 BOOL;
+typedef void*               HANDLE;
+
 #ifndef MAKEWORD
 #define MAKEWORD(h, l)  ( (((WORD)h) << 8) | (l & 0xff) )
 #endif

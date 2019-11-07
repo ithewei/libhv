@@ -1,7 +1,7 @@
 #ifndef HTTP_CLIENT_H_
 #define HTTP_CLIENT_H_
 
-#include "HttpPayload.h"
+#include "HttpMessage.h"
 
 /*
 #include <stdio.h>

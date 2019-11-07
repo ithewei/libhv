@@ -1,7 +1,7 @@
 #ifndef HTTP_SESSION_H_
 #define HTTP_SESSION_H_
 
-#include "HttpPayload.h"
+#include "HttpMessage.h"
 
 class HttpSession {
 public:

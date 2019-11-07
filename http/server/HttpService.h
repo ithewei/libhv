@@ -7,7 +7,7 @@
 #include <list>
 #include <memory>
 
-#include "HttpPayload.h"
+#include "HttpMessage.h"
 
 #define DEFAULT_BASE_URL        "/v1/api"
 #define DEFAULT_DOCUMENT_ROOT   "/var/www/html"

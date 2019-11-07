@@ -1,5 +1,5 @@
-#ifndef HTTP_PAYLOAD_H_
-#define HTTP_PAYLOAD_H_
+#ifndef HTTP_MESSAGE_H_
+#define HTTP_MESSAGE_H_
 
 #include <string>
 #include <map>
@@ -11,7 +11,7 @@
 typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
 typedef std::string                                         http_body;
 
-class HttpPayload {
+class HttpMessage {
 public:
     int                 type;
     unsigned short      http_major;
@@ -26,16 +26,16 @@ public:
     http_content_type   content_type;
 #ifndef WITHOUT_HTTP_CONTENT
     Json                json;       // APPLICATION_JSON
-    MultiPart           mp;         // FORM_DATA
+    MultiPart           mp;         // MULTIPART_FORM_DATA
     KeyValue            kv;         // X_WWW_FORM_URLENCODED
 #endif
 
-    HttpPayload() {
+    HttpMessage() {
         type = HTTP_BOTH;
         Init();
     }
 
-    virtual ~HttpPayload() {}
+    virtual ~HttpMessage() {}
 
     void Init() {
         http_major = 1;
@@ -94,7 +94,7 @@ public:
 };
 
 #define DEFAULT_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36"
-class HttpRequest : public HttpPayload {
+class HttpRequest : public HttpMessage {
 public:
     http_method         method;
     // scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
@@ -106,7 +106,7 @@ public:
     std::string         path;
     QueryParams         query_params;
 
-    HttpRequest() : HttpPayload() {
+    HttpRequest() : HttpMessage() {
         type = HTTP_REQUEST;
         Init();
     }
@@ -122,7 +122,7 @@ public:
     }
 
     virtual void Reset() {
-        HttpPayload::Reset();
+        HttpMessage::Reset();
         Init();
         url.clear();
         query_params.clear();
@@ -136,11 +136,11 @@ public:
     void ParseUrl();
 };
 
-class HttpResponse : public HttpPayload {
+class HttpResponse : public HttpMessage {
 public:
     http_status         status_code;
 
-    HttpResponse() : HttpPayload() {
+    HttpResponse() : HttpMessage() {
         type = HTTP_RESPONSE;
         Init();
     }
@@ -150,11 +150,11 @@ public:
     }
 
     virtual void Reset() {
-        HttpPayload::Reset();
+        HttpMessage::Reset();
         Init();
     }
 
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
 };
 
-#endif // HTTP_PAYLOAD_H_
+#endif // HTTP_MESSAGE_H_

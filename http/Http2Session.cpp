@@ -366,7 +366,7 @@ int on_data_chunk_recv_callback(nghttp2_session *session,
             len -= GRPC_MESSAGE_HDLEN;
         }
     }
-    hss->parsed->body.insert(hss->parsed->body.size(), (const char*)data, len);
+    hss->parsed->body.append((const char*)data, len);
     return 0;
 }
 

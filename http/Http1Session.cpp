@@ -38,7 +38,7 @@ int on_url(http_parser* parser, const char *at, size_t length) {
     printd("on_url:%.*s\n", (int)length, at);
     Http1Session* hss = (Http1Session*)parser->data;
     hss->state = HP_URL;
-    hss->url.insert(hss->url.size(), at, length);
+    hss->url.append(at, length);
     return 0;
 }
 
@@ -54,7 +54,7 @@ int on_header_field(http_parser* parser, const char *at, size_t length) {
     Http1Session* hss = (Http1Session*)parser->data;
     hss->handle_header();
     hss->state = HP_HEADER_FIELD;
-    hss->header_field.insert(hss->header_field.size(), at, length);
+    hss->header_field.append(at, length);
     return 0;
 }
 
@@ -62,7 +62,7 @@ int on_header_value(http_parser* parser, const char *at, size_t length) {
     printd("on_header_value:%.*s""\n", (int)length, at);
     Http1Session* hss = (Http1Session*)parser->data;
     hss->state = HP_HEADER_VALUE;
-    hss->header_value.insert(hss->header_value.size(), at, length);
+    hss->header_value.append(at, length);
     return 0;
 }
 
@@ -70,7 +70,7 @@ int on_body(http_parser* parser, const char *at, size_t length) {
     //printd("on_body:%.*s""\n", (int)length, at);
     Http1Session* hss = (Http1Session*)parser->data;
     hss->state = HP_BODY;
-    hss->parsed->body.insert(hss->parsed->body.size(), at, length);
+    hss->parsed->body.append(at, length);
     return 0;
 }
 

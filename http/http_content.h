@@ -55,12 +55,6 @@ int         parse_query_params(const char* query_string, QueryParams& query_para
 // NOTE: WITHOUT_HTTP_CONTENT
 // ndk-r10e no std::to_string and can't compile modern json.hpp
 #ifndef WITHOUT_HTTP_CONTENT
-// Json
-#include "json.hpp"
-using Json = nlohmann::json;
-extern std::string g_parse_json_errmsg;
-std::string dump_json(Json& json);
-int         parse_json(const char* str, Json& json, std::string& errmsg = g_parse_json_errmsg);
 
 /**************multipart/form-data*************************************
 --boundary
@@ -108,6 +102,12 @@ typedef MAP<std::string, FormData>          MultiPart;
 std::string dump_multipart(MultiPart& mp, const char* boundary = DEFAULT_MULTIPART_BOUNDARY);
 int         parse_multipart(std::string& str, MultiPart& mp, const char* boundary);
 
+// Json
+#include "json.hpp"
+using Json = nlohmann::json;
+extern std::string g_parse_json_errmsg;
+std::string dump_json(Json& json);
+int         parse_json(const char* str, Json& json, std::string& errmsg = g_parse_json_errmsg);
 #endif
 
 #endif // HTTP_CONTENT_H_

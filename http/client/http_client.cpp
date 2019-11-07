@@ -1,8 +1,8 @@
 #include "http_client.h"
 
-#include "hstring.h"
-
 #define MAX_CONNECT_TIMEOUT 3000 // ms
+
+#include "hstring.h" // import asprintf,trim
 
 #ifdef WITH_CURL
 #include "curl/curl.h"
@@ -150,9 +150,9 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
 
     HttpResponse* res = (HttpResponse*)userdata;
 
-    string str(buf);
-    string::size_type pos = str.find_first_of(':');
-    if (pos == string::npos) {
+    std::string str(buf);
+    std::string::size_type pos = str.find_first_of(':');
+    if (pos == std::string::npos) {
         if (strncmp(buf, "HTTP/", 5) == 0) {
             // status line
             //hlogd("%s", buf);
@@ -173,8 +173,8 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
     }
     else {
         // headers
-        string key = trim(str.substr(0, pos));
-        string value = trim(str.substr(pos+1));
+        std::string key = trim(str.substr(0, pos));
+        std::string value = trim(str.substr(pos+1));
         res->headers[key] = value;
     }
     return size*cnt;
@@ -224,7 +224,7 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) 
     req->FillContentType();
     struct curl_slist *headers = NULL;
     for (auto& pair : req->headers) {
-        string header = pair.first;
+        std::string header = pair.first;
         header += ": ";
         header += pair.second;
         headers = curl_slist_append(headers, header.c_str());
@@ -232,10 +232,11 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) 
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     // body
-    struct curl_httppost* httppost = NULL;
-    struct curl_httppost* lastpost = NULL;
+    //struct curl_httppost* httppost = NULL;
+    //struct curl_httppost* lastpost = NULL;
     if (req->body.size() == 0) {
         req->DumpBody();
+        /*
         if (req->body.size() == 0 &&
             req->content_type == MULTIPART_FORM_DATA) {
             for (auto& pair : req->mp) {
@@ -256,6 +257,7 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) 
                 curl_easy_setopt(curl, CURLOPT_HTTPPOST, httppost);
             }
         }
+        */
     }
     if (req->body.size() != 0) {
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, req->body.c_str());
@@ -292,9 +294,11 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) 
     if (headers) {
         curl_slist_free_all(headers);
     }
+    /*
     if (httppost) {
         curl_formfree(httppost);
     }
+    */
 
     return ret;
 }

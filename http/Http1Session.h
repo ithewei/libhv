@@ -21,8 +21,8 @@ public:
     static http_parser_settings*    cbs;
     http_parser                     parser;
     http_parser_state               state;
-    HttpPayload*                    submited;
-    HttpPayload*                    parsed;
+    HttpMessage*                    submited;
+    HttpMessage*                    parsed;
     // tmp
     std::string url;          // for on_url
     std::string header_field; // for on_header_field

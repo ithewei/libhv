@@ -1,10 +1,10 @@
-#include "HttpPayload.h"
+#include "HttpMessage.h"
 
 #include <string.h>
 
 #include "http_parser.h" // for http_parser_url
 
-void HttpPayload::FillContentType() {
+void HttpMessage::FillContentType() {
     auto iter = headers.find("Content-Type");
     if (iter != headers.end()) {
         content_type = http_content_type_enum(iter->second.c_str());
@@ -49,7 +49,7 @@ append:
     return;
 }
 
-void HttpPayload::FillContentLength() {
+void HttpMessage::FillContentLength() {
     auto iter = headers.find("Content-Length");
     if (iter == headers.end()) {
         if (content_length == 0) {
@@ -62,7 +62,7 @@ void HttpPayload::FillContentLength() {
     }
 }
 
-void HttpPayload::DumpHeaders(std::string& str) {
+void HttpMessage::DumpHeaders(std::string& str) {
     FillContentType();
     FillContentLength();
     for (auto& header: headers) {
@@ -77,7 +77,7 @@ void HttpPayload::DumpHeaders(std::string& str) {
     }
 }
 
-void HttpPayload::DumpBody() {
+void HttpMessage::DumpBody() {
     if (body.size() != 0) {
         return;
     }
@@ -111,7 +111,7 @@ void HttpPayload::DumpBody() {
 #endif
 }
 
-int HttpPayload::ParseBody() {
+int HttpMessage::ParseBody() {
     if (body.size() == 0) {
         return -1;
     }
@@ -143,7 +143,7 @@ int HttpPayload::ParseBody() {
     return 0;
 }
 
-std::string HttpPayload::Dump(bool is_dump_headers, bool is_dump_body) {
+std::string HttpMessage::Dump(bool is_dump_headers, bool is_dump_body) {
     std::string str;
     if (is_dump_headers) {
         DumpHeaders(str);

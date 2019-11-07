@@ -29,8 +29,8 @@ public:
     static nghttp2_session_callbacks* cbs;
     nghttp2_session*                session;
     http2_session_state             state;
-    HttpPayload*                    submited;
-    HttpPayload*                    parsed;
+    HttpMessage*                    submited;
+    HttpMessage*                    parsed;
     int error;
     int stream_id;
     int stream_closed;

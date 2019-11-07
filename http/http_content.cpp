@@ -1,97 +1,6 @@
 #include "http_content.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-
-#include "hdef.h"
-#include "hstring.h"
-
-#include "httpdef.h" // for http_content_type_str_by_suffix
-
-static char hex2i(char hex) {
-    if (hex >= '0' && hex <= '9') {
-        return hex - '0';
-    }
-    switch (hex) {
-        case 'A': case 'a': return 10;
-        case 'B': case 'b': return 11;
-        case 'C': case 'c': return 12;
-        case 'D': case 'd': return 13;
-        case 'E': case 'e': return 14;
-        case 'F': case 'f': return 15;
-        default: break;
-    }
-    return 0;
-}
-
-/*
-bool Curl_isunreserved(unsigned char in)
-{
-    switch(in) {
-    case '0': case '1': case '2': case '3': case '4':
-    case '5': case '6': case '7': case '8': case '9':
-    case 'a': case 'b': case 'c': case 'd': case 'e':
-    case 'f': case 'g': case 'h': case 'i': case 'j':
-    case 'k': case 'l': case 'm': case 'n': case 'o':
-    case 'p': case 'q': case 'r': case 's': case 't':
-    case 'u': case 'v': case 'w': case 'x': case 'y': case 'z':
-    case 'A': case 'B': case 'C': case 'D': case 'E':
-    case 'F': case 'G': case 'H': case 'I': case 'J':
-    case 'K': case 'L': case 'M': case 'N': case 'O':
-    case 'P': case 'Q': case 'R': case 'S': case 'T':
-    case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
-    case '-': case '.': case '_': case '~':
-      return TRUE;
-    default:
-      break;
-    }
-    return FLASE;
-}
-*/
-
-static inline bool is_unambiguous(char c) {
-    return IS_ALPHANUM(c) ||
-           c == '-' ||
-           c == '_' ||
-           c == '.' ||
-           c == '~';
-}
-
-// scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
-static std::string escape(const std::string& param) {
-    std::string str;
-    const char* p = param.c_str();
-    char escape[4] = {0};
-    while (*p != '\0') {
-        if (is_unambiguous(*p)) {
-            str += *p;
-        }
-        else {
-            sprintf(escape, "%%%02X", *p);
-            str += escape;
-        }
-        ++p;
-    }
-    return str;
-}
-
-static std::string unescape(const char* escape_param) {
-    std::string str;
-    const char* p = escape_param;
-    while (*p != '\0') {
-        if (*p == '%' &&
-            IS_HEX(p[1]) &&
-            IS_HEX(p[2])) {
-            str += (hex2i(p[1]) << 4 | hex2i(p[2]));
-            p += 3;
-        }
-        else {
-            str += *p;
-            ++p;
-        }
-    }
-    return str;
-}
+#include "hurl.h"
 
 std::string dump_query_params(QueryParams& query_params) {
     std::string query_string;
@@ -99,9 +8,9 @@ std::string dump_query_params(QueryParams& query_params) {
         if (query_string.size() != 0) {
             query_string += '&';
         }
-        query_string += escape(pair.first);
+        query_string += url_escape(pair.first.c_str());
         query_string += '=';
-        query_string += escape(pair.second);
+        query_string += url_escape(pair.second.c_str());
     }
     return query_string;
 }
@@ -109,8 +18,6 @@ std::string dump_query_params(QueryParams& query_params) {
 int parse_query_params(const char* query_string, QueryParams& query_params) {
     const char* p = strchr(query_string, '?');
     p = p ? p+1 : query_string;
-    std::string unescape_string = unescape(p);
-    p = unescape_string.c_str();
 
     enum {
         s_key,
@@ -124,7 +31,9 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
     while (*p != '\0') {
         if (*p == '&') {
             if (key_len && value_len) {
-                query_params[std::string(key,key_len)] = std::string(value,value_len);
+                std::string strkey = std::string(key, key_len);
+                std::string strvalue = std::string(value, value_len);
+                query_params[url_unescape(strkey.c_str())] = url_unescape(strvalue.c_str());
                 key_len = value_len = 0;
             }
             state = s_key;
@@ -140,28 +49,21 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
         ++p;
     }
     if (key_len && value_len) {
-        query_params[std::string(key,key_len)] = std::string(value,value_len);
+        std::string strkey = std::string(key, key_len);
+        std::string strvalue = std::string(value, value_len);
+        query_params[url_unescape(strkey.c_str())] = url_unescape(strvalue.c_str());
         key_len = value_len = 0;
     }
     return query_params.size() == 0 ? -1 : 0;
 }
 
 #ifndef WITHOUT_HTTP_CONTENT
-std::string dump_json(Json& json) {
-    return json.dump();
-}
 
-std::string g_parse_json_errmsg;
-int parse_json(const char* str, Json& json, std::string& errmsg) {
-    try {
-        json = Json::parse(str);
-    }
-    catch(nlohmann::detail::exception e) {
-        errmsg = e.what();
-        return -1;
-    }
-    return (json.is_discarded() || json.is_null()) ? -1 : 0;
-}
+#include <sys/types.h>
+#include <sys/stat.h>
+
+#include "hstring.h" // for split
+#include "httpdef.h" // for http_content_type_str_by_suffix
 
 std::string dump_multipart(MultiPart& mp, const char* boundary) {
     char c_str[256] = {0};
@@ -328,5 +230,21 @@ int parse_multipart(std::string& str, MultiPart& mp, const char* boundary) {
     size_t nparse = multipart_parser_execute(parser, str.c_str(), str.size());
     multipart_parser_free(parser);
     return nparse == str.size() ? 0 : -1;
+}
+
+std::string dump_json(Json& json) {
+    return json.dump();
+}
+
+std::string g_parse_json_errmsg;
+int parse_json(const char* str, Json& json, std::string& errmsg) {
+    try {
+        json = Json::parse(str);
+    }
+    catch(nlohmann::detail::exception e) {
+        errmsg = e.what();
+        return -1;
+    }
+    return (json.is_discarded() || json.is_null()) ? -1 : 0;
 }
 #endif
