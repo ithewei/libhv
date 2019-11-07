@@ -278,14 +278,14 @@ static void fsync_logfile(hidle_t* idle) {
     hlog_fsync();
 }
 
-// for implement http_server_stop
-static hloop_t* s_loop = NULL;
-
 static void worker_proc(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
     int listenfd = server->listenfd;
     hloop_t* loop = hloop_new(0);
-    s_loop = loop;
+    // for SDK implement http_server_stop
+    if (server->worker_processes == 0) {
+        server->privdata = (void*)loop;
+    }
     // one loop one readbuf.
     HBuf readbuf;
     readbuf.resize(RECV_BUFSIZE);
@@ -350,11 +350,13 @@ int http_server_run(http_server_t* server, int wait) {
     return 0;
 }
 
-// for SDK, just use for singleton
 int http_server_stop(http_server_t* server) {
-    if (s_loop) {
-        hloop_stop(s_loop);
-        s_loop = NULL;
+    if (server->worker_processes == 0) {
+        if (server->privdata) {
+            hloop_t* loop = (hloop_t*)server->privdata;
+            hloop_stop(loop);
+            server->privdata = NULL;
+        }
     }
     return 0;
 }
