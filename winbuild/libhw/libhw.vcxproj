@@ -176,7 +176,7 @@
     <ClInclude Include="..\..\http\http2def.h" />
     <ClInclude Include="..\..\http\Http2Session.h" />
     <ClInclude Include="..\..\http\httpdef.h" />
-    <ClInclude Include="..\..\http\HttpPayload.h" />
+    <ClInclude Include="..\..\http\HttpMessage.h" />
     <ClInclude Include="..\..\http\HttpSession.h" />
     <ClInclude Include="..\..\http\http_content.h" />
     <ClInclude Include="..\..\http\http_parser.h" />
@@ -224,6 +224,7 @@
     <ClCompile Include="..\..\event\poll.c" />
     <ClCompile Include="..\..\event\select.c" />
     <ClCompile Include="..\..\http\client\http_client.cpp" />
+    <ClCompile Include="..\..\http\HttpMessage.cpp" />
     <ClCompile Include="..\..\http\http_content.cpp" />
     <ClCompile Include="..\..\http\http_parser.c" />
     <ClCompile Include="..\..\http\multipart_parser.c" />
