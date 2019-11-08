@@ -156,6 +156,7 @@
     <ClInclude Include="..\..\base\hthread.h" />
     <ClInclude Include="..\..\base\hthreadpool.h" />
     <ClInclude Include="..\..\base\htime.h" />
+    <ClInclude Include="..\..\base\hurl.h" />
     <ClInclude Include="..\..\base\hvar.h" />
     <ClInclude Include="..\..\base\hversion.h" />
     <ClInclude Include="..\..\base\list.h" />
