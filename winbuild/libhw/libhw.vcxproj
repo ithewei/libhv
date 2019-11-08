@@ -208,6 +208,7 @@
     <ClCompile Include="..\..\base\hsocket.c" />
     <ClCompile Include="..\..\base\hstring.cpp" />
     <ClCompile Include="..\..\base\htime.c" />
+    <ClCompile Include="..\..\base\hurl.cpp" />
     <ClCompile Include="..\..\base\hversion.c" />
     <ClCompile Include="..\..\base\RAII.cpp" />
     <ClCompile Include="..\..\base\ssl_ctx.c" />
