@@ -3,10 +3,9 @@
 #ifdef EVENT_EPOLL
 #include "hplatform.h"
 #include "hdef.h"
+#include "hevent.h"
 
 #include <sys/epoll.h>
-
-#include "hevent.h"
 
 #include "array.h"
 #define EVENTS_INIT_SIZE    64

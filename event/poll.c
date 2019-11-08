@@ -3,6 +3,7 @@
 #ifdef EVENT_POLL
 #include "hplatform.h"
 #include "hdef.h"
+#include "hevent.h"
 
 #ifdef OS_WIN
 #define poll        WSAPoll
@@ -11,8 +12,6 @@
 #ifdef OS_LINUX
 #include <sys/poll.h>
 #endif
-
-#include "hevent.h"
 
 #include "array.h"
 #define FDS_INIT_SIZE   64

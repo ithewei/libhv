@@ -34,6 +34,19 @@ void on_stdin(hio_t* io, void* buf, int readbytes) {
     //printf("on_stdin fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     //printf("> %s\n", buf);
 
+    // CR|LF => CRLF for test most protocols
+    char* str = (char*)buf;
+    char eol = str[readbytes-1];
+    if (eol == '\n' || eol == '\r') {
+        if (readbytes > 1 && str[readbytes-2] == '\r' && eol == '\n') {
+            // have been CRLF
+        }
+        else {
+            ++readbytes;
+            str[readbytes - 2] = '\r';
+            str[readbytes - 1] = '\n';
+        }
+    }
     hio_write(sockio, buf, readbytes);
 }
 

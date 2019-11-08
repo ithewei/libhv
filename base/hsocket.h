@@ -161,11 +161,6 @@ int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TI
 // Just implement Socketpair(AF_INET, SOCK_STREAM, 0, sv);
 int Socketpair(int family, int type, int protocol, int sv[2]);
 
-// @param cnt: ping count
-// @return: ok count
-// @note: printd $CC -DPRINT_DEBUG
-int Ping(const char* host, int cnt DEFAULT(4));
-
 static inline int tcp_nodelay(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&on, sizeof(int));
 }

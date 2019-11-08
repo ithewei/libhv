@@ -2,10 +2,6 @@
 
 #ifdef EVENT_SELECT
 #include "hplatform.h"
-#ifdef OS_LINUX
-#include <sys/select.h>
-#endif
-
 #include "hdef.h"
 #include "hevent.h"
 #include "hsocket.h"

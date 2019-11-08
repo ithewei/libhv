@@ -12,7 +12,7 @@
 #define RECV_BUFSIZE    8192
 #define SEND_BUFSIZE    8192
 #define MIN_HTTP_REQUEST        "GET / HTTP/1.1\r\n\r\n"
-#define MIN_HTTP_REQUEST_LEN    18
+#define MIN_HTTP_REQUEST_LEN    14 // exclude CRLF
 
 static HttpService  s_default_service;
 static FileCache    s_filecache;
@@ -46,15 +46,15 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     // recv -> FeedRecvData -> !WantRecv -> HttpRequest ->
     // HandleRequest -> HttpResponse -> SubmitResponse -> while (GetSendData) -> send
     if (handler->session == NULL) {
-        // base check
+        // check request-line
         if (readbytes < MIN_HTTP_REQUEST_LEN) {
-            hloge("[%s:%d] http request too small", handler->ip, handler->port);
+            hloge("[%s:%d] http request-line too small", handler->ip, handler->port);
             hio_close(io);
             return;
         }
-        for (int i = 0; i < 3; ++i) {
+        for (int i = 0; i < MIN_HTTP_REQUEST_LEN; ++i) {
             if (!IS_GRAPH(buf[i])) {
-                hloge("[%s:%d] http check failed", handler->ip, handler->port);
+                hloge("[%s:%d] http request-line not plain", handler->ip, handler->port);
                 hio_close(io);
                 return;
             }
@@ -86,6 +86,9 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     }
 
     if (session->WantRecv()) {
+        // NOTE: KeepAlive will reset keepalive_timer,
+        // if no data recv within keepalive timeout, closesocket actively.
+        handler->KeepAlive();
         return;
     }
 

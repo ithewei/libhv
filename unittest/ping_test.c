@@ -1,4 +1,5 @@
-#include "hsocket.h"
+#include <stdio.h>
+#include "icmp.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -8,7 +9,7 @@ int main(int argc, char* argv[]) {
 
     char* host = argv[1];
     int ping_cnt = 4;
-    int ok_cnt = Ping(host, ping_cnt);
+    int ok_cnt = ping(host, ping_cnt);
     printf("ping %d count, %d ok.\n", ping_cnt, ok_cnt);
     return 0;
 }

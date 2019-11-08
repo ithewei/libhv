@@ -10,20 +10,20 @@ int main(int argc, char* argv[]) {
     const char* ip = argv[1];
     int port = atoi(argv[2]);
 
-    uint64_t start_time = gethrtime();
+    unsigned int start_time = gettick();
     int ret = ConnectNonblock(ip, port);
-    uint64_t end_time = gethrtime();
-    printf("ConnectNonblock[%s:%d] retval=%d cost=%luus\n", ip, port, ret, end_time-start_time);
+    unsigned int end_time = gettick();
+    printf("ConnectNonblock[%s:%d] retval=%d cost=%ums\n", ip, port, ret, end_time-start_time);
 
-    start_time = gethrtime();
+    start_time = gettick();
     ret = ConnectTimeout(ip, port, 3000);
-    end_time = gethrtime();
-    printf("ConnectTimeout[%s:%d] retval=%d cost=%luus\n", ip, port, ret, end_time-start_time);
+    end_time = gettick();
+    printf("ConnectTimeout[%s:%d] retval=%d cost=%ums\n", ip, port, ret, end_time-start_time);
 
-    start_time = gethrtime();
+    start_time = gettick();
     ret = Connect(ip, port, 0);
-    end_time = gethrtime();
-    printf("ConnectBlock[%s:%d] retval=%d cost=%luus\n", ip, port, ret, end_time-start_time);
+    end_time = gettick();
+    printf("ConnectBlock[%s:%d] retval=%d cost=%ums\n", ip, port, ret, end_time-start_time);
 
     return 0;
-};
+}
