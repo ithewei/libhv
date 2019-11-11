@@ -11,32 +11,32 @@
 extern "C" {
 #endif
 
-#define CL_CLR      "\033[0m"       /* 恢复颜色 */
-#define CL_BLACK    "\033[30m"      /* 黑色字 */
-#define CL_RED      "\e[1;31m"      /* 红色字 */
-#define CL_GREEN    "\e[1;32m"      /* 绿色字 */
-#define CL_YELLOW   "\e[1;33m"      /* 黄色字 */
-#define CL_BLUE     "\033[34m"      /* 蓝色字 */
-#define CL_PURPLE   "\e[1;35m"      /* 紫色字 */
-#define CL_SKYBLUE  "\e[1;36m"      /* 天蓝字 */
-#define CL_WHITE    "\033[37m"      /* 白色字 */
+#define CLR_CLR         "\033[0m"       /* 恢复颜色 */
+#define CLR_BLACK       "\033[30m"      /* 黑色字 */
+#define CLR_RED         "\033[31m"      /* 红色字 */
+#define CLR_GREEN       "\033[32m"      /* 绿色字 */
+#define CLR_YELLOW      "\033[33m"      /* 黄色字 */
+#define CLR_BLUE        "\033[34m"      /* 蓝色字 */
+#define CLR_PURPLE      "\033[35m"      /* 紫色字 */
+#define CLR_SKYBLUE     "\033[36m"      /* 天蓝字 */
+#define CLR_WHITE       "\033[37m"      /* 白色字 */
 
-#define CL_BLK_WHT  "\033[40;37m"   /* 黑底白字 */
-#define CL_RED_WHT  "\033[41;37m"   /* 红底白字 */
-#define CL_GRE_WHT  "\033[42;37m"   /* 绿底白字 */
-#define CL_YEW_WHT  "\033[43;37m"   /* 黄底白字 */
-#define CL_BLUE_WHT "\033[44;37m"   /* 蓝底白字 */
-#define CL_PPL_WHT  "\033[45;37m"   /* 紫底白字 */
-#define CL_SKYB_WHT "\033[46;37m"   /* 天蓝底白字 */
-#define CL_WHT_BLK  "\033[47;30m"   /* 白底黑字 */
+#define CLR_BLK_WHT     "\033[40;37m"   /* 黑底白字 */
+#define CLR_RED_WHT     "\033[41;37m"   /* 红底白字 */
+#define CLR_GREEN_WHT   "\033[42;37m"   /* 绿底白字 */
+#define CLR_YELLOW_WHT  "\033[43;37m"   /* 黄底白字 */
+#define CLR_BLUE_WHT    "\033[44;37m"   /* 蓝底白字 */
+#define CLR_PURPLE_WHT  "\033[45;37m"   /* 紫底白字 */
+#define CLR_SKYBLUE_WHT "\033[46;37m"   /* 天蓝底白字 */
+#define CLR_WHT_BLK     "\033[47;30m"   /* 白底黑字 */
 
 // XXX(id, str, clr)
 #define LOG_LEVEL_MAP(XXX) \
-    XXX(LOG_LEVEL_DEBUG, "DEBUG", CL_WHITE)     \
-    XXX(LOG_LEVEL_INFO,  "INFO ", CL_GREEN)     \
-    XXX(LOG_LEVEL_WARN,  "WARN ", CL_YELLOW)    \
-    XXX(LOG_LEVEL_ERROR, "ERROR", CL_RED)       \
-    XXX(LOG_LEVEL_FATAL, "FATAL", CL_RED_WHT)
+    XXX(LOG_LEVEL_DEBUG, "DEBUG", CLR_WHITE)     \
+    XXX(LOG_LEVEL_INFO,  "INFO ", CLR_GREEN)     \
+    XXX(LOG_LEVEL_WARN,  "WARN ", CLR_YELLOW)    \
+    XXX(LOG_LEVEL_ERROR, "ERROR", CLR_RED)       \
+    XXX(LOG_LEVEL_FATAL, "FATAL", CLR_RED_WHT)
 
 typedef enum {
     LOG_LEVEL_VERBOSE = 0,
