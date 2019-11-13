@@ -76,6 +76,7 @@ unittest: prepare
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase -Iutils    -o bin/ifconfig   unittest/ifconfig_test.cpp    utils/ifconfig.cpp
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup   unittest/nslookup_test.c      protocol/dns.c
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/ping       unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
+	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/ftp        unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iutils -Iprotocol -o bin/sendmail  unittest/sendmail_test.c  protocol/smtp.c base/hsocket.c utils/base64.c
 
 # UNIX only

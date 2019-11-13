@@ -1,5 +1,6 @@
 #include "dns.h"
 #include "hsocket.h"
+#include "herr.h"
 
 void dns_free(dns_t* dns) {
     SAFE_FREE(dns->questions);
@@ -239,7 +240,7 @@ int dns_query(dns_t* query, dns_t* response, const char* nameserver) {
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
         perror("socket");
-        return -10;
+        return ERR_SOCKET;
     }
     so_sndtimeo(sockfd, 5000);
     so_rcvtimeo(sockfd, 5000);
@@ -254,18 +255,18 @@ int dns_query(dns_t* query, dns_t* response, const char* nameserver) {
     addr.sin_port = htons(DNS_PORT);
     nsend = sendto(sockfd, buf, buflen, 0, (struct sockaddr*)&addr, addrlen);
     if (nsend != buflen) {
-        ret = -20;
+        ret = ERR_SENDTO;
         goto error;
     }
     nrecv = recvfrom(sockfd, buf, sizeof(buf), 0, (struct sockaddr*)&addr, &addrlen);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECVFROM;
         goto error;
     }
 
     nparse = dns_unpack(buf, nrecv, response);
     if (nparse != nrecv) {
-        ret = -40;
+        ret = -ERR_INVALID_PACKAGE;
         goto error;
     }
 
@@ -304,7 +305,7 @@ int nslookup(const char* domain, uint32_t* addrs, int naddr, const char* nameser
     if (resp.hdr.transaction_id != query.hdr.transaction_id ||
         resp.hdr.qr != DNS_RESPONSE ||
         resp.hdr.rcode != 0) {
-        ret = -1;
+        ret = -ERR_MISMATCH;
         goto end;
     }
 

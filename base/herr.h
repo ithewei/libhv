@@ -3,88 +3,113 @@
 
 #include <errno.h>
 
-// F(macro, errcode, errmsg)
-#define FOREACH_ERR_COMMON(F) \
-    F(ERR_OK,               0,      "ok")               \
-    F(ERR_UNKNOWN,          1000,   "unknown error")    \
-    F(ERR_NULL_PARAM,       1001,   "null param")       \
-    F(ERR_NULL_POINTER,     1002,   "null pointer")     \
-    F(ERR_NULL_DATA,        1003,   "null data")        \
-    \
-    F(ERR_INVALID_PARAM,    1010,   "invalid param")    \
-    F(ERR_INVALID_HANDLE,   1011,   "invalid handle")   \
-    F(ERR_INVALID_JSON,     1012,   "invalid json")     \
-    F(ERR_INVALID_XML,      1013,   "invalid xml")      \
-    F(ERR_INVALID_FMT,      1014,   "invalid format")   \
-    F(ERR_INVALID_PROTOCOL, 1015,   "invalid protocol") \
-    \
-    F(ERR_MISMATCH,         1020,   "mismatch")         \
-    F(ERR_REQUEST,          1021,   "error request")    \
-    F(ERR_RESPONSE,         1022,   "error response")   \
-    F(ERR_PARSE,            1023,   "parse failed")     \
-    \
-    F(ERR_MALLOC,           1030,   "malloc failed")    \
-    F(ERR_FREE,             1031,   "free failed")      \
-    \
-    F(ERR_TASK_TIMEOUT,     1100,   "task timeout")     \
-    F(ERR_TASK_DEQUE_FULL,  1101,   "task deque full")  \
-    F(ERR_TASK_NOT_CREATE,  1102,   "task not create")  \
-    \
-    F(ERR_OPEN_FILE,        1200,   "open file failed") \
-    F(ERR_SAVE_FILE,        1201,   "save file failed") \
-    \
-    F(ERR_OUT_OF_RANGE,     1300,   "out of range")     \
-    F(ERR_OVER_LIMIT,       1301,   "over limit")       \
-    \
-    F(ERR_BUSY,             1400,   "busy")
+#ifndef SYS_NERR
+#define SYS_NERR    133
+#endif
 
-#define FOREACH_ERR_NETWORK(F) \
-    F(ERR_ADAPTER_NOT_FOUND,    2001, "adapter not found")  \
-    F(ERR_SERVER_NOT_FOUND,     2002, "server not found")   \
-    F(ERR_SERVER_UNREACHEABLE,  2003, "server unreacheable")    \
-    F(ERR_SERVER_DISCONNECT,    2004, "server disconnect")      \
-    F(ERR_CONNECT_TIMEOUT,      2005, "connect timeout")        \
-    F(ERR_INVALID_PACKAGE,      2006, "invalid package")        \
-    F(ERR_SERVER_NOT_STARTUP,   2007, "server not startup")     \
-    F(ERR_CLIENT_DISCONNECT,    2008, "client disconnect")
+// F(errcode, name, errmsg)
+// [1, 133]
+#define FOREACH_ERR_SYS(F)
 
+// [1xx~5xx]
+#define FOREACH_ERR_STATUS(F)
+
+// [1xxx]
+#define FOREACH_ERR_COMMON(F)   \
+    F(0,    OK,             "OK")               \
+    F(1000, UNKNOWN,        "Unknown error")    \
+    \
+    F(1001, NULL_PARAM,     "Null parameter")   \
+    F(1002, NULL_POINTER,   "Null pointer")     \
+    F(1003, NULL_DATA,      "Null data")        \
+    F(1004, NULL_HANDLE,    "Null handle")      \
+    \
+    F(1011, INVALID_PARAM,      "Invalid parameter")\
+    F(1012, INVALID_POINTER,    "Invalid pointer")  \
+    F(1013, INVALID_DATA,       "Invalid data")     \
+    F(1014, INVALID_HANDLE,     "Invalid handle")   \
+    F(1015, INVALID_JSON,       "Invalid json")     \
+    F(1016, INVALID_XML,        "Invalid xml")      \
+    F(1017, INVALID_FMT,        "Invalid format")   \
+    F(1018, INVALID_PROTOCOL,   "Invalid protocol") \
+    F(1019, INVALID_PACKAGE,    "Invalid package")  \
+    \
+    F(1021, OUT_OF_RANGE,   "Out of range")     \
+    F(1022, OVER_LIMIT,     "Over the limit")       \
+    F(1023, MISMATCH,       "Mismatch")         \
+    F(1024, PARSE,          "Parse failed")     \
+    \
+    F(1030, OPEN_FILE,      "Open file failed") \
+    F(1031, SAVE_FILE,      "Save file failed") \
+    \
+    F(1100, TASK_TIMEOUT,       "Task timeout")     \
+    F(1101, TASK_QUEUE_FULL,    "Task queue full")  \
+    F(1102, TASK_QUEUE_EMPTY,   "Task queue empty") \
+    \
+    F(1400, REQUEST,        "Bad request")      \
+    F(1401, RESPONSE,       "Bad response")     \
+
+// [-1xxx]
+#define FOREACH_ERR_FUNC(F)   \
+    F(-1001,    MALLOC,     "malloc() error")   \
+    F(-1002,    REALLOC,    "realloc() error")  \
+    F(-1003,    CALLOC,     "calloc() error")   \
+    F(-1004,    FREE,       "free() error")     \
+    \
+    F(-1011,    SOCKET,     "socket() error")   \
+    F(-1012,    BIND,       "bind() error")     \
+    F(-1013,    LISTEN,     "listen() error")   \
+    F(-1014,    ACCEPT,     "accept() error")   \
+    F(-1015,    CONNECT,    "connect() error")  \
+    F(-1016,    RECV,       "recv() error")     \
+    F(-1017,    SEND,       "send() error")     \
+    F(-1018,    RECVFROM,   "recvfrom() error") \
+    F(-1019,    SENDTO,     "sendto() error")   \
+    F(-1020,    SETSOCKOPT, "setsockopt() error")   \
+    F(-1021,    GETSOCKOPT, "getsockopt() error")   \
+
+// [3xxx]
 #define FOREACH_ERR_SERVICE(F)  \
-    F(ERR_RESOURCE_NOT_FOUND,   3000, "resource not found") \
-    F(ERR_GROUP_NOT_FOUND,      3001, "group not found")    \
-    F(ERR_PERSON_NOT_FOUND,     3002, "person not found")   \
-    F(ERR_FACE_NOT_FOUND,       3003, "face not found")     \
-    F(ERR_DEVICE_NOT_FOUND,     3004, "device not found")   \
-    F(ERR_DEVICE_DISABLE,       3005, "device disable")
+    F(3000, RESOURCE_NOT_FOUND,     "resource not found")   \
+    F(3001, GROUP_NOT_FOUND,        "group not found")      \
+    F(3002, PERSON_NOT_FOUND,       "person not found")     \
+    F(3003, FACE_NOT_FOUND,         "face not found")       \
+    F(3004, DEVICE_NOT_FOUND,       "device not found")     \
+    \
+    F(3010, DEVICE_DISCONNECT,      "device disconnect")    \
+    F(3011, DEVICE_DISABLE,         "device disable")       \
+    F(3012, DEVICE_BUSY,            "device busy")          \
 
+// grpc [4000+]
 #define FOREACH_ERR_GRPC(F)     \
-    F(ERR_GRPC_FIRST,           4000, "grpc error") \
-    F(ERR_GRPC_STATUS_CANCELLED,4001, "grpc status cancelled")  \
-    F(ERR_GRPC_STATUS_UNKNOWN,  4002, "grpc status unknown")    \
-    F(ERR_GRPC_STATUS_INVALID_ARGUMENT,  4003, "grpc status invalid argument") \
-    F(ERR_GRPC_STATUS_DEADLINE, 4004, "grpc status deadline")   \
-    F(ERR_GRPC_STATUS_NOT_FOUND, 4005, "grpc status not found") \
-    F(ERR_GRPC_STATUS_ALREADY_EXISTS, 4006, "grpc status already exists")   \
-    F(ERR_GRPC_STATUS_PERMISSION_DENIED, 4007, "grpc status permission denied") \
-    F(ERR_GRPC_STATUS_RESOURCE_EXHAUSTED, 4008, "grpc status resource exhausted")    \
-    F(ERR_GRPC_STATUS_FAILED_PRECONDITION, 4009, "grpc status failed precondition") \
-    F(ERR_GRPC_STATUS_ABORTED, 4010, "grpc status aborted") \
-    F(ERR_GRPC_STATUS_OUT_OF_RANGE, 4011, "grpc status out of range")   \
-    F(ERR_GRPC_STATUS_UNIMPLEMENTED, 4012, "grpc status unimplemented") \
-    F(ERR_GRPC_STATUS_INTERNAL, 4013, "grpc status internal") \
-    F(ERR_GRPC_STATUS_UNAVAILABLE, 4014, "grpc service unavailable") \
-    F(ERR_GRPC_STATUS_DATA_LOSS, 4015, "grpc status data loss")
+    F(4000, GRPC_FIRST,                     "grpc no error")                \
+    F(4001, GRPC_STATUS_CANCELLED,          "grpc status: cancelled")       \
+    F(4002, GRPC_STATUS_UNKNOWN,            "grpc unknown error")           \
+    F(4003, GRPC_STATUS_INVALID_ARGUMENT,   "grpc status: invalid argument")\
+    F(4004, GRPC_STATUS_DEADLINE,           "grpc status: deadline")        \
+    F(4005, GRPC_STATUS_NOT_FOUND,          "grpc status: not found")       \
+    F(4006, GRPC_STATUS_ALREADY_EXISTS,     "grpc status: already exists")  \
+    F(4007, GRPC_STATUS_PERMISSION_DENIED,  "grpc status: permission denied")   \
+    F(4008, GRPC_STATUS_RESOURCE_EXHAUSTED, "grpc status: resource exhausted")  \
+    F(4009, GRPC_STATUS_FAILED_PRECONDITION,"grpc status: failed precondition") \
+    F(4010, GRPC_STATUS_ABORTED,            "grpc status: aborted")         \
+    F(4011, GRPC_STATUS_OUT_OF_RANGE,       "grpc status: out of range")    \
+    F(4012, GRPC_STATUS_UNIMPLEMENTED,      "grpc status: unimplemented")   \
+    F(4013, GRPC_STATUS_INTERNAL,           "grpc internal error")          \
+    F(4014, GRPC_STATUS_UNAVAILABLE,        "grpc service unavailable")     \
+    F(4015, GRPC_STATUS_DATA_LOSS,          "grpc status: data loss")       \
 
-#define FOREACH_ERR(F) \
-    FOREACH_ERR_COMMON(F) \
-    FOREACH_ERR_NETWORK(F)  \
+#define FOREACH_ERR(F)      \
+    FOREACH_ERR_COMMON(F)   \
+    FOREACH_ERR_FUNC(F)     \
     FOREACH_ERR_SERVICE(F)  \
-    FOREACH_ERR_GRPC(F)
+    FOREACH_ERR_GRPC(F)     \
 
-enum H_ERR {
-#define ENUM_ERR(macro, errcode, _) macro = errcode,
-    FOREACH_ERR(ENUM_ERR)
-#undef ENUM_ERR
-    ERR_LAST
+#undef ERR_OK // prevent conflict
+enum {
+#define F(errcode, name, errmsg) ERR_##name = errcode,
+    FOREACH_ERR(F)
+#undef  F
 };
 
 #ifdef __cplusplus

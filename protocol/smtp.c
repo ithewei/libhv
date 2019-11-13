@@ -1,6 +1,7 @@
 #include "smtp.h"
 
 #include "hsocket.h"
+#include "herr.h"
 #include "base64.h"
 
 const char* smtp_command_str(enum smtp_command cmd) {
@@ -58,7 +59,7 @@ int sendmail(const char* smtp_server,
     int ret, nsend, nrecv;
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECV;
         goto error;
     }
     status_code = atoi(buf);
@@ -70,12 +71,12 @@ int sendmail(const char* smtp_server,
     cmdlen = smtp_build_command(SMTP_EHLO, smtp_server, buf, buflen);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECV;
         goto error;
     }
     status_code = atoi(buf);
@@ -87,12 +88,12 @@ int sendmail(const char* smtp_server,
     cmdlen = smtp_build_command(SMTP_AUTH, "PLAIN", buf, buflen);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECV;
         goto error;
     }
     status_code = atoi(buf);
@@ -117,12 +118,12 @@ int sendmail(const char* smtp_server,
     cmdlen += 2;
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECV;
         goto error;
     }
     status_code = atoi(buf);
@@ -134,12 +135,12 @@ int sendmail(const char* smtp_server,
     cmdlen = smtp_build_command(SMTP_MAIL, mail->from, buf, buflen);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECV;
         goto error;
     }
     status_code = atoi(buf);
@@ -151,12 +152,12 @@ int sendmail(const char* smtp_server,
     cmdlen = smtp_build_command(SMTP_RCPT, mail->to, buf, buflen);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECV;
         goto error;
     }
     status_code = atoi(buf);
@@ -168,12 +169,12 @@ int sendmail(const char* smtp_server,
     cmdlen = smtp_build_command(SMTP_DATA, NULL, buf, buflen);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECV;
         goto error;
     }
     status_code = atoi(buf);
@@ -186,39 +187,39 @@ int sendmail(const char* smtp_server,
     cmdlen = snprintf(buf, buflen, "From:%s\r\n", mail->from);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     // To:
     cmdlen = snprintf(buf, buflen, "To:%s\r\n", mail->to);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     // Subject:
     cmdlen = snprintf(buf, buflen, "Subject:%s\r\n\r\n", mail->subject);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     // body
     cmdlen = strlen(mail->body);
     nsend = send(sockfd, mail->body, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     // EOB
     nsend = send(sockfd, SMTP_EOB, SMTP_EOB_LEN, 0);
     if (nsend != SMTP_EOB_LEN) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_SEND;
         goto error;
     }
     status_code = atoi(buf);
@@ -230,12 +231,12 @@ int sendmail(const char* smtp_server,
     cmdlen = smtp_build_command(SMTP_QUIT, NULL, buf, buflen);
     nsend = send(sockfd, buf, cmdlen, 0);
     if (nsend != cmdlen) {
-        ret = -20;
+        ret = ERR_SEND;
         goto error;
     }
     nrecv = recv(sockfd, buf, buflen, 0);
     if (nrecv <= 0) {
-        ret = -30;
+        ret = ERR_RECV;
         goto error;
     }
     /*
