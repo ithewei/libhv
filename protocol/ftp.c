@@ -134,8 +134,8 @@ int ftp_download_with_cb(ftp_handle_t* hftp, const char* filepath, ftp_download_
         return ERR_RECV;
     }
     //printf("< %s", hftp->recvbuf);
-    // you can new thread to recv data
     {
+        // you can create thread to recv data
         char recvbuf[1024];
         int ntotal = 0;
         while (1) {
@@ -192,7 +192,7 @@ int ftp_upload(ftp_handle_t* hftp, const char* local_filepath, const char* remot
     }
     //printf("< %s", hftp->recvbuf);
     {
-        // you can new thread to send data
+        // you can create thread to send data
         FILE* fp = fopen(local_filepath, "r");
         if (fp == NULL) {
             closesocket(sockfd);
