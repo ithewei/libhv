@@ -34,6 +34,7 @@ public:
     int error;
     int stream_id;
     int stream_closed;
+    int frame_type_when_stream_closed;
     // http2_frame_hd + grpc_message_hd
     // at least HTTP2_FRAME_HDLEN + GRPC_MESSAGE_HDLEN = 9 + 5 = 14
     unsigned char                   frame_hdbuf[32];
@@ -57,8 +58,7 @@ public:
     }
 
     virtual bool IsComplete() {
-        // HTTP2_HEADERS / HTTP2_DATA EOS
-        return (state == HSS_RECV_HEADERS || state == HSS_RECV_DATA) && stream_closed == 1;
+        return stream_closed && (frame_type_when_stream_closed == HTTP2_DATA || frame_type_when_stream_closed == HTTP2_HEADERS);
     }
 
     virtual int GetError() {

@@ -101,12 +101,12 @@ int Http2Session::GetSendData(char** data, size_t* len) {
         framehd.stream_id = stream_id;
         *data = (char*)frame_hdbuf;
         *len = HTTP2_FRAME_HDLEN;
-        printd("HTTP2 DATA framehd-------------------\n");
+        printd("HTTP2 SEND_DATA_FRAME_HD...\n");
         if (submited->ContentType() == APPLICATION_GRPC) {
-            printd("grpc DATA framehd-----------------\n");
             grpc_message_hd msghd;
             msghd.flags = 0;
             msghd.length = content_length;
+            printd("grpc_message_hd: flags=%d length=%d\n", msghd.flags, msghd.length);
 
             if (type == HTTP_SERVER) {
                 // grpc server send grpc-status in HTTP2 header frame
@@ -139,7 +139,6 @@ int Http2Session::GetSendData(char** data, size_t* len) {
     }
     else if (state == HSS_SEND_DATA_FRAME_HD) {
         // HTTP2 DATA
-        printd("HTTP2 DATA-------------------\n");
         void* content = submited->Content();
         int content_length = submited->ContentLength();
         if (content_length == 0) {
@@ -147,6 +146,7 @@ int Http2Session::GetSendData(char** data, size_t* len) {
             goto send_done;
         }
         else {
+            printd("HTTP2 SEND_DATA... content_length=%d\n", content_length);
             state = HSS_SEND_DATA;
             *data = (char*)content;
             *len = content_length;
@@ -158,7 +158,7 @@ send_done:
         if (submited->ContentType() == APPLICATION_GRPC) {
             if (type == HTTP_SERVER && stream_closed) {
                 // grpc HEADERS grpc-status
-                printd("grpc HEADERS grpc-status-----------------\n");
+                printd("grpc HEADERS grpc-status: 0\n");
                 int flags = NGHTTP2_FLAG_END_STREAM | NGHTTP2_FLAG_END_HEADERS;
                 nghttp2_nv nv = make_nv("grpc-status", "0");
                 nghttp2_submit_headers(session, flags, stream_id, NULL, &nv, 1, NULL);
@@ -360,10 +360,13 @@ int on_data_chunk_recv_callback(nghttp2_session *session,
 
     if (hss->parsed->ContentType() == APPLICATION_GRPC) {
         // grpc_message_hd
-        printd("grpc Length-Prefixed-Message-----------------\n");
         if (len >= GRPC_MESSAGE_HDLEN) {
+            grpc_message_hd msghd;
+            grpc_message_hd_unpack(data, &msghd);
+            printd("grpc_message_hd: flags=%d length=%d\n", msghd.flags, msghd.length);
             data += GRPC_MESSAGE_HDLEN;
             len -= GRPC_MESSAGE_HDLEN;
+            //printd("%.*s\n", (int)len, data);
         }
     }
     hss->parsed->body.append((const char*)data, len);
@@ -388,14 +391,21 @@ int on_frame_recv_callback(nghttp2_session *session,
     case NGHTTP2_PING:
         hss->state = HSS_RECV_PING;
         break;
+    case NGHTTP2_RST_STREAM:
+    case NGHTTP2_WINDOW_UPDATE:
+        // ignore
+        return 0;
     default:
         break;
     }
-    hss->stream_id = frame->hd.stream_id;
-    hss->stream_closed = 0;
-    if (frame->hd.flags & NGHTTP2_FLAG_END_STREAM) {
-        printd("on_stream_closed stream_id=%d\n", hss->stream_id);
-        hss->stream_closed = 1;
+    if (frame->hd.stream_id >= hss->stream_id) {
+        hss->stream_id = frame->hd.stream_id;
+        hss->stream_closed = 0;
+        if (frame->hd.flags & NGHTTP2_FLAG_END_STREAM) {
+            printd("on_stream_closed stream_id=%d\n", hss->stream_id);
+            hss->stream_closed = 1;
+            hss->frame_type_when_stream_closed = frame->hd.type;
+        }
     }
 
     return 0;
