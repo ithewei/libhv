@@ -48,6 +48,8 @@
     \
     F(1400, REQUEST,        "Bad request")      \
     F(1401, RESPONSE,       "Bad response")     \
+    \
+    F(1429, BUSY,           "Busy")             \
 
 // [-1xxx]
 #define FOREACH_ERR_FUNC(F)   \
