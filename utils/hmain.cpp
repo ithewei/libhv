@@ -386,7 +386,7 @@ int signal_init(procedure_t reload_fn, void* reload_userdata) {
 
 #elif defined(OS_WIN)
 // win32 use Event
-static HANDLE s_hEventTerm = NULL;
+//static HANDLE s_hEventTerm = NULL;
 static HANDLE s_hEventReload = NULL;
 
 #include <mmsystem.h>
@@ -394,7 +394,9 @@ static HANDLE s_hEventReload = NULL;
 #pragma comment(lib, "winmm.lib")
 #endif
 void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
-    DWORD ret = WaitForSingleObject(s_hEventTerm, 0);
+    DWORD ret;
+    /*
+    ret = WaitForSingleObject(s_hEventTerm, 0);
     if (ret == WAIT_OBJECT_0) {
         hlogi("pid=%d recv event [TERM]", getpid());
         if (getpid_from_pidfile() == getpid()) {
@@ -402,6 +404,7 @@ void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, 
             exit(0);
         }
     }
+    */
 
     ret = WaitForSingleObject(s_hEventReload, 0);
     if (ret == WAIT_OBJECT_0) {
@@ -413,8 +416,8 @@ void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, 
 }
 
 void signal_cleanup() {
-    CloseHandle(s_hEventTerm);
-    s_hEventTerm = NULL;
+    //CloseHandle(s_hEventTerm);
+    //s_hEventTerm = NULL;
     CloseHandle(s_hEventReload);
     s_hEventReload = NULL;
 }
@@ -424,8 +427,8 @@ int signal_init(procedure_t reload_fn, void* reload_userdata) {
     s_reload_userdata = reload_userdata;
 
     char eventname[MAX_PATH] = {0};
-    snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
-    s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
+    //snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
+    //s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
     //s_hEventTerm = OpenEvent(EVENT_ALL_ACCESS, FALSE, eventname);
     snprintf(eventname, sizeof(eventname), "%s_reload_event", g_main_ctx.program_name);
     s_hEventReload = CreateEvent(NULL, FALSE, FALSE, eventname);
@@ -437,6 +440,19 @@ int signal_init(procedure_t reload_fn, void* reload_userdata) {
 }
 #endif
 
+static void kill_proc(int pid) {
+#ifdef OS_UNIX
+    kill(pid, SIGNAL_TERMINATE);
+#else
+    //SetEvent(s_hEventTerm);
+    //sleep(1);
+    HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+    if (hproc) {
+        TerminateProcess(hproc, 0);
+    }
+#endif
+}
+
 void handle_signal(const char* signal) {
     if (strcmp(signal, "start") == 0) {
         if (g_main_ctx.oldpid > 0) {
@@ -445,11 +461,7 @@ void handle_signal(const char* signal) {
         }
     } else if (strcmp(signal, "stop") == 0) {
         if (g_main_ctx.oldpid > 0) {
-#ifdef OS_UNIX
-            kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
-#else
-            SetEvent(s_hEventTerm);
-#endif
+            kill_proc(g_main_ctx.oldpid);
             printf("%s stop/waiting\n", g_main_ctx.program_name);
         } else {
             printf("%s is already stopped\n", g_main_ctx.program_name);
@@ -457,11 +469,7 @@ void handle_signal(const char* signal) {
         exit(0);
     } else if (strcmp(signal, "restart") == 0) {
         if (g_main_ctx.oldpid > 0) {
-#ifdef OS_UNIX
-            kill(g_main_ctx.oldpid, SIGNAL_TERMINATE);
-#else
-            SetEvent(s_hEventTerm);
-#endif
+            kill_proc(g_main_ctx.oldpid);
             printf("%s stop/waiting\n", g_main_ctx.program_name);
             msleep(1000);
         }
