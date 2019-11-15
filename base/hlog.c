@@ -272,7 +272,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     }
 
     if (logger->handler) {
-        logger->handler(logger->level, buf, len);
+        logger->handler(level, buf, len);
     }
     else {
         FILE* fp = shift_logfile(logger);
