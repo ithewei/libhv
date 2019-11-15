@@ -104,6 +104,14 @@ int main_ctx_init(int argc, char** argv) {
     if (kill(g_main_ctx.oldpid, 0) == -1 && errno == ESRCH) {
         g_main_ctx.oldpid = -1;
     }
+#else
+    HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, g_main_ctx.oldpid);
+    if (hproc == NULL) {
+        g_main_ctx.oldpid = -1;
+    }
+    else {
+        CloseHandle(hproc);
+    }
 #endif
 
     return 0;
@@ -449,6 +457,7 @@ static void kill_proc(int pid) {
     HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
     if (hproc) {
         TerminateProcess(hproc, 0);
+        CloseHandle(hproc);
     }
 #endif
 }
