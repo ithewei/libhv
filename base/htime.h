@@ -83,7 +83,7 @@ unsigned long long gethrtime();
 static inline unsigned long long timestamp_ms() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    return tv_sec * (unsigned long long)1000 + tv_usec/1000;
+    return tv.tv_sec * (unsigned long long)1000 + tv.tv_usec/1000;
 }
 
 datetime_t datetime_now();
