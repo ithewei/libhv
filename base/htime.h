@@ -36,13 +36,21 @@ static inline void usleep(unsigned int us) {
 
 #include <sys/timeb.h>
 static inline int gettimeofday(struct timeval *tv, struct timeval *tz) {
-  struct _timeb timebuffer;
+    struct _timeb tb;
 
-  _ftime( &timebuffer );
+    _ftime(&tb);
 
-  tv->tv_sec = (long) timebuffer.time;
-  tv->tv_usec = timebuffer.millitm * 1000;
-  return 0;
+    if (tv) {
+        tv->tv_sec =  tb.time;
+        tv->tv_usec = tb.millitm * 1000;
+    }
+
+    if (tz) {
+        tz->tz_minuteswest = tb.timezone;
+        tz->tz_dsttime = tb.dstflag;
+    }
+
+    return 0;
 }
 #endif
 
@@ -71,6 +79,12 @@ static inline unsigned int gettick() {
 
 // us
 unsigned long long gethrtime();
+
+static inline unsigned long long timestamp_ms() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv_sec * (unsigned long long)1000 + tv_usec/1000;
+}
 
 datetime_t datetime_now();
 time_t     datetime_mktime(datetime_t* dt);
