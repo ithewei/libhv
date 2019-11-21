@@ -258,7 +258,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     hmutex_lock(&logger->mutex_);
     char* buf = logger->buf;
     int bufsize = logger->bufsize;
-    int len = snprintf(buf, bufsize, "%s[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s]: ",
+    int len = snprintf(buf, bufsize, "%s[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s] ",
         pcolor,
         year, month, day, hour, min, sec, ms, plevel);
 

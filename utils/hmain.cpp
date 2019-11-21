@@ -283,47 +283,41 @@ const char* get_env(const char* key) {
 void setproctitle(const char* title) {
     //printf("proctitle=%s\n", title);
     int len = g_main_ctx.arg_len + g_main_ctx.env_len;
-    if (strlen(title) >= len)   return;
-    memset(g_main_ctx.os_argv[0], 0, len);
-    strcpy(g_main_ctx.os_argv[0], title);
+    strncpy(g_main_ctx.os_argv[0], title, len-1);
 }
 #endif
 
 int create_pidfile() {
     FILE* fp = fopen(g_main_ctx.pidfile, "w");
     if (fp == NULL) {
-        printf("fopen [%s] error: %d\n", g_main_ctx.pidfile, errno);
-        return -10;
+        hloge("fopen('%s') error: %d\n", g_main_ctx.pidfile, errno);
+        return -1;
     }
 
     char pid[16] = {0};
     snprintf(pid, sizeof(pid), "%d\n", g_main_ctx.pid);
     fwrite(pid, 1, strlen(pid), fp);
     fclose(fp);
-    hlogi("create_pidfile [%s] pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
+    hlogi("create_pidfile('%s') pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
     atexit(delete_pidfile);
     return 0;
 }
 
 void delete_pidfile() {
+    hlogi("delete_pidfile('%s') pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
     remove(g_main_ctx.pidfile);
-    hlogi("delete_pidfile [%s]", g_main_ctx.pidfile);
 }
 
 pid_t getpid_from_pidfile() {
     FILE* fp = fopen(g_main_ctx.pidfile, "r");
     if (fp == NULL) {
-        //printf("fopen [%s] error: %d\n", g_conf_ctx.pidfile, errno);
+        hloge("fopen('%s') error: %d\n", g_main_ctx.pidfile, errno);
         return -1;
     }
     char pid[64];
     int readbytes = fread(pid, 1, sizeof(pid), fp);
     fclose(fp);
-    if (readbytes <= 0) {
-        //printf("fread [%s] bytes=%d\n", g_main_ctx.pidfile, readbytes);
-        return -1;
-    }
-    return atoi(pid);
+    return readbytes <= 0 ? -1 : atoi(pid);
 }
 
 static procedure_t s_reload_fn = NULL;
