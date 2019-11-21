@@ -60,6 +60,14 @@ char* safe_strncpy(char* dest, const char* src, size_t n);
 // safe_strncpy n = sizeof(dest_buf)
 char* safe_strncat(char* dest, const char* src, size_t n);
 
+#if !HAVE_STRLCPY
+#define strlcpy safe_strncpy
+#endif
+
+#if !HAVE_STRLCAT
+#define strlcat safe_strncat
+#endif
+
 // 1 y on yes true enable
 bool getboolean(const char* str);
 

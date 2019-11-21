@@ -17,6 +17,10 @@
 #define HAVE_SYS_STAT_H 1
 #endif
 
+#ifndef HAVE_SYS_TIME_H
+#define HAVE_SYS_TIME_H 1
+#endif
+
 #ifndef HAVE_FCNTL_H
 #define HAVE_FCNTL_H 1
 #endif
@@ -25,8 +29,20 @@
 #define HAVE_PTHREAD_H 1
 #endif
 
+#ifndef HAVE_STRLCPY
+#define HAVE_STRLCPY 0
+#endif
+
+#ifndef HAVE_STRLCAT
+#define HAVE_STRLCAT 0
+#endif
+
 #ifndef HAVE_CLOCK_GETTIME
 #define HAVE_CLOCK_GETTIME 1
+#endif
+
+#ifndef HAVE_GETTIMEOFDAY
+#define HAVE_GETTIMEOFDAY 1
 #endif
 
 #endif // HW_CONFIG_H_
