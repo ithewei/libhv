@@ -36,6 +36,7 @@ static inline void usleep(unsigned int us) {
 
 #include <sys/timeb.h>
 
+#ifdef _MSC_VER
 /* @see winsock2.h
 // Structure used in select() call, taken from the BSD file sys/time.h
 struct timeval {
@@ -48,6 +49,7 @@ struct timezone {
     int tz_minuteswest; /* of Greenwich */
     int tz_dsttime;     /* type of dst correction to apply */
 };
+#endif
 
 static inline int gettimeofday(struct timeval *tv, struct timezone *tz) {
     struct _timeb tb;
