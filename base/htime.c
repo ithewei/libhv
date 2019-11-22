@@ -28,7 +28,7 @@ unsigned long long gethrtime() {
     if (s_freq != 0) {
         LARGE_INTEGER count;
         QueryPerformanceCounter(&count);
-        return count.QuadPart / (double)s_freq * 1000000;
+        return (unsigned long long)(count.QuadPart / (double)s_freq * 1000000);
     }
     return 0;
 #elif HAVE_CLOCK_GETTIME
