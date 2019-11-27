@@ -169,7 +169,7 @@ static void hloop_init(hloop_t* loop) {
     // iowatcher: init when iowatcher_add_event
     //iowatcher_init(loop);
     // NOTE: init start_time here, because htimer_add use it.
-    time(&loop->start_time);
+    loop->start_ms = timestamp_ms();
     loop->start_hrtime = loop->cur_hrtime = gethrtime();
 }
 
@@ -276,14 +276,22 @@ int hloop_resume(hloop_t* loop) {
 
 void hloop_update_time(hloop_t* loop) {
     loop->cur_hrtime = gethrtime();
+    if (ABS((int64_t)hloop_now(loop) - (int64_t)time(NULL)) > 1) {
+        // systemtime changed, we adjust start_ms
+        loop->start_ms = timestamp_ms() - (loop->cur_hrtime - loop->start_hrtime) / 1000;
+    }
 }
 
-time_t hloop_now(hloop_t* loop) {
-    return loop->start_time + (loop->cur_hrtime - loop->start_hrtime) / 1000000;
+uint64_t hloop_now(hloop_t* loop) {
+    return loop->start_ms / 1000 + (loop->cur_hrtime - loop->start_hrtime) / 1000000;
+}
+
+uint64_t hloop_now_ms(hloop_t* loop) {
+    return loop->start_ms + (loop->cur_hrtime - loop->start_hrtime) / 1000;
 }
 
 uint64_t hloop_now_hrtime(hloop_t* loop) {
-    return loop->start_time*1e6 + (loop->cur_hrtime - loop->start_hrtime);
+    return loop->start_ms * 1000 + (loop->cur_hrtime - loop->start_hrtime);
 }
 
 void  hloop_set_userdata(hloop_t* loop, void* userdata) {

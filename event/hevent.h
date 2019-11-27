@@ -20,8 +20,8 @@ ARRAY_DECL(hio_t*, io_array);
 struct hloop_s {
     uint32_t    flags;
     hloop_status_e status;
-    time_t      start_time; // s
-    uint64_t    start_hrtime; // us
+    uint64_t    start_ms;       // ms
+    uint64_t    start_hrtime;   // us
     uint64_t    end_hrtime;
     uint64_t    cur_hrtime;
     uint64_t    loop_cnt;

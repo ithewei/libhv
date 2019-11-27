@@ -99,8 +99,9 @@ int hloop_pause(hloop_t* loop);
 int hloop_resume(hloop_t* loop);
 
 void     hloop_update_time(hloop_t* loop);
-time_t   hloop_now(hloop_t* loop); // s
-uint64_t hloop_now_hrtime(hloop_t* loop); // us
+uint64_t hloop_now(hloop_t* loop);          // s
+uint64_t hloop_now_ms(hloop_t* loop);       // ms
+uint64_t hloop_now_hrtime(hloop_t* loop);   // us
 
 void  hloop_set_userdata(hloop_t* loop, void* userdata);
 void* hloop_userdata(hloop_t* loop);
