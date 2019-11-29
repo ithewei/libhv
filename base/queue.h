@@ -4,6 +4,8 @@
 /*
  * queue
  * FIFO: push_back,pop_front
+ * stack
+ * LIFO: push_back,pop_back
  */
 
 #include <assert.h> // for assert

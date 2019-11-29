@@ -189,7 +189,7 @@ int main(int argc, char** argv) {
         print_help();
         exit(10);
     }
-    //int ret = parse_opt(argc, argv, options);
+    // int ret = parse_opt(argc, argv, options);
     int ret = parse_opt_long(argc, argv, long_options, ARRAY_SIZE(long_options));
     if (ret != 0) {
         print_help();
@@ -298,9 +298,9 @@ int main(int argc, char** argv) {
 }
 
 void master_proc(void* userdata) {
-    while(1) sleep(1);
+    while (1) sleep(1);
 }
 
 void worker_proc(void* userdata) {
-    while(1) sleep(1);
+    while (1) sleep(1);
 }

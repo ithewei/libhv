@@ -8,6 +8,7 @@
 # IDE
 .vs
 .vscode
+.DS_Store
 
 tags
 cscope*
@@ -25,6 +26,7 @@ tmp
 lib
 bin
 dist
+build
 
 # test
 test

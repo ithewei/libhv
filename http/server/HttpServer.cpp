@@ -26,7 +26,7 @@ static void master_init(void* userdata) {
 }
 
 static void master_proc(void* userdata) {
-    while(1) sleep(1);
+    while (1) sleep(1);
 }
 
 static void worker_init(void* userdata) {
@@ -39,7 +39,7 @@ static void worker_init(void* userdata) {
 }
 
 static void on_recv(hio_t* io, void* _buf, int readbytes) {
-    //printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
+    // printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     const char* buf = (const char*)_buf;
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     // HTTP1 / HTTP2 -> HttpSession -> InitRequest
@@ -115,32 +115,32 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
     // Upgrade: h2
     {
-    auto iter_upgrade = req->headers.find("upgrade");
-    if (iter_upgrade != req->headers.end()) {
-        hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, iter_upgrade->second.c_str());
-        // h2/h2c
-        if (strnicmp(iter_upgrade->second.c_str(), "h2", 2) == 0) {
-            hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
-            SAFE_DELETE(handler->session);
-            session = handler->session = HttpSession::New(HTTP_SERVER, HTTP_V2);
-            if (session == NULL) {
-                hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
+        auto iter_upgrade = req->headers.find("upgrade");
+        if (iter_upgrade != req->headers.end()) {
+            hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, iter_upgrade->second.c_str());
+            // h2/h2c
+            if (strnicmp(iter_upgrade->second.c_str(), "h2", 2) == 0) {
+                hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
+                SAFE_DELETE(handler->session);
+                session = handler->session = HttpSession::New(HTTP_SERVER, HTTP_V2);
+                if (session == NULL) {
+                    hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
+                    hio_close(io);
+                    return;
+                }
+                HttpRequest http1_req = *req;
+                session->InitRequest(req);
+                *req = http1_req;
+                req->http_major = 2;
+                req->http_minor = 0;
+                // HTTP2_Settings: ignore
+                // session->FeedRecvData(HTTP2_Settings, );
+            }
+            else {
                 hio_close(io);
                 return;
             }
-            HttpRequest http1_req = *req;
-            session->InitRequest(req);
-            *req = http1_req;
-            req->http_major = 2;
-            req->http_minor = 0;
-            // HTTP2_Settings: ignore
-            //session->FeedRecvData(HTTP2_Settings, );
         }
-        else {
-            hio_close(io);
-            return;
-        }
-    }
     }
 #endif
 
@@ -182,9 +182,10 @@ handle_request:
             sendbuf = handler->fc->httpbuf;
         }
         else {
-            if (content_length > (1<<20)) {
+            if (content_length > (1 << 20)) {
                 send_in_one_packet = false;
-            } else if (content_length != 0) {
+            }
+            else if (content_length != 0) {
                 header.insert(header.size(), (const char*)res->Content(), content_length);
             }
             sendbuf.base = (char*)header.c_str();
@@ -302,7 +303,7 @@ static void worker_proc(void* userdata) {
     hlog_disable_fsync();
     hidle_add(loop, fsync_logfile, INFINITE);
     // timer handle_cached_files
-    htimer_t* timer = htimer_add(loop, handle_cached_files, s_filecache.file_cached_time*1000);
+    htimer_t* timer = htimer_add(loop, handle_cached_files, s_filecache.file_cached_time * 1000);
     hevent_set_userdata(timer, &s_filecache);
     hloop_run(loop);
     hloop_free(&loop);

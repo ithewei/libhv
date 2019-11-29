@@ -45,5 +45,4 @@
 #define HAVE_GETTIMEOFDAY 1
 #endif
 
-#endif // HW_CONFIG_H_
-
+#endif  // HW_CONFIG_H_

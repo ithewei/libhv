@@ -14,7 +14,8 @@ struct heap_node {
 typedef int (*heap_compare_fn)(const struct heap_node* lhs, const struct heap_node* rhs);
 struct heap {
     struct heap_node* root;
-    int nelts; // if compare is less_than, root is min of heap
+    int nelts;
+    // if compare is less_than, root is min of heap
     // if compare is larger_than, root is max of heap
     heap_compare_fn compare;
 };
