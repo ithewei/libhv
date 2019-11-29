@@ -4,13 +4,19 @@
 
 hw 是一套跨平台c/c++基础组件，函数名/类名以h/H开头
 
-## platform
+## OS (passed)
+
+- Linux
+- Windows
+- Mac
+
+## Compiler (passed)
 
 - gcc
-- mingw
+- clang
 - msvc
 
-## required
+## Required
 
 - c++11
 
