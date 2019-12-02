@@ -74,24 +74,26 @@ int parse_confile(const char* confile) {
     hlog_set_file(g_main_ctx.logfile);
     // loglevel
     const char* szLoglevel = g_conf_ctx.parser->GetValue("loglevel").c_str();
+    int loglevel = LOG_LEVEL_INFO;
     if (stricmp(szLoglevel, "VERBOSE") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_VERBOSE;
+        loglevel = LOG_LEVEL_VERBOSE;
     } else if (stricmp(szLoglevel, "DEBUG") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_DEBUG;
+        loglevel = LOG_LEVEL_DEBUG;
     } else if (stricmp(szLoglevel, "INFO") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_INFO;
+        loglevel = LOG_LEVEL_INFO;
     } else if (stricmp(szLoglevel, "WARN") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_WARN;
+        loglevel = LOG_LEVEL_WARN;
     } else if (stricmp(szLoglevel, "ERROR") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_ERROR;
+        loglevel = LOG_LEVEL_ERROR;
     } else if (stricmp(szLoglevel, "FATAL") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_FATAL;
+        loglevel = LOG_LEVEL_FATAL;
     } else if (stricmp(szLoglevel, "SILENT") == 0) {
-        g_conf_ctx.loglevel = LOG_LEVEL_SILENT;
+        loglevel = LOG_LEVEL_SILENT;
     } else {
-        g_conf_ctx.loglevel = LOG_LEVEL_VERBOSE;
+        loglevel = LOG_LEVEL_INFO;
     }
-    hlog_set_level(g_conf_ctx.loglevel);
+    g_conf_ctx.loglevel = loglevel;
+    hlog_set_level(loglevel);
     // log_filesize
     str = g_conf_ctx.parser->GetValue("log_filesize");
     if (!str.empty()) {
