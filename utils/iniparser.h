@@ -1,12 +1,9 @@
 #ifndef HW_INI_PARSER_H_
 #define HW_INI_PARSER_H_
 
-#include "hdef.h"
-#include "hstring.h"
-#include "hbase.h"
-
 #include <list>
 #include <string>
+using std::string;
 
 #define DEFAULT_INI_COMMENT "#"
 #define DEFAULT_INI_DELIM   "="
@@ -36,8 +33,10 @@ class IniNode {
     std::list<IniNode*>    children;
 
     virtual ~IniNode() {
-        for (auto& item : children) {
-            SAFE_DELETE(item);
+        for (auto pNode : children) {
+            if (pNode) {
+                delete pNode;
+            }
         }
         children.clear();
     }
@@ -57,7 +56,7 @@ class IniNode {
     }
 
     IniNode* Get(const string& label, Type type = INI_NODE_TYPE_KEY_VALUE) {
-        for (auto& pNode : children) {
+        for (auto pNode : children) {
             if (pNode->type == type && pNode->label == label) {
                 return pNode;
             }

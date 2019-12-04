@@ -1,13 +1,16 @@
 #include "iniparser.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "hdef.h"
+#include "herr.h"
+#include "hstring.h"
+#include "hfile.h"
+#include "hbase.h"
 
 #include <sstream>
 
-#include "herr.h"
-#include "hfile.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 IniParser::IniParser() {
     _comment = DEFAULT_INI_COMMENT;

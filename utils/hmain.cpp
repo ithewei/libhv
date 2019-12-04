@@ -311,7 +311,7 @@ void delete_pidfile() {
 pid_t getpid_from_pidfile() {
     FILE* fp = fopen(g_main_ctx.pidfile, "r");
     if (fp == NULL) {
-        hloge("fopen('%s') error: %d", g_main_ctx.pidfile, errno);
+        // hloge("fopen('%s') error: %d", g_main_ctx.pidfile, errno);
         return -1;
     }
     char pid[64];
