@@ -109,7 +109,7 @@ int parse_confile(const char* confile) {
         port = atoi(szPort);
     }
     if (port == 0) {
-        port = atoi(ini.GetValue("port").c_str());
+        port = ini.Get<int>("port");
     }
     if (port == 0) {
         printf("Please config listen port!\n");

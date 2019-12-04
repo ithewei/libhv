@@ -150,7 +150,7 @@ int parse_confile(const char* confile) {
         port = atoi(szPort);
     }
     if (port == 0) {
-        port = atoi(g_conf_ctx.parser->GetValue("port").c_str());
+        port = g_conf_ctx.parser->Get<int>("port");
     }
     if (port == 0) {
         printf("Please config listen port!\n");

@@ -1,11 +1,12 @@
 #ifndef HW_INI_PARSER_H_
 #define HW_INI_PARSER_H_
 
-#include <list>
-#include <string>
-
 #include "hdef.h"
 #include "hstring.h"
+#include "hbase.h"
+
+#include <list>
+#include <string>
 
 #define DEFAULT_INI_COMMENT "#"
 #define DEFAULT_INI_DELIM   "="
@@ -20,10 +21,6 @@ key = value # span
 # div
 ***********************************/
 
-// class IniComment;
-// class IniSection;
-// class IniKeyValue;
-// for simplicity, we add a member value.
 class IniNode {
  public:
     enum Type {
@@ -34,7 +31,7 @@ class IniNode {
         INI_NODE_TYPE_DIV,
         INI_NODE_TYPE_SPAN,
     } type;
-    string  label;
+    string  label; // section|key|comment
     string  value;
     std::list<IniNode*>    children;
 
@@ -69,21 +66,28 @@ class IniNode {
     }
 };
 
-// class IniComment : public IniNode {
-// public:
-//     string comment;
-// };
+class IniSection : public IniNode {
+public:
+    IniSection() : IniNode(), section(label) {
+        type = INI_NODE_TYPE_SECTION;
+    }
+    string &section;
+};
 
-// class IniSection : public IniNode {
-// public:
-//     string section;
-// };
+class IniKeyValue : public IniNode {
+public:
+    IniKeyValue() : IniNode(), key(label) {
+        type = INI_NODE_TYPE_KEY_VALUE;
+    }
+    string &key;
+};
 
-// class IniKeyValue : public IniNode {
-// public:
-//     string key;
-//     string value;
-// };
+class IniComment : public IniNode {
+public:
+    IniComment() : IniNode(), comment(label) {
+    }
+    string &comment;
+};
 
 class IniParser {
  public:
@@ -104,6 +108,14 @@ class IniParser {
 
     string GetValue(const string& key, const string& section = "");
     void   SetValue(const string& key, const string& value, const string& section = "");
+
+    // T = [bool, int, float]
+    template<typename T>
+    T Get(const string& key, const string& section = "", const T defvalue = 0);
+
+    // T = [bool, int, float]
+    template<typename T>
+    void Set(const string& key, const T& value, const string& section = "");
 
  private:
     string  _comment;

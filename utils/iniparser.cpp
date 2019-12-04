@@ -238,3 +238,36 @@ void IniParser::SetValue(const string& key, const string& value, const string& s
     pKV->value = value;
 }
 
+template<>
+bool IniParser::Get(const string& key, const string& section, bool defvalue) {
+    string str = GetValue(key, section);
+    return str.empty() ? defvalue : getboolean(str.c_str());
+}
+
+template<>
+int IniParser::Get(const string& key, const string& section, int defvalue) {
+    string str = GetValue(key, section);
+    return str.empty() ? defvalue : atoi(str.c_str());
+}
+
+template<>
+float IniParser::Get(const string& key, const string& section, float defvalue) {
+    string str = GetValue(key, section);
+    return str.empty() ? defvalue : atof(str.c_str());
+}
+
+template<>
+void IniParser::Set(const string& key, const bool& value, const string& section) {
+    SetValue(key, value ? "true" : "false", section);
+}
+
+template<>
+void IniParser::Set(const string& key, const int& value, const string& section) {
+    SetValue(key, asprintf("%d", value), section);
+}
+
+template<>
+void IniParser::Set(const string& key, const float& value, const string& section) {
+    SetValue(key, asprintf("%f", value), section);
+}
+
