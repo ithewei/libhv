@@ -71,10 +71,10 @@ class HThread {
             switchStatus(RUNNING);
             dotask_cnt = 0;
 
-            thread = std::thread([this]{
-                doPrepare();
+            thread = std::thread([this] {
+                if (!doPrepare()) return;
                 run();
-                doFinish();
+                if (!doFinish()) return;
             });
         }
         return 0;
@@ -115,9 +115,9 @@ class HThread {
         }
     }
 
-    virtual void doPrepare() {}
+    virtual bool doPrepare() {return true;}
     virtual void doTask() {}
-    virtual void doFinish() {}
+    virtual bool doFinish() {return true;}
 
     std::thread thread;
     enum Status {

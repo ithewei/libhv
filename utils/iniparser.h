@@ -110,7 +110,7 @@ class IniParser {
 
     // T = [bool, int, float]
     template<typename T>
-    T Get(const string& key, const string& section = "", const T defvalue = 0);
+    T Get(const string& key, const string& section = "", T defvalue = 0);
 
     // T = [bool, int, float]
     template<typename T>
