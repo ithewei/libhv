@@ -55,6 +55,10 @@ static inline void honce(honce_t* once, honce_fn fn) {
     InitOnceExecuteOnce(once, s_once_func, (PVOID)fn, &dummy);
 }
 #else
+#ifndef __USE_XOPEN2K
+#define __USE_XOPEN2K // for pthread_mutex_timedlock, pthread_spinlock, pthread_rwlock...
+#endif
+
 #define hmutex_t                pthread_mutex_t
 #define hmutex_init(pmutex)     pthread_mutex_init(pmutex, NULL)
 #define hmutex_destroy          pthread_mutex_destroy
