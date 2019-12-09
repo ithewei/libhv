@@ -45,4 +45,12 @@
 #define HAVE_GETTIMEOFDAY 1
 #endif
 
+#ifndef HAVE_PTHREAD_SPIN_LOCK
+#define HAVE_PTHREAD_SPIN_LOCK 0
+#endif
+
+#ifndef HAVE_PTHREAD_MUTEX_TIMEDLOCK
+#define HAVE_PTHREAD_MUTEX_TIMEDLOCK 0
+#endif
+
 #endif  // HW_CONFIG_H_

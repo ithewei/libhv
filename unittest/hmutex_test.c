@@ -27,6 +27,7 @@ HTHREAD_ROUTINE(test_mutex) {
     return 0;
 }
 
+#if HAVE_PTHREAD_SPIN_LOCK
 HTHREAD_ROUTINE(test_spinlock) {
     hspinlock_t spin;
     hspinlock_init(&spin);
@@ -36,6 +37,7 @@ HTHREAD_ROUTINE(test_spinlock) {
     printf("hspinlock test OK!\n");
     return 0;
 }
+#endif
 
 HTHREAD_ROUTINE(test_rwlock) {
     hrwlock_t rwlock;
@@ -49,6 +51,7 @@ HTHREAD_ROUTINE(test_rwlock) {
     return 0;
 }
 
+#if HAVE_PTHREAD_MUTEX_TIMEDLOCK
 HTHREAD_ROUTINE(test_timed_mutex) {
     htimed_mutex_t mutex;
     htimed_mutex_init(&mutex);
@@ -62,6 +65,7 @@ HTHREAD_ROUTINE(test_timed_mutex) {
     printf("htimed_mutex test OK!\n");
     return 0;
 }
+#endif
 
 HTHREAD_ROUTINE(test_condvar) {
     hmutex_t mutex;
@@ -87,16 +91,24 @@ HTHREAD_ROUTINE(test_condvar) {
 int main(int argc, char* argv[]) {
     hthread_t thread_once = hthread_create(test_once, NULL);
     hthread_t thread_mutex = hthread_create(test_mutex, NULL);
+#if HAVE_PTHREAD_SPIN_LOCK
     hthread_t thread_spinlock = hthread_create(test_spinlock, NULL);
+#endif
     hthread_t thread_rwlock = hthread_create(test_rwlock, NULL);
+#if HAVE_PTHREAD_MUTEX_TIMEDLOCK
     hthread_t thread_timed_mutex = hthread_create(test_timed_mutex, NULL);
+#endif
     hthread_t thread_condvar = hthread_create(test_condvar, NULL);
 
     hthread_join(thread_once);
     hthread_join(thread_mutex);
+#if HAVE_PTHREAD_SPIN_LOCK
     hthread_join(thread_spinlock);
+#endif
     hthread_join(thread_rwlock);
+#if HAVE_PTHREAD_MUTEX_TIMEDLOCK
     hthread_join(thread_timed_mutex);
+#endif
     hthread_join(thread_condvar);
     printf("hthread test OK!\n");
     return 0;

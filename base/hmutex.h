@@ -32,7 +32,7 @@
 #define htimed_mutex_unlock(pmutex)     ReleaseMutex(*(pmutex))
 // true:  WAIT_OBJECT_0
 // false: WAIT_OBJECT_TIMEOUT
-#define htimed_mutex_lock_for(pmutex, ms)   WaitForSingleObject(*(pmutex), ms) == WAIT_OBJECT_0
+#define htimed_mutex_lock_for(pmutex, ms)   ( WaitForSingleObject(*(pmutex), ms) == WAIT_OBJECT_0 )
 
 #define hcondvar_t                      CONDITION_VARIABLE
 #define hcondvar_init                   InitializeConditionVariable
@@ -55,21 +55,19 @@ static inline void honce(honce_t* once, honce_fn fn) {
     InitOnceExecuteOnce(once, s_once_func, (PVOID)fn, &dummy);
 }
 #else
-#ifndef __USE_XOPEN2K
-#define __USE_XOPEN2K // for pthread_mutex_timedlock, pthread_spinlock, pthread_rwlock...
-#endif
-
 #define hmutex_t                pthread_mutex_t
 #define hmutex_init(pmutex)     pthread_mutex_init(pmutex, NULL)
 #define hmutex_destroy          pthread_mutex_destroy
 #define hmutex_lock             pthread_mutex_lock
 #define hmutex_unlock           pthread_mutex_unlock
 
+#if HAVE_PTHREAD_SPIN_LOCK
 #define hspinlock_t             pthread_spinlock_t
 #define hspinlock_init(pspin)   pthread_spin_init(pspin, PTHREAD_PROCESS_PRIVATE)
 #define hspinlock_destroy       pthread_spin_destroy
 #define hspinlock_lock          pthread_spin_lock
 #define hspinlock_unlock        pthread_spin_unlock
+#endif
 
 #define hrwlock_t               pthread_rwlock_t
 #define hrwlock_init(prwlock)   pthread_rwlock_init(prwlock, NULL)
@@ -79,6 +77,7 @@ static inline void honce(honce_t* once, honce_fn fn) {
 #define hrwlock_wrlock          pthread_rwlock_wrlock
 #define hrwlock_wrunlock        pthread_rwlock_unlock
 
+#if HAVE_PTHREAD_MUTEX_TIMEDLOCK
 #define htimed_mutex_t              pthread_mutex_t
 #define htimed_mutex_init(pmutex)   pthread_mutex_init(pmutex, NULL)
 #define htimed_mutex_destroy        pthread_mutex_destroy
@@ -98,6 +97,7 @@ static inline int htimed_mutex_lock_for(htimed_mutex_t* mutex, unsigned long ms)
     }
     return pthread_mutex_timedlock(mutex, &ts) != ETIMEDOUT;
 }
+#endif
 
 #define hcondvar_t              pthread_cond_t
 #define hcondvar_init(pcond)    pthread_cond_init(pcond, NULL)
