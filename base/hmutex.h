@@ -3,68 +3,147 @@
 
 #include "hplatform.h"
 
-#ifdef OS_WIN
-#define hmutex_t            CRITICAL_SECTION
-#define hmutex_init         InitializeCriticalSection
-#define hmutex_destroy      DeleteCriticalSection
-#define hmutex_lock         EnterCriticalSection
-#define hmutex_unlock       LeaveCriticalSection
+#ifdef _MSC_VER
+#define hmutex_t                CRITICAL_SECTION
+#define hmutex_init             InitializeCriticalSection
+#define hmutex_destroy          DeleteCriticalSection
+#define hmutex_lock             EnterCriticalSection
+#define hmutex_unlock           LeaveCriticalSection
 
-#define honce_t             INIT_ONCE
-#define HONCE_INIT          INIT_ONCE_STATIC_INIT
+#define HSPINLOCK_COUNT         -1
+#define hspinlock_t             CRITICAL_SECTION
+#define hspinlock_init(pspin)   InitializeCriticalSectionAndSpinCount(pspin, HSPINLOCK_COUNT)
+#define hspinlock_destroy       DeleteCriticalSection
+#define hspinlock_lock          EnterCriticalSection
+#define hspinlock_unlock        LeaveCriticalSection
+
+#define hrwlock_t               SRWLOCK
+#define hrwlock_init            InitializeSRWLock
+#define hrwlock_destroy
+#define hrwlock_rdlock          AcquireSRWLockShared
+#define hrwlock_rdunlock        ReleaseSRWLockShared
+#define hrwlock_wrlock          AcquireSRWLockExclusive
+#define hrwlock_wrunlock        ReleaseSRWLockExclusive
+
+#define htimed_mutex_t                  HANDLE
+#define htimed_mutex_init(pmutex)       *(pmutex) = CreateMutex(NULL, FALSE, NULL)
+#define htimed_mutex_destroy(pmutex)    CloseHandle(*(pmutex))
+#define htimed_mutex_lock(pmutex)       WaitForSingleObject(*(pmutex), INFINITE)
+#define htimed_mutex_unlock(pmutex)     ReleaseMutex(*(pmutex))
+// true:  WAIT_OBJECT_0
+// false: WAIT_OBJECT_TIMEOUT
+#define htimed_mutex_lock_for(pmutex, ms)   WaitForSingleObject(*(pmutex), ms) == WAIT_OBJECT_0
+
+#define hcondvar_t                      CONDITION_VARIABLE
+#define hcondvar_init                   InitializeConditionVariable
+#define hcondvar_destroy
+#define hcondvar_wait(pcond, pmutex)            SleepConditionVariableCS(pcond, pmutex, INFINITE)
+#define hcondvar_wait_for(pcond, pmutex, ms)    SleepConditionVariableCS(pcond, pmutex, ms)
+#define hcondvar_signal                 WakeConditionVariable
+#define hcondvar_broadcast              WakeAllConditionVariable
+
+#define honce_t                 INIT_ONCE
+#define HONCE_INIT              INIT_ONCE_STATIC_INIT
 typedef void (*honce_fn)();
 static inline BOOL WINAPI s_once_func(INIT_ONCE* once, PVOID arg, PVOID* _) {
     honce_fn fn = (honce_fn)arg;
     fn();
     return TRUE;
 }
-static inline void honce(INIT_ONCE* once, honce_fn fn) {
+static inline void honce(honce_t* once, honce_fn fn) {
     PVOID dummy = NULL;
     InitOnceExecuteOnce(once, s_once_func, (PVOID)fn, &dummy);
 }
 #else
-#define hmutex_t            pthread_mutex_t
-#define hmutex_init(mutex)  pthread_mutex_init(mutex, NULL)
-#define hmutex_destroy      pthread_mutex_destroy
-#define hmutex_lock         pthread_mutex_lock
-#define hmutex_unlock       pthread_mutex_unlock
+#define hmutex_t                pthread_mutex_t
+#define hmutex_init(pmutex)     pthread_mutex_init(pmutex, NULL)
+#define hmutex_destroy          pthread_mutex_destroy
+#define hmutex_lock             pthread_mutex_lock
+#define hmutex_unlock           pthread_mutex_unlock
 
-#define honce_t             pthread_once_t
-#define HONCE_INIT          PTHREAD_ONCE_INIT
-#define honce               pthread_once
+#define hspinlock_t             pthread_spinlock_t
+#define hspinlock_init(pspin)   pthread_spin_init(pspin, PTHREAD_PROCESS_PRIVATE)
+#define hspinlock_destroy       pthread_spin_destroy
+#define hspinlock_lock          pthread_spin_lock
+#define hspinlock_unlock        pthread_spin_unlock
+
+#define hrwlock_t               pthread_rwlock_t
+#define hrwlock_init(prwlock)   pthread_rwlock_init(prwlock, NULL)
+#define hrwlock_destroy         pthread_rwlock_destroy
+#define hrwlock_rdlock          pthread_rwlock_rdlock
+#define hrwlock_rdunlock        pthread_rwlock_unlock
+#define hrwlock_wrlock          pthread_rwlock_wrlock
+#define hrwlock_wrunlock        pthread_rwlock_unlock
+
+#define htimed_mutex_t              pthread_mutex_t
+#define htimed_mutex_init(pmutex)   pthread_mutex_init(pmutex, NULL)
+#define htimed_mutex_destroy        pthread_mutex_destroy
+#define htimed_mutex_lock           pthread_mutex_lock
+#define htimed_mutex_unlock         pthread_mutex_unlock
+// true:  OK
+// false: ETIMEDOUT
+static inline int htimed_mutex_lock_for(htimed_mutex_t* mutex, unsigned long ms) {
+    struct timespec ts;
+    struct timeval  tv;
+    gettimeofday(&tv, NULL);
+    ts.tv_sec = tv.tv_sec + ms / 1000;
+    ts.tv_nsec = tv.tv_usec * 1000 + ms % 1000 * 1000000;
+    if (ts.tv_nsec >= 1000000000) {
+        ts.tv_nsec -= 1000000000;
+        ts.tv_sec += 1;
+    }
+    return pthread_mutex_timedlock(mutex, &ts) != ETIMEDOUT;
+}
+
+#define hcondvar_t              pthread_cond_t
+#define hcondvar_init(pcond)    pthread_cond_init(pcond, NULL)
+#define hcondvar_destroy        pthread_cond_destroy
+#define hcondvar_wait           pthread_cond_wait
+// true:  OK
+// false: ETIMEDOUT
+static inline int hcondvar_wait_for(hcondvar_t* cond, hmutex_t* mutex, unsigned long ms) {
+    struct timespec ts;
+    struct timeval  tv;
+    gettimeofday(&tv, NULL);
+    ts.tv_sec = tv.tv_sec + ms / 1000;
+    ts.tv_nsec = tv.tv_usec * 1000 + ms % 1000 * 1000000;
+    if (ts.tv_nsec >= 1000000000) {
+        ts.tv_nsec -= 1000000000;
+        ts.tv_sec += 1;
+    }
+    return pthread_cond_timedwait(cond, mutex, &ts) != ETIMEDOUT;
+}
+#define hcondvar_signal         pthread_cond_signal
+#define hcondvar_broadcast      pthread_cond_broadcast
+
+#define honce_t                 pthread_once_t
+#define HONCE_INIT              PTHREAD_ONCE_INIT
+#define honce                   pthread_once
 #endif
 
 #ifdef __cplusplus
 #include <mutex>
-#ifdef _MSC_VER
+#include <condition_variable>
+using std::mutex;
+// NOTE: test std::timed_mutex incorrect in some platforms, use htimed_mutex_t
+// using std::timed_mutex;
+using std::condition_variable;
+using std::lock_guard;
+using std::unique_lock;
+
 class RWLock {
- public:
-    RWLock() { InitializeSRWLock(&_rwlock); }
-    ~RWLock() { }
+public:
+    RWLock()    { hrwlock_init(&_rwlock); }
+    ~RWLock()   { hrwlock_destroy(&_rwlock); }
 
-    void rdlock()   { AcquireSRWLockShared(&_rwlock); }
-    void rdunlock() { ReleaseSRWLockShared(&_rwlock); }
+    void rdlock()   { hrwlock_rdlock(&_rwlock); }
+    void rdunlock() { hrwlock_rdunlock(&_rwlock); }
 
-    void wrlock()   { AcquireSRWLockExclusive(&_rwlock); }
-    void wrunlock() { ReleaseSRWLockExclusive(&_rwlock); }
- private:
-    SRWLOCK _rwlock;
+    void rwlock()   { hrwlock_wrlock(&_rwlock); }
+    void rwunlock() { hrwlock_wrunlock(&_rwlock); }
+protected:
+    hrwlock_t   _rwlock;
 };
-#else
-class RWLock {
- public:
-    RWLock() { pthread_rwlock_init(&_rwlock, NULL); }
-    ~RWLock() { pthread_rwlock_destroy(&_rwlock); }
-
-    void rdlock()   { pthread_rwlock_rdlock(&_rwlock); }
-    void rdunlock() { pthread_rwlock_unlock(&_rwlock); }
-
-    void wrlock()   { pthread_rwlock_wrlock(&_rwlock); }
-    void wrunlock() { pthread_rwlock_unlock(&_rwlock); }
- private:
-    pthread_rwlock_t _rwlock;
-};
-#endif
 #endif
 
 #endif  // HW_MUTEX_H_

@@ -20,17 +20,21 @@ static inline int gettid() {
 #ifdef OS_WIN
 typedef HANDLE      hthread_t;
 typedef DWORD (WINAPI *hthread_routine)(void*);
+#define HTHREAD_RETTYPE DWORD
 #define HTHREAD_ROUTINE(fname) DWORD WINAPI fname(void* userdata)
 static inline hthread_t hthread_create(hthread_routine fn, void* userdata) {
     return CreateThread(NULL, 0, fn, userdata, 0, NULL);
 }
 
 static inline int hthread_join(hthread_t th) {
-    return WaitForSingleObject(th, INFINITE);
+    WaitForSingleObject(th, INFINITE);
+    CloseHandle(th);
+    return 0;
 }
 #else
 typedef pthread_t   hthread_t;
 typedef void* (*hthread_routine)(void*);
+#define HTHREAD_RETTYPE void*
 #define HTHREAD_ROUTINE(fname) void* fname(void* userdata)
 static inline hthread_t hthread_create(hthread_routine fn, void* userdata) {
     pthread_t th;

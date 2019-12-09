@@ -67,6 +67,7 @@ curl: prepare
 	#$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)" DEFINES="$(DEFINES) WITH_CURL CURL_STATICLIB"
 
 unittest: prepare
+	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/hmutex     unittest/hmutex_test.c        -pthread
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/connect    unittest/connect_test.c       base/hsocket.c
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/socketpair unittest/socketpair_test.c    base/hsocket.c
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/defer      unittest/defer_test.cpp
