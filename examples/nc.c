@@ -9,10 +9,7 @@ static char recvbuf[RECV_BUFSIZE];
 int protocol = 1;
 // for stdin
 hio_t*      stdinio = NULL;
-// for udp
-struct sockaddr* peeraddr = NULL;
-socklen_t peeraddrlen = sizeof(struct sockaddr_in6);
-// for tcp
+// for socket
 hio_t*      sockio = NULL;
 
 int verbose = 0;
