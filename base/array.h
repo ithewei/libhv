@@ -81,7 +81,7 @@ static inline void atype##_resize(atype* p, int maxsize) {\
 \
 static inline void atype##_double_resize(atype* p) {\
     assert(p->maxsize != 0);\
-    return atype##_resize(p, p->maxsize*2);\
+    atype##_resize(p, p->maxsize*2);\
 }\
 \
 static inline void atype##_push_back(atype* p, type* elem) {\

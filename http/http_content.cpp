@@ -2,6 +2,8 @@
 
 #include "hurl.h"
 
+#include <string.h>
+
 std::string dump_query_params(QueryParams& query_params) {
     std::string query_string;
     for (auto& pair : query_params) {

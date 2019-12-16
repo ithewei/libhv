@@ -163,7 +163,7 @@ static void on_wsarecv_complete(hio_t* io) {
     if (io->read_cb) {
         if (io->io_type == HIO_TYPE_UDP || io->io_type == HIO_TYPE_IP) {
             if (hovlp->addr && hovlp->addrlen) {
-                hio_setpeeraddr(io, hovlp->addr, hovlp->addrlen);
+                hio_set_peeraddr(io, hovlp->addr, hovlp->addrlen);
             }
         }
         //printd("read_cb------\n");
@@ -196,7 +196,7 @@ static void on_wsasend_complete(hio_t* io) {
     if (io->write_cb) {
         if (io->io_type == HIO_TYPE_UDP || io->io_type == HIO_TYPE_IP) {
             if (hovlp->addr) {
-                hio_setpeeraddr(io, hovlp->addr, hovlp->addrlen);
+                hio_set_peeraddr(io, hovlp->addr, hovlp->addrlen);
             }
         }
         //printd("write_cb------\n");
@@ -360,7 +360,7 @@ WSASend:
             int err = WSAGetLastError();
             if (err != ERROR_IO_PENDING) {
                 fprintf(stderr, "WSASend error: %d\n", err);
-                return NULL;
+                return ret;
             }
         }
         return hio_add(io, hio_handle_events, WRITE_EVENT);
