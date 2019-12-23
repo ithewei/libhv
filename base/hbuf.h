@@ -1,5 +1,5 @@
-#ifndef HW_BUF_H_
-#define HW_BUF_H_
+#ifndef HV_BUF_H_
+#define HV_BUF_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -238,4 +238,4 @@ private:
 };
 #endif
 
-#endif  // HW_BUF_H_
+#endif // HV_BUF_H_

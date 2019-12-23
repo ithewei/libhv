@@ -1,5 +1,5 @@
-#ifndef HW_FTP_H_
-#define HW_FTP_H_
+#ifndef HV_FTP_H_
+#define HV_FTP_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -95,4 +95,4 @@ int ftp_download_with_cb(ftp_handle_t* hftp, const char* filepath, ftp_download_
 }
 #endif
 
-#endif // HW_FTP_H_
+#endif // HV_FTP_H_

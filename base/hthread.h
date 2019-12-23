@@ -1,5 +1,5 @@
-#ifndef HW_THREAD_H_
-#define HW_THREAD_H_
+#ifndef HV_THREAD_H_
+#define HV_THREAD_H_
 
 #include "hplatform.h"
 #include "hdef.h"
@@ -180,4 +180,4 @@ class HThread {
 };
 #endif
 
-#endif  // HW_THREAD_H_
+#endif // HV_THREAD_H_

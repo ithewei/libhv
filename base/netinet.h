@@ -1,5 +1,5 @@
-#ifndef HW_NETINET_H_
-#define HW_NETINET_H_
+#ifndef HV_NETINET_H_
+#define HV_NETINET_H_
 
 #include "hplatform.h"
 
@@ -191,4 +191,4 @@ static inline uint16_t checksum(uint8_t* buf, int len) {
     return (uint16_t)(~sum);
 };
 
-#endif // HW_NETINET_H_
+#endif // HV_NETINET_H_

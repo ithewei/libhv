@@ -1,5 +1,5 @@
-#ifndef HW_OBJ_H_
-#define HW_OBJ_H_
+#ifndef HV_OBJ_H_
+#define HV_OBJ_H_
 
 #include <string>
 #include <map>
@@ -98,4 +98,4 @@ class HObj {
     std::list<HObj*> _children;
 };
 
-#endif  // HW_OBJ_H_
+#endif // HV_OBJ_H_

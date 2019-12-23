@@ -1,5 +1,5 @@
-#ifndef HW_LOOP_H_
-#define HW_LOOP_H_
+#ifndef HV_LOOP_H_
+#define HV_LOOP_H_
 
 #include "hdef.h"
 
@@ -202,4 +202,4 @@ hio_t* create_udp_client (hloop_t* loop, const char* host, int port);
 
 END_EXTERN_C
 
-#endif // HW_LOOP_H_
+#endif // HV_LOOP_H_

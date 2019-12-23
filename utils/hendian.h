@@ -1,5 +1,5 @@
-#ifndef HW_ENDIAN_H_
-#define HW_ENDIAN_H_
+#ifndef HV_ENDIAN_H_
+#define HV_ENDIAN_H_
 
 #include <stdio.h>
 #include <string.h>
@@ -53,4 +53,4 @@ uint8_t* deserialize(uint8_t* buf, T* value, int host_endian = LITTLE_ENDIAN, in
     return buf+size;
 }
 
-#endif  // HW_ENDIAN_H_
+#endif // HV_ENDIAN_H_

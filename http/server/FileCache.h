@@ -1,5 +1,5 @@
-#ifndef HW_FILE_CACHE_H_
-#define HW_FILE_CACHE_H_
+#ifndef HV_FILE_CACHE_H_
+#define HV_FILE_CACHE_H_
 
 #include <map>
 #include <string>
@@ -71,4 +71,4 @@ protected:
     file_cache_t* Get(const char* filepath);
 };
 
-#endif // HW_FILE_CACHE_H_
+#endif // HV_FILE_CACHE_H_

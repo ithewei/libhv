@@ -1,5 +1,5 @@
-#ifndef HW_QUEUE_H_
-#define HW_QUEUE_H_
+#ifndef HV_QUEUE_H_
+#define HV_QUEUE_H_
 
 /*
  * queue
@@ -99,4 +99,4 @@ static inline void qtype##_pop_back(qtype* p) {\
     p->size--;\
 }\
 
-#endif // HW_QUEUE_H_
+#endif // HV_QUEUE_H_

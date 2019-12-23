@@ -1,5 +1,5 @@
-#ifndef HW_FRAME_H_
-#define HW_FRAME_H_
+#ifndef HV_FRAME_H_
+#define HV_FRAME_H_
 
 #include <deque>
 #include <mutex>
@@ -86,4 +86,4 @@ class HFrameBuf : public HRingBuf {
     std::mutex         mutex;
 };
 
-#endif  // HW_FRAME_H_
+#endif // HV_FRAME_H_

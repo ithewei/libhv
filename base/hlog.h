@@ -1,5 +1,5 @@
-#ifndef HW_LOG_H_
-#define HW_LOG_H_
+#ifndef HV_LOG_H_
+#define HV_LOG_H_
 
 /*
  * hlog is thread-safe
@@ -125,4 +125,4 @@ logger_t* default_logger();
 } // extern "C"
 #endif
 
-#endif  // HW_LOG_H_
+#endif // HV_LOG_H_

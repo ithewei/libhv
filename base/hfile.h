@@ -1,5 +1,5 @@
-#ifndef HW_FILE_H_
-#define HW_FILE_H_
+#ifndef HV_FILE_H_
+#define HV_FILE_H_
 
 #include <string>
 
@@ -86,4 +86,4 @@ public:
     FILE* _fp;
 };
 
-#endif  // HW_FILE_H_
+#endif // HV_FILE_H_

@@ -3,8 +3,8 @@
 confile=hconfig.h
 # start confile
 cat << END > $confile
-#ifndef HW_CONFIG_H_
-#define HW_CONFIG_H_
+#ifndef HV_CONFIG_H_
+#define HV_CONFIG_H_
 
 END
 
@@ -127,7 +127,7 @@ function=pthread_mutex_timedlock && header=pthread.h && check_funtion
 
 # end confile
 cat << END >> $confile
-#endif  // HW_CONFIG_H_
+#endif // HV_CONFIG_H_
 END
 
 echo "configure done."

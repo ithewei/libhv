@@ -1,5 +1,5 @@
-#ifndef HW_DIR_H_
-#define HW_DIR_H_
+#ifndef HV_DIR_H_
+#define HV_DIR_H_
 
 /*
  *@code
@@ -52,4 +52,4 @@ typedef struct hdir_s {
 // listdir: same as ls on unix, dir on win
 int listdir(const char* dir, std::list<hdir_t>& dirs);
 
-#endif // HW_DIR_H_
+#endif // HV_DIR_H_

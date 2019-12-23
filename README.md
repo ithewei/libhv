@@ -1,29 +1,38 @@
-[![Build Status](https://travis-ci.org/ithewei/hw.svg?branch=master)](https://travis-ci.org/ithewei/hw)
+[![Build Status](https://travis-ci.org/ithewei/libhv.svg?branch=master)](https://travis-ci.org/ithewei/libhv)
 
 ## Intro
 
-hw 是一套跨平台c/c++基础组件，函数名/类名以h/H开头
+Like `libevent, libev, and libuv`,
+`libhv` provides event-loop with non-blocking IO and timer,
+but simpler apis and richer protocols.
 
-## OS (passed)
+## Features
 
-- Linux
-- Windows
-- Mac
-
-## Compiler (passed)
-
-- gcc
-- clang
-- msvc
-
-## Required
-
-- c++11
+- cross-platform (Linux, Windows, Mac)
+- event-loop (IO, timer, idle)
+- http client/server (include https http1/x http2 grpc websocket)
+- protocols
+    - dns
+    - ftp
+    - smtp
+- apps
+    - ls
+    - ifconfig
+    - ping
+    - nc
+    - nmap
+    - nslookup
+    - ftp
+    - sendmail
+    - httpd
+    - curl
 
 ## Getting Started
+
+### http
 ```shell
-git clone https://github.com/ithewei/hw.git
-cd hw
+git clone https://github.com/ithewei/libhv.git
+cd libhv
 make httpd curl
 
 bin/httpd -d
@@ -37,7 +46,115 @@ bin/curl -v localhost:8080/downloads/
 
 # http api service
 bin/curl -v -X POST localhost:8080/v1/api/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
+
+# webbench (linux only)
+make webbench
+bin/webbench -c 2 -t 60 localhost:8080
 ```
+
+### event-loop
+see examples/tcp.c
+```
+#include "hloop.h"
+#include "hsocket.h"
+
+#define RECV_BUFSIZE    8192
+static char recvbuf[RECV_BUFSIZE];
+
+void on_close(hio_t* io) {
+    printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
+}
+
+void on_recv(hio_t* io, void* buf, int readbytes) {
+    printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
+    printf("[%s] <=> [%s]\n",
+            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
+    printf("< %s\n", buf);
+    // echo
+    printf("> %s\n", buf);
+    hio_write(io, buf, readbytes);
+}
+
+void on_accept(hio_t* io) {
+    printf("on_accept connfd=%d\n", hio_fd(io));
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
+    printf("accept connfd=%d [%s] <= [%s]\n", hio_fd(io),
+            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
+
+    hio_setcb_close(io, on_close);
+    hio_setcb_read(io, on_recv);
+    hio_set_readbuf(io, recvbuf, RECV_BUFSIZE);
+    hio_read(io);
+}
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        printf("Usage: cmd port\n");
+        return -10;
+    }
+    int port = atoi(argv[1]);
+
+    hloop_t* loop = hloop_new(0);
+    hio_t* listenio = create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    if (listenio == NULL) {
+        return -20;
+    }
+    printf("listenfd=%d\n", hio_fd(listenio));
+    hloop_run(loop);
+    hloop_free(&loop);
+    return 0;
+}
+```
+```
+make tcp udp nc
+bin/tcp 1111
+bin/nc 1111
+
+bin/udp 2222
+bin/nc -u 2222
+```
+
+## BUILD
+
+### lib
+- make libhv
+
+### examples
+- make test # master-workers model
+- make timer # timer add/del/reset
+- make loop # event-loop(include idle, timer, io)
+- make tcp  # tcp server
+- make udp  # udp server
+- make nc   # network client
+- make nmap # host discovery
+- make httpd # http server
+- make curl # http client
+
+### unittest
+- make unittest
+
+### compile options
+#### compile with print debug info
+- make DEFINES=PRINT_DEBUG
+
+#### compile WITH_OPENSSL
+- make DEFINES=WITH_OPENSSL
+
+#### compile WITH_CURL
+- make DEFINES="WITH_CURL CURL_STATICLIB"
+
+#### compile WITH_NGHTTP2
+- make DEFINES=WITH_NGHTTP2
+
+#### other options
+- ENABLE_IPV6
+- WITH_WINDUMP
+- USE_MULTIMAP
 
 ## Module
 
@@ -58,18 +175,20 @@ bin/curl -v -X POST localhost:8080/v1/api/json -H "Content-Type:application/json
 - htime.h:       时间
 - herr.h:        错误码
 - hlog.h:        日志
+- hmutex.h：     同步锁
+- hthread.h：    线程
 - hsocket.h:     socket操作
+- hbuf.h:        缓存类
+- hurl.h:        URL转义
+- hgui.h:        gui相关定义
 - hstring.h:     字符串
 - hvar.h:        var变量
 - hobj.h:        对象基类
-- hgui.h:        gui相关定义
-- hbuf.h:        缓存类
 - hfile.h:       文件类
 - hdir.h:        ls实现
 - hscope.h:      作用域RAII机制
-- hmutex.h：     同步锁
-- hthread.h：    线程
-- hthreadpool.h：线程池
+- hthreadpool.h: 线程池
+- hobjectpool.h: 对象池
 
 ### utils
 - hmain.h:       main_ctx: arg env
@@ -77,6 +196,9 @@ bin/curl -v -X POST localhost:8080/v1/api/json -H "Content-Type:application/json
 - ifconfig.h:    ifconfig实现
 - iniparser.h:   ini解析
 - singleton.h:   单例模式
+- md5.h
+- base64.h
+- json.hpp
 
 ### event
 - hloop.h:       事件循环
@@ -94,43 +216,7 @@ bin/curl -v -X POST localhost:8080/v1/api/json -H "Content-Type:application/json
 
 ### other
 
-- h.h：          总头文件
+- hv.h：         总头文件
 - Makefile.in:   通用Makefile模板
 - main.cpp.tmpl: 通用main.cpp模板
 
-## BUILD
-
-### examples
-
-- make all
-- make test:  服务端master-workers model
-- make timer: 定时器测试
-- make loop:  事件循环(包含timer、io、idle)
-- make tcp:   tcp server
-- make udp:   udp server
-- make nc:    network client
-- make nmap:  host discovery
-- make httpd: http服务(包含web service和api service)
-- make curl:  基于libcurl封装http客户端
-
-### tests
-- make webbench: http服务压力测试程序
-- make unittest: 单元测试
-
-### compile options
-#### compile with print debug info
-- make DEFINES=PRINT_DEBUG
-
-#### compile WITH_OPENSSL
-- make DEFINES=WITH_OPENSSL
-
-#### compile WITH_CURL
-- make DEFINES="WITH_CURL CURL_STATICLIB"
-
-#### compile WITH_NGHTTP2
-- make DEFINES=WITH_NGHTTP2
-
-#### other features
-- USE_MULTIMAP
-- WITH_WINDUMP
-- ENABLE_IPV6

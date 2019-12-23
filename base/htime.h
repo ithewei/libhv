@@ -1,5 +1,5 @@
-#ifndef HW_TIME_H_
-#define HW_TIME_H_
+#ifndef HV_TIME_H_
+#define HV_TIME_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -129,4 +129,4 @@ datetime_t get_compile_datetime();
 } // extern "C"
 #endif
 
-#endif  // HW_TIME_H_
+#endif // HV_TIME_H_

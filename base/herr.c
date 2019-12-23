@@ -3,7 +3,7 @@
 #include <string.h> // for strerror
 
 // errcode => errmsg
-const char* get_errmsg(int err) {
+const char* hv_strerror(int err) {
     if (err > 0 && err <= SYS_NERR) {
         return strerror(err);
     }

@@ -1,5 +1,5 @@
-#ifndef HW_CONFIG_H_
-#define HW_CONFIG_H_
+#ifndef HV_CONFIG_H_
+#define HV_CONFIG_H_
 
 #ifndef HAVE_STDINT_H
 #define HAVE_STDINT_H 1
@@ -53,4 +53,4 @@
 #define HAVE_PTHREAD_MUTEX_TIMEDLOCK 0
 #endif
 
-#endif  // HW_CONFIG_H_
+#endif // HV_CONFIG_H_

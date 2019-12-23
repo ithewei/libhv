@@ -1,5 +1,5 @@
-#ifndef HW_MATH_H_
-#define HW_MATH_H_
+#ifndef HV_MATH_H_
+#define HV_MATH_H_
 #include <math.h>
 
 static inline unsigned long floor2e(unsigned long num) {
@@ -22,4 +22,4 @@ static inline unsigned long ceil2e(unsigned long num) {
     return ret;
 }
 
-#endif // HW_MATH_H_
+#endif // HV_MATH_H_

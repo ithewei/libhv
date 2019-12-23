@@ -1,5 +1,5 @@
-#ifndef HW_DNS_H_
-#define HW_DNS_H_
+#ifndef HV_DNS_H_
+#define HV_DNS_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -105,4 +105,4 @@ int nslookup(const char* domain, uint32_t* addrs, int naddr, const char* nameser
 }
 #endif
 
-#endif // HW_DNS_H_
+#endif // HV_DNS_H_

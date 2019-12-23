@@ -1,5 +1,5 @@
-#ifndef H_TASK_H_
-#define H_TASK_H_
+#ifndef HV_TASK_H_
+#define HV_TASK_H_
 
 #include <mutex>
 #include <condition_variable>
@@ -90,4 +90,4 @@ protected:
     time_t timeout_;
 };
 
-#endif // H_TASK_H_
+#endif // HV_TASK_H_

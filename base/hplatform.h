@@ -1,5 +1,5 @@
-#ifndef HW_PLATFORM_H_
-#define HW_PLATFORM_H_
+#ifndef HV_PLATFORM_H_
+#define HV_PLATFORM_H_
 
 #include "hconfig.h"
 
@@ -200,4 +200,4 @@ typedef unsigned __int64    uint64_t;
 #include <pthread.h>
 #endif
 
-#endif  // HW_PLATFORM_H_
+#endif // HV_PLATFORM_H_

@@ -22,6 +22,9 @@ These notices must be retained in any copies of any part of this
 documentation and/or software.
  */
 
+#ifndef __MD5_H__
+#define __MD5_H__
+
 /* POINTER defines a generic pointer type */
 typedef unsigned char *POINTER;
 
@@ -49,3 +52,5 @@ void MD5Final(unsigned char [16], MD5_CTX *);
 #ifdef __cplusplus
 }
 #endif
+
+#endif // __MD5_H__

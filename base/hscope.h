@@ -1,5 +1,5 @@
-#ifndef HW_SCOPE_H_
-#define HW_SCOPE_H_
+#ifndef HV_SCOPE_H_
+#define HV_SCOPE_H_
 
 #include <functional>
 typedef std::function<void()> Function;
@@ -76,4 +76,4 @@ private:
     T& _mutex;
 };
 
-#endif  // HW_SCOPE_H_
+#endif // HV_SCOPE_H_

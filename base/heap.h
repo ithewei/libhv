@@ -1,5 +1,5 @@
-#ifndef HW_HEAP_H_
-#define HW_HEAP_H_
+#ifndef HV_HEAP_H_
+#define HV_HEAP_H_
 
 #include <assert.h>
 
@@ -170,4 +170,4 @@ static inline void heap_dequeue(struct heap* heap) {
     heap_remove(heap, heap->root);
 }
 
-#endif // HW_HEAP_H_
+#endif // HV_HEAP_H_

@@ -1,5 +1,5 @@
-#ifndef HW_MUTEX_H_
-#define HW_MUTEX_H_
+#ifndef HV_MUTEX_H_
+#define HV_MUTEX_H_
 
 #include "hplatform.h"
 
@@ -150,4 +150,4 @@ protected:
 };
 #endif
 
-#endif  // HW_MUTEX_H_
+#endif // HV_MUTEX_H_

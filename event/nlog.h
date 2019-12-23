@@ -1,5 +1,5 @@
-#ifndef HW_NLOG_H_
-#define HW_NLOG_H_
+#ifndef HV_NLOG_H_
+#define HV_NLOG_H_
 
 // nlog: extend hlog use hloop
 
@@ -25,4 +25,4 @@
 void network_logger(int loglevel, const char* buf, int len);
 hio_t* nlog_listen(hloop_t* loop, int port);
 
-#endif // HW_NLOG_H_
+#endif // HV_NLOG_H_

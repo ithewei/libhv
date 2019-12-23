@@ -1,5 +1,5 @@
-#ifndef HW_DEF_H_
-#define HW_DEF_H_
+#ifndef HV_DEF_H_
+#define HV_DEF_H_
 
 #include "hplatform.h"
 
@@ -338,4 +338,4 @@ struct s
 
 #endif // __cplusplus
 
-#endif  // HW_DEF_H_
+#endif // HV_DEF_H_

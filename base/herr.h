@@ -1,5 +1,5 @@
-#ifndef HW_ERR_H_
-#define HW_ERR_H_
+#ifndef HV_ERR_H_
+#define HV_ERR_H_
 
 #include <errno.h>
 
@@ -119,10 +119,10 @@ extern "C" {
 #endif
 
 // errcode => errmsg
-const char* get_errmsg(int err);
+const char* hv_strerror(int err);
 
 #ifdef __cplusplus
 } // extern "C"
 #endif
 
-#endif  // HW_ERR_H_
+#endif // HV_ERR_H_

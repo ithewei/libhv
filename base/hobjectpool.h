@@ -1,5 +1,5 @@
-#ifndef HW_OBJECT_POOL_H_
-#define HW_OBJECT_POOL_H_
+#ifndef HV_OBJECT_POOL_H_
+#define HV_OBJECT_POOL_H_
 
 #include <list>
 #include <memory>
@@ -112,4 +112,4 @@ private:
     std::condition_variable cond_;
 };
 
-#endif // HW_OBJECT_POOL_H_
+#endif // HV_OBJECT_POOL_H_

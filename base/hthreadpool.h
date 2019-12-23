@@ -1,5 +1,5 @@
-#ifndef HW_THREAD_POOL_H_
-#define HW_THREAD_POOL_H_
+#ifndef HV_THREAD_POOL_H_
+#define HV_THREAD_POOL_H_
 
 #include <vector>
 #include <thread>
@@ -136,4 +136,4 @@ protected:
     std::condition_variable _cond;
 };
 
-#endif  // HW_THREAD_POOL_H_
+#endif // HV_THREAD_POOL_H_

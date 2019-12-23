@@ -1,5 +1,5 @@
-#ifndef HW_BASE_H_
-#define HW_BASE_H_
+#ifndef HV_BASE_H_
+#define HV_BASE_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -75,4 +75,4 @@ bool getboolean(const char* str);
 } // extern "C"
 #endif
 
-#endif // HW_BASE_H_
+#endif // HV_BASE_H_

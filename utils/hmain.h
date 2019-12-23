@@ -1,5 +1,5 @@
-#ifndef H_MAIN_H_
-#define H_MAIN_H_
+#ifndef HV_MAIN_H_
+#define HV_MAIN_H_
 
 #include "hplatform.h"
 #include "hdef.h"
@@ -84,4 +84,4 @@ extern main_ctx_t   g_main_ctx;
 extern int          g_worker_processes_num;
 extern proc_ctx_t*  g_worker_processes;
 
-#endif // H_MAIN_H_
+#endif // HV_MAIN_H_

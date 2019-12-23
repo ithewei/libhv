@@ -1,5 +1,5 @@
-#ifndef HW_VAR_H_
-#define HW_VAR_H_
+#ifndef HV_VAR_H_
+#define HV_VAR_H_
 
 #include <stdlib.h>
 #include <string.h>
@@ -53,4 +53,4 @@ class HVar {
     void*   toPointer() {return data.ptr;}
 };
 
-#endif  // HW_VAR_H_
+#endif // HV_VAR_H_

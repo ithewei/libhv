@@ -1,5 +1,5 @@
-#ifndef HW_NMAP_H_
-#define HW_NMAP_H_
+#ifndef HV_NMAP_H_
+#define HV_NMAP_H_
 
 #include <map>
 #include "hsocket.h"
@@ -16,4 +16,4 @@ int nmap_discovery(Nmap* nmap);
 int segment_discovery(const char* segment16, Nmap* nmap);
 int host_discovery(const char* segment24, Nmap* nmap);
 
-#endif // HW_NMAP_H_
+#endif // HV_NMAP_H_

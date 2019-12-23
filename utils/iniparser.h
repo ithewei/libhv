@@ -1,5 +1,5 @@
-#ifndef HW_INI_PARSER_H_
-#define HW_INI_PARSER_H_
+#ifndef HV_INI_PARSER_H_
+#define HV_INI_PARSER_H_
 
 #include <list>
 #include <string>
@@ -124,4 +124,4 @@ class IniParser {
     IniNode* root_;
 };
 
-#endif  // HW_INI_PARSER_H_
+#endif // HV_INI_PARSER_H_

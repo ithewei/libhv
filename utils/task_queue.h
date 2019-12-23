@@ -1,5 +1,5 @@
-#ifndef TASK_QUEUE_H_
-#define TASK_QUEUE_H_
+#ifndef HV_TASK_QUEUE_H_
+#define HV_TASK_QUEUE_H_
 
 #include <memory>
 #include <list>
@@ -86,4 +86,4 @@ protected:
     std::mutex                           mutex_;
 };
 
-#endif // TASK_QUEUE_H_
+#endif // HV_TASK_QUEUE_H_

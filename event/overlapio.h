@@ -1,5 +1,5 @@
-#ifndef HW_OVERLAPPED_H_
-#define HW_OVERLAPPED_H_
+#ifndef HV_OVERLAPPED_H_
+#define HV_OVERLAPPED_H_
 
 #include "iowatcher.h"
 
@@ -30,4 +30,4 @@ int post_recv(hio_t* io, hoverlapped_t* hovlp);
 
 #endif
 
-#endif // HW_OVERLAPPED_H_
+#endif // HV_OVERLAPPED_H_

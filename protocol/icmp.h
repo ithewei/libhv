@@ -1,5 +1,5 @@
-#ifndef HW_ICMP_H_
-#define HW_ICMP_H_
+#ifndef HV_ICMP_H_
+#define HV_ICMP_H_
 
 #include "hdef.h"
 
@@ -16,4 +16,4 @@ int ping(const char* host, int cnt DEFAULT(4));
 }
 #endif
 
-#endif // HW_ICMP_H_
+#endif // HV_ICMP_H_

@@ -1,5 +1,5 @@
-#ifndef HW_SOCKET_H_
-#define HW_SOCKET_H_
+#ifndef HV_SOCKET_H_
+#define HV_SOCKET_H_
 
 #include "hplatform.h"
 #include "hdef.h"
@@ -218,4 +218,4 @@ static inline int so_rcvtimeo(int sockfd, int timeout) {
 
 END_EXTERN_C
 
-#endif // HW_SOCKET_H_
+#endif // HV_SOCKET_H_

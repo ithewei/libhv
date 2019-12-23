@@ -1,5 +1,5 @@
-#ifndef HW_STRING_H_
-#define HW_STRING_H_
+#ifndef HV_STRING_H_
+#define HV_STRING_H_
 
 #include <string>
 #include <vector>
@@ -38,4 +38,4 @@ string dirname(const string& str);
 string filename(const string& str);
 string suffixname(const string& str);
 
-#endif  // HW_STRING_H_
+#endif // HV_STRING_H_

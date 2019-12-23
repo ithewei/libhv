@@ -1,5 +1,5 @@
-#ifndef HW_ARRAY_H_
-#define HW_ARRAY_H_
+#ifndef HV_ARRAY_H_
+#define HV_ARRAY_H_
 
 /*
  * array
@@ -146,4 +146,4 @@ static inline void atype##_swap(atype* p, int pos1, int pos2) {\
     p->ptr[pos2] = tmp;\
 }\
 
-#endif
+#endif // HV_ARRAY_H_

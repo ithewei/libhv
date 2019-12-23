@@ -1,5 +1,5 @@
-#ifndef HW_VERSION_H_
-#define HW_VERSION_H_
+#ifndef HV_VERSION_H_
+#define HV_VERSION_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,4 +36,4 @@ void version_itoa(int hex, char* str);
 } // extern "C"
 #endif
 
-#endif  // HW_VERSION_H_
+#endif // HV_VERSION_H_

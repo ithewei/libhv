@@ -1,5 +1,5 @@
-#ifndef HW_SMTP_H_
-#define HW_SMTP_H_
+#ifndef HV_SMTP_H_
+#define HV_SMTP_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,4 +73,4 @@ int sendmail(const char* smtp_server,
 }
 #endif
 
-#endif // HW_SMTP_H_
+#endif // HV_SMTP_H_

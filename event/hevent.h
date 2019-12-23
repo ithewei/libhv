@@ -1,5 +1,5 @@
-#ifndef HW_EVENT_H_
-#define HW_EVENT_H_
+#ifndef HV_EVENT_H_
+#define HV_EVENT_H_
 
 #include "array.h"
 #include "list.h"
@@ -159,4 +159,4 @@ struct hio_s {
         ev->pending = 0;\
     } while(0)
 
-#endif // HW_EVENT_H_
+#endif // HV_EVENT_H_

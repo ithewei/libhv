@@ -1,5 +1,5 @@
-#ifndef HW_SSL_CTX_H
-#define HW_SSL_CTX_H
+#ifndef HV_SSL_CTX_H
+#define HV_SSL_CTX_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,4 +14,4 @@ int ssl_ctx_destory();
 }
 #endif
 
-#endif // HW_SSL_CTX_H
+#endif // HV_SSL_CTX_H

@@ -1,5 +1,5 @@
-#ifndef HW_GUI_H_
-#define HW_GUI_H_
+#ifndef HV_GUI_H_
+#define HV_GUI_H_
 
 typedef unsigned int HColor;  // 0xAARRGGBB
 
@@ -39,7 +39,7 @@ typedef struct hsize_s {
         this->h = h;
     }
 #endif
-}HSize;
+} HSize;
 
 typedef struct hrect_s {
     int x;
@@ -66,4 +66,4 @@ typedef struct hrect_s {
 #endif
 } HRect;
 
-#endif  // HW_GUI_H_
+#endif // HV_GUI_H_

@@ -1,5 +1,5 @@
-#ifndef HW_SQL_H_
-#define HW_SQL_H_
+#ifndef HV_SQL_H_
+#define HV_SQL_H_
 
 #include <string>
 #include <map>
@@ -18,4 +18,4 @@ void sql_update(std::string& sql, const char* table_name, const char* set, const
 // delete from $table_name where $where;
 void sql_delete(std::string& sql, const char* table_name, const char* where = NULL);
 
-#endif // HW_SQL_H_
+#endif // HV_SQL_H_

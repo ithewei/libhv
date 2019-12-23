@@ -1,5 +1,5 @@
-#ifndef HW_GL_H_
-#define HW_GL_H_
+#ifndef HV_GL_H_
+#define HV_GL_H_
 
 #include <GL/glew.h>
 
@@ -24,4 +24,4 @@ typedef struct GLTexture_s {
     HFrame frame;
 } GLTexture;
 
-#endif  // HW_GL_H_
+#endif // HV_GL_H_

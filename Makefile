@@ -3,17 +3,17 @@ TMPDIR=tmp
 
 default: all
 
-all: libhw test timer loop tcp udp nc nmap httpd curl
+all: libhv test timer loop tcp udp nc nmap httpd curl
 
 clean:
-	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server examples $(TMPDIR)"
+	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server protocol examples $(TMPDIR)"
 
 prepare:
 	-mkdir -p $(TMPDIR) lib bin
 	-rm base/RAII.o
 
-libhw:
-	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server"
+libhv: prepare
+	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server protocol"
 
 test: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
@@ -49,7 +49,7 @@ nmap: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/nmap.cpp $(TMPDIR)
 ifeq ($(OS), Windows)
-	# for nmap, on Windows platform, we suggest EVENT_POLL, not EVENT_IOCP
+	# for nmap on Windows platform, recommand EVENT_POLL, not EVENT_IOCP
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)" DEFINES="$(DEFINES) PRINT_DEBUG EVENT_POLL"
 else
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)" DEFINES="$(DEFINES) PRINT_DEBUG"
@@ -84,4 +84,4 @@ unittest: prepare
 webbench: prepare
 	$(CC) -o bin/webbench unittest/webbench.c
 
-.PHONY: clean prepare libhw test timer loop tcp udp nc nmap httpd curl unittest webbench
+.PHONY: clean prepare libhv test timer loop tcp udp nc nmap httpd curl unittest webbench

@@ -1,5 +1,5 @@
-#ifndef SINGLETON_H_
-#define SINGLETON_H_
+#ifndef HV_SINGLETON_H_
+#define HV_SINGLETON_H_
 
 #define DISABLE_COPY(Class) \
     Class(const Class &) = delete; \
@@ -28,4 +28,4 @@
         }   \
     }
 
-#endif  // SINGLETON_H_
+#endif // HV_SINGLETON_H_
