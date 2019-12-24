@@ -11,7 +11,17 @@ int main(int argc, char* argv[]) {
     std::list<hdir_t> dirs;
     listdir(dir, dirs);
     for (auto& item : dirs) {
-        printf("%c\t", item.type);
+        printf("%c%c%c%c%c%c%c%c%c%c\t",
+            item.type,
+            item.mode & 0400 ? 'r' : '-',
+            item.mode & 0200 ? 'w' : '-',
+            item.mode & 0100 ? 'x' : '-',
+            item.mode & 0040 ? 'r' : '-',
+            item.mode & 0020 ? 'w' : '-',
+            item.mode & 0010 ? 'x' : '-',
+            item.mode & 0004 ? 'r' : '-',
+            item.mode & 0002 ? 'w' : '-',
+            item.mode & 0001 ? 'x' : '-');
         float hsize;
         if (item.size < 1024) {
             printf("%lu\t", item.size);
@@ -43,6 +53,8 @@ int main(int argc, char* argv[]) {
 typedef struct hdir_s {
     char    name[256];
     char    type; // f:file d:dir l:link b:block c:char s:socket p:pipe
+    char    reserverd;
+    unsigned short mode;
     size_t  size;
     time_t  atime;
     time_t  mtime;

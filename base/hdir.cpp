@@ -53,6 +53,7 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
             else if (S_ISSOCK(st.st_mode))  tmp.type = 's';
             else if (S_ISFIFO(st.st_mode))  tmp.type = 'p';
             else                            tmp.type = '-';
+            tmp.mode = st.st_mode & 0777;
             tmp.size = st.st_size;
             tmp.atime = st.st_atime;
             tmp.mtime = st.st_mtime;
@@ -77,6 +78,7 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
         if (data.dwFileAttributes & _A_SUBDIR) {
             tmp.type = 'd';
         }
+        tmp.mod = 0777;
         tmp.size = (((uint64_t)data.nFileSizeHigh) << 32) | data.nFileSizeLow;
         tmp.atime = FileTime2Epoch(data.ftLastAccessTime);
         tmp.mtime = FileTime2Epoch(data.ftLastWriteTime);
