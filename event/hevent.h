@@ -8,6 +8,7 @@
 
 #include "hloop.h"
 #include "hbuf.h"
+#include "hmutex.h"
 
 typedef enum {
     HLOOP_STATUS_STOP,
@@ -48,6 +49,7 @@ struct hloop_s {
     int                         sockpair[2];
     char                        readbuf[4];
     event_queue                 custom_events;
+    hmutex_t                    custom_events_mutex;
 };
 
 struct hidle_s {

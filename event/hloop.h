@@ -117,6 +117,7 @@ void* hloop_userdata(hloop_t* loop);
  * ev.userdata = userdata;
  * hloop_post_event(loop, &ev);
  */
+// NOTE: hloop_post_event is thread-safe
 void hloop_post_event(hloop_t* loop, hevent_t* ev);
 
 // idle
