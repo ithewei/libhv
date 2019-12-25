@@ -80,8 +80,69 @@ unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/ftp        unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iutils -Iprotocol -o bin/sendmail  unittest/sendmail_test.c  protocol/smtp.c base/hsocket.c utils/base64.c
 
+INSTALL_HEADERS=hv.h\
+				\
+				hconfig.h\
+				base/hplatform.h\
+				\
+				base/hdef.h\
+				base/hversion.h\
+				base/hbase.h\
+				base/hsysinfo.h\
+				base/hproc.h\
+				base/hmath.h\
+				base/htime.h\
+				base/herr.h\
+				base/hlog.h\
+				base/hmutex.h\
+				base/hthread.h\
+				base/hsocket.h\
+				base/hbuf.h\
+				base/hurl.h\
+				base/hgui.h\
+				base/ssl_ctx.h\
+				\
+				base/hstring.h\
+				base/hvar.h\
+				base/hobj.h\
+				base/hfile.h\
+				base/hdir.h\
+				base/hscope.h\
+				base/hthreadpool.h\
+				base/hobjectpool.h\
+				\
+				utils/base64.h\
+				utils/md5.h\
+				utils/json.hpp\
+				utils/singleton.h\
+				utils/ifconfig.h\
+				utils/iniparser.h\
+				utils/hendian.h\
+				utils/hmain.h\
+				\
+				event/hloop.h\
+				event/nlog.h\
+				event/nmap.h\
+				\
+				http/httpdef.h\
+				http/http2def.h\
+				http/grpcdef.h\
+				http/http_content.h\
+				http/HttpMessage.h\
+				http/client/http_client.h\
+				http/server/HttpService.h\
+				http/server/HttpServer.h\
+				\
+				protocol/icmp.h\
+				protocol/dns.h\
+				protocol/ftp.h\
+				protocol/smtp.h
+install:
+	-mkdir include
+	-cp $(INSTALL_HEADERS) include/
+
 # UNIX only
 webbench: prepare
 	$(CC) -o bin/webbench unittest/webbench.c
 
-.PHONY: clean prepare libhv test timer loop tcp udp nc nmap httpd curl unittest webbench
+.PHONY: clean prepare libhv test timer loop tcp udp nc nmap httpd curl unittest webbench install

@@ -23,10 +23,13 @@ cscope*
 *.db
 
 tmp
+include
 lib
 bin
 dist
 build
+
+hconfig.h
 
 # test
 test

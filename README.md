@@ -10,7 +10,7 @@ but simpler apis and richer protocols.
 
 - cross-platform (Linux, Windows, Mac)
 - event-loop (IO, timer, idle)
-- http client/server (include https http1/x http2 grpc websocket)
+- http client/server (include https http1/x http2 grpc)
 - protocols
     - dns
     - ftp
@@ -30,6 +30,29 @@ but simpler apis and richer protocols.
 ## Getting Started
 
 ### http
+see examples/httpd.cpp
+```
+#include "http_server.h"
+
+int http_api_hello(HttpRequest* req, HttpResponse* res) {
+    res->body = "hello";
+    return 0;
+}
+
+int main() {
+    HttpService service;
+    service.base_url = "/v1/api";
+    service.AddApi("/hello", http_api_hello);
+
+    http_server_t server;
+    server.port = 8080;
+    server.worker_processes = 4;
+    server.service = &service;
+    http_server_run(&server);
+    return 0;
+}
+```
+
 ```shell
 git clone https://github.com/ithewei/libhv.git
 cd libhv
@@ -123,6 +146,7 @@ bin/nc -u 2222
 
 ### lib
 - make libhv
+- make install
 
 ### examples
 - make test # master-workers model

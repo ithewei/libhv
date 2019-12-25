@@ -33,12 +33,14 @@ typedef struct http_server_s {
 /*
 #include "http_server.h"
 
-void http_api_hello(HttpRequest* req, HttpResponse* res) {
+int http_api_hello(HttpRequest* req, HttpResponse* res) {
     res->body = "hello";
+    return 0;
 }
 
 int main() {
     HttpService service;
+    service.base_url = "/v1/api";
     service.AddApi("/hello", http_api_hello);
 
     http_server_t server;
