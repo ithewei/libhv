@@ -31,7 +31,7 @@ typedef struct http_server_s {
 } http_server_t;
 
 /*
-#include "http_server.h"
+#include "HttpServer.h"
 
 int http_api_hello(HttpRequest* req, HttpResponse* res) {
     res->body = "hello";
@@ -41,7 +41,7 @@ int http_api_hello(HttpRequest* req, HttpResponse* res) {
 int main() {
     HttpService service;
     service.base_url = "/v1/api";
-    service.AddApi("/hello", http_api_hello);
+    service.AddApi("/hello", HTTP_GET, http_api_hello);
 
     http_server_t server;
     server.port = 8080;

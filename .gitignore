@@ -29,8 +29,6 @@ bin
 dist
 build
 
-hconfig.h
-
 # test
 test
 
