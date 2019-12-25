@@ -39,10 +39,14 @@ void timer_write_log(htimer_t* timer) {
 
 void on_stdin(hio_t* io, void* buf, int readbytes) {
     printf("on_stdin fd=%d readbytes=%d\n", hio_fd(io), readbytes);
-    printf("> %s\n", buf);
+    printf("> %s\n", (char*)buf);
     if (strncmp((char*)buf, "quit", 4) == 0) {
         hloop_stop(hevent_loop(io));
     }
+}
+
+void on_custom_events(hevent_t* ev) {
+    printf("on_custom_events event_type=%d userdata=%ld\n", (int)ev->event_type, (long)ev->userdata);
 }
 
 int main() {
@@ -60,7 +64,7 @@ int main() {
     // test timer timeout
     for (int i = 1; i <= 10; ++i) {
         htimer_t* timer = htimer_add(loop, on_timer, i*1000, 3);
-        hevent_set_userdata(timer, i);
+        hevent_set_userdata(timer, (void*)(long)i);
     }
 
     // test timer period
@@ -78,6 +82,15 @@ int main() {
     printf("input 'quit' to quit loop\n");
     char buf[64];
     hread(loop, STDIN_FILENO, buf, sizeof(buf), on_stdin);
+
+    // test custom_events
+    for (int i = 0; i < 10; ++i) {
+        hevent_t ev;
+        ev.event_type = (hevent_type_e)(HEVENT_TYPE_CUSTOM + i);
+        ev.cb = on_custom_events;
+        ev.userdata = (void*)(long)i;
+        hloop_post_event(loop, &ev);
+    }
 
     hloop_run(loop);
     hloop_free(&loop);

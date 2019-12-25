@@ -16,6 +16,7 @@ typedef enum {
 } hloop_status_e;
 
 ARRAY_DECL(hio_t*, io_array);
+QUEUE_DECL(hevent_t, event_queue);
 
 struct hloop_s {
     uint32_t    flags;
@@ -43,6 +44,10 @@ struct hloop_s {
     struct io_array             ios;
     uint32_t                    nios;
     void*                       iowatcher;
+    // custom_events
+    int                         sockpair[2];
+    char                        readbuf[4];
+    event_queue                 custom_events;
 };
 
 struct hidle_s {

@@ -27,11 +27,12 @@ typedef void (*hclose_cb)   (hio_t* io);
 
 typedef enum {
     HEVENT_TYPE_NONE    = 0,
-    HEVENT_TYPE_IDLE    = 0x00000010,
-    HEVENT_TYPE_TIMEOUT = 0x00000100,
-    HEVENT_TYPE_PERIOD  = 0x00000200,
+    HEVENT_TYPE_IO      = 0x00000001,
+    HEVENT_TYPE_TIMEOUT = 0x00000010,
+    HEVENT_TYPE_PERIOD  = 0x00000020,
     HEVENT_TYPE_TIMER   = HEVENT_TYPE_TIMEOUT|HEVENT_TYPE_PERIOD,
-    HEVENT_TYPE_IO      = 0x00001000,
+    HEVENT_TYPE_IDLE    = 0x00000100,
+    HEVENT_TYPE_CUSTOM  = 0x00000400, // 1024
 } hevent_type_e;
 
 #define HEVENT_LOWEST_PRIORITY    (-5)
@@ -103,8 +104,20 @@ uint64_t hloop_now(hloop_t* loop);          // s
 uint64_t hloop_now_ms(hloop_t* loop);       // ms
 uint64_t hloop_now_hrtime(hloop_t* loop);   // us
 
+// userdata
 void  hloop_set_userdata(hloop_t* loop, void* userdata);
 void* hloop_userdata(hloop_t* loop);
+
+// custom_event
+/*
+ * hevent_t ev;
+ * memset(&ev, 0, sizeof(hevent_t));
+ * ev.event_type = (hevent_type_e)(HEVENT_TYPE_CUSTOM + 1);
+ * ev.cb = custom_event_cb;
+ * ev.userdata = userdata;
+ * hloop_post_event(loop, &ev);
+ */
+void hloop_post_event(hloop_t* loop, hevent_t* ev);
 
 // idle
 hidle_t*    hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT(INFINITE));

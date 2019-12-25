@@ -12,7 +12,8 @@
 #define PAUSE_TIME              10          // ms
 #define MAX_BLOCK_TIME          1000        // ms
 
-#define IO_ARRAY_INIT_SIZE      1024
+#define IO_ARRAY_INIT_SIZE              1024
+#define CUSTOM_EVENT_QUEUE_INIT_SIZE    16
 static void hio_init(hio_t* io);
 static void hio_ready(hio_t* io);
 static void hio_done(hio_t* io);
@@ -168,6 +169,9 @@ static void hloop_init(hloop_t* loop) {
     //io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
     // iowatcher: init when iowatcher_add_event
     //iowatcher_init(loop);
+    // custom_events: init when hloop_post_event
+    //event_queue_init(&loop->custom_events, 4);
+    loop->sockpair[0] = loop->sockpair[1] = -1;
     // NOTE: init start_time here, because htimer_add use it.
     loop->start_ms = timestamp_ms();
     loop->start_hrtime = loop->cur_hrtime = gethrtime();
@@ -212,6 +216,13 @@ static void hloop_cleanup(hloop_t* loop) {
     io_array_cleanup(&loop->ios);
     // iowatcher
     iowatcher_cleanup(loop);
+    // custom_events
+    if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
+        closesocket(loop->sockpair[0]);
+        closesocket(loop->sockpair[1]);
+        loop->sockpair[0] = loop->sockpair[1] = -1;
+    }
+    event_queue_cleanup(&loop->custom_events);
 }
 
 hloop_t* hloop_new(int flags) {
@@ -703,3 +714,45 @@ hio_t* create_udp_client(hloop_t* loop, const char* host, int port) {
     return io;
 }
 
+static void sockpair_read_cb(hio_t* io, void* buf, int readbytes) {
+    hloop_t* loop = io->loop;
+    for (int i = 0; i < readbytes; ++i) {
+        if (event_queue_empty(&loop->custom_events)) {
+            return;
+        }
+        hevent_t* pev = event_queue_front(&loop->custom_events);
+        if (pev == NULL) {
+            return;
+        }
+        hevent_t ev = *pev;
+        event_queue_pop_front(&loop->custom_events);
+        if (ev.cb) {
+            ev.cb(&ev);
+        }
+    }
+}
+
+void hloop_post_event(hloop_t* loop, hevent_t* ev) {
+    if (loop->sockpair[0] <= 0 && loop->sockpair[1] <= 0) {
+        if (Socketpair(AF_INET, SOCK_STREAM, 0, loop->sockpair) != 0) {
+            hloge("socketpair error");
+            return;
+        }
+        hread(loop, loop->sockpair[1], loop->readbuf, sizeof(loop->readbuf), sockpair_read_cb);
+    }
+    if (loop->custom_events.maxsize == 0) {
+        event_queue_init(&loop->custom_events, CUSTOM_EVENT_QUEUE_INIT_SIZE);
+    }
+    if (ev->loop == NULL) {
+        ev->loop = loop;
+    }
+    if (ev->event_type == 0) {
+        ev->event_type = HEVENT_TYPE_CUSTOM;
+    }
+    if (ev->event_id == 0) {
+        ev->event_id = ++loop->event_counter;
+    }
+    event_queue_push_back(&loop->custom_events, ev);
+    char buf = '1';
+    hwrite(loop, loop->sockpair[0], &buf, 1, NULL);
+}
