@@ -158,8 +158,6 @@ int ftp_download_with_cb(ftp_handle_t* hftp, const char* filepath, ftp_download_
     return status_code == FTP_STATUS_TRANSFER_COMPLETE ? 0 : status_code;
 }
 
-#include <stdio.h>
-
 // local => remote
 int ftp_upload(ftp_handle_t* hftp, const char* local_filepath, const char* remote_filepath) {
     int status_code = ftp_exec(hftp, "PASV", NULL);
