@@ -29,12 +29,14 @@ static void on_timer(htimer_t* timer) {
 }
 
 static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
-    //printf("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
-    //char localaddrstr[SOCKADDR_STRLEN] = {0};
-    //char peeraddrstr[SOCKADDR_STRLEN] = {0};
-    //printf("[%s] <=> [%s]\n",
-            //SOCKADDR_STR(hio_localaddr(io), localaddrstr),
-            //SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
+    //printd("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
+    /*
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
+    printd("[%s] <=> [%s]\n",
+            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
+    */
     nmap_udata_t* udata = (nmap_udata_t*)io->loop->userdata;
     if (++udata->recv_cnt == udata->send_cnt) {
         //hloop_stop(io->loop);

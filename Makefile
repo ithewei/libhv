@@ -13,6 +13,7 @@ prepare:
 	-rm base/RAII.o
 
 libhv: prepare
+	$(MAKEF) TARGET=$@ TARGET_TYPE=SHARED SRCDIRS=". base utils event http http/client http/server protocol"
 	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server protocol"
 
 test: prepare

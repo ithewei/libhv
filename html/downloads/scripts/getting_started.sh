@@ -2,13 +2,13 @@
 
 make httpd curl
 
-bin/httpd -d
+bin/httpd -s restart -d
 ps aux | grep httpd
 
 # http web service
 bin/curl -v localhost:8080
 
-# indexof
+# http indexof service
 bin/curl -v localhost:8080/downloads/
 
 # http api service

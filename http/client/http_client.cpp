@@ -379,6 +379,7 @@ connect:
     cli->session->SubmitRequest(req);
     char recvbuf[1024] = {0};
     int total_nsend, nsend, nrecv;
+    total_nsend = nsend = nrecv = 0;
 send:
     char* data = NULL;
     size_t len  = 0;

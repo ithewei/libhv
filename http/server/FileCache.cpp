@@ -1,7 +1,6 @@
 #include "FileCache.h"
 
 #include "hscope.h"
-#include "md5.h" // etag
 
 #include "httpdef.h" // for http_content_type_str_by_suffix
 #include "http_page.h" //make_index_of_page
@@ -66,17 +65,7 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
         }
         time_t tt = fc->st.st_mtime;
         strftime(fc->last_modified, sizeof(fc->last_modified), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
-        MD5_CTX md5_ctx;
-        MD5Init(&md5_ctx);
-        MD5Update(&md5_ctx, (unsigned char*)fc->filebuf.base, fc->filebuf.len);
-        unsigned char digital[16];
-        MD5Final(digital, &md5_ctx);
-        char* md5 = fc->etag;
-        for (int i = 0; i < 16; ++i) {
-            sprintf(md5, "%02x", digital[i]);
-            md5 += 2;
-        }
-        fc->etag[32] = '\0';
+        snprintf(fc->etag, sizeof(fc->etag), "\"%zx-%zx\"", fc->st.st_mtime, fc->st.st_size);
     }
     return fc;
 }

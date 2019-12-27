@@ -69,18 +69,18 @@
 #endif
 // __clang__
 
-#ifdef BUILD_STATIC_LIB
-#define EXPORT
+#ifdef HV_STATICLIB
+#define HEXPORT
 #elif defined(OS_WIN)
 #ifdef DLL_EXPORTS
-#define EXPORT  __declspec(dllexport)
+#define HEXPORT  __declspec(dllexport)
 #else
-#define EXPORT  __declspec(dllimport)
+#define HEXPORT  __declspec(dllimport)
 #endif
 #elif defined(__GNUC__)
-#define EXPORT  __attribute__((visibility("default")))
+#define HEXPORT  __attribute__((visibility("default")))
 #else
-#define EXPORT
+#define HEXPORT
 #endif
 
 // ARCH

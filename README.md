@@ -58,13 +58,13 @@ git clone https://github.com/ithewei/libhv.git
 cd libhv
 make httpd curl
 
-bin/httpd -d
+bin/httpd -s restart -d
 ps aux | grep httpd
 
 # http web service
 bin/curl -v localhost:8080
 
-# indexof
+# http indexof service
 bin/curl -v localhost:8080/downloads/
 
 # http api service
@@ -74,6 +74,9 @@ bin/curl -v -X POST localhost:8080/v1/api/json -H "Content-Type:application/json
 make webbench
 bin/webbench -c 2 -t 60 localhost:8080
 ```
+
+**libhv(port:8080) vs nginx(port:80)**
+![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
 ### event-loop
 see examples/tcp.c

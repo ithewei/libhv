@@ -145,7 +145,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 #endif
 
 handle_request:
-    int ret = handler->HandleRequest();
+    handler->HandleRequest();
     // prepare headers body
     // Server:
     static char s_Server[64] = {'\0'};

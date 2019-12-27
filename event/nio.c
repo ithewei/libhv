@@ -85,11 +85,13 @@ accept:
     if (io->io_type != HIO_TYPE_SSL) {
         // NOTE: SSL call accept_cb after handshark finished
         if (io->accept_cb) {
+            /*
             char localaddrstr[SOCKADDR_STRLEN] = {0};
             char peeraddrstr[SOCKADDR_STRLEN] = {0};
             printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
                     SOCKADDR_STR(io->localaddr, localaddrstr),
                     SOCKADDR_STR(io->peeraddr, peeraddrstr));
+            */
             //printd("accept_cb------\n");
             io->accept_cb(connio);
             //printd("accept_cb======\n");
@@ -113,11 +115,13 @@ static void nio_connect(hio_t* io) {
     else {
         addrlen = sizeof(sockaddr_un);
         getsockname(io->fd, io->localaddr, &addrlen);
+        /*
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
         printd("connect connfd=%d [%s] => [%s]\n", io->fd,
                 SOCKADDR_STR(io->localaddr, localaddrstr),
                 SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        */
 #ifdef WITH_OPENSSL
         if (io->io_type == HIO_TYPE_SSL) {
             SSL_CTX* ssl_ctx = (SSL_CTX*)g_ssl_ctx;
