@@ -283,7 +283,9 @@ const char* get_env(const char* key) {
 void setproctitle(const char* title) {
     //printf("proctitle=%s\n", title);
     int len = g_main_ctx.arg_len + g_main_ctx.env_len;
-    strncpy(g_main_ctx.os_argv[0], title, len-1);
+    if (g_main_ctx.os_argv && len) {
+        strncpy(g_main_ctx.os_argv[0], title, len-1);
+    }
 }
 #endif
 
