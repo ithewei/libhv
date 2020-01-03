@@ -282,12 +282,12 @@ static void fsync_logfile(hidle_t* idle) {
     hlog_fsync();
 }
 
-static void worker_proc(void* userdata) {
+static HTHREAD_ROUTINE(worker_thread) {
     http_server_t* server = (http_server_t*)userdata;
     int listenfd = server->listenfd;
     hloop_t* loop = hloop_new(0);
     // for SDK implement http_server_stop
-    if (server->worker_processes == 0) {
+    if (server->worker_processes == 0 && server->worker_threads <= 1) {
         server->privdata = (void*)loop;
     }
     // one loop one readbuf.
@@ -307,6 +307,19 @@ static void worker_proc(void* userdata) {
     hevent_set_userdata(timer, &s_filecache);
     hloop_run(loop);
     hloop_free(&loop);
+    return 0;
+}
+
+static void worker_proc(void* userdata) {
+    http_server_t* server = (http_server_t*)userdata;
+    if (server->worker_threads == 0) {
+        worker_thread(userdata);
+    }
+    else {
+        for (int i = 0; i < server->worker_threads; ++i) {
+            hthread_create(worker_thread, server);
+        }
+    }
 }
 
 int http_server_run(http_server_t* server, int wait) {
@@ -323,13 +336,21 @@ int http_server_run(http_server_t* server, int wait) {
     if (server->listenfd < 0) return server->listenfd;
 
 #ifdef OS_WIN
-    if (server->worker_processes > 1) {
-        server->worker_processes = 1;
+    // windows not provide MultiProcesses
+    if (server->g_worker_processes != 0) {
+        server->worker_threads = server->worker_proc;
+        server->worker_processes = 0;
     }
 #endif
 
     if (server->worker_processes == 0) {
+        if (wait == 0 && server->worker_threads == 0) {
+            server->worker_threads = 1;
+        }
         worker_proc(server);
+        if (wait) {
+            master_proc(NULL);
+        }
     }
     else {
         // master-workers processes
@@ -355,7 +376,7 @@ int http_server_run(http_server_t* server, int wait) {
 }
 
 int http_server_stop(http_server_t* server) {
-    if (server->worker_processes == 0) {
+    if (server->worker_processes == 0 && server->worker_threads <= 1) {
         if (server->privdata) {
             hloop_t* loop = (hloop_t*)server->privdata;
             hloop_stop(loop);

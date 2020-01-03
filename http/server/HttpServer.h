@@ -10,6 +10,7 @@ typedef struct http_server_s {
     int http_version;
     HttpService* service;
     int worker_processes;
+    int worker_threads;
     void* userdata;
 //private:
     int listenfd;
@@ -23,6 +24,7 @@ typedef struct http_server_s {
         http_version = 1;
         service = NULL;
         worker_processes = 0;
+        worker_threads = 0;
         listenfd = -1;
         userdata = NULL;
         privdata = NULL;
@@ -53,7 +55,7 @@ int main() {
  */
 int http_server_run(http_server_t* server, int wait = 1);
 
-// for SDK
+// just for worker_processes = 0 && worker_threads <= 1
 int http_server_stop(http_server_t* server);
 
 #endif
