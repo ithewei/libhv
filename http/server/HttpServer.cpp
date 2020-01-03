@@ -283,6 +283,7 @@ static void fsync_logfile(hidle_t* idle) {
 }
 
 static HTHREAD_ROUTINE(worker_thread) {
+    hlogi("worker_thread pid=%d tid=%d", getpid(), gettid());
     http_server_t* server = (http_server_t*)userdata;
     int listenfd = server->listenfd;
     hloop_t* loop = hloop_new(0);
@@ -365,6 +366,7 @@ int http_server_run(http_server_t* server, int wait) {
             ctx->proc = worker_proc;
             ctx->proc_userdata = server;
             spawn_proc(ctx);
+            hlogi("workers[%d] start/running, pid=%d", i, ctx->pid);
         }
         if (wait) {
             master_init(NULL);

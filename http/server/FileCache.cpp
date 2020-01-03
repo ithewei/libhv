@@ -6,6 +6,7 @@
 #include "http_page.h" //make_index_of_page
 
 file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
+    std::lock_guard<std::mutex> locker(mutex_);
     file_cache_t* fc = Get(filepath);
     bool modified = false;
     if (fc) {
@@ -71,6 +72,7 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
 }
 
 int FileCache::Close(const char* filepath) {
+    std::lock_guard<std::mutex> locker(mutex_);
     auto iter = cached_files.find(filepath);
     if (iter != cached_files.end()) {
         delete iter->second;

@@ -7,6 +7,7 @@
 #include "hbuf.h"
 #include "hfile.h"
 #include "hstring.h"
+#include "hmutex.h"
 
 #define HTTP_HEADER_MAX_LENGTH      1024 // 1k
 
@@ -69,6 +70,7 @@ public:
     int Close(const char* filepath);
 protected:
     file_cache_t* Get(const char* filepath);
+    std::mutex mutex_;
 };
 
 #endif // HV_FILE_CACHE_H_
