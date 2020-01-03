@@ -3,7 +3,7 @@ TMPDIR=tmp
 
 default: all
 
-all: libhv test timer loop tcp udp nc nmap httpd curl
+all: libhv test timer loop tcp udp nc nmap httpd curl consul_cli
 
 clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server protocol examples $(TMPDIR)"
@@ -66,6 +66,11 @@ curl: prepare
 	cp examples/curl.cpp $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)"
 	#$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)" DEFINES="$(DEFINES) WITH_CURL CURL_STATICLIB"
+
+consul_cli: prepare
+	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/consul_cli.cpp examples/http_api_test.h $(TMPDIR)
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client consul $(TMPDIR)" DEFINES="PRINT_DEBUG"
 
 unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/hmutex     unittest/hmutex_test.c        -pthread
@@ -146,4 +151,4 @@ install:
 webbench: prepare
 	$(CC) -o bin/webbench unittest/webbench.c
 
-.PHONY: clean prepare libhv test timer loop tcp udp nc nmap httpd curl unittest webbench install
+.PHONY: clean prepare libhv test timer loop tcp udp nc nmap httpd curl consul_cli unittest webbench install

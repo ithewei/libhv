@@ -17,6 +17,7 @@ cscope*
 # output
 *.o
 *.obj
+*.out
 
 *.pid
 *.log
