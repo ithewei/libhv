@@ -11,9 +11,9 @@ using json = nlohmann::json;
 #define PROTOCOL    "http://"
 #define API_VERSION "v1"
 
-const char url_register[] = "/agent/service/register";
-const char url_deregister[] = "/agent/service/deregister";
-const char url_discover[] = "/catalog/service";
+static const char url_register[] = "/agent/service/register";
+static const char url_deregister[] = "/agent/service/deregister";
+static const char url_discover[] = "/catalog/service";
 
 static string make_url(const char* ip, int port, const char* url) {
     return asprintf(PROTOCOL "%s:%d/" API_VERSION "%s",
