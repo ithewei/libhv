@@ -15,13 +15,13 @@ const char url_register[] = "/agent/service/register";
 const char url_deregister[] = "/agent/service/deregister";
 const char url_discover[] = "/catalog/service";
 
-string make_url(const char* ip, int port, const char* url) {
+static string make_url(const char* ip, int port, const char* url) {
     return asprintf(PROTOCOL "%s:%d/" API_VERSION "%s",
             ip, port,
             url);
 }
 
-string make_ServiceID(consul_service_t* service) {
+static string make_ServiceID(consul_service_t* service) {
     return asprintf("%s-%s:%d", service->name, service->ip, service->port);
 }
 
@@ -76,6 +76,7 @@ int register_service(consul_node_t* node, consul_service_t* service, consul_heal
     jservice["Check"] = jcheck;
 
     req.body = jservice.dump();
+    printd("PUT %s\n", req.url.c_str());
     printd("%s\n", req.body.c_str());
 
     HttpResponse res;
@@ -93,6 +94,7 @@ int deregister_service(consul_node_t* node, consul_service_t* service) {
     req.method = HTTP_PUT;
     req.url = url;
     req.content_type = APPLICATION_JSON;
+    printd("PUT %s\n", req.url.c_str());
 
     HttpResponse res;
     int ret = http_client_send(&req, &res);
@@ -110,7 +112,7 @@ int discover_services(consul_node_t* node, const char* service_name, std::vector
     req.url = url;
 
     HttpResponse res;
-
+    printd("GET %s\n", req.url.c_str());
     int ret = http_client_send(&req, &res);
     if (ret != 0) {
         return ret;
