@@ -227,7 +227,7 @@ int weekday_atoi(const char* weekday) {
 }
 
 const char* weekday_itoa(int weekday) {
-    assert(month >= 0 && month <= 7);
+    assert(weekday >= 0 && weekday <= 7);
     if (weekday == 7) weekday = 0;
     return s_weekdays[weekday];
 }
