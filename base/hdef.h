@@ -250,7 +250,7 @@ typedef void*               HANDLE;
 #define STRINGCAT_HELPER(x, y)   x##y
 
 #ifndef offsetof
-#define offsetof(type, mmeber) \
+#define offsetof(type, member) \
 ((size_t)(&((type*)0)->member))
 #endif
 
