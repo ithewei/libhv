@@ -10,6 +10,8 @@
     #define strnicmp    strncasecmp
 #endif
 
+static const char* s_weekdays[] = {"Sunday", "Monday", " Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+
 static const char* s_months[] = {"January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"};
 
@@ -212,10 +214,22 @@ int month_atoi(const char* month) {
 }
 
 const char* month_itoa(int month) {
-    if (month < 1 || month > 12) {
-        return NULL;
-    }
+    assert(month >= 1 && month <= 12);
     return s_months[month-1];
+}
+
+int weekday_atoi(const char* weekday) {
+    for (size_t i = 0; i < 7; ++i) {
+        if (strnicmp(weekday, s_weekdays[i], strlen(weekday)) == 0)
+            return i;
+    }
+    return 0;
+}
+
+const char* weekday_itoa(int weekday) {
+    assert(month >= 0 && month <= 7);
+    if (weekday == 7) weekday = 0;
+    return s_weekdays[weekday];
 }
 
 datetime_t get_compile_datetime() {

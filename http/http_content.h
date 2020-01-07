@@ -55,6 +55,7 @@ int         parse_query_params(const char* query_string, QueryParams& query_para
 // NOTE: WITHOUT_HTTP_CONTENT
 // ndk-r10e no std::to_string and can't compile modern json.hpp
 #ifndef WITHOUT_HTTP_CONTENT
+#include <sstream>
 
 /**************multipart/form-data*************************************
 --boundary
@@ -81,17 +82,13 @@ struct FormData {
             this->filename = filename;
         }
     }
-    FormData(int n) {
-        content = std::to_string(n);
-    }
-    FormData(long long n) {
-        content = std::to_string(n);
-    }
-    FormData(float f) {
-        content = std::to_string(f);
-    }
-    FormData(double lf) {
-        content = std::to_string(lf);
+    template<typename T>
+    FormData(T num) {
+        // NOTE: low-version NDK not provide std::to_string
+        //content = std::to_string(num);
+        std::ostringstream os;
+        os << num;
+        content = os.str();
     }
 };
 

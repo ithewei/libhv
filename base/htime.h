@@ -120,8 +120,12 @@ datetime_t* datetime_future(datetime_t* dt, int days DEFAULT(1));
 time_t calc_next_timeout(int minute, int hour, int day, int week, int month);
 
 int days_of_month(int month, int year);
+
 int month_atoi(const char* month);
 const char* month_itoa(int month);
+
+int weekday_atoi(const char* weekday);
+const char* weekday_itoa(int weekday);
 
 datetime_t get_compile_datetime();
 
