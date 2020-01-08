@@ -1,3 +1,5 @@
+include Makefile.vars
+
 MAKEF=$(MAKE) -f Makefile.in
 TMPDIR=tmp
 
@@ -15,6 +17,8 @@ prepare:
 libhv: prepare
 	$(MAKEF) TARGET=$@ TARGET_TYPE=SHARED SRCDIRS=". base utils event http http/client http/server protocol"
 	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server protocol"
+	-mkdir include
+	-cp $(INSTALL_HEADERS) include/
 
 test: prepare
 	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
@@ -86,69 +90,22 @@ unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/ftp        unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iutils -Iprotocol -o bin/sendmail  unittest/sendmail_test.c  protocol/smtp.c base/hsocket.c utils/base64.c
 
-INSTALL_HEADERS=hv.h\
-				\
-				hconfig.h\
-				base/hplatform.h\
-				\
-				base/hdef.h\
-				base/hversion.h\
-				base/hbase.h\
-				base/hsysinfo.h\
-				base/hproc.h\
-				base/hmath.h\
-				base/htime.h\
-				base/herr.h\
-				base/hlog.h\
-				base/hmutex.h\
-				base/hthread.h\
-				base/hsocket.h\
-				base/hbuf.h\
-				base/hurl.h\
-				base/hgui.h\
-				base/ssl_ctx.h\
-				\
-				base/hstring.h\
-				base/hvar.h\
-				base/hobj.h\
-				base/hfile.h\
-				base/hdir.h\
-				base/hscope.h\
-				base/hthreadpool.h\
-				base/hobjectpool.h\
-				\
-				utils/base64.h\
-				utils/md5.h\
-				utils/json.hpp\
-				utils/singleton.h\
-				utils/ifconfig.h\
-				utils/iniparser.h\
-				utils/hendian.h\
-				utils/hmain.h\
-				\
-				event/hloop.h\
-				event/nlog.h\
-				event/nmap.h\
-				\
-				http/httpdef.h\
-				http/http2def.h\
-				http/grpcdef.h\
-				http/http_content.h\
-				http/HttpMessage.h\
-				http/client/http_client.h\
-				http/server/HttpService.h\
-				http/server/HttpServer.h\
-				\
-				protocol/icmp.h\
-				protocol/dns.h\
-				protocol/ftp.h\
-				protocol/smtp.h
 install:
-	-mkdir include
-	-cp $(INSTALL_HEADERS) include/
+	-mkdir -p $(INSTALL_INCDIR)
+	-cp include/* $(INSTALL_INCDIR)
+	-cp lib/libhv.a lib/libhv.so $(INSTALL_LIBDIR)
 
 # UNIX only
 webbench: prepare
 	$(CC) -o bin/webbench unittest/webbench.c
 
-.PHONY: clean prepare libhv test timer loop tcp udp nc nmap httpd curl consul_cli unittest webbench install
+echo-servers:
+	$(CC)  -g -Wall -std=c99   -o bin/libevent_echo echo-servers/libevent_echo.c -levent
+	$(CC)  -g -Wall -std=c99   -o bin/libev_echo    echo-servers/libev_echo.c    -lev
+	$(CC)  -g -Wall -std=c99   -o bin/libuv_echo    echo-servers/libuv_echo.c    -luv
+	$(CC)  -g -Wall -std=c99   -o bin/libhv_echo    echo-servers/libhv_echo.c    -Iinclude -Llib -lhv
+	$(CXX) -g -Wall -std=c++11 -o bin/asio_echo     echo-servers/asio_echo.cpp   -lboost_system
+	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo     echo-servers/poco_echo.cpp   -lPocoNet -lPocoUtil -lPocoFoundation
+	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo    echo-servers/muduo_echo.cpp  -lmuduo_net -lmuduo_base -lpthread
+
+.PHONY: clean prepare libhv test timer loop tcp udp nc nmap httpd curl consul_cli unittest install webbench echo-servers

@@ -5,8 +5,8 @@
 
 #include "hplatform.h"
 #if !defined(EVENT_SELECT) &&   \
-    !defined(EVENT_EPOLL) &&    \
     !defined(EVENT_POLL) &&     \
+    !defined(EVENT_EPOLL) &&    \
     !defined(EVENT_KQUEUE) &&   \
     !defined(EVENT_IOCP) &&     \
     !defined(EVENT_PORT) &&     \

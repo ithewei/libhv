@@ -29,9 +29,9 @@ but simpler apis and richer protocols.
 
 ## Getting Started
 
-### http
+### http server
 see examples/httpd.cpp
-```
+```c++
 #include "HttpServer.h"
 
 int http_api_hello(HttpRequest* req, HttpResponse* res) {
@@ -78,43 +78,22 @@ bin/webbench -c 2 -t 60 localhost:8080
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
-### event-loop
-see examples/tcp.c
-```
+### EventLoop
+see examples/tcp.c examples/udp.c
+```c
+// TCP echo server
 #include "hloop.h"
-#include "hsocket.h"
-
-#define RECV_BUFSIZE    8192
-static char recvbuf[RECV_BUFSIZE];
 
 void on_close(hio_t* io) {
-    printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
 }
 
 void on_recv(hio_t* io, void* buf, int readbytes) {
-    printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
-    char localaddrstr[SOCKADDR_STRLEN] = {0};
-    char peeraddrstr[SOCKADDR_STRLEN] = {0};
-    printf("[%s] <=> [%s]\n",
-            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
-            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
-    printf("< %s\n", buf);
-    // echo
-    printf("> %s\n", buf);
     hio_write(io, buf, readbytes);
 }
 
 void on_accept(hio_t* io) {
-    printf("on_accept connfd=%d\n", hio_fd(io));
-    char localaddrstr[SOCKADDR_STRLEN] = {0};
-    char peeraddrstr[SOCKADDR_STRLEN] = {0};
-    printf("accept connfd=%d [%s] <= [%s]\n", hio_fd(io),
-            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
-            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
-
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
-    hio_set_readbuf(io, recvbuf, RECV_BUFSIZE);
     hio_read(io);
 }
 
@@ -130,26 +109,25 @@ int main(int argc, char** argv) {
     if (listenio == NULL) {
         return -20;
     }
-    printf("listenfd=%d\n", hio_fd(listenio));
     hloop_run(loop);
     hloop_free(&loop);
     return 0;
 }
 ```
-```
+```shell
 make tcp udp nc
 bin/tcp 1111
-bin/nc 1111
+bin/nc 127.0.0.1 1111
 
 bin/udp 2222
-bin/nc -u 2222
+bin/nc -u 127.0.0.1 2222
 ```
 
 ## BUILD
 
 ### lib
 - make libhv
-- make install
+- sudo make install
 
 ### examples
 - make test # master-workers model
@@ -182,6 +160,18 @@ bin/nc -u 2222
 - ENABLE_IPV6
 - WITH_WINDUMP
 - USE_MULTIMAP
+
+### echo-servers/benchmark
+```shell
+make libhv
+make webbench
+
+# ubuntu16.04
+sudo apt-get install libevent-dev libev-dev libuv1-dev libboost-dev libasio-dev libpoco-dev
+# muduo install => https://github.com/chenshuo/muduo.git
+make echo-servers
+sudo echo-servers/benchmark.sh
+```
 
 ## Module
 
