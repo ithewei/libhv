@@ -49,8 +49,6 @@ static void on_accept(hio_t* io) {
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
 
-    static char s_readbuf[256] = {0};
-    hio_set_readbuf(io, s_readbuf, sizeof(s_readbuf));
     hio_setcb_read(io, on_read);
     hio_setcb_close(io, on_close);
     hio_read(io);

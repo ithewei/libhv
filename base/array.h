@@ -16,6 +16,8 @@
 
 #include "hbase.h"
 
+#define ARRAY_INIT_SIZE     16
+
 // #include <vector>
 // typedef std::vector<type> atype;
 #define ARRAY_DECL(type, atype) \
@@ -75,12 +77,12 @@ static inline void atype##_cleanup(atype* p) {\
 }\
 \
 static inline void atype##_resize(atype* p, int maxsize) {\
+    if (maxsize == 0) maxsize = ARRAY_INIT_SIZE;\
     p->ptr = (type*)safe_realloc(p->ptr, sizeof(type) * maxsize, sizeof(type) * p->maxsize);\
     p->maxsize = maxsize;\
 }\
 \
 static inline void atype##_double_resize(atype* p) {\
-    assert(p->maxsize != 0);\
     atype##_resize(p, p->maxsize*2);\
 }\
 \

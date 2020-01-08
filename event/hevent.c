@@ -22,8 +22,18 @@ struct sockaddr* hio_peeraddr(hio_t* io) {
 }
 
 void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
-    io->readbuf.base = (char*)buf;
-    io->readbuf.len = len;
+    if (buf == NULL || len == 0) {
+        hloop_t* loop = io->loop;
+        if (loop && (loop->readbuf.base == NULL || loop->readbuf.len == 0)) {
+            loop->readbuf.len = HLOOP_READ_BUFSIZE;
+            loop->readbuf.base = (char*)malloc(loop->readbuf.len);
+            io->readbuf = loop->readbuf;
+        }
+    }
+    else {
+        io->readbuf.base = (char*)buf;
+        io->readbuf.len = len;
+    }
 }
 
 int hio_enable_ssl(hio_t* io) {

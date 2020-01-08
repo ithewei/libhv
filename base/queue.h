@@ -14,6 +14,8 @@
 
 #include "hbase.h"
 
+#define QUEUE_INIT_SIZE     16
+
 // #include <deque>
 // typedef std::deque<type> qtype;
 #define QUEUE_DECL(type, qtype) \
@@ -68,12 +70,12 @@ static inline void qtype##_cleanup(qtype* p) {\
 }\
 \
 static inline void qtype##_resize(qtype* p, int maxsize) {\
+    if (maxsize == 0) maxsize = QUEUE_INIT_SIZE;\
     p->ptr = (type*)safe_realloc(p->ptr, sizeof(type)*maxsize, sizeof(type)*p->maxsize);\
     p->maxsize = maxsize;\
 }\
 \
 static inline void qtype##_double_resize(qtype* p) {\
-    assert(p->maxsize != 0);\
     return qtype##_resize(p, p->maxsize*2);\
 }\
 \

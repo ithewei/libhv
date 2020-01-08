@@ -49,6 +49,7 @@ int Connect(const char* host, int port) {
 #define VERSION         "webbench/1.19.3.15"
 
 int verbose = 0;
+int quiet = 0;
 volatile int timerexpired = 0; // for timer
 int time    = 30;
 int clients = 1;
@@ -67,12 +68,13 @@ char buf[1460] = {0};
 
 int mypipe[2]; // IPC
 
-static const char options[] = "?hvV01kt:p:c:";
+static const char options[] = "?hVvq01kt:p:c:";
 
 static const struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
     {"version", no_argument, NULL, 'V'},
     {"verbose", no_argument, NULL, 'v'},
+    {"quiet", no_argument, NULL, 'q'},
     {"time", required_argument, NULL, 't'},
     {"proxy", required_argument, NULL, 'p'},
     {"clients", required_argument, NULL, 'c'},
@@ -93,6 +95,7 @@ Options:\n\
   -?|-h|--help              Print this information.\n\
   -V|--version              Print version.\n\
   -v|--verbose              Print verbose.\n\
+  -q|--quiet                Print quiet.\n\
   -0|--http10               Use HTTP/1.0 protocol.\n\
   -1|--http11               Use HTTP/1.1 protocol.\n\
   -k|--keepalive            Connection: keep-alive.\n\
@@ -115,6 +118,7 @@ int parse_cmdline(int argc, char** argv) {
         case 'h': print_usage(); exit(1);
         case 'V': puts(VERSION); exit(1);
         case 'v': verbose = 1; break;
+        case 'q': quiet = 1; break;
         case '0': http = 0; break;
         case '1': http = 1; break;
         case 'k': keepalive = 1; break;
@@ -248,7 +252,9 @@ int main(int argc, char** argv) {
         strcat(request, "Connection: close\r\n");
     }
     strcat(request, "\r\n");
-    printf("%s", request);
+    if (!quiet) {
+        printf("%s", request);
+    }
 
     // IPC
     if (pipe(mypipe) < 0) {
@@ -259,7 +265,7 @@ int main(int argc, char** argv) {
     // fork childs
     pid_t pid = 0;
     FILE* fp = NULL;
-    int succeed = 0, failed = 0, bytes = 0;
+    long long succeed = 0, failed = 0, bytes = 0;
     int childs = clients;
     int i;
     for (i = 0; i < childs; ++i) {
@@ -302,7 +308,6 @@ write:
                 }
 read:
                 if (timerexpired) break;
-                memset(buf, 0, sizeof(buf));
                 rdbytes = read(sock, buf, sizeof(buf));
                 if (verbose) {
                     printf("read %d bytes\n", rdbytes);
@@ -312,7 +317,7 @@ read:
                     goto close;
                 }
                 if (verbose) {
-                    printf("%s\n", buf);
+                    printf("%.*s\n", rdbytes, buf);
                 }
                 bytes += rdbytes;
                 ++succeed;
@@ -328,7 +333,7 @@ close:
                 perror("fdopen");
                 return 30;
             }
-            fprintf(fp, "%d %d %d\n", succeed, failed, bytes);
+            fprintf(fp, "%lld %lld %lld\n", succeed, failed, bytes);
             fclose(fp);
             //printf("child[%d] end\n", getpid());
             return 0;
@@ -341,16 +346,16 @@ close:
         return 30;
     }
     while (1) {
-        int i,j,k;
-        fscanf(fp, "%d %d %d", &i, &j, &k);
+        long long i,j,k;
+        fscanf(fp, "%lld %lld %lld", &i, &j, &k);
         succeed += i;
         failed += j;
         bytes += k;
         if (--childs==0) break;
     }
     fclose(fp);
-    printf("recv %d bytes/sec, %d succeed, %d failed\n",
-            (int)(bytes)/time,
+    printf("recv %lld bytes/sec, %lld succeed, %lld failed\n",
+            bytes/time,
             succeed,
             failed);
 

@@ -215,6 +215,12 @@ static void hloop_cleanup(hloop_t* loop) {
         }
     }
     io_array_cleanup(&loop->ios);
+    // readbuf
+    if (loop->readbuf.base && loop->readbuf.len) {
+        free(loop->readbuf.base);
+        loop->readbuf.base = NULL;
+        loop->readbuf.len = 0;
+    }
     // iowatcher
     iowatcher_cleanup(loop);
     // custom_events
@@ -752,7 +758,7 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
             hloge("socketpair error");
             goto unlock;
         }
-        hread(loop, loop->sockpair[1], loop->readbuf, sizeof(loop->readbuf), sockpair_read_cb);
+        hread(loop, loop->sockpair[1], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
     }
     if (loop->custom_events.maxsize == 0) {
         event_queue_init(&loop->custom_events, CUSTOM_EVENT_QUEUE_INIT_SIZE);

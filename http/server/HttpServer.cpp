@@ -9,8 +9,6 @@
 #include "HttpHandler.h"
 #include "Http2Session.h"
 
-#define RECV_BUFSIZE    8192
-#define SEND_BUFSIZE    8192
 #define MIN_HTTP_REQUEST        "GET / HTTP/1.1\r\n\r\n"
 #define MIN_HTTP_REQUEST_LEN    14 // exclude CRLF
 
@@ -241,10 +239,8 @@ static void on_accept(hio_t* io) {
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
 
-    HBuf* buf = (HBuf*)hloop_userdata(hevent_loop(io));
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
-    hio_set_readbuf(io, buf->base, buf->len);
     hio_read(io);
     // new HttpHandler
     // delete on_close
@@ -291,10 +287,6 @@ static HTHREAD_ROUTINE(worker_thread) {
     if (server->worker_processes == 0 && server->worker_threads <= 1) {
         server->privdata = (void*)loop;
     }
-    // one loop one readbuf.
-    HBuf readbuf;
-    readbuf.resize(RECV_BUFSIZE);
-    hloop_set_userdata(loop, &readbuf);
     hio_t* listenio = haccept(loop, listenfd, on_accept);
     hevent_set_userdata(listenio, server->service);
     if (server->ssl) {

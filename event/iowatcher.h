@@ -12,7 +12,8 @@
     !defined(EVENT_PORT) &&     \
     !defined(EVENT_NOEVENT)
 #ifdef OS_WIN
-#define EVENT_IOCP
+//#define EVENT_IOCP // IOCP improving
+#define EVENT_POLL
 #elif defined(OS_LINUX)
 #define EVENT_EPOLL
 #elif defined(OS_MAC)

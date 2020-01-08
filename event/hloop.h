@@ -167,7 +167,6 @@ void hio_setcb_read     (hio_t* io, hread_cb    read_cb);
 void hio_setcb_write    (hio_t* io, hwrite_cb   write_cb);
 void hio_setcb_close    (hio_t* io, hclose_cb   close_cb);
 
-// NOTE: don't forget to call hio_set_readbuf
 int hio_read   (hio_t* io);
 int hio_write  (hio_t* io, const void* buf, size_t len);
 int hio_close  (hio_t* io);

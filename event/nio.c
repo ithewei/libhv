@@ -154,10 +154,12 @@ connect_failed:
 static void nio_read(hio_t* io) {
     //printd("nio_read fd=%d\n", io->fd);
     int nread;
+    if (io->readbuf.base == NULL || io->readbuf.len == 0) {
+        hio_set_readbuf(io, io->loop->readbuf.base, io->loop->readbuf.len);
+    }
     void* buf = io->readbuf.base;
     int   len = io->readbuf.len;
 read:
-    memset(buf, 0, len);
     switch (io->io_type) {
 #ifdef WITH_OPENSSL
     case HIO_TYPE_SSL:
@@ -197,7 +199,7 @@ read:
     if (nread == 0) {
         goto disconnect;
     }
-    //printd("> %s\n", buf);
+    //printd("> %.*s\n", nread, buf);
     if (io->read_cb) {
         //printd("read_cb------\n");
         io->read_cb(io, buf, nread);

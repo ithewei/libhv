@@ -10,6 +10,8 @@
 #include "hbuf.h"
 #include "hmutex.h"
 
+#define HLOOP_READ_BUFSIZE  8192
+
 typedef enum {
     HLOOP_STATUS_STOP,
     HLOOP_STATUS_RUNNING,
@@ -44,10 +46,10 @@ struct hloop_s {
     // ios: with fd as array.index
     struct io_array             ios;
     uint32_t                    nios;
+    hbuf_t                      readbuf;        // for hread
     void*                       iowatcher;
     // custom_events
     int                         sockpair[2];
-    char                        readbuf[4];
     event_queue                 custom_events;
     hmutex_t                    custom_events_mutex;
 };

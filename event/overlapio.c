@@ -47,6 +47,9 @@ int post_recv(hio_t* io, hoverlapped_t* hovlp) {
     hovlp->fd = io->fd;
     hovlp->event = READ_EVENT;
     hovlp->io = io;
+    if (io->readbuf.base == NULL || io->readbuf.len == 0) {
+        hio_set_readbuf(io, io->loop->readbuf.base, io->loop->readbuf.len);
+    }
     hovlp->buf.len = io->readbuf.len;
     if (io->io_type == HIO_TYPE_UDP || io->io_type == HIO_TYPE_IP) {
         SAFE_ALLOC(hovlp->buf.buf, hovlp->buf.len);
@@ -54,7 +57,7 @@ int post_recv(hio_t* io, hoverlapped_t* hovlp) {
     else {
         hovlp->buf.buf = io->readbuf.base;
     }
-    memset(hovlp->buf.buf, 0, hovlp->buf.len);
+    //memset(hovlp->buf.buf, 0, hovlp->buf.len);
     DWORD dwbytes = 0;
     DWORD flags = 0;
     int ret = 0;
@@ -140,11 +143,13 @@ static void on_connectex_complete(hio_t* io) {
         getsockname(io->fd, io->localaddr, &addrlen);
         addrlen = sizeof(struct sockaddr_in6);
         getpeername(io->fd, io->peeraddr, &addrlen);
+        /*
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
         printd("connect connfd=%d [%s] => [%s]\n", io->fd,
                 SOCKADDR_STR(io->localaddr, localaddrstr),
                 SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        */
         //printd("connect_cb------\n");
         io->connect_cb(io);
         //printd("connect_cb======\n");
