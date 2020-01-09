@@ -161,7 +161,7 @@ bin/nc -u 127.0.0.1 2222
 - WITH_WINDUMP
 - USE_MULTIMAP
 
-### echo-servers/benchmark
+### echo-servers
 ```shell
 make libhv
 make webbench
@@ -172,6 +172,10 @@ sudo apt-get install libevent-dev libev-dev libuv1-dev libboost-dev libasio-dev 
 make echo-servers
 sudo echo-servers/benchmark.sh
 ```
+**echo-servers/benchmark**
+![echo-servers](html/downloads/echo-servers.jpg)
+Note: The client and servers are located in the same computer, the results are random, for reference only.
+In general, the performance of these libraries are similar, each has its own advantages.
 
 ## Module
 
@@ -237,4 +241,7 @@ sudo echo-servers/benchmark.sh
 - Makefile.in:   通用Makefile模板
 - main.cpp.tmpl: 通用main.cpp模板
 
-libhv QQ群739352073，欢迎加群讨论
+## 学习资料
+
+- libhv每日一学博客: <https://hewei.blog.csdn.net/article/details/103903123>
+- libhv QQ群`739352073`，欢迎加群讨论
