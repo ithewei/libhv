@@ -173,7 +173,7 @@ make echo-servers
 sudo echo-servers/benchmark.sh
 ```
 
-**echo-servers/benchmark**
+**echo-servers/benchmark**<br>
 ![echo-servers](html/downloads/echo-servers.jpg)
 
 Note: The client and servers are located in the same computer, the results are random, for reference only.
