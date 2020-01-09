@@ -4,54 +4,59 @@ MAKEF=$(MAKE) -f Makefile.in
 TMPDIR=tmp
 
 default: all
-
-all: libhv test timer loop tcp udp nc nmap httpd curl consul_cli
+all: libhv examples
+examples: test timer loop tcp udp nc nmap httpd curl consul_cli
 
 clean:
 	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server protocol examples $(TMPDIR)"
 
 prepare:
-	-mkdir -p $(TMPDIR) lib bin
-	-rm base/RAII.o
+	$(MKDIR) -p $(TMPDIR) lib bin
+	$(RM) base/RAII.o
 
 libhv: prepare
 	$(MAKEF) TARGET=$@ TARGET_TYPE=SHARED SRCDIRS=". base utils event http http/client http/server protocol"
 	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server protocol"
-	-mkdir include
-	-cp $(INSTALL_HEADERS) include/
+	$(MKDIR) include
+	$(CP) $(INSTALL_HEADERS) include/
+
+install:
+	$(MKDIR) -p $(INSTALL_INCDIR)
+	$(CP) include/* $(INSTALL_INCDIR)
+	$(CP) lib/libhv.a lib/libhv.so $(INSTALL_LIBDIR)
 
 test: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp main.cpp.tmpl $(TMPDIR)/main.cpp
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils $(TMPDIR)"
 
 timer: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/timer.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 loop: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/loop.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 tcp: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/tcp.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 udp: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/udp.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 nc: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/nc.c $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
 
 nmap: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/nmap.cpp $(TMPDIR)
 ifeq ($(OS), Windows)
 	# for nmap on Windows platform, recommand EVENT_POLL, not EVENT_IOCP
@@ -61,19 +66,19 @@ else
 endif
 
 httpd: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/httpd.cpp examples/http_api_test.h $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server $(TMPDIR)"
 
 curl: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/curl.cpp $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)"
 	#$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)" DEFINES="$(DEFINES) WITH_CURL CURL_STATICLIB"
 
 consul_cli: prepare
-	-rm $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/consul_cli.cpp examples/http_api_test.h $(TMPDIR)
+	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
+	cp examples/consul_cli.cpp $(TMPDIR)
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client consul $(TMPDIR)" DEFINES="PRINT_DEBUG"
 
 unittest: prepare
@@ -90,11 +95,6 @@ unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/ftp        unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iutils -Iprotocol -o bin/sendmail  unittest/sendmail_test.c  protocol/smtp.c base/hsocket.c utils/base64.c
 
-install:
-	-mkdir -p $(INSTALL_INCDIR)
-	-cp include/* $(INSTALL_INCDIR)
-	-cp lib/libhv.a lib/libhv.so $(INSTALL_LIBDIR)
-
 # UNIX only
 webbench: prepare
 	$(CC) -o bin/webbench unittest/webbench.c
@@ -108,4 +108,4 @@ echo-servers:
 	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo     echo-servers/poco_echo.cpp   -lPocoNet -lPocoUtil -lPocoFoundation
 	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo    echo-servers/muduo_echo.cpp  -lmuduo_net -lmuduo_base -lpthread
 
-.PHONY: clean prepare libhv test timer loop tcp udp nc nmap httpd curl consul_cli unittest install webbench echo-servers
+.PHONY: clean prepare libhv install examples test timer loop tcp udp nc nmap httpd curl consul_cli unittest webbench echo-servers

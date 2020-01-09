@@ -37,9 +37,9 @@ OBJCOPY	= $(CROSS_COMPILE)objcopy
 OBJDUMP	= $(CROSS_COMPILE)objdump
 endif
 
-MKDIR = -mkdir -p
-CP = -cp -r
-RM = -rm -r
+MKDIR = -mkdir -p 2>/dev/null
+CP = -cp -r 2>/dev/null
+RM = -rm -r 2>/dev/null
 
 # PLATFORM: OS, ARCH
 CC_VERSION=$(shell $(CC) --version 2>&1 | head -n 1)
