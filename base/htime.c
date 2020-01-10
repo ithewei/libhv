@@ -85,6 +85,23 @@ time_t datetime_mktime(datetime_t* dt) {
     return mktime(&tm);
 }
 
+char* datetime_fmt(datetime_t* dt, char* buf) {
+    sprintf(buf, DATETIME_FMT,
+        dt->year, dt->month, dt->day,
+        dt->hour, dt->min, dt->sec, dt->ms);
+    return buf;
+}
+
+char* gmtime_fmt(time_t time, char* buf) {
+    struct tm* tm = gmtime(&time);
+    //strftime(buf, GMTIME_FMT_BUFLEN, "%a, %d %b %Y %H:%M:%S GMT", tm);
+    sprintf(buf, GMTIME_FMT,
+        s_weekdays[tm->tm_wday],
+        tm->tm_mday, s_months[tm->tm_mon], tm->tm_year + 1900,
+        tm->tm_hour, tm->tm_min, tm->tm_sec);
+    return buf;
+}
+
 int days_of_month(int month, int year) {
     if (month < 1 || month > 12) {
         return 0;

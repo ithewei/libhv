@@ -105,6 +105,14 @@ static inline unsigned long long timestamp_ms() {
 datetime_t datetime_now();
 time_t     datetime_mktime(datetime_t* dt);
 
+#define DATETIME_FMT        "%04d-%02d-%02d %02d:%02d:%02d.%03d"
+#define DATETIME_FMT_BUFLEN 24
+char* datetime_fmt(datetime_t* dt, char* buf);
+
+#define GMTIME_FMT          "%.3s, %02d %.3s %04d %02d:%02d:%02d GMT"
+#define GMTIME_FMT_BUFLEN   30
+char* gmtime_fmt(time_t time, char* buf);
+
 datetime_t* datetime_past(datetime_t* dt, int days DEFAULT(1));
 datetime_t* datetime_future(datetime_t* dt, int days DEFAULT(1));
 

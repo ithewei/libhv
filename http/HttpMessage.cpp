@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "htime.h"
 #include "http_parser.h" // for http_parser_url
 
 void HttpMessage::FillContentType() {
@@ -261,7 +262,6 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     return str;
 }
 
-#include <time.h>
 std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
     char c_str[256] = {0};
     std::string str;
@@ -269,11 +269,7 @@ std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
     snprintf(c_str, sizeof(c_str), "HTTP/%d.%d %d %s\r\n", http_major, http_minor, status_code, http_status_str(status_code));
     str += c_str;
     if (is_dump_headers) {
-        // Date:
-        time_t tt;
-        time(&tt);
-        strftime(c_str, sizeof(c_str), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
-        headers["Date"] = c_str;
+        headers["Date"] = gmtime_fmt(time(NULL), c_str);
         DumpHeaders(str);
     }
     str += "\r\n";

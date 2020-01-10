@@ -15,10 +15,11 @@ prepare:
 	$(RM) base/RAII.o
 
 libhv: prepare
+	$(RM) include
 	$(MAKEF) TARGET=$@ TARGET_TYPE=SHARED SRCDIRS=". base utils event http http/client http/server protocol"
 	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server protocol"
 	$(MKDIR) include
-	$(CP) $(INSTALL_HEADERS) include/
+	$(CP) $(INSTALL_HEADERS) include
 
 install:
 	$(MKDIR) -p $(INSTALL_INCDIR)

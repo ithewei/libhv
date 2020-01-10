@@ -1,9 +1,12 @@
 #include "FileCache.h"
 
 #include "hscope.h"
+#include "htime.h"
 
 #include "httpdef.h" // for http_content_type_str_by_suffix
 #include "http_page.h" //make_index_of_page
+
+#define ETAG_FMT    "\"%zx-%zx\""
 
 file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
     std::lock_guard<std::mutex> locker(mutex_);
@@ -64,9 +67,8 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
             memcpy(fc->filebuf.base, page.c_str(), page.size());
             fc->content_type = http_content_type_str(TEXT_HTML);
         }
-        time_t tt = fc->st.st_mtime;
-        strftime(fc->last_modified, sizeof(fc->last_modified), "%a, %d %b %Y %H:%M:%S GMT", gmtime(&tt));
-        snprintf(fc->etag, sizeof(fc->etag), "\"%zx-%zx\"", fc->st.st_mtime, fc->st.st_size);
+        gmtime_fmt(fc->st.st_mtime, fc->last_modified);
+        snprintf(fc->etag, sizeof(fc->etag), ETAG_FMT, fc->st.st_mtime, fc->st.st_size);
     }
     return fc;
 }
