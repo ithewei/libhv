@@ -19,7 +19,7 @@
 
 #define hrwlock_t               SRWLOCK
 #define hrwlock_init            InitializeSRWLock
-#define hrwlock_destroy
+#define hrwlock_destroy(plock)
 #define hrwlock_rdlock          AcquireSRWLockShared
 #define hrwlock_rdunlock        ReleaseSRWLockShared
 #define hrwlock_wrlock          AcquireSRWLockExclusive
@@ -36,7 +36,7 @@
 
 #define hcondvar_t                      CONDITION_VARIABLE
 #define hcondvar_init                   InitializeConditionVariable
-#define hcondvar_destroy
+#define hcondvar_destroy(pcond)
 #define hcondvar_wait(pcond, pmutex)            SleepConditionVariableCS(pcond, pmutex, INFINITE)
 #define hcondvar_wait_for(pcond, pmutex, ms)    SleepConditionVariableCS(pcond, pmutex, ms)
 #define hcondvar_signal                 WakeConditionVariable
