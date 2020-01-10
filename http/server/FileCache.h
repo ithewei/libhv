@@ -53,6 +53,7 @@ public:
     int file_stat_interval;
     int file_cached_time;
     FileCacheMap cached_files;
+    std::mutex mutex_;
 
     FileCache() {
         file_stat_interval  = DEFAULT_FILE_STAT_INTERVAL;
@@ -70,7 +71,6 @@ public:
     int Close(const char* filepath);
 protected:
     file_cache_t* Get(const char* filepath);
-    std::mutex mutex_;
 };
 
 #endif // HV_FILE_CACHE_H_

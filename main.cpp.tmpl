@@ -6,6 +6,7 @@ typedef struct conf_ctx_s {
     IniParser* parser;
     int loglevel;
     int worker_processes;
+    int worker_threads;
     int port;
 } conf_ctx_t;
 conf_ctx_t g_conf_ctx;
@@ -14,6 +15,7 @@ inline void conf_ctx_init(conf_ctx_t* ctx) {
     ctx->parser = new IniParser;
     ctx->loglevel = LOG_LEVEL_DEBUG;
     ctx->worker_processes = 0;
+    ctx->worker_threads = 0;
     ctx->port = 0;
 }
 
@@ -21,11 +23,7 @@ static void print_version();
 static void print_help();
 
 static int  parse_confile(const char* confile);
-
-static void master_init(void* userdata);
-static void master_proc(void* userdata);
-static void worker_init(void* userdata);
-static void worker_proc(void* userdata);
+static void worker_fn(void* userdata);
 
 // short options
 static const char options[] = "hvc:ts:dp:";
@@ -142,6 +140,9 @@ int parse_confile(const char* confile) {
         }
     }
     g_conf_ctx.worker_processes = LIMIT(0, worker_processes, MAXNUM_WORKER_PROCESSES);
+    // worker_threads
+    int worker_threads = g_conf_ctx.parser->Get<int>("worker_threads");
+    g_conf_ctx.worker_threads = LIMIT(0, worker_threads, 16);
 
     // port
     int port = 0;
@@ -268,41 +269,15 @@ int main(int argc, char** argv) {
     // pidfile
     create_pidfile();
 
-    if (g_conf_ctx.worker_processes == 0) {
-        // single process
-        worker_proc(NULL);
-    }
-    else {
-        // master-workers processes
-        g_worker_processes_num = g_conf_ctx.worker_processes;
-        int bytes = sizeof(proc_ctx_t) * g_worker_processes_num;
-        g_worker_processes = (proc_ctx_t*)malloc(bytes);
-        if (g_worker_processes == NULL) {
-            return ERR_MALLOC;
-        }
-        memset(g_worker_processes, 0, bytes);
-        proc_ctx_t* ctx = g_worker_processes;
-        for (int i = 0; i < g_worker_processes_num; ++i, ++ctx) {
-            ctx->init = worker_init;
-            ctx->init_userdata = NULL;
-            ctx->proc = worker_proc;
-            ctx->proc_userdata = NULL;
-            spawn_proc(ctx);
-            hlogi("workers[%d] start/running, pid=%d", i, ctx->pid);
-        }
-
-        hlogi("master start/running, pid=%d", g_main_ctx.pid);
-        master_init(NULL);
-        master_proc(NULL);
-    }
+    master_workers_run(worker_fn, (void*)100L, g_conf_ctx.worker_processes, g_conf_ctx.worker_threads);
 
     return 0;
 }
 
-void master_proc(void* userdata) {
-    while (1) sleep(1);
-}
-
-void worker_proc(void* userdata) {
-    while (1) sleep(1);
+void worker_fn(void* userdata) {
+    int num = (int)(long)(userdata);
+    while (1) {
+        printf("num=%d pid=%d tid=%d\n", num, getpid(), gettid());
+        sleep(60);
+    }
 }

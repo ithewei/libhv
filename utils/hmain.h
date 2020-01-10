@@ -7,10 +7,14 @@
 #include "hproc.h"
 
 typedef struct main_ctx_s {
-    pid_t   oldpid; // getpid_from_pidfile
-    pid_t   pid;    // getpid
     char    run_path[MAX_PATH];
     char    program_name[MAX_PATH];
+    char    confile[MAX_PATH]; // default etc/${program}.conf
+    char    pidfile[MAX_PATH]; // default logs/${program}.pid
+    char    logfile[MAX_PATH]; // default logs/${program}.log
+
+    pid_t   pid;    // getpid
+    pid_t   oldpid; // getpid_from_pidfile
 
     int     argc;
     int     arg_len;
@@ -22,10 +26,6 @@ typedef struct main_ctx_s {
     int     env_len;
     char**  os_envp;
     char**  save_envp;
-
-    char    confile[MAX_PATH]; // default etc/${program}.conf
-    char    pidfile[MAX_PATH]; // default logs/${program}.pid
-    char    logfile[MAX_PATH]; // default logs/${program}.log
 
     keyval_t    arg_kv;
     StringList  arg_list;
@@ -82,6 +82,15 @@ void signal_handler(int signo);
 #define MAXNUM_WORKER_PROCESSES     1024
 extern main_ctx_t   g_main_ctx;
 extern int          g_worker_processes_num;
+extern int          g_worker_threads_num;
 extern proc_ctx_t*  g_worker_processes;
+extern procedure_t  g_worker_fn;
+extern void*        g_worker_userdata;
+
+// master-workers processes
+int master_workers_run(procedure_t worker_fn, void* worker_userdata,
+        int worker_processes = DEFAULT_WORKER_PROCESSES,
+        int worker_threads = 0,
+        bool wait = true);
 
 #endif // HV_MAIN_H_

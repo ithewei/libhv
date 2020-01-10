@@ -15,26 +15,9 @@
 static HttpService  s_default_service;
 static FileCache    s_filecache;
 
-static void master_init(void* userdata) {
-#ifdef OS_UNIX
-    char proctitle[256] = {0};
-    snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
-    setproctitle(proctitle);
-#endif
-}
-
-static void master_proc(void* userdata) {
-    while (1) sleep(1);
-}
-
-static void worker_init(void* userdata) {
-#ifdef OS_UNIX
-    char proctitle[256] = {0};
-    snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
-    setproctitle(proctitle);
-    signal(SIGNAL_RELOAD, signal_handler);
-#endif
-}
+struct HttpServerPrivdata {
+    std::vector<hloop_t*>   loops;
+};
 
 static void on_recv(hio_t* io, void* _buf, int readbytes) {
     // printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
@@ -262,6 +245,7 @@ static void handle_cached_files(htimer_t* timer) {
     file_cache_t* fc = NULL;
     time_t tt;
     time(&tt);
+    std::lock_guard<std::mutex> locker(pfc->mutex_);
     auto iter = pfc->cached_files.begin();
     while (iter != pfc->cached_files.end()) {
         fc = iter->second;
@@ -278,15 +262,10 @@ static void fsync_logfile(hidle_t* idle) {
     hlog_fsync();
 }
 
-static HTHREAD_ROUTINE(worker_thread) {
-    hlogi("worker_thread pid=%d tid=%d", getpid(), gettid());
+static void worker_fn(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
     int listenfd = server->listenfd;
     hloop_t* loop = hloop_new(0);
-    // for SDK implement http_server_stop
-    if (server->worker_processes == 0 && server->worker_threads <= 1) {
-        server->privdata = (void*)loop;
-    }
     hio_t* listenio = haccept(loop, listenfd, on_accept);
     hevent_set_userdata(listenio, server->service);
     if (server->ssl) {
@@ -298,28 +277,14 @@ static HTHREAD_ROUTINE(worker_thread) {
     // timer handle_cached_files
     htimer_t* timer = htimer_add(loop, handle_cached_files, s_filecache.file_cached_time * 1000);
     hevent_set_userdata(timer, &s_filecache);
+    // for SDK implement http_server_stop
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
+    privdata->loops.push_back(loop);
     hloop_run(loop);
     hloop_free(&loop);
-    return 0;
-}
-
-static void worker_proc(void* userdata) {
-    http_server_t* server = (http_server_t*)userdata;
-    if (server->worker_threads == 0) {
-        worker_thread(userdata);
-    }
-    else {
-        for (int i = 0; i < server->worker_threads; ++i) {
-            hthread_create(worker_thread, server);
-        }
-    }
 }
 
 int http_server_run(http_server_t* server, int wait) {
-    // worker_processes
-    if (server->worker_processes != 0 && g_worker_processes_num != 0 && g_worker_processes != NULL) {
-        return ERR_OVER_LIMIT;
-    }
     // service
     if (server->service == NULL) {
         server->service = &s_default_service;
@@ -328,54 +293,37 @@ int http_server_run(http_server_t* server, int wait) {
     server->listenfd = Listen(server->port, server->host);
     if (server->listenfd < 0) return server->listenfd;
 
-#ifdef OS_WIN
-    // windows not provide MultiProcesses
-    if (server->g_worker_processes != 0) {
-        server->worker_threads = server->worker_proc;
-        server->worker_processes = 0;
-    }
-#endif
+    // privdata
+    server->privdata = new HttpServerPrivdata;
 
-    if (server->worker_processes == 0) {
-        if (wait == 0 && server->worker_threads == 0) {
-            server->worker_threads = 1;
-        }
-        worker_proc(server);
-        if (wait) {
-            master_proc(NULL);
-        }
+    if (server->worker_processes) {
+        return master_workers_run(worker_fn, server, server->worker_processes, server->worker_threads, wait);
     }
     else {
-        // master-workers processes
-        g_worker_processes_num = server->worker_processes;
-        int bytes = g_worker_processes_num * sizeof(proc_ctx_t);
-        g_worker_processes = (proc_ctx_t*)malloc(bytes);
-        memset(g_worker_processes, 0, bytes);
-        for (int i = 0; i < g_worker_processes_num; ++i) {
-            proc_ctx_t* ctx = g_worker_processes + i;
-            ctx->init = worker_init;
-            ctx->init_userdata = NULL;
-            ctx->proc = worker_proc;
-            ctx->proc_userdata = server;
-            spawn_proc(ctx);
-            hlogi("workers[%d] start/running, pid=%d", i, ctx->pid);
-        }
+        // NOTE: master_workers_run use global-vars that may be used by other,
+        // so we implement Multi-Threads directly.
+        int worker_threads = server->worker_threads;
+        if (worker_threads == 0) worker_threads = 1;
         if (wait) {
-            master_init(NULL);
-            master_proc(NULL);
+            for (int i = 1; i < worker_threads; ++i) {
+                hthread_create((hthread_routine)worker_fn, server);
+            }
+            worker_fn(server);
         }
+        else {
+            for (int i = 0; i < worker_threads; ++i) {
+                hthread_create((hthread_routine)worker_fn, server);
+            }
+        }
+        return 0;
     }
-
-    return 0;
 }
 
 int http_server_stop(http_server_t* server) {
-    if (server->worker_processes == 0 && server->worker_threads <= 1) {
-        if (server->privdata) {
-            hloop_t* loop = (hloop_t*)server->privdata;
-            hloop_stop(loop);
-            server->privdata = NULL;
-        }
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
+    for (auto& loop : privdata->loops) {
+        hloop_stop(loop);
     }
+    SAFE_DELETE(privdata);
     return 0;
 }

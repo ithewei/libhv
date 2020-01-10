@@ -55,7 +55,7 @@ int main() {
  */
 int http_server_run(http_server_t* server, int wait = 1);
 
-// just for worker_processes = 0 && worker_threads <= 1
+// just for worker_processes = 0
 int http_server_stop(http_server_t* server);
 
 #endif

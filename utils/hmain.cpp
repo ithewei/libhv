@@ -3,13 +3,31 @@
 #include "hplatform.h"
 #include "hlog.h"
 #include "htime.h"
+#include "herr.h"
+#include "hthread.h"
 
 main_ctx_t  g_main_ctx;
 int         g_worker_processes_num = 0;
+int         g_worker_threads_num = 0;
 proc_ctx_t* g_worker_processes = NULL;
+procedure_t g_worker_fn = NULL;
+void*       g_worker_userdata = NULL;
 
 int main_ctx_init(int argc, char** argv) {
-    g_main_ctx.pid = getpid();
+    if (argc == 0 || argv == NULL) {
+        argc = 1;
+        argv = (char**)malloc(2*sizeof(char*));
+        argv[0] = (char*)malloc(MAX_PATH);
+        argv[1] = NULL;
+#ifdef OS_WIN
+        GetModuleFileName(NULL, argv[0], MAX_PATH);
+#elif defined(OS_LINUX)
+        readlink("/proc/self/exe", argv[0], MAX_PATH);
+#else
+        strcpy(argv[0], "./unnamed");
+#endif
+    }
+
     char* cwd = getcwd(g_main_ctx.run_path, sizeof(g_main_ctx.run_path));
     if (cwd == NULL) {
         printf("getcwd error\n");
@@ -32,6 +50,29 @@ int main_ctx_init(int argc, char** argv) {
     }
 #endif
     //printf("program_name=%s\n", g_main_ctx.program_name);
+    char logpath[MAX_PATH] = {0};
+    snprintf(logpath, sizeof(logpath), "%s/logs", g_main_ctx.run_path);
+    MKDIR(logpath);
+    snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_path, g_main_ctx.program_name);
+    snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_path, g_main_ctx.program_name);
+    snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_path, g_main_ctx.program_name);
+    hlog_set_file(g_main_ctx.logfile);
+
+    g_main_ctx.pid = getpid();
+    g_main_ctx.oldpid = getpid_from_pidfile();
+#ifdef OS_UNIX
+    if (kill(g_main_ctx.oldpid, 0) == -1 && errno == ESRCH) {
+        g_main_ctx.oldpid = -1;
+    }
+#else
+    HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, g_main_ctx.oldpid);
+    if (hproc == NULL) {
+        g_main_ctx.oldpid = -1;
+    }
+    else {
+        CloseHandle(hproc);
+    }
+#endif
 
     // save arg
     int i = 0;
@@ -87,30 +128,6 @@ int main_ctx_init(int argc, char** argv) {
             continue;
         }
         g_main_ctx.env_kv[std::string(b, delim-b)] = std::string(delim+1);
-    }
-#endif
-
-    char logpath[MAX_PATH] = {0};
-    snprintf(logpath, sizeof(logpath), "%s/logs", g_main_ctx.run_path);
-    MKDIR(logpath);
-    snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_path, g_main_ctx.program_name);
-    snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_path, g_main_ctx.program_name);
-    snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_path, g_main_ctx.program_name);
-
-    hlog_set_file(g_main_ctx.logfile);
-
-    g_main_ctx.oldpid = getpid_from_pidfile();
-#ifdef OS_UNIX
-    if (kill(g_main_ctx.oldpid, 0) == -1 && errno == ESRCH) {
-        g_main_ctx.oldpid = -1;
-    }
-#else
-    HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, g_main_ctx.oldpid);
-    if (hproc == NULL) {
-        g_main_ctx.oldpid = -1;
-    }
-    else {
-        CloseHandle(hproc);
     }
 #endif
 
@@ -501,4 +518,90 @@ void handle_signal(const char* signal) {
         exit(0);
     }
     printf("%s start/running\n", g_main_ctx.program_name);
+}
+
+// master-workers processes
+static HTHREAD_ROUTINE(worker_thread) {
+    hlogi("worker_thread pid=%d tid=%d", getpid(), gettid());
+    if (g_worker_fn) {
+        g_worker_fn(g_worker_userdata);
+    }
+    return 0;
+}
+
+static void worker_init(void* userdata) {
+#ifdef OS_UNIX
+    char proctitle[256] = {0};
+    snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
+    setproctitle(proctitle);
+    signal(SIGNAL_RELOAD, signal_handler);
+#endif
+}
+
+static void worker_proc(void* userdata) {
+    for (int i = 1; i < g_worker_threads_num; ++i) {
+        hthread_create(worker_thread, NULL);
+    }
+    worker_thread(NULL);
+}
+
+int master_workers_run(procedure_t worker_fn, void* worker_userdata,
+        int worker_processes, int worker_threads, bool wait) {
+#ifdef OS_WIN
+        // NOTE: Windows not provide MultiProcesses
+        if (worker_threads == 0) {
+            // MultiProcesses => MultiThreads
+            worker_threads = worker_processes;
+        }
+        worker_processes = 0;
+#endif
+    if (worker_threads == 0) worker_threads = 1;
+
+    g_worker_threads_num = worker_threads;
+    g_worker_fn = worker_fn;
+    g_worker_userdata = worker_userdata;
+
+    if (worker_processes == 0) {
+        // single process
+        if (wait) {
+            for (int i = 1; i < worker_threads; ++i) {
+                hthread_create(worker_thread, NULL);
+            }
+            worker_thread(NULL);
+        }
+        else {
+            for (int i = 0; i < worker_threads; ++i) {
+                hthread_create(worker_thread, NULL);
+            }
+        }
+    }
+    else {
+        if (g_worker_processes_num != 0) {
+            return ERR_OVER_LIMIT;
+        }
+        // master-workers processes
+#ifdef OS_UNIX
+        char proctitle[256] = {0};
+        snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
+        setproctitle(proctitle);
+        signal(SIGNAL_RELOAD, signal_handler);
+#endif
+        g_worker_processes_num = worker_processes;
+        int bytes = g_worker_processes_num * sizeof(proc_ctx_t);
+        g_worker_processes = (proc_ctx_t*)malloc(bytes);
+        memset(g_worker_processes, 0, bytes);
+        proc_ctx_t* ctx = g_worker_processes;
+        for (int i = 0; i < g_worker_processes_num; ++i, ++ctx) {
+            ctx->init = worker_init;
+            ctx->proc = worker_proc;
+            spawn_proc(ctx);
+            hlogi("workers[%d] start/running, pid=%d", i, ctx->pid);
+        }
+        g_main_ctx.pid = getpid();
+        hlogi("master start/running, pid=%d", g_main_ctx.pid);
+        if (wait) {
+            while (1) sleep (1);
+        }
+    }
+    return 0;;
 }
