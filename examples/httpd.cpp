@@ -145,19 +145,17 @@ int parse_confile(const char* confile) {
     }
     // ssl
     str = ini.GetValue("ssl");
-    if (str.size() != 0) {
-        if (strcmp(str.c_str(), "on") == 0) {
-            g_http_server.ssl = 1;
-            std::string crt_file = ini.GetValue("ssl_certificate");
-            std::string key_file = ini.GetValue("ssl_privatekey");
-            std::string ca_file = ini.GetValue("ssl_ca_certificate");
-            if (ssl_ctx_init(crt_file.c_str(), key_file.c_str(), ca_file.c_str()) != 0) {
-                hlogi("SSL certificate verify failed!");
-                exit(0);
-            }
-            else {
-                hlogi("SSL certificate verify ok!");
-            }
+    if (getboolean(str.c_str())) {
+        g_http_server.ssl = 1;
+        std::string crt_file = ini.GetValue("ssl_certificate");
+        std::string key_file = ini.GetValue("ssl_privatekey");
+        std::string ca_file = ini.GetValue("ssl_ca_certificate");
+        if (ssl_ctx_init(crt_file.c_str(), key_file.c_str(), ca_file.c_str()) != 0) {
+            hloge("SSL certificate verify failed!");
+            exit(0);
+        }
+        else {
+            hlogi("SSL certificate verify ok!");
         }
     }
 

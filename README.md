@@ -10,6 +10,8 @@ but simpler apis and richer protocols.
 
 - cross-platform (Linux, Windows, Mac)
 - event-loop (IO, timer, idle)
+- enable IPv6
+- with OpenSSL
 - http client/server (include https http1/x http2 grpc)
 - protocols
     - dns
@@ -148,7 +150,24 @@ bin/nc -u 127.0.0.1 2222
 - make DEFINES=PRINT_DEBUG
 
 #### compile WITH_OPENSSL
-- make DEFINES=WITH_OPENSSL
+libhv combines OpenSSL perfectly, something almost all asynchronous IO network libraries don't do.
+And enable SSL in libhv is so easy, just only two apis:
+```
+int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file); // init global SSL_CTX, see
+base/ssl_ctx.h
+int hio_enable_ssl(hio_t* io); // enable ssl, see event/hloop.h
+```
+
+https is the best example.
+```
+sudo apt-get install openssl libssl-dev # ubuntu
+make clean
+make libhv httpd curl DEFINES=WITH_OPENSSL
+# editor etc/httpd.conf => ssl = on
+bin/httpd -d
+bin/curl -v https://localhost:8080
+curl -v https://localhost:8080 --insecure
+```
 
 #### compile WITH_CURL
 - make DEFINES="WITH_CURL CURL_STATICLIB"

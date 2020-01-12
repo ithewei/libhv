@@ -80,7 +80,7 @@ curl: prepare
 consul_cli: prepare
 	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
 	cp examples/consul_cli.cpp $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client consul $(TMPDIR)" DEFINES="PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client consul $(TMPDIR)" DEFINES="$(DEFINES) PRINT_DEBUG"
 
 unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/hmutex     unittest/hmutex_test.c        -pthread
