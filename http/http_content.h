@@ -1,51 +1,7 @@
 #ifndef HTTP_CONTENT_H_
 #define HTTP_CONTENT_H_
 
-#include <string>
-#include <map>
-
-// MultiMap
-namespace std {
-/*
-int main() {
-    std::MultiMap<std::string, std::string> kvs;
-    kvs["name"] = "hw";
-    kvs["filename"] = "1.jpg";
-    kvs["filename"] = "2.jpg";
-    //kvs.insert(std::pair<std::string,std::string>("name", "hw"));
-    //kvs.insert(std::pair<std::string,std::string>("filename", "1.jpg"));
-    //kvs.insert(std::pair<std::string,std::string>("filename", "2.jpg"));
-    for (auto& pair : kvs) {
-        printf("%s:%s\n", pair.first.c_str(), pair.second.c_str());
-    }
-    auto iter = kvs.find("filename");
-    if (iter != kvs.end()) {
-        for (int i = 0; i < kvs.count("filename"); ++i, ++iter) {
-            printf("%s:%s\n", iter->first.c_str(), iter->second.c_str());
-        }
-    }
-    return 0;
-}
- */
-template<typename Key,typename Value>
-class MultiMap : public multimap<Key, Value> {
-public:
-    Value& operator[](Key key) {
-        auto iter = this->insert(std::pair<Key,Value>(key,Value()));
-        return (*iter).second;
-    }
-};
-}
-
-// MAP
-#ifdef USE_MULTIMAP
-#define MAP     std::MultiMap
-#else
-#define MAP     std::map
-#endif
-
-// KeyValue
-typedef MAP<std::string, std::string> KeyValue;
+#include "hstring.h"
 
 // QueryParams
 typedef KeyValue    QueryParams;

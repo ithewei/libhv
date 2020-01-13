@@ -52,6 +52,10 @@ char* strupper(char* str);
 char* strlower(char* str);
 char* strreverse(char* str);
 
+bool strstartswith(const char* str, const char* start);
+bool strendswith(const char* str, const char* end);
+bool strcontains(const char* str, const char* sub);
+
 // strncpy n = sizeof(dest_buf)-1
 // safe_strncpy n = sizeof(dest_buf)
 char* safe_strncpy(char* dest, const char* src, size_t n);

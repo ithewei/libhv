@@ -5,9 +5,6 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include <iostream>
-#include <sstream>
-
 static inline int vscprintf(const char* fmt, va_list ap) {
     return vsnprintf(NULL, 0, fmt, ap);
 }
@@ -31,6 +28,7 @@ string asprintf(const char* fmt, ...) {
 }
 
 StringList split(const string& str, char delim) {
+    /*
     std::stringstream ss;
     ss << str;
     string item;
@@ -39,6 +37,54 @@ StringList split(const string& str, char delim) {
         res.push_back(item);
     }
     return res;
+    */
+    const char* p = str.c_str();
+    const char* value = p;
+    StringList res;
+    while (*p != '\0') {
+        if (*p == delim) {
+            res.push_back(std::string(value, p-value));
+            value = p+1;
+        }
+        ++p;
+    }
+    res.push_back(value);
+    return res;
+}
+
+KeyValue splitKV(const string& str, char kv_kv, char k_v) {
+    enum {
+        s_key,
+        s_value,
+    } state = s_key;
+    const char* p = str.c_str();
+    const char* key = p;
+    const char* value = NULL;
+    int key_len = 0;
+    int value_len = 0;
+    KeyValue kvs;
+    while (*p != '\0') {
+        if (*p == kv_kv) {
+            if (key_len && value_len) {
+                kvs[std::string(key, key_len)] = std::string(value, value_len);
+                key_len = value_len = 0;
+            }
+            state = s_key;
+            key = p+1;
+        }
+        else if (*p == k_v) {
+            state = s_value;
+            value = p+1;
+        }
+        else {
+            state == s_key ? ++key_len : ++value_len;
+        }
+        ++p;
+    }
+    if (key_len && value_len) {
+        kvs[std::string(key, key_len)] = std::string(value, value_len);
+    }
+    return kvs;
 }
 
 string trim(const string& str, const char* chars) {

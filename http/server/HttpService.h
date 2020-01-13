@@ -25,7 +25,7 @@ struct http_method_handler {
         handler = h;
     }
 };
-// Provide Restful API
+// method => http_api_handler
 typedef std::list<http_method_handler> http_method_handlers;
 // path => http_method_handlers
 typedef std::map<std::string, std::shared_ptr<http_method_handlers>> http_api_handlers;
@@ -52,8 +52,10 @@ struct HttpService {
     }
 
     void AddApi(const char* path, http_method method, http_api_handler handler);
+    // @retval 0 OK, else HTTP_STATUS_NOT_FOUND, HTTP_STATUS_METHOD_NOT_ALLOWED
     int GetApi(const char* url, http_method method, http_api_handler* handler);
+    // RESTful API /:field/ => req->query_params["field"]
+    int GetApi(HttpRequest* req, http_api_handler* handler);
 };
 
 #endif // HTTP_SERVICE_H_
-

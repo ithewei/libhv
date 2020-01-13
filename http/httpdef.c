@@ -1,10 +1,13 @@
 #include "httpdef.h"
 
 #include <string.h>
-// strncmp(s1, s2, strlen(s2))
-static int mystrcmp(const char* s1, const char* s2) {
-    while (*s1 != '\0' && *s2 != '\0' && *s1 == *s2) {++s1;++s2;}
-    return *s2 == 0 ? 0 : (*s1-*s2);
+//#include "hbase.h"
+static int strstartswith(const char* str, const char* start) {
+    while (*str && *start && *str == *start) {
+        ++str;
+        ++start;
+    }
+    return *start == '\0';
 }
 
 const char* http_status_str(enum http_status status) {
@@ -59,7 +62,7 @@ enum http_content_type http_content_type_enum(const char* str) {
         return CONTENT_TYPE_NONE;
     }
 #define XX(name, string, suffix) \
-    if (mystrcmp(str, #string) == 0) { \
+    if (strstartswith(str, #string)) { \
         return name; \
     }
     HTTP_CONTENT_TYPE_MAP(XX)

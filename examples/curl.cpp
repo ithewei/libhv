@@ -16,9 +16,10 @@ static const char* url = NULL;
 static const char* method = NULL;
 static const char* headers = NULL;
 static const char* data = NULL;
+static const char* form = NULL;
 static int  send_count   = 1;
 
-static const char* options = "hVvX:H:d:n:";
+static const char* options = "hVvX:H:d:F:n:";
 static const struct option long_options[] = {
     {"help",    no_argument,        NULL,   'h'},
     {"verion",  no_argument,        NULL,   'V'},
@@ -26,6 +27,7 @@ static const struct option long_options[] = {
     {"method",  required_argument,  NULL,   'X'},
     {"header",  required_argument,  NULL,   'H'},
     {"data",    required_argument,  NULL,   'd'},
+    {"form",    required_argument,  NULL,   'F'},
     {"http2",   no_argument,        &http_version, 2},
     {"grpc",    no_argument,        &grpc,  1},
     {"count",   required_argument,  NULL,   'n'},
@@ -36,17 +38,20 @@ static const char* help = R"(Options:
     -V|--version        Print version.
     -v|--verbose        Show verbose infomation.
     -X|--method         Set http method.
-    -H|--header         Add http headers, format -H "Content-Type:application/json Accept:*/*"
+    -H|--header         Add http headers, -H "Content-Type:application/json Accept:*/*"
     -d|--data           Set http body.
+    -F|--form           Set http form, -F "name1=content;name2=@filename"
     -n|--count          Send request count, used for test keep-alive
        --http2          Use http2
        --grpc           Use grpc over http2
 Examples:
-    curl -v localhost:8086
-    curl -v localhost:8086/v1/api/query?page_no=1&page_size=10
-    curl -v -X POST localhost:8086/v1/api/json  -H "Content-Type:application/json"                  -d '{"user":"admin","pswd":"123456"}'
-    curl -v -X POST localhost:8086/v1/api/kv    -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
-    curl -v -X POST localhost:8086/v1/api/echo  -H "Content-Type:text/plain"                        -d 'hello,world!'
+    curl -v localhost:8080
+    curl -v localhost:8080/v1/api/hello
+    curl -v localhost:8080/v1/api/query?page_no=1&page_size=10
+    curl -v localhost:8080/v1/api/echo  -d 'hello,world!'
+    curl -v localhost:8080/v1/api/json  -H "Content-Type:application/json"                  -d '{"user":"admin","pswd":"123456"}'
+    curl -v localhost:8080/v1/api/kv    -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
+    curl -v localhost:8080/v1/api/mp    -F 'file=@filename'
 )";
 
 void print_usage() {
@@ -72,6 +77,7 @@ int parse_cmdline(int argc, char* argv[]) {
         case 'X': method = optarg; break;
         case 'H': headers = optarg; break;
         case 'd': data = optarg; break;
+        case 'F': form = optarg; break;
         case 'n': send_count = atoi(optarg); break;
         default: break;
         }
@@ -109,16 +115,17 @@ int main(int argc, char* argv[]) {
     if (method) {
         req.method = http_method_enum(method);
     }
+    enum {
+        s_key,
+        s_value,
+    } state = s_key;
     if (headers) {
-        enum {
-            s_key,
-            s_value,
-        } state = s_key;
         const char* p = headers;
         const char* key = p;
         const char* value = NULL;
         int key_len = 0;
         int value_len = 0;
+        state = s_key;
         while (*p != '\0') {
             if (*p == ' ') {
                 if (key_len && value_len) {
@@ -142,11 +149,57 @@ int main(int argc, char* argv[]) {
             key_len = value_len = 0;
         }
     }
-    if (data) {
+    if (data || form) {
         if (method == NULL) {
             req.method = HTTP_POST;
         }
-        req.body = data;
+        if (data) {
+            req.body = data;
+        }
+        else if (form) {
+            const char* p = form;
+            const char* key = p;
+            const char* value = NULL;
+            int key_len = 0;
+            int value_len = 0;
+            state = s_key;
+            while (*p != '\0') {
+                if (*p == ';') {
+                    if (key_len && value_len) {
+                        FormData data;
+                        if (*value == '@') {
+                            data.filename = std::string(value+1, value_len-1);
+                        }
+                        else {
+                            data.content = std::string(value, value_len);
+                        }
+                        req.mp[std::string(key,key_len)] = data;
+                        key_len = value_len = 0;
+                    }
+                    state = s_key;
+                    key = p+1;
+                }
+                else if (*p == '=') {
+                    state = s_value;
+                    value = p+1;
+                }
+                else {
+                    state == s_key ? ++key_len : ++value_len;
+                }
+                ++p;
+            }
+            if (key_len && value_len) {
+                printf("key=%.*s value=%.*s\n", key_len, key, value_len, value);
+                FormData data;
+                if (*value == '@') {
+                    data.filename = std::string(value+1, value_len-1);
+                }
+                else {
+                    data.content = std::string(value, value_len);
+                }
+                req.mp[std::string(key,key_len)] = data;
+            }
+        }
     }
     HttpResponse res;
     http_client_t* hc = http_client_new();

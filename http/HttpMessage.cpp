@@ -52,14 +52,21 @@ append:
 
 void HttpMessage::FillContentLength() {
     auto iter = headers.find("Content-Length");
-    if (iter == headers.end()) {
+    if (iter != headers.end()) {
+        content_length = atoi(iter->second.c_str());
+    }
+
+    if (iter == headers.end() || content_length == 0) {
         if (content_length == 0) {
+            content_length == body.size();
+        }
+        if (content_length == 0) {
+            DumpBody();
             content_length = body.size();
         }
-        headers["Content-Length"] = asprintf("%d", content_length);
-    }
-    else {
-        content_length = atoi(iter->second.c_str());
+        char sz[64];
+        snprintf(sz, sizeof(sz), "%d", content_length);
+        headers["Content-Length"] = sz;
     }
 }
 

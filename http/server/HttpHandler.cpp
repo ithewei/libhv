@@ -1,5 +1,6 @@
 #include "HttpHandler.h"
 
+#include "hbase.h"
 #include "hstring.h"
 #include "http_page.h"
 
@@ -12,8 +13,13 @@ int HttpHandler::HandleRequest() {
             return HANDLE_DONE;
         }
     }
+
     http_api_handler api = NULL;
-    int ret = service->GetApi(req.path.c_str(), req.method, &api);
+    int ret = 0;
+    if (service->api_handlers.size() != 0) {
+        ret = service->GetApi(&req, &api);
+    }
+
     if (api) {
         // api service
         if (api(&req, &res) == HANDLE_DONE) {
@@ -24,25 +30,27 @@ int HttpHandler::HandleRequest() {
         // Method Not Allowed
         res.status_code = HTTP_STATUS_METHOD_NOT_ALLOWED;
     }
-    else if (req.method == HTTP_GET) {
+    else if (service->document_root.size() != 0 && req.method == HTTP_GET) {
         // web service
-        // check path
-        if (*req.path.c_str() != '/' || strstr(req.path.c_str(), "/../")) {
+        // path safe check
+        const char* req_path = req.path.c_str();
+        if (*req_path != '/' || strstr(req_path, "/../")) {
             res.status_code = HTTP_STATUS_BAD_REQUEST;
             goto make_http_status_page;
         }
         std::string filepath = service->document_root;
-        filepath += req.path.c_str();
-        if (strcmp(req.path.c_str(), "/") == 0) {
+        filepath += req_path;
+        if (req_path[1] == '\0') {
             filepath += service->home_page;
         }
-        if (filepath.c_str()[filepath.size()-1] != '/' ||
-            (service->index_of.size() != 0 &&
-             req.path.size() >= service->index_of.size() &&
-             strnicmp(req.path.c_str(), service->index_of.c_str(), service->index_of.size()) == 0)) {
-            fc = files->Open(filepath.c_str(), (void*)req.path.c_str());
+        bool is_dir = filepath.c_str()[filepath.size()-1] == '/';
+        bool is_index_of = false;
+        if (service->index_of.size() != 0 && strstartswith(req_path, service->index_of.c_str())) {
+            is_index_of = true;
         }
-
+        if (!is_dir || is_index_of) {
+            fc = files->Open(filepath.c_str(), (void*)req_path);
+        }
         if (fc == NULL) {
             // Not Found
             res.status_code = HTTP_STATUS_NOT_FOUND;

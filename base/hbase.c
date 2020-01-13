@@ -114,6 +114,37 @@ char* safe_strncat(char* dest, const char* src, size_t n) {
     return ret;
 }
 
+bool strstartswith(const char* str, const char* start) {
+    assert(str != NULL && start != NULL);
+    while (*str && *start && *str == *start) {
+        ++str;
+        ++start;
+    }
+    return *start == '\0';
+}
+
+bool strendswith(const char* str, const char* end) {
+    assert(str != NULL && end != NULL);
+    int len1 = 0;
+    int len2 = 0;
+    while (*str++) {++len1;}
+    while (*end++) {++len2;}
+    if (len1 < len2) return false;
+    while (len2-- > 0) {
+        --str;
+        --end;
+        if (*str != *end) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool strcontains(const char* str, const char* sub) {
+    assert(str != NULL && sub != NULL);
+    return strstr(str, sub) != NULL;
+}
+
 bool getboolean(const char* str) {
     if (str == NULL) return false;
     int len = strlen(str);

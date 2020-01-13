@@ -25,13 +25,13 @@ void HttpService::AddApi(const char* path, http_method method, http_api_handler 
 int HttpService::GetApi(const char* url, http_method method, http_api_handler* handler) {
     // {base_url}/path?query
     const char* s = url;
-    const char* c = base_url.c_str();
-    while (*s != '\0' && *c != '\0' && *s == *c) {++s;++c;}
-    if (*c != '\0') {
+    const char* b = base_url.c_str();
+    while (*s && *b && *s == *b) {++s;++b;}
+    if (*b != '\0') {
         return HTTP_STATUS_NOT_FOUND;
     }
     const char* e = s;
-    while (*e != '\0' && *e != '?') ++e;
+    while (*e && *e != '?') ++e;
 
     std::string path = std::string(s, e);
     auto iter = api_handlers.find(path);
@@ -50,3 +50,60 @@ int HttpService::GetApi(const char* url, http_method method, http_api_handler* h
     return HTTP_STATUS_METHOD_NOT_ALLOWED;
 }
 
+int HttpService::GetApi(HttpRequest* req, http_api_handler* handler) {
+    // {base_url}/path?query
+    const char* s = req->path.c_str();
+    const char* b = base_url.c_str();
+    while (*s && *b && *s == *b) {++s;++b;}
+    if (*b != '\0') {
+        return HTTP_STATUS_NOT_FOUND;
+    }
+    const char* e = s;
+    while (*e && *e != '?') ++e;
+
+    std::string path = std::string(s, e);
+    const char *kp, *ks, *vp, *vs;
+    for (auto iter = api_handlers.begin(); iter != api_handlers.end(); ++iter) {
+        kp = iter->first.c_str();
+        vp = path.c_str();
+
+        // RESTful API
+        std::map<std::string, std::string> params;
+        while (*kp && *vp && *kp == *vp) {
+            if (kp[0] == '/' && kp[1] == ':') {
+                kp += 2;
+                ks = kp;
+                while (*kp && *kp != '/') {++kp;}
+                vp += 1;
+                vs = vp;
+                while (*vp && *vp != '/') {++vp;}
+                params[std::string(ks, kp-ks)] = std::string(vs, vp-vs);
+            }
+            else {
+                ++kp;
+                ++vp;
+            }
+        }
+
+        if (*kp == '\0' && *vp == '\0') {
+            auto method_handlers = iter->second;
+            for (auto iter = method_handlers->begin(); iter != method_handlers->end(); ++iter) {
+                if (iter->method == req->method) {
+                    for (auto& param : params) {
+                        // RESTful /:field/ => req->query_params
+                        req->query_params[param.first] = param.second;
+                    }
+                    *handler = iter->handler;
+                    return 0;
+                }
+            }
+
+            if (params.size() == 0) {
+                *handler = NULL;
+                return HTTP_STATUS_METHOD_NOT_ALLOWED;
+            }
+        }
+    }
+    *handler = NULL;
+    return HTTP_STATUS_NOT_FOUND;
+}
