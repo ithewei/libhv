@@ -51,14 +51,14 @@ Http2Session::Http2Session(http_session_type type) {
         nghttp2_session_callbacks_set_on_frame_recv_callback(cbs, on_frame_recv_callback);
     }
     if (type == HTTP_CLIENT) {
-        nghttp2_session_client_new(&session, cbs, NULL);
+        nghttp2_session_client_new(&session, cbs, this);
         state = HSS_SEND_MAGIC;
     }
     else if (type == HTTP_SERVER) {
-        nghttp2_session_server_new(&session, cbs, NULL);
+        nghttp2_session_server_new(&session, cbs, this);
         state = HSS_WANT_RECV;
     }
-    nghttp2_session_set_user_data(session, this);
+    //nghttp2_session_set_user_data(session, this);
     submited = NULL;
     parsed = NULL;
     stream_id = -1;

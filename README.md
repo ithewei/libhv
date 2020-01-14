@@ -140,15 +140,16 @@ bin/nc -u 127.0.0.1 2222
 - sudo make install
 
 ### examples
-- make test # master-workers model
-- make timer # timer add/del/reset
-- make loop # event-loop(include idle, timer, io)
-- make tcp  # tcp server
-- make udp  # udp server
-- make nc   # network client
-- make nmap # host discovery
-- make httpd # http server
-- make curl # http client
+- make examples
+    - make test # master-workers model
+    - make timer # timer add/del/reset
+    - make loop # event-loop(include idle, timer, io)
+    - make tcp  # tcp server
+    - make udp  # udp server
+    - make nc   # network client
+    - make nmap # host discovery
+    - make httpd # http server
+    - make curl # http client
 
 ### unittest
 - make unittest
@@ -158,12 +159,14 @@ bin/nc -u 127.0.0.1 2222
 - make DEFINES=PRINT_DEBUG
 
 #### compile WITH_OPENSSL
-libhv combines OpenSSL perfectly, something almost all asynchronous IO network libraries don't do.
+libhv combines OpenSSL perfectly, something almost all asynchronous IO network libraries don't do.<br>
 And enable SSL in libhv is so easy, just only two apis:
 ```
-int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file); // init global SSL_CTX, see
-base/ssl_ctx.h
-int hio_enable_ssl(hio_t* io); // enable ssl, see event/hloop.h
+// init global SSL_CTX, see base/ssl_ctx.h
+int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file);
+
+// enable ssl, see event/hloop.h
+int hio_enable_ssl(hio_t* io);
 ```
 
 https is the best example.
@@ -181,7 +184,13 @@ curl -v https://localhost:8080 --insecure
 - make DEFINES="WITH_CURL CURL_STATICLIB"
 
 #### compile WITH_NGHTTP2
-- make DEFINES=WITH_NGHTTP2
+```
+sudo apt-get install libnghttp2-dev # ubuntu
+make clean
+make libhv httpd curl DEFINES=WITH_NGHTTP2
+bin/httpd -d
+bin/curl -v localhost:8080 --http2
+```
 
 #### other options
 - ENABLE_IPV6

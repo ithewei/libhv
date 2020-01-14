@@ -11,6 +11,15 @@
 typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
 typedef std::string                                         http_body;
 
+struct NetAddr {
+    std::string     ip;
+    int             port;
+
+    std::string ipport() {
+        return asprintf("%s:%d", ip.c_str(), port);
+    }
+};
+
 class HttpMessage {
 public:
     int                 type;
@@ -105,6 +114,8 @@ public:
     int                 port;
     std::string         path;
     QueryParams         query_params;
+    // client_addr
+    NetAddr             client_addr;
 
     HttpRequest() : HttpMessage() {
         type = HTTP_REQUEST;
