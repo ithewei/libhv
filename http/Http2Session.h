@@ -66,7 +66,8 @@ public:
     }
 
     virtual const char* StrError(int error) {
-        return nghttp2_http2_strerror(error);
+        //return nghttp2_http2_strerror(error);
+        return nghttp2_strerror(error);
     }
 
     // client

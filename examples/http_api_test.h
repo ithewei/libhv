@@ -16,6 +16,7 @@
 
 
 inline int http_api_preprocessor(HttpRequest* req, HttpResponse* res) {
+    //printf("%s:%d\n", req->client_addr.ip.c_str(), req->client_addr.port);
     //printf("%s\n", req->Dump(true, true).c_str());
     req->ParseBody();
     return 0;

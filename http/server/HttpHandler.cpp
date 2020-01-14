@@ -8,6 +8,8 @@ int HttpHandler::HandleRequest() {
     // preprocessor -> api -> web -> postprocessor
     // preprocessor
     req.ParseUrl();
+    req.client_addr.ip = ip;
+    req.client_addr.port = port;
     if (service->preprocessor) {
         if (service->preprocessor(&req, &res) == HANDLE_DONE) {
             return HANDLE_DONE;
