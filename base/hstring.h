@@ -43,15 +43,14 @@ public:
 };
 }
 
-// MAP
 #ifdef USE_MULTIMAP
-#define MAP     std::MultiMap
+#define HMAP    std::MultiMap
 #else
-#define MAP     std::map
+#define HMAP    std::map
 #endif
 
 // KeyValue
-typedef MAP<std::string, std::string> KeyValue;
+typedef HMAP<std::string, std::string> KeyValue;
 
 // std::map<std::string, std::string, StringCaseLess>
 class StringCaseLess : public std::binary_function<std::string, std::string, bool> {
