@@ -50,7 +50,7 @@ struct FormData {
 
 // Multipart
 // name => FormData
-typedef MAP<std::string, FormData>          MultiPart;
+typedef HV_MAP<std::string, FormData>          MultiPart;
 #define DEFAULT_MULTIPART_BOUNDARY  "----WebKitFormBoundary7MA4YWxkTrZu0gW"
 std::string dump_multipart(MultiPart& mp, const char* boundary = DEFAULT_MULTIPART_BOUNDARY);
 int         parse_multipart(std::string& str, MultiPart& mp, const char* boundary);

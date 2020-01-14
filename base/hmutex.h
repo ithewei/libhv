@@ -135,6 +135,19 @@ using std::condition_variable;
 using std::lock_guard;
 using std::unique_lock;
 
+namespace hv {
+
+class MutexLock {
+public:
+    MutexLock() { hmutex_init(&_mutex); }
+    ~MutexLock() { hmutex_destroy(&_mutex); }
+
+    void lock() { hmutex_lock(&_mutex); }
+    void unlock() { hmutex_unlock(&_mutex); }
+protected:
+    hmutex_t _mutex;
+};
+
 class RWLock {
 public:
     RWLock()    { hrwlock_init(&_rwlock); }
@@ -148,6 +161,9 @@ public:
 protected:
     hrwlock_t   _rwlock;
 };
-#endif
+
+} // end namespace
+
+#endif // __cplusplus
 
 #endif // HV_MUTEX_H_
