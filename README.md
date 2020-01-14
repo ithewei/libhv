@@ -140,15 +140,16 @@ bin/nc -u 127.0.0.1 2222
 - sudo make install
 
 ### examples
-- make test # master-workers model
-- make timer # timer add/del/reset
-- make loop # event-loop(include idle, timer, io)
-- make tcp  # tcp server
-- make udp  # udp server
-- make nc   # network client
-- make nmap # host discovery
-- make httpd # http server
-- make curl # http client
+- make examples
+    - make test # master-workers model
+    - make timer # timer add/del/reset
+    - make loop # event-loop(include idle, timer, io)
+    - make tcp  # tcp server
+    - make udp  # udp server
+    - make nc   # network client
+    - make nmap # host discovery
+    - make httpd # http server
+    - make curl # http client
 
 ### unittest
 - make unittest
