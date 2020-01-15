@@ -58,7 +58,7 @@ void HttpMessage::FillContentLength() {
 
     if (iter == headers.end() || content_length == 0) {
         if (content_length == 0) {
-            content_length == body.size();
+            content_length = body.size();
         }
         if (content_length == 0) {
             DumpBody();

@@ -78,7 +78,7 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
         if (data.dwFileAttributes & _A_SUBDIR) {
             tmp.type = 'd';
         }
-        tmp.mod = 0777;
+        tmp.mode = 0777;
         tmp.size = (((uint64_t)data.nFileSizeHigh) << 32) | data.nFileSizeLow;
         tmp.atime = FileTime2Epoch(data.ftLastAccessTime);
         tmp.mtime = FileTime2Epoch(data.ftLastWriteTime);

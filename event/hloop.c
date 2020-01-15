@@ -64,13 +64,13 @@ static int hloop_process_timers(hloop_t* loop) {
             heap_dequeue(&loop->timers);
             if (timer->event_type == HEVENT_TYPE_TIMEOUT) {
                 while (timer->next_timeout <= now_hrtime) {
-                    timer->next_timeout += ((htimeout_t*)timer)->timeout*1000;
+                    timer->next_timeout += ((htimeout_t*)timer)->timeout * 1000;
                 }
             }
             else if (timer->event_type == HEVENT_TYPE_PERIOD) {
                 hperiod_t* period = (hperiod_t*)timer;
                 timer->next_timeout = calc_next_timeout(period->minute, period->hour, period->day,
-                        period->week, period->month) * 1e6;
+                        period->week, period->month) * 1000000;
             }
             heap_insert(&loop->timers, &timer->node);
         }
@@ -399,7 +399,7 @@ htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
     timer->day    = day;
     timer->month  = month;
     timer->week   = week;
-    timer->next_timeout = calc_next_timeout(minute, hour, day, week, month) * 1e6;
+    timer->next_timeout = calc_next_timeout(minute, hour, day, week, month) * 1000000;
     heap_insert(&loop->timers, &timer->node);
     EVENT_ADD(loop, timer, cb);
     loop->ntimers++;

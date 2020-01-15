@@ -76,7 +76,7 @@ static inline void qtype##_resize(qtype* p, int maxsize) {\
 }\
 \
 static inline void qtype##_double_resize(qtype* p) {\
-    return qtype##_resize(p, p->maxsize*2);\
+    qtype##_resize(p, p->maxsize*2);\
 }\
 \
 static inline void qtype##_push_back(qtype* p, type* elem) {\
