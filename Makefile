@@ -8,7 +8,7 @@ all: libhv examples
 examples: test timer loop tcp udp nc nmap httpd curl consul_cli
 
 clean:
-	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server protocol examples $(TMPDIR)"
+	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server protocol examples consul $(TMPDIR)"
 
 prepare:
 	$(MKDIR) -p $(TMPDIR) lib bin

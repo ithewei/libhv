@@ -159,7 +159,7 @@ else
 ifeq ($(OS), Android)
 	LDFLAGS += -lstdc++ -lm -llog -ldl
 else
-	LDFLAGS += -lstdc++ -lpthread -lm -ldl
+	LDFLAGS += -lstdc++ -lpthread -lm -ldl -lrt
 endif
 endif
 
@@ -198,9 +198,9 @@ $(info BUILD_TYPE       = $(BUILD_TYPE))
 $(info SRCS=$(SRCS))
 $(info OBJS=$(OBJS))
 
-$(info INSTALLED_INCS=$(INSTALLED_INCS))
-$(info INSTALLED_LIBS=$(INSTALLED_LIBS))
-$(info INSTALLED_BINS=$(INSTALLED_BINS))
+#$(info INSTALLED_INCS=$(INSTALLED_INCS))
+#$(info INSTALLED_LIBS=$(INSTALLED_LIBS))
+#$(info INSTALLED_BINS=$(INSTALLED_BINS))
 
 default: all
 

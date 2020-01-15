@@ -11,8 +11,8 @@ END
 # Checks for compiler
 echo "checking for compiler..."
 if [ $CROSS_COMPILE ]; then
-    $CC  = ${CROSS_COMPILE}gcc
-    $CXX = ${CROSS_COMPILE}g++
+    CC=${CROSS_COMPILE}gcc
+    CXX=${CROSS_COMPILE}g++
 fi
 
 if [ ! $CC ]; then
