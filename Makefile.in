@@ -159,7 +159,10 @@ else
 ifeq ($(OS), Android)
 	LDFLAGS += -lstdc++ -lm -llog -ldl
 else
-	LDFLAGS += -lstdc++ -lpthread -lm -ldl -lrt
+	LDFLAGS += -lstdc++ -lpthread -lm -ldl
+ifneq ($(findstring gcc, $(CC)), )
+	LDFLAGS += -lrt # for clock_gettime, clang not -lrt
+endif
 endif
 endif
 

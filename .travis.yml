@@ -10,6 +10,7 @@ os:
   #- pip install --user cpp-coveralls
 
 script:
+    - ./configure
     - make unittest
     - make all
 
