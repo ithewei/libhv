@@ -55,9 +55,6 @@
 #pragma warning (disable: 4100) // unused param
 #pragma warning (disable: 4819) // Unicode
 #pragma warning (disable: 4996) // _CRT_SECURE_NO_WARNINGS
-
-#undef  HAVE_PTHREAD_H
-#define HAVE_PTHREAD_H  0
 #endif
 
 // __MINGW32__
@@ -138,7 +135,6 @@
 #else
     #include <unistd.h>
     #include <dirent.h>     // for mkdir,rmdir,chdir,getcwd
-    #include <sys/time.h>   // for gettimeofday
 
     // socket
     #include <sys/socket.h>
@@ -196,8 +192,16 @@ typedef unsigned __int64    uint64_t;
 #include <fcntl.h>
 #endif
 
+#ifndef _MSC_VER
+
+#if HAVE_SYS_TIME_H
+#include <sys/time.h>   // for gettimeofday
+#endif
+
 #if HAVE_PTHREAD_H
 #include <pthread.h>
+#endif
+
 #endif
 
 #endif // HV_PLATFORM_H_

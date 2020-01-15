@@ -26,9 +26,10 @@ winbuild/libhv/libhv.sln
 ### mingw
 see CROSS_COMPILE
 
-for examples
+For example:
 ```
 sudo apt-get install mingw-w64 # ubuntu
+#export CROSS_COMPILE=i686-w64-mingw32-
 export CROSS_COMPILE=x86_64-w64-mingw32-
 ./configure
 make

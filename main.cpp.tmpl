@@ -269,13 +269,13 @@ int main(int argc, char** argv) {
     // pidfile
     create_pidfile();
 
-    master_workers_run(worker_fn, (void*)100L, g_conf_ctx.worker_processes, g_conf_ctx.worker_threads);
+    master_workers_run(worker_fn, (void*)(intptr_t)100L, g_conf_ctx.worker_processes, g_conf_ctx.worker_threads);
 
     return 0;
 }
 
 void worker_fn(void* userdata) {
-    int num = (int)(long)(userdata);
+    int num = (int)(intptr_t)(userdata);
     while (1) {
         printf("num=%d pid=%d tid=%d\n", num, getpid(), gettid());
         sleep(60);

@@ -427,9 +427,9 @@ int hio_close (hio_t* io) {
     }
 #endif
     if (io->close_cb) {
-        printd("close_cb------\n");
+        //printd("close_cb------\n");
         io->close_cb(io);
-        printd("close_cb======\n");
+        //printd("close_cb======\n");
     }
     return 0;
 }
