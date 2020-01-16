@@ -52,6 +52,14 @@ int Resolver(const char* host, sockaddr_un* addr) {
 }
 
 int Bind(int port, const char* host, int type) {
+#ifdef OS_WIN
+    static int s_wsa_initialized = 0;
+    if (s_wsa_initialized == 0) {
+        s_wsa_initialized = 1;
+        WSADATA wsadata;
+        WSAStartup(MAKEWORD(2,2), &wsadata);
+    }
+#endif
     sockaddr_un localaddr;
     socklen_t addrlen = sizeof(localaddr);
     memset(&localaddr, 0, addrlen);

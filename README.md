@@ -61,7 +61,9 @@ git clone https://github.com/ithewei/libhv.git
 cd libhv
 make httpd curl
 
-bin/httpd -s restart -d
+bin/httpd -h
+bin/httpd -d
+#bin/httpd -c etc/httpd.conf -s restart -d
 ps aux | grep httpd
 
 # http web service

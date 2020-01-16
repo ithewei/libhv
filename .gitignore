@@ -34,8 +34,7 @@ build
 test
 
 # msvc
-*.VC.db
-*.VC.VC.opendb
-*.vcxproj.filters
+*.VC.*
+*.vcxproj.*
 Debug
 Release
