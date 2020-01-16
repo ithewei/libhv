@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{1F0DF7C6-FF67-4EFE-B4E7-41233C726D26}</ProjectGuid>
-    <RootNamespace>libhw</RootNamespace>
+    <RootNamespace>libhv</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -230,7 +230,11 @@
     <ClCompile Include="..\..\event\poll.c" />
     <ClCompile Include="..\..\event\select.c" />
     <ClCompile Include="..\..\http\client\http_client.cpp" />
+    <ClCompile Include="..\..\http\Http1Session.cpp" />
+    <ClCompile Include="..\..\http\Http2Session.cpp" />
+    <ClCompile Include="..\..\http\httpdef.c" />
     <ClCompile Include="..\..\http\HttpMessage.cpp" />
+    <ClCompile Include="..\..\http\HttpSession.cpp" />
     <ClCompile Include="..\..\http\http_content.cpp" />
     <ClCompile Include="..\..\http\http_parser.c" />
     <ClCompile Include="..\..\http\multipart_parser.c" />

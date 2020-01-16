@@ -1,21 +1,19 @@
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-TMPDIR=tmp
 
 default: all
 all: libhv examples
 examples: test timer loop tcp udp nc nmap httpd curl consul_cli
 
 clean:
-	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server protocol examples consul $(TMPDIR)"
+	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server protocol consul examples"
 
 prepare:
-	$(MKDIR) -p $(TMPDIR) lib bin
-	$(RM) base/RAII.o
+	$(MKDIR) bin
 
-libhv: prepare
-	$(RM) include
+libhv:
+	$(MKDIR) lib
 	$(MAKEF) TARGET=$@ TARGET_TYPE=SHARED SRCDIRS=". base utils event http http/client http/server protocol"
 	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server protocol"
 	$(MKDIR) include/hv
@@ -27,60 +25,40 @@ install:
 	$(CP) lib/libhv.a lib/libhv.so $(INSTALL_LIBDIR)
 
 test: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp main.cpp.tmpl $(TMPDIR)/main.cpp
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils $(TMPDIR)"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils" SRCS="examples/hmain_test.cpp"
 
 timer: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/timer.c $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/htimer_test.c"
 
 loop: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/loop.c $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/hloop_test.c"
 
 tcp: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/tcp.c $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp.c"
 
 udp: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/udp.c $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp.c"
 
 nc: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/nc.c $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nc.c"
 
 nmap: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/nmap.cpp $(TMPDIR)
 ifeq ($(OS), Windows)
 	# for nmap on Windows platform, recommand EVENT_POLL, not EVENT_IOCP
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)" DEFINES="$(DEFINES) PRINT_DEBUG EVENT_POLL"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nmap.cpp" DEFINES="$(DEFINES) PRINT_DEBUG EVENT_POLL"
 else
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event $(TMPDIR)" DEFINES="$(DEFINES) PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nmap.cpp" DEFINES="$(DEFINES) PRINT_DEBUG"
 endif
 
 httpd: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/httpd.cpp examples/http_api_test.h $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server $(TMPDIR)"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server examples/httpd"
 
 curl: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/curl.cpp $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)"
-	#$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client $(TMPDIR)" DEFINES="$(DEFINES) WITH_CURL CURL_STATICLIB"
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp"
+	#$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp" DEFINES="$(DEFINES) WITH_CURL CURL_STATICLIB"
 
 consul_cli: prepare
-	$(RM) $(TMPDIR)/*.o $(TMPDIR)/*.h $(TMPDIR)/*.c $(TMPDIR)/*.cpp
-	cp examples/consul_cli.cpp $(TMPDIR)
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client consul $(TMPDIR)" DEFINES="$(DEFINES) PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="$(DEFINES) PRINT_DEBUG"
 
 unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/hmutex_test       unittest/hmutex_test.c        -pthread

@@ -277,7 +277,6 @@ In general, the performance of these libraries are similar, each has its own adv
 
 - hv.h：         总头文件
 - Makefile.in:   通用Makefile模板
-- main.cpp.tmpl: 通用main.cpp模板
 
 ## 学习资料
 
