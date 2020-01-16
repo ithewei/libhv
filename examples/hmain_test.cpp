@@ -159,6 +159,7 @@ int parse_confile(const char* confile) {
     }
     g_conf_ctx.port = port;
 
+    hlogi("parse_confile('%s') OK", confile);
     return 0;
 }
 
