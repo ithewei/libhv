@@ -1,7 +1,6 @@
 #include "HttpHandler.h"
 
 #include "hbase.h"
-#include "hstring.h"
 #include "http_page.h"
 
 int HttpHandler::HandleRequest() {
@@ -105,7 +104,9 @@ make_http_status_page:
             res.headers["Content-Type"] = fc->content_type;
             res.FillContentType();
         }
-        res.headers["Content-Length"] = asprintf("%d", res.content_length);
+        char sz[64];
+        snprintf(sz, sizeof(sz), "%d", res.content_length);
+        res.headers["Content-Length"] = sz;
         res.headers["Last-Modified"] = fc->last_modified;
         res.headers["Etag"] = fc->etag;
     }

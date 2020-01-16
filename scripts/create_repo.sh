@@ -10,4 +10,4 @@ cp src/hv/.gitignore .
 cp src/hv/.clang-format .
 cp src/hv/Makefile .
 cp -r src/hv/etc/* etc
-cp src/hv/main.cpp.tmpl src/main.cpp
+cp src/hv/examples/hmain_test.cpp src/main.cpp

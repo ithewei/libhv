@@ -293,6 +293,7 @@ connect:
                     ++failed;
                     continue;
                 }
+                int total_rdbytes = 0;
 write:
                 if (timerexpired) break;
                 wrbytes = write(sock, request, len);
@@ -319,7 +320,16 @@ read:
                 if (verbose) {
                     printf("%.*s\n", rdbytes, buf);
                 }
+                static int s_rdbytes = 0;
+                if (s_rdbytes == 0) {
+                    s_rdbytes = rdbytes;
+                }
                 bytes += rdbytes;
+                total_rdbytes += rdbytes;
+                if (total_rdbytes < s_rdbytes) {
+                    // NOTE: some http server head and body send not one packet.
+                    goto read;
+                }
                 ++succeed;
 close:
                 if (!keepalive) {
