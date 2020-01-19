@@ -20,7 +20,7 @@ libhv:
 	$(CP) $(INSTALL_HEADERS) include/hv
 
 install:
-	$(MKDIR) -p $(INSTALL_INCDIR)
+	$(MKDIR) $(INSTALL_INCDIR)
 	$(CP) include/hv/* $(INSTALL_INCDIR)
 	$(CP) lib/libhv.a lib/libhv.so $(INSTALL_LIBDIR)
 
@@ -51,6 +51,7 @@ else
 endif
 
 httpd: prepare
+	$(RM) examples/httpd/*.o
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server examples/httpd"
 
 curl: prepare

@@ -49,9 +49,9 @@ Examples:
     curl -v localhost:8080/v1/api/hello
     curl -v localhost:8080/v1/api/query?page_no=1&page_size=10
     curl -v localhost:8080/v1/api/echo  -d 'hello,world!'
-    curl -v localhost:8080/v1/api/json  -H "Content-Type:application/json"                  -d '{"user":"admin","pswd":"123456"}'
     curl -v localhost:8080/v1/api/kv    -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
-    curl -v localhost:8080/v1/api/mp    -F 'file=@filename'
+    curl -v localhost:8080/v1/api/json  -H "Content-Type:application/json"                  -d '{"user":"admin","pswd":"123456"}'
+    curl -v localhost:8080/v1/api/form  -F 'file=@filename'
 )";
 
 void print_usage() {
@@ -164,7 +164,7 @@ int main(int argc, char* argv[]) {
             int value_len = 0;
             state = s_key;
             while (*p != '\0') {
-                if (*p == ';') {
+                if (*p == ' ') {
                     if (key_len && value_len) {
                         FormData data;
                         if (*value == '@') {
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
                         else {
                             data.content = std::string(value, value_len);
                         }
-                        req.mp[std::string(key,key_len)] = data;
+                        req.form[std::string(key,key_len)] = data;
                         key_len = value_len = 0;
                     }
                     state = s_key;
@@ -197,7 +197,7 @@ int main(int argc, char* argv[]) {
                 else {
                     data.content = std::string(value, value_len);
                 }
-                req.mp[std::string(key,key_len)] = data;
+                req.form[std::string(key,key_len)] = data;
             }
         }
     }

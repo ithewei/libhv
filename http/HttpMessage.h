@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <sstream>
 
 #include "hstring.h"
 #include "httpdef.h"
@@ -35,8 +36,35 @@ public:
     http_content_type   content_type;
 #ifndef WITHOUT_HTTP_CONTENT
     Json                json;       // APPLICATION_JSON
-    MultiPart           mp;         // MULTIPART_FORM_DATA
+    MultiPart           form;       // MULTIPART_FORM_DATA
     KeyValue            kv;         // X_WWW_FORM_URLENCODED
+
+    std::string GetValue(const char* key, const std::string& = std::string(""));
+    // T=[bool, int64_t, double]
+    template<typename T>
+    T Get(const char* key, T defvalue = 0);
+
+    // T=[string, bool, int64_t, double]
+    template<typename T>
+    void Set(const char* key, const T& value) {
+        switch (content_type) {
+        case APPLICATION_JSON:
+            json[key] = value;
+            break;
+        case MULTIPART_FORM_DATA:
+            form[key] = FormData(value);
+            break;
+        case X_WWW_FORM_URLENCODED:
+        {
+            std::ostringstream os;
+            os << value;
+            kv[key] = os.str();
+        }
+            break;
+        default:
+            break;
+        }
+    }
 #endif
 
     HttpMessage() {
@@ -60,7 +88,7 @@ public:
         body.clear();
 #ifndef WITHOUT_HTTP_CONTENT
         json.clear();
-        mp.clear();
+        form.clear();
         kv.clear();
 #endif
     }

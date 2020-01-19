@@ -5,6 +5,202 @@
 #include "htime.h"
 #include "http_parser.h" // for http_parser_url
 
+#ifndef WITHOUT_HTTP_CONTENT
+// NOTE: json ignore number/string, 123/"123"
+using nlohmann::detail::value_t;
+
+std::string HttpMessage::GetValue(const char* key, const std::string& defvalue) {
+    switch (content_type) {
+    case APPLICATION_JSON:
+    {
+        auto iter = json.find(key);
+        if (iter != json.end()) {
+            switch (iter->type()) {
+            case value_t::null:
+                return "null";
+            case value_t::string:
+                return *iter;
+            case value_t::boolean:
+            {
+                bool b = *iter;
+                return b ? "true" : "false";
+            }
+            case value_t::number_integer:
+            {
+                std::int64_t n = *iter;
+                return std::to_string(n);
+            }
+            case value_t::number_unsigned:
+            {
+                std::uint64_t n = *iter;
+                return std::to_string(n);
+            }
+            case value_t::number_float:
+            {
+                double f = *iter;
+                return std::to_string(f);
+            }
+            default:
+                return defvalue;
+            }
+        }
+    }
+        break;
+    case MULTIPART_FORM_DATA:
+    {
+        auto iter = form.find(key);
+        if (iter != form.end()) {
+            return iter->second.content;
+        }
+    }
+        break;
+    case APPLICATION_URLENCODED:
+    {
+        auto iter = kv.find(key);
+        if (iter != kv.end()) {
+            return iter->second;
+        }
+    }
+        break;
+    default:
+        break;
+    }
+    return defvalue;
+}
+
+template<>
+int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
+    if (content_type == APPLICATION_JSON) {
+        auto iter = json.find(key);
+        if (iter != json.end()) {
+            switch (iter->type()) {
+                return *iter;
+            case value_t::boolean:
+            {
+                bool b = *iter;
+                return b;
+            }
+            case value_t::number_integer:
+            {
+                std::int64_t n = *iter;
+                return n;
+            }
+            case value_t::number_unsigned:
+            {
+                std::uint64_t n = *iter;
+                return n;
+            }
+            case value_t::number_float:
+            {
+                double f = *iter;
+                return f;
+            }
+            case value_t::string:
+            {
+                std::string str = *iter;
+                return atoll(str.c_str());
+            }
+            default:
+                return defvalue;
+            }
+        }
+        return defvalue;
+    }
+    else {
+        std::string str = GetValue(key);
+        return str.empty() ? defvalue : atoi(str.c_str());
+    }
+}
+
+template<>
+double HttpMessage::Get(const char* key, double defvalue) {
+    if (content_type == APPLICATION_JSON) {
+        auto iter = json.find(key);
+        if (iter != json.end()) {
+            switch (iter->type()) {
+                return *iter;
+            case value_t::boolean:
+            {
+                bool b = *iter;
+                return b;
+            }
+            case value_t::number_integer:
+            {
+                std::int64_t n = *iter;
+                return n;
+            }
+            case value_t::number_unsigned:
+            {
+                std::uint64_t n = *iter;
+                return n;
+            }
+            case value_t::number_float:
+            {
+                double f = *iter;
+                return f;
+            }
+            case value_t::string:
+            {
+                std::string str = *iter;
+                return atof(str.c_str());
+            }
+            default:
+                return defvalue;
+            }
+        }
+        return defvalue;
+    }
+    else {
+        std::string str = GetValue(key);
+        return str.empty() ? defvalue : atoi(str.c_str());
+    }
+}
+
+template<>
+bool HttpMessage::Get(const char* key, bool defvalue) {
+    if (content_type == APPLICATION_JSON) {
+        auto iter = json.find(key);
+        if (iter != json.end()) {
+            switch (iter->type()) {
+                return *iter;
+            case value_t::boolean:
+            {
+                bool b = *iter;
+                return b;
+            }
+            case value_t::number_integer:
+            {
+                std::int64_t n = *iter;
+                return n;
+            }
+            case value_t::number_unsigned:
+            {
+                std::uint64_t n = *iter;
+                return n;
+            }
+            case value_t::number_float:
+            {
+                double f = *iter;
+                return f;
+            }
+            case value_t::string:
+            {
+                std::string str = *iter;
+                return atof(str.c_str());
+            }
+            default:
+                return defvalue;
+            }
+        }
+        return defvalue;
+    }
+    else {
+        std::string str = GetValue(key);
+        return str.empty() ? defvalue : atoi(str.c_str());
+    }
+}
+#endif
+
 void HttpMessage::FillContentType() {
     auto iter = headers.find("Content-Type");
     if (iter != headers.end()) {
@@ -17,7 +213,7 @@ void HttpMessage::FillContentType() {
         if (json.size() != 0) {
             content_type = APPLICATION_JSON;
         }
-        else if (mp.size() != 0) {
+        else if (form.size() != 0) {
             content_type = MULTIPART_FORM_DATA;
         }
         else if (kv.size() != 0) {
@@ -106,7 +302,7 @@ void HttpMessage::DumpBody() {
             return;
         }
         boundary += strlen("boundary=");
-        body = dump_multipart(mp, boundary);
+        body = dump_multipart(form, boundary);
     }
         break;
     case X_WWW_FORM_URLENCODED:
@@ -139,7 +335,7 @@ int HttpMessage::ParseBody() {
             return false;
         }
         boundary += strlen("boundary=");
-        return parse_multipart(body, mp, boundary);
+        return parse_multipart(body, form, boundary);
     }
     case X_WWW_FORM_URLENCODED:
         return parse_query_params(body.c_str(), kv);
