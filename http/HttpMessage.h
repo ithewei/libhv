@@ -3,7 +3,6 @@
 
 #include <string>
 #include <map>
-#include <sstream>
 
 #include "hstring.h"
 #include "httpdef.h"
@@ -39,12 +38,15 @@ public:
     MultiPart           form;       // MULTIPART_FORM_DATA
     KeyValue            kv;         // X_WWW_FORM_URLENCODED
 
-    std::string GetValue(const char* key, const std::string& = std::string(""));
     // T=[bool, int64_t, double]
     template<typename T>
     T Get(const char* key, T defvalue = 0);
 
-    // T=[string, bool, int64_t, double]
+    std::string GetString(const char* key, const std::string& = "");
+    bool GetBool(const char* key, bool defvalue = 0);
+    int64_t GetInt(const char* key, int64_t defvalue = 0);
+    double GetFloat(const char* key, double defvalue = 0);
+
     template<typename T>
     void Set(const char* key, const T& value) {
         switch (content_type) {
@@ -55,11 +57,7 @@ public:
             form[key] = FormData(value);
             break;
         case X_WWW_FORM_URLENCODED:
-        {
-            std::ostringstream os;
-            os << value;
-            kv[key] = os.str();
-        }
+            kv[key] = hv::to_string(value);
             break;
         default:
             break;

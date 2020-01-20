@@ -9,7 +9,7 @@
 // NOTE: json ignore number/string, 123/"123"
 using nlohmann::detail::value_t;
 
-std::string HttpMessage::GetValue(const char* key, const std::string& defvalue) {
+std::string HttpMessage::GetString(const char* key, const std::string& defvalue) {
     switch (content_type) {
     case APPLICATION_JSON:
     {
@@ -28,17 +28,17 @@ std::string HttpMessage::GetValue(const char* key, const std::string& defvalue) 
             case value_t::number_integer:
             {
                 std::int64_t n = *iter;
-                return std::to_string(n);
+                return hv::to_string(n);
             }
             case value_t::number_unsigned:
             {
                 std::uint64_t n = *iter;
-                return std::to_string(n);
+                return hv::to_string(n);
             }
             case value_t::number_float:
             {
                 double f = *iter;
-                return std::to_string(f);
+                return hv::to_string(f);
             }
             default:
                 return defvalue;
@@ -107,8 +107,8 @@ int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
         return defvalue;
     }
     else {
-        std::string str = GetValue(key);
-        return str.empty() ? defvalue : atoi(str.c_str());
+        std::string str = GetString(key);
+        return str.empty() ? defvalue : atoll(str.c_str());
     }
 }
 
@@ -151,8 +151,8 @@ double HttpMessage::Get(const char* key, double defvalue) {
         return defvalue;
     }
     else {
-        std::string str = GetValue(key);
-        return str.empty() ? defvalue : atoi(str.c_str());
+        std::string str = GetString(key);
+        return str.empty() ? defvalue : atof(str.c_str());
     }
 }
 
@@ -186,7 +186,7 @@ bool HttpMessage::Get(const char* key, bool defvalue) {
             case value_t::string:
             {
                 std::string str = *iter;
-                return atof(str.c_str());
+                return getboolean(str.c_str());
             }
             default:
                 return defvalue;
@@ -195,9 +195,19 @@ bool HttpMessage::Get(const char* key, bool defvalue) {
         return defvalue;
     }
     else {
-        std::string str = GetValue(key);
-        return str.empty() ? defvalue : atoi(str.c_str());
+        std::string str = GetString(key);
+        return str.empty() ? defvalue : getboolean(str.c_str());
     }
+}
+
+bool HttpMessage::GetBool(const char* key, bool defvalue) {
+    return Get<bool>(key, defvalue);
+}
+int64_t HttpMessage::GetInt(const char* key, int64_t defvalue) {
+    return Get<int64_t>(key, defvalue);
+}
+double HttpMessage::GetFloat(const char* key, double defvalue) {
+    return Get<double>(key, defvalue);
 }
 #endif
 

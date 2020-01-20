@@ -95,10 +95,13 @@ inline int http_api_grpc(HttpRequest* req, HttpResponse* res) {
 }
 
 inline int http_api_test(HttpRequest* req, HttpResponse* res) {
-    string str = req->GetValue("string");
-    int64_t n = req->Get<int64_t>("int");
-    double f = req->Get<double>("float");
-    bool b = req->Get<bool>("bool");
+    string str = req->GetString("string");
+    //int64_t n = req->Get<int64_t>("int");
+    //double f = req->Get<double>("float");
+    //bool b = req->Get<bool>("bool");
+    int64_t n = req->GetInt("int");
+    double f = req->GetFloat("float");
+    bool b = req->GetBool("bool");
 
     res->content_type = req->content_type;
     res->Set("string", str);

@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <sstream>
 
 #include "hbase.h"
 
@@ -59,6 +60,16 @@ public:
         return stricmp(lhs.c_str(), rhs.c_str()) < 0;
     }
 };
+
+namespace hv {
+// NOTE: low-version NDK not provide std::to_string
+template<typename T>
+static inline std::string to_string(const T& num) {
+    std::ostringstream os;
+    os << num;
+    return os.str();
+}
+}
 
 #define SPACE_CHARS     " \t\r\n"
 #define PAIR_CHARS      "{}[]()<>\"\"\'\'``"
