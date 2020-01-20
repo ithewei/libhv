@@ -117,7 +117,7 @@ inline int http_api_test(HttpRequest* req, HttpResponse* res) {
     return 0;
 }
 
-inline int http_api_restful(HttpRequest*req, HttpResponse* res) {
+inline int http_api_restful(HttpRequest* req, HttpResponse* res) {
     // RESTful /:field/ => HttpRequest::query_params
     // path=/group/:group_name/user/:user_id
     //string group_name = req->GetParam("group_name");
