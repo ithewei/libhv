@@ -41,7 +41,12 @@ inline int http_api_hello(HttpRequest* req, HttpResponse* res) {
 }
 
 inline int http_api_query(HttpRequest* req, HttpResponse* res) {
-    res->kv = req->query_params;
+    // scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
+    // ?query => HttpRequest::query_params
+    for (auto& param : req->query_params) {
+        res->Set(param.first.c_str(), param.second);
+    }
+    response_status(res, 0, "Query completed.");
     return 0;
 }
 
@@ -113,7 +118,7 @@ inline int http_api_test(HttpRequest* req, HttpResponse* res) {
 }
 
 inline int http_api_restful(HttpRequest*req, HttpResponse* res) {
-    // RESTful /:field/ => req->query_params
+    // RESTful /:field/ => HttpRequest::query_params
     for (auto& param : req->query_params) {
         res->Set(param.first.c_str(), param.second);
     }
