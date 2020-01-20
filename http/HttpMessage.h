@@ -96,6 +96,14 @@ public:
     // body.size -> content_length <-> headers Content-Length
     void FillContentLength();
 
+    std::string GetHeader(const char* key) {
+        auto iter = headers.find(key);
+        if (iter != headers.end()) {
+            return iter->second;
+        }
+        return "";
+    }
+
     // headers -> string
     void DumpHeaders(std::string& str);
     // structured content -> body
@@ -166,6 +174,14 @@ public:
     }
 
     virtual std::string Dump(bool is_dump_headers, bool is_dump_body);
+
+    std::string GetParam(const char* key) {
+        auto iter = query_params.find(key);
+        if (iter != query_params.end()) {
+            return iter->second;
+        }
+        return "";
+    }
 
     // structed url -> url
     void DumpUrl();

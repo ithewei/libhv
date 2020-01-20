@@ -119,6 +119,9 @@ inline int http_api_test(HttpRequest* req, HttpResponse* res) {
 
 inline int http_api_restful(HttpRequest*req, HttpResponse* res) {
     // RESTful /:field/ => HttpRequest::query_params
+    // path=/group/:group_name/user/:user_id
+    //string group_name = req->GetParam("group_name");
+    //string user_id = req->GetParam("user_id");
     for (auto& param : req->query_params) {
         res->Set(param.first.c_str(), param.second);
     }
