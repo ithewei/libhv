@@ -10,7 +10,7 @@
     #define strnicmp    strncasecmp
 #endif
 
-static const char* s_weekdays[] = {"Sunday", "Monday", " Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+static const char* s_weekdays[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
 
 static const char* s_months[] = {"January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"};
