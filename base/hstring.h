@@ -54,7 +54,7 @@ public:
 typedef HV_MAP<std::string, std::string> KeyValue;
 
 // std::map<std::string, std::string, StringCaseLess>
-class StringCaseLess : public std::binary_function<std::string, std::string, bool> {
+class StringCaseLess : public std::less<std::string> {
 public:
     bool operator()(const std::string& lhs, const std::string& rhs) const {
         return stricmp(lhs.c_str(), rhs.c_str()) < 0;
