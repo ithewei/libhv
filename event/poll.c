@@ -116,10 +116,10 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
             ++nevents;
             hio_t* io = loop->ios.ptr[fd];
             if (io) {
-                if (revents | POLLIN) {
+                if (revents & POLLIN) {
                     io->revents |= READ_EVENT;
                 }
-                if (revents | POLLOUT) {
+                if (revents & POLLOUT) {
                     io->revents |= WRITE_EVENT;
                 }
                 EVENT_PENDING(io);

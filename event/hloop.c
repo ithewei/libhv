@@ -545,6 +545,10 @@ hio_t* hio_get(hloop_t* loop, int fd) {
 
 int hio_add(hio_t* io, hio_cb cb, int events) {
     printd("hio_add fd=%d events=%d\n", io->fd, events);
+#ifdef OS_WIN
+    // Windows iowatcher not work on stdio
+    if (io->fd < 3) return 0;
+#endif
     hloop_t* loop = io->loop;
     if (!io->ready) {
         hio_ready(io);
