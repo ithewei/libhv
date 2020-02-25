@@ -32,27 +32,49 @@ but simpler apis and richer protocols.
 
 ## Getting Started
 
-### http server
-see examples/httpd.cpp
+### HTTP
+#### http server
+see examples/httpd/httpd.cpp
 ```c++
 #include "HttpServer.h"
 
-int http_api_hello(HttpRequest* req, HttpResponse* res) {
-    res->body = "hello";
+int http_api_echo(HttpRequest* req, HttpResponse* res) {
+    res->body = req->body;
     return 0;
 }
 
 int main() {
     HttpService service;
     service.base_url = "/v1/api";
-    service.AddApi("/hello", HTTP_GET, http_api_hello);
+    service.AddApi("/echo", HTTP_POST, http_api_echo);
 
     http_server_t server;
     server.port = 8080;
-    server.worker_processes = 4;
     server.service = &service;
     http_server_run(&server);
     return 0;
+}
+```
+#### http client
+see examples/curl.cpp
+```c++
+#include "http_client.h"
+
+int main(int argc, char* argv[]) {
+    HttpRequest req;
+    req.method = HTTP_POST;
+    req.url = "http://localhost:8080/v1/api/echo";
+    req.body = "hello,world!";
+    HttpResponse res;
+    int ret = http_client_send(&req, &res);
+    printf("%s\n", req.Dump(true,true).c_str());
+    if (ret != 0) {
+        printf("* Failed:%s:%d\n", http_client_strerror(ret), ret);
+    }
+    else {
+        printf("%s\n", res.Dump(true,true).c_str());
+    }
+    return ret;
 }
 ```
 

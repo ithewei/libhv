@@ -29,6 +29,10 @@
 #define HAVE_PTHREAD_H 1
 #endif
 
+#ifndef HAVE_GETTID
+#define HAVE_GETTID 0
+#endif
+
 #ifndef HAVE_STRLCPY
 #define HAVE_STRLCPY 0
 #endif

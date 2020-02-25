@@ -6,8 +6,8 @@
 
 #ifdef OS_WIN
 #define gettid  GetCurrentThreadId
+#elif HAVE_GETTID
 #elif defined(OS_ANDROID)
-#define gettid  gettid
 #elif defined(OS_LINUX)
 #include <sys/syscall.h>
 static inline int gettid() {
