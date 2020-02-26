@@ -295,12 +295,13 @@ static void hio_handle_events(hio_t* io) {
             io->events &= ~WRITE_EVENT;
         }
         if (io->connect) {
-#ifdef OS_WIN
-            htimer_del((htimer_t*)io->userdata);
-#endif
             // NOTE: connect just do once
             // ONESHOT
             io->connect = 0;
+            if (io->timer) {
+                htimer_del(io->timer);
+                io->timer = NULL;
+            }
 
             nio_connect(io);
         }
@@ -317,12 +318,10 @@ int hio_accept(hio_t* io) {
     return 0;
 }
 
-#ifdef OS_WIN
 #define CONNECT_TIMEOUT     5000 // ms
 static void connect_timeout_cb(htimer_t* timer) {
     hio_close((hio_t*)timer->userdata);
 }
-#endif
 
 int hio_connect(hio_t* io) {
     int ret = connect(io->fd, io->peeraddr, sizeof(sockaddr_un));
@@ -342,11 +341,9 @@ int hio_connect(hio_t* io) {
         }
         return 0;
     }
-#ifdef OS_WIN
     htimer_t* timer = htimer_add(io->loop, connect_timeout_cb, CONNECT_TIMEOUT, 1);
     timer->userdata = io;
-    io->userdata = timer;
-#endif
+    io->timer = timer;
     return hio_add(io, hio_handle_events, WRITE_EVENT);
 }
 

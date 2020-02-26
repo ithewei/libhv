@@ -492,6 +492,8 @@ void hio_ready(hio_t* io) {
     io->connect_cb = 0;
     io->event_index[0] = io->event_index[1] = -1;
     io->hovlp = NULL;
+    io->ssl = NULL;
+    io->timer = NULL;
     fill_io_type(io);
     if (io->io_type & HIO_TYPE_SOCKET) {
         hio_socket_init(io);

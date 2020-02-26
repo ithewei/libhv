@@ -116,6 +116,7 @@ struct hio_s {
     int         event_index[2]; // for poll,kqueue
     void*       hovlp;          // for iocp/overlapio
     void*       ssl;            // for SSL
+    htimer_t*   timer;         // for io timeout
 };
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
