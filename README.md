@@ -10,8 +10,8 @@ but simpler apis and richer protocols.
 
 - cross-platform (Linux, Windows, Mac)
 - event-loop (IO, timer, idle)
-- enable IPv6
-- with OpenSSL
+- ENABLE_IPV6
+- WITH_OPENSSL
 - http client/server (include https http1/x http2 grpc)
 - http web service, indexof service, api service (support RESTful API)
 - protocols
@@ -34,7 +34,7 @@ but simpler apis and richer protocols.
 
 ### HTTP
 #### http server
-see examples/httpd/httpd.cpp
+see `examples/httpd/httpd.cpp`
 ```c++
 #include "HttpServer.h"
 
@@ -56,7 +56,7 @@ int main() {
 }
 ```
 #### http client
-see examples/curl.cpp
+see `examples/curl.cpp`
 ```c++
 #include "http_client.h"
 
@@ -117,7 +117,7 @@ bin/webbench -c 2 -t 60 localhost:8080
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
 ### EventLoop
-see examples/tcp.c examples/udp.c
+see `examples/tcp.c` `examples/udp.c`
 ```c
 // TCP echo server
 #include "hloop.h"
@@ -201,7 +201,7 @@ https is the best example.
 ```
 sudo apt-get install openssl libssl-dev # ubuntu
 make clean
-make libhv httpd curl DEFINES=WITH_OPENSSL
+make libhv httpd curl WITH_OPENSSL=yes
 # editor etc/httpd.conf => ssl = on
 bin/httpd -d
 bin/curl -v https://localhost:8080
@@ -209,21 +209,19 @@ curl -v https://localhost:8080 --insecure
 ```
 
 #### compile WITH_CURL
-- make DEFINES="WITH_CURL CURL_STATICLIB"
+- make WITH_CURL=yes DEFINES="CURL_STATICLIB"
 
 #### compile WITH_NGHTTP2
 ```
 sudo apt-get install libnghttp2-dev # ubuntu
 make clean
-make libhv httpd curl DEFINES=WITH_NGHTTP2
+make libhv httpd curl WITH_NGHTTP2=yes
 bin/httpd -d
 bin/curl -v localhost:8080 --http2
 ```
 
 #### other options
-- ENABLE_IPV6
-- WITH_WINDUMP
-- USE_MULTIMAP
+see config.mk
 
 ### echo-servers
 ```shell
@@ -276,11 +274,11 @@ In general, the performance of these libraries are similar, each has its own adv
 - hscope.h:      作用域RAII机制
 - hthreadpool.h: 线程池
 - hobjectpool.h: 对象池
+- ifconfig.h:    ifconfig实现
 
 ### utils
 - hmain.h:       main_ctx: arg env
 - hendian.h:     大小端
-- ifconfig.h:    ifconfig实现
 - iniparser.h:   ini解析
 - singleton.h:   单例模式
 - md5.h

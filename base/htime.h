@@ -134,7 +134,7 @@ const char* month_itoa(int month);
 int weekday_atoi(const char* weekday);
 const char* weekday_itoa(int weekday);
 
-datetime_t get_compile_datetime();
+datetime_t hv_compile_datetime();
 
 #ifdef __cplusplus
 } // extern "C"

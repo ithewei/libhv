@@ -131,7 +131,7 @@ handle_request:
     // Server:
     static char s_Server[64] = {'\0'};
     if (s_Server[0] == '\0') {
-        snprintf(s_Server, sizeof(s_Server), "httpd/%s", get_compile_version());
+        snprintf(s_Server, sizeof(s_Server), "httpd/%s", hv_compile_version());
     }
     res->headers["Server"] = s_Server;
     // Connection:

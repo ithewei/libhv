@@ -10,18 +10,24 @@
 # LDFLAGS  += $(addprefix -l, $(LIBS))
 #
 # Usage:
-# make all TARGET=libxx TARGET_TYPE=SHARED \
+# make all \
+# TARGET=libxx \
+# TARGET_TYPE=SHARED \
 # CROSS_COMPILE=arm-linux-androideabi- \
+# SRCDIRS="src/base src/event" \
+# INCDIRS="src/utils" \
+# SRCS="src/utils/hmain.cpp src/utils/iniparser.cpp" \
 # DEFINES=USE_OPENCV \
 # LIBS="opencv_core opencv_highgui"
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+-include config.mk
 
 # VARIABLES
-TARGET=test
-#BUILD_TYPE=DEBUG,RELEASE
-BUILD_TYPE=RELEASE
-#TARGET_TYPE=EXECUTABLE,SHARED,STATIC
-TARGET_TYPE=EXECUTABLE
+TARGET ?= test
+# BUILD_TYPE=DEBUG,RELEASE
+BUILD_TYPE ?= RELEASE
+# TARGET_TYPE=EXECUTABLE,SHARED,STATIC,SHARED|STATIC
+TARGET_TYPE ?= EXECUTABLE
 
 # COMMANDS
 ifdef CROSS_COMPILE
@@ -33,8 +39,6 @@ LD	= $(CROSS_COMPILE)ld
 AR	= $(CROSS_COMPILE)ar
 NM	= $(CROSS_COMPILE)nm
 STRIP 	= $(CROSS_COMPILE)strip
-OBJCOPY	= $(CROSS_COMPILE)objcopy
-OBJDUMP	= $(CROSS_COMPILE)objdump
 endif
 
 MKDIR = -mkdir -p 2>/dev/null
@@ -62,39 +66,37 @@ endif
 ifeq ($(BUILD_TYPE), DEBUG)
 	DEFAULT_CFLAGS = -g -Wall
 endif
-DEFAULT_CFLAGS += -O3 -fPIC
+DEFAULT_CFLAGS += -O3
 
-ifndef CFLAGS
-CFLAGS := $(DEFAULT_CFLAGS) -std=c99
-else
+CFLAGS ?= $(DEFAULT_CFLAGS)
+CXXFLAGS ?= $(DEFAULT_CFLAGS)
+
+ifneq ($(OS), Windows)
 ifeq ($(findstring -fPIC, $(CFLAGS)), )
 override CFLAGS += -fPIC
 endif
-ifeq ($(findstring -std, $(CFLAGS)), )
-override CFLAGS += -std=c99
-endif
-endif
-
-ifndef CXXFLAGS
-CXXFLAGS := $(DEFAULT_CFLAGS) -std=c++11
-else
 ifeq ($(findstring -fPIC, $(CXXFLAGS)), )
 override CXXFLAGS += -fPIC
 endif
+endif
+
+ifeq ($(findstring -std, $(CFLAGS)), )
+override CFLAGS += -std=c99
+endif
+
 ifeq ($(findstring -std, $(CXXFLAGS)), )
 override CXXFLAGS += -std=c++11
 endif
-endif
 
-ifndef ARFLAGS
-ARFLAGS := cr
-endif
+ARFLAGS ?= cr
 
 # DIRS
-PREFIX = install
 ifeq ($(OS), Linux)
-	PREFIX = /usr/local
+	PREFIX ?= /usr/local
+else
+	PREFIX ?= install
 endif
+
 INCDIR = include
 LIBDIR = lib
 SRCDIR = src
@@ -102,7 +104,7 @@ BINDIR = bin
 DEPDIR = 3rd
 CONFDIR = etc
 DISTDIR = dist
-DOCDIR  = doc
+DOCDIR  = docs
 
 SRCDIRS += $(shell find $(SRCDIR) -type d)
 override INCDIRS += $(INCDIR) $(DEPDIR) $(DEPDIR)/include
@@ -114,10 +116,6 @@ ifeq ($(OS), Windows)
 ifeq ($(TARGET_TYPE), SHARED)
 	CPPFLAGS += -DDLL_EXPORTS
 endif
-endif
-
-ifeq ($(TARGET_TYPE), STATIC)
-	CPPFLAGS += -DHV_STATICLIB
 endif
 
 ifeq ($(BUILD_TYPE), DEBUG)
@@ -134,24 +132,32 @@ CPPFLAGS += $(addprefix -I, $(SRCDIRS))
 ifeq ($(OS), Windows)
 	LDFLAGS += -static-libgcc -static-libstdc++
 endif
-ifneq ($(findstring WITH_CURL, $(DEFINES)), )
-override LIBS += curl
+
+ifeq ($(WITH_CURL), yes)
+	CPPFLAGS += -DWITH_CURL
+	LDFLAGS += -lcurl
 ifeq ($(OS), Windows)
-LIBS += wldap32 advapi32 crypt32
+	LDFLAGS += -lwldap32 -ladvapi32 -lcrypt32
 endif
 endif
-ifneq ($(findstring WITH_NGHTTP2, $(DEFINES)), )
-override LIBS += nghttp2
+
+ifeq ($(WITH_NGHTTP2), yes)
+	CPPFLAGS += -DWITH_NGHTTP2
+	LDFLAGS += -lnghttp2
 endif
-ifneq ($(findstring WITH_OPENSSL, $(DEFINES)), )
-override LIBS += ssl crypto
+
+ifeq ($(WITH_OPENSSL), yes)
+	CPPFLAGS += -DWITH_OPENSSL
+	LDFLAGS += -lssl -lcrypto
 endif
+
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
 LDFLAGS += $(addprefix -l, $(LIBS))
 
 ifeq ($(OS), Windows)
 	LDFLAGS += -lwinmm -liphlpapi -lws2_32
-ifneq ($(findstring WITH_WINDUMP, $(DEFINES)), )
+ifeq ($((ENABLE_WINDUMP), yes)
+	CPPFLAGS += -DENABLE_WINDUMP
 	LDFLAGS += -ldbghelp
 endif
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
@@ -170,9 +176,9 @@ override SRCS += $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(
 ifeq ($(SRCS), )
 	SRCS = $(wildcard *.c *.cc *.cpp)
 endif
-#OBJS += $(patsubst %.c, %.o, $(SRCS))
-#OBJS += $(patsubst %.cc, %.o, $(SRCS))
-#OBJS += $(patsubst %.cpp, %.o, $(SRCS))
+# OBJS += $(patsubst %.c, %.o, $(SRCS))
+# OBJS += $(patsubst %.cc, %.o, $(SRCS))
+# OBJS += $(patsubst %.cpp, %.o, $(SRCS))
 OBJS := $(addsuffix .o, $(basename $(SRCS)))
 
 INSTALLED_INCS=$(addprefix $(PREFIX)/$(INCDIR)/, $(shell ls $(INCDIR)))
@@ -201,9 +207,9 @@ $(info BUILD_TYPE       = $(BUILD_TYPE))
 $(info SRCS=$(SRCS))
 $(info OBJS=$(OBJS))
 
-#$(info INSTALLED_INCS=$(INSTALLED_INCS))
-#$(info INSTALLED_LIBS=$(INSTALLED_LIBS))
-#$(info INSTALLED_BINS=$(INSTALLED_BINS))
+# $(info INSTALLED_INCS=$(INSTALLED_INCS))
+# $(info INSTALLED_LIBS=$(INSTALLED_LIBS))
+# $(info INSTALLED_BINS=$(INSTALLED_BINS))
 
 default: all
 
@@ -213,21 +219,21 @@ prepare:
 	$(MKDIR) $(BINDIR) $(LIBDIR)
 
 $(TARGET): $(OBJS)
-ifeq ($(TARGET_TYPE), SHARED)
+ifneq ($(findstring SHARED, $(TARGET_TYPE)), )
 ifeq ($(OS), Windows)
 	$(CC) -shared $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
 else
 	$(CC) -shared $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
 endif
-else
-ifeq ($(TARGET_TYPE), STATIC)
+endif
+
+ifneq ($(findstring STATIC, $(TARGET_TYPE)), )
 	$(AR) $(ARFLAGS) $(LIBDIR)/$@.a $^
 else
 ifeq ($(OS), Windows)
 	$(CC) $^ -o $(BINDIR)/$@.exe $(LDFLAGS)
 else
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS)
-endif
 endif
 endif
 
@@ -254,4 +260,3 @@ undist:
 	$(RM) $(DISTDIR)
 
 .PHONY: default all prepare clean install uninstall dist undist
-

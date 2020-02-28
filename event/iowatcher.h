@@ -12,7 +12,7 @@
     !defined(EVENT_PORT) &&     \
     !defined(EVENT_NOEVENT)
 #ifdef OS_WIN
-//#define EVENT_IOCP // IOCP improving
+// #define EVENT_IOCP // IOCP improving
 #define EVENT_POLL
 #elif defined(OS_LINUX)
 #define EVENT_EPOLL
@@ -24,24 +24,6 @@
 #define EVENT_SELECT
 #endif
 #endif
-
-static inline const char* iowatcher_name() {
-#ifdef EVENT_SELECT
-    return  "select";
-#elif defined(EVENT_POLL)
-    return  "poll";
-#elif defined(EVENT_EPOLL)
-    return  "epoll";
-#elif defined(EVENT_KQUEUE)
-    return  "kqueue";
-#elif defined(EVENT_IOCP)
-    return  "iocp";
-#elif defined(EVENT_PORT)
-    return  "evport";
-#else
-    return  "noevent";
-#endif
-}
 
 int iowatcher_init(hloop_t* loop);
 int iowatcher_cleanup(hloop_t* loop);

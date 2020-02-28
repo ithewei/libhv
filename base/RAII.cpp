@@ -1,7 +1,7 @@
 #include "hplatform.h"
 
 #ifdef OS_WIN
-#ifdef WITH_WINDUMP
+#ifdef ENABLE_WINDUMP
 #include <dbghelp.h>
 #ifdef _MSC_VER
 #pragma comment(lib,"dbghelp.lib")

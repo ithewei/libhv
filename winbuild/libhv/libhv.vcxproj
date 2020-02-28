@@ -159,6 +159,7 @@
     <ClInclude Include="..\..\base\hurl.h" />
     <ClInclude Include="..\..\base\hvar.h" />
     <ClInclude Include="..\..\base\hversion.h" />
+    <ClInclude Include="..\..\base\ifconfig.h" />
     <ClInclude Include="..\..\base\list.h" />
     <ClInclude Include="..\..\base\netinet.h" />
     <ClInclude Include="..\..\base\queue.h" />
@@ -197,7 +198,6 @@
     <ClInclude Include="..\..\utils\hgl.h" />
     <ClInclude Include="..\..\utils\hmain.h" />
     <ClInclude Include="..\..\utils\htask.h" />
-    <ClInclude Include="..\..\utils\ifconfig.h" />
     <ClInclude Include="..\..\utils\iniparser.h" />
     <ClInclude Include="..\..\utils\json.hpp" />
     <ClInclude Include="..\..\utils\md5.h" />
@@ -214,6 +214,7 @@
     <ClCompile Include="..\..\base\htime.c" />
     <ClCompile Include="..\..\base\hurl.cpp" />
     <ClCompile Include="..\..\base\hversion.c" />
+    <ClCompile Include="..\..\base\ifconfig.cpp" />
     <ClCompile Include="..\..\base\RAII.cpp" />
     <ClCompile Include="..\..\base\ssl_ctx.c" />
     <ClCompile Include="..\..\event\epoll.c" />
@@ -250,7 +251,6 @@
     <ClCompile Include="..\..\utils\base64.c" />
     <ClCompile Include="..\..\utils\hframe.cpp" />
     <ClCompile Include="..\..\utils\hmain.cpp" />
-    <ClCompile Include="..\..\utils\ifconfig.cpp" />
     <ClCompile Include="..\..\utils\iniparser.cpp" />
     <ClCompile Include="..\..\utils\md5.c" />
   </ItemGroup>

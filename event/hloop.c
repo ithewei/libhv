@@ -419,6 +419,24 @@ void htimer_del(htimer_t* timer) {
     EVENT_DEL(timer);
 }
 
+const char* hio_engine() {
+#ifdef EVENT_SELECT
+    return  "select";
+#elif defined(EVENT_POLL)
+    return  "poll";
+#elif defined(EVENT_EPOLL)
+    return  "epoll";
+#elif defined(EVENT_KQUEUE)
+    return  "kqueue";
+#elif defined(EVENT_IOCP)
+    return  "iocp";
+#elif defined(EVENT_PORT)
+    return  "evport";
+#else
+    return  "noevent";
+#endif
+}
+
 void hio_init(hio_t* io) {
     memset(io, 0, sizeof(hio_t));
     io->event_type = HEVENT_TYPE_IO;

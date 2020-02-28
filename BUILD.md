@@ -5,6 +5,9 @@
 
 gcc4.8+, msvc2013+
 
+## Dependencies
+modify config.mk
+
 ## Unix
 ```
 ./configure

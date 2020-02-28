@@ -49,7 +49,7 @@ static const char detail_options[] = R"(
 )";
 
 void print_version() {
-    printf("%s version %s\n", g_main_ctx.program_name, get_compile_version());
+    printf("%s version %s\n", g_main_ctx.program_name, hv_compile_version());
 }
 
 void print_help() {
@@ -124,7 +124,7 @@ int parse_confile(const char* confile) {
         logger_enable_fsync(hlog, getboolean(str.c_str()));
     }
     // first log here
-    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
+    hlogi("%s version: %s", g_main_ctx.program_name, hv_compile_version());
     hlog_fsync();
 
     // worker_processes

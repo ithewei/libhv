@@ -38,7 +38,7 @@ static const char detail_options[] = R"(
 )";
 
 void print_version() {
-    printf("%s version %s\n", g_main_ctx.program_name, get_compile_version());
+    printf("%s version %s\n", g_main_ctx.program_name, hv_compile_version());
 }
 
 void print_help() {
@@ -86,7 +86,7 @@ int parse_confile(const char* confile) {
     if (!str.empty()) {
         hlog_set_remain_days(atoi(str.c_str()));
     }
-    hlogi("%s version: %s", g_main_ctx.program_name, get_compile_version());
+    hlogi("%s version: %s", g_main_ctx.program_name, hv_compile_version());
 
     // worker_processes
     int worker_processes = 0;

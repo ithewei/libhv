@@ -381,7 +381,7 @@ void signal_handler(int signo) {
             for (int i = 0; i < g_worker_processes_num; ++i) {
                 if (g_worker_processes[i].pid == pid) {
                     g_worker_processes[i].pid = -1;
-                    spawn_proc(&g_worker_processes[i]);
+                    hproc_spawn(&g_worker_processes[i]);
                     break;
                 }
             }
@@ -594,7 +594,7 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
         for (int i = 0; i < g_worker_processes_num; ++i, ++ctx) {
             ctx->init = worker_init;
             ctx->proc = worker_proc;
-            spawn_proc(ctx);
+            hproc_spawn(ctx);
             hlogi("workers[%d] start/running, pid=%d", i, ctx->pid);
         }
         g_main_ctx.pid = getpid();

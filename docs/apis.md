@@ -1,7 +1,8 @@
 #  c
 ## functions
 ### hversion.h
-- get_compile_version
+- hv_version
+- hv_compile_version
 - version_atoi
 - version_itoa
 
@@ -36,7 +37,7 @@
 - gethrtime
 - sleep
 - msleep
-- get_compile_datetime
+- hv_compile_datetime
 - days_of_month
 - month_atoi
 - month_itoa
@@ -88,7 +89,7 @@
 - so_rcvtimeo
 
 ### hproc.h
-- spawn_proc
+- hproc_spawn
 
 ### hthread.h
 - gettid
@@ -107,8 +108,8 @@
 - hloop_pause
 - hloop_resume
 - hloop_now
-- hloop_now_hrtime
 - hloop_now_ms
+- hloop_now_hrtime
 - hloop_update_time
 - hloop_set_userdata
 - hloop_userdata

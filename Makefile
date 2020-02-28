@@ -1,23 +1,49 @@
+include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
+
+ALL_SRCDIRS=. base utils event protocol http http/client http/server consul examples
+
+LIBHV_SRCDIRS = . base utils event
+LIBHV_HEADERS = hv.h hconfig.h
+LIBHV_HEADERS += $(BASE_HEADERS) $(UTILS_HEADERS) $(EVENT_HEADERS)
+
+ifeq ($(WITH_PROTOCOL), yes)
+LIBHV_HEADERS += $(PROTOCOL_HEADERS)
+LIBHV_SRCDIRS += protocol
+endif
+
+ifeq ($(WITH_HTTP), yes)
+LIBHV_HEADERS += $(HTTP_HEADERS)
+LIBHV_SRCDIRS += http
+ifeq ($(WITH_HTTP_SERVER), yes)
+LIBHV_SRCDIRS += http/server
+endif
+ifeq ($(WITH_HTTP_CLIENT), yes)
+LIBHV_SRCDIRS += http/client
+ifeq ($(WITH_CONSUL), yes)
+LIBHV_SRCDIRS += consul
+endif
+endif
+endif
 
 default: all
 all: libhv examples
 examples: test timer loop tcp udp nc nmap httpd curl consul_cli
 
 clean:
-	$(MAKEF) clean SRCDIRS=". base utils event http http/client http/server protocol consul examples"
+	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"
+	$(RM) include/hv
 
 prepare:
 	$(MKDIR) bin
 
 libhv:
 	$(MKDIR) lib
-	$(MAKEF) TARGET=$@ TARGET_TYPE=SHARED SRCDIRS=". base utils event http http/client http/server protocol"
-	$(MAKEF) TARGET=$@ TARGET_TYPE=STATIC SRCDIRS=". base utils event http http/client http/server protocol"
+	$(MAKEF) TARGET=$@ TARGET_TYPE="SHARED|STATIC" SRCDIRS="$(LIBHV_SRCDIRS)"
 	$(MKDIR) include/hv
-	$(CP) $(INSTALL_HEADERS) include/hv
+	$(CP) $(LIBHV_HEADERS) include/hv
 
 install:
 	$(MKDIR) $(INSTALL_INCDIR)
@@ -45,9 +71,9 @@ nc: prepare
 nmap: prepare
 ifeq ($(OS), Windows)
 	# for nmap on Windows platform, recommand EVENT_POLL, not EVENT_IOCP
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nmap.cpp" DEFINES="$(DEFINES) PRINT_DEBUG EVENT_POLL"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nmap.cpp" DEFINES="PRINT_DEBUG EVENT_POLL"
 else
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nmap.cpp" DEFINES="$(DEFINES) PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nmap.cpp" DEFINES="PRINT_DEBUG"
 endif
 
 httpd: prepare
@@ -56,10 +82,10 @@ httpd: prepare
 
 curl: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp"
-	#$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp" DEFINES="$(DEFINES) WITH_CURL CURL_STATICLIB"
+	# $(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes DEFINES="CURL_STATICLIB"
 
 consul_cli: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="$(DEFINES) PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="PRINT_DEBUG"
 
 unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/hmutex_test       unittest/hmutex_test.c        -pthread
@@ -70,11 +96,11 @@ unittest: prepare
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/threadpool_test   unittest/threadpool_test.cpp  -pthread
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/objectpool_test   unittest/objectpool_test.cpp  -pthread
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/ls                unittest/listdir_test.cpp     base/hdir.cpp base/hbase.c
-	$(CXX) -g -Wall -std=c++11 -I. -Ibase -Iutils    -o bin/ifconfig          unittest/ifconfig_test.cpp    utils/ifconfig.cpp
+	$(CXX) -g -Wall -std=c++11 -I. -Ibase -Iutils    -o bin/ifconfig          unittest/ifconfig_test.cpp    base/ifconfig.cpp
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c
-	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iutils -Iprotocol -o bin/sendmail  unittest/sendmail_test.c  protocol/smtp.c base/hsocket.c utils/base64.c
+	$(CC)  -g -Wall -std=c99   -I. -Ibase -Iutils -Iprotocol -o bin/sendmail  unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c utils/base64.c
 
 # UNIX only
 webbench: prepare

@@ -249,7 +249,7 @@ const char* weekday_itoa(int weekday) {
     return s_weekdays[weekday];
 }
 
-datetime_t get_compile_datetime() {
+datetime_t hv_compile_datetime() {
     static datetime_t dt;
     char month[32];
     sscanf(__DATE__, "%s %d %d", month, &dt.day, &dt.year);

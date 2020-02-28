@@ -147,6 +147,26 @@ void        htimer_reset(htimer_t* timer);
 #define READ_EVENT  0x0001
 #define WRITE_EVENT 0x0004
 #define ALL_EVENTS  READ_EVENT|WRITE_EVENT
+/*
+const char* hio_engine() {
+#ifdef EVENT_SELECT
+    return  "select";
+#elif defined(EVENT_POLL)
+    return  "poll";
+#elif defined(EVENT_EPOLL)
+    return  "epoll";
+#elif defined(EVENT_KQUEUE)
+    return  "kqueue";
+#elif defined(EVENT_IOCP)
+    return  "iocp";
+#elif defined(EVENT_PORT)
+    return  "evport";
+#else
+    return  "noevent";
+#endif
+}
+*/
+const char* hio_engine();
 hio_t* hio_get(hloop_t* loop, int fd);
 int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(READ_EVENT));
 int    hio_del(hio_t* io, int events DEFAULT(ALL_EVENTS));
