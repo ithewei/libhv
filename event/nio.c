@@ -15,8 +15,8 @@ static void ssl_do_handshark(hio_t* io) {
     int ret = SSL_do_handshake(ssl);
     if (ret == 1) {
         // handshark finish
-        iowatcher_del_event(io->loop, io->fd, READ_EVENT);
-        io->events &= ~READ_EVENT;
+        iowatcher_del_event(io->loop, io->fd, HV_READ);
+        io->events &= ~HV_READ;
         io->cb = NULL;
         printd("ssl handshark finished.\n");
         if (io->accept_cb) {
@@ -29,8 +29,8 @@ static void ssl_do_handshark(hio_t* io) {
     else {
         int errcode = SSL_get_error(ssl, ret);
         if (errcode == SSL_ERROR_WANT_READ) {
-            if ((io->events & READ_EVENT) == 0) {
-                hio_add(io, ssl_do_handshark, READ_EVENT);
+            if ((io->events & HV_READ) == 0) {
+                hio_add(io, ssl_do_handshark, HV_READ);
             }
         }
         else {
@@ -279,7 +279,7 @@ disconnect:
 }
 
 static void hio_handle_events(hio_t* io) {
-    if ((io->events & READ_EVENT) && (io->revents & READ_EVENT)) {
+    if ((io->events & HV_READ) && (io->revents & HV_READ)) {
         if (io->accept) {
             nio_accept(io);
         }
@@ -288,11 +288,11 @@ static void hio_handle_events(hio_t* io) {
         }
     }
 
-    if ((io->events & WRITE_EVENT) && (io->revents & WRITE_EVENT)) {
-        // NOTE: del WRITE_EVENT, if write_queue empty
+    if ((io->events & HV_WRITE) && (io->revents & HV_WRITE)) {
+        // NOTE: del HV_WRITE, if write_queue empty
         if (write_queue_empty(&io->write_queue)) {
-            iowatcher_del_event(io->loop, io->fd, WRITE_EVENT);
-            io->events &= ~WRITE_EVENT;
+            iowatcher_del_event(io->loop, io->fd, HV_WRITE);
+            io->events &= ~HV_WRITE;
         }
         if (io->connect) {
             // NOTE: connect just do once
@@ -314,7 +314,7 @@ static void hio_handle_events(hio_t* io) {
 }
 
 int hio_accept(hio_t* io) {
-    hio_add(io, hio_handle_events, READ_EVENT);
+    hio_add(io, hio_handle_events, HV_READ);
     return 0;
 }
 
@@ -344,11 +344,11 @@ int hio_connect(hio_t* io) {
     htimer_t* timer = htimer_add(io->loop, connect_timeout_cb, CONNECT_TIMEOUT, 1);
     timer->userdata = io;
     io->timer = timer;
-    return hio_add(io, hio_handle_events, WRITE_EVENT);
+    return hio_add(io, hio_handle_events, HV_WRITE);
 }
 
 int hio_read (hio_t* io) {
-    return hio_add(io, hio_handle_events, READ_EVENT);
+    return hio_add(io, hio_handle_events, HV_READ);
 }
 
 int hio_write (hio_t* io, const void* buf, size_t len) {
@@ -401,7 +401,7 @@ try_write:
             //goto write_done;
             return nwrite;
         }
-        hio_add(io, hio_handle_events, WRITE_EVENT);
+        hio_add(io, hio_handle_events, HV_WRITE);
     }
 enqueue:
     if (nwrite < len) {
@@ -427,7 +427,7 @@ int hio_close (hio_t* io) {
     printd("close fd=%d\n", io->fd);
     if (io->closed) return 0;
     io->closed = 1;
-    hio_del(io, ALL_EVENTS);
+    hio_del(io, HV_RDWR);
 #ifdef OS_UNIX
     close(io->fd);
 #else

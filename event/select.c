@@ -40,13 +40,13 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
     if (fd > select_ctx->max_fd) {
         select_ctx->max_fd = fd;
     }
-    if (events & READ_EVENT) {
+    if (events & HV_READ) {
         if (!FD_ISSET(fd, &select_ctx->readfds)) {
             FD_SET(fd, &select_ctx->readfds);
             select_ctx->nread++;
         }
     }
-    if (events & WRITE_EVENT) {
+    if (events & HV_WRITE) {
         if (!FD_ISSET(fd, &select_ctx->writefds)) {
             FD_SET(fd, &select_ctx->writefds);
             select_ctx->nwrite++;
@@ -61,13 +61,13 @@ int iowatcher_del_event(hloop_t* loop, int fd, int events) {
     if (fd == select_ctx->max_fd) {
         select_ctx->max_fd = -1;
     }
-    if (events & READ_EVENT) {
+    if (events & HV_READ) {
         if (FD_ISSET(fd, &select_ctx->readfds)) {
             FD_CLR(fd, &select_ctx->readfds);
             select_ctx->nread--;
         }
     }
-    if (events & WRITE_EVENT) {
+    if (events & HV_WRITE) {
         if (FD_ISSET(fd, &select_ctx->writefds)) {
             FD_CLR(fd, &select_ctx->writefds);
             select_ctx->nwrite--;
@@ -100,7 +100,7 @@ static int remove_bad_fds(hloop_t* loop) {
                 ++badfds;
                 hio_t* io = loop->ios.ptr[fd];
                 if (io) {
-                    hio_del(io, ALL_EVENTS);
+                    hio_del(io, HV_RDWR);
                 }
             }
         }
@@ -149,11 +149,11 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
         revents = 0;
         if (FD_ISSET(fd, &readfds)) {
             ++nevents;
-            revents |= READ_EVENT;
+            revents |= HV_READ;
         }
         if (FD_ISSET(fd, &writefds)) {
             ++nevents;
-            revents |= WRITE_EVENT;
+            revents |= HV_WRITE;
         }
         if (revents) {
             hio_t* io = loop->ios.ptr[fd];

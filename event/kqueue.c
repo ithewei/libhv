@@ -82,10 +82,10 @@ static int __add_event(hloop_t* loop, int fd, int event) {
 }
 
 int iowatcher_add_event(hloop_t* loop, int fd, int events) {
-    if (events & READ_EVENT) {
+    if (events & HV_READ) {
         __add_event(loop, fd, EVFILT_READ);
     }
-    if (events & WRITE_EVENT) {
+    if (events & HV_WRITE) {
         __add_event(loop, fd, EVFILT_WRITE);
     }
     return 0;
@@ -121,10 +121,10 @@ static int __del_event(hloop_t* loop, int fd, int event) {
 }
 
 int iowatcher_del_event(hloop_t* loop, int fd, int events) {
-    if (events & READ_EVENT) {
+    if (events & HV_READ) {
         __del_event(loop, fd, EVFILT_READ);
     }
-    if (events & WRITE_EVENT) {
+    if (events & HV_WRITE) {
         __del_event(loop, fd, EVFILT_WRITE);
     }
     return 0;
@@ -159,11 +159,11 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
         int revents = kqueue_ctx->events[i].filter;
         hio_t* io = loop->ios.ptr[fd];
         if (io) {
-            if (revents | EVFILT_READ) {
-                io->revents |= EVFILT_READ;
+            if (revents & EVFILT_READ) {
+                io->revents |= HV_READ;
             }
-            if (revents | EVFILT_WRITE) {
-                io->revents |= EVFILT_WRITE;
+            if (revents & EVFILT_WRITE) {
+                io->revents |= HV_WRITE;
             }
             EVENT_PENDING(io);
         }

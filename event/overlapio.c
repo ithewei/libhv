@@ -225,11 +225,11 @@ static void hio_handle_events(hio_t* io) {
         }
     }
 
-    if ((io->events & WRITE_EVENT) && (io->revents & WRITE_EVENT)) {
-        // NOTE: WRITE_EVENT just do once
+    if ((io->events & HV_WRITE) && (io->revents & HV_WRITE)) {
+        // NOTE: HV_WRITE just do once
         // ONESHOT
-        iowatcher_del_event(io->loop, io->fd, WRITE_EVENT);
-        io->events &= ~WRITE_EVENT;
+        iowatcher_del_event(io->loop, io->fd, HV_WRITE);
+        io->events &= ~HV_WRITE;
         if (io->connect) {
             io->connect = 0;
 
@@ -277,7 +277,7 @@ int hio_connect (hio_t* io) {
     hoverlapped_t* hovlp;
     SAFE_ALLOC_SIZEOF(hovlp);
     hovlp->fd = io->fd;
-    hovlp->event = WRITE_EVENT;
+    hovlp->event = HV_WRITE;
     hovlp->io = io;
     if (ConnectEx(io->fd, io->peeraddr, sizeof(struct sockaddr_in6), NULL, 0, &dwbytes, &hovlp->ovlp) != TRUE) {
         int err = WSAGetLastError();
@@ -286,7 +286,7 @@ int hio_connect (hio_t* io) {
             goto error;
         }
     }
-    return hio_add(io, hio_handle_events, WRITE_EVENT);
+    return hio_add(io, hio_handle_events, HV_WRITE);
 error:
     hio_close(io);
     return 0;
@@ -341,7 +341,7 @@ WSASend:
         hoverlapped_t* hovlp;
         SAFE_ALLOC_SIZEOF(hovlp);
         hovlp->fd = io->fd;
-        hovlp->event = WRITE_EVENT;
+        hovlp->event = HV_WRITE;
         hovlp->buf.len = len - nwrite;
         // NOTE: free on_send_complete
         SAFE_ALLOC(hovlp->buf.buf, hovlp->buf.len);
@@ -368,7 +368,7 @@ WSASend:
                 return ret;
             }
         }
-        return hio_add(io, hio_handle_events, WRITE_EVENT);
+        return hio_add(io, hio_handle_events, HV_WRITE);
     }
 write_error:
 disconnect:
@@ -380,7 +380,7 @@ int hio_close (hio_t* io) {
     printd("close fd=%d\n", io->fd);
     if (io->closed) return 0;
     io->closed = 1;
-    hio_del(io, ALL_EVENTS);
+    hio_del(io, HV_RDWR);
 #ifdef USE_DISCONNECTEX
     // DisconnectEx reuse socket
     if (io->connectex) {
@@ -409,9 +409,9 @@ int hio_close (hio_t* io) {
         SAFE_FREE(io->hovlp);
     }
     if (io->close_cb) {
-        printd("close_cb------\n");
+        //printd("close_cb------\n");
         io->close_cb(io);
-        printd("close_cb======\n");
+        //printd("close_cb======\n");
     }
     return 0;
 }

@@ -49,7 +49,7 @@ void on_stdin(hio_t* io, void* buf, int readbytes) {
 
 void on_close(hio_t* io) {
     //printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
-    hio_del(stdinio, READ_EVENT);
+    hio_del(stdinio, HV_READ);
 }
 
 void on_connect(hio_t* io) {

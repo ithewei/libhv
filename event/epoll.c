@@ -46,17 +46,17 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
     ee.events = 0;
     ee.data.fd = fd;
     // pre events
-    if (io->events & READ_EVENT) {
+    if (io->events & HV_READ) {
         ee.events |= EPOLLIN;
     }
-    if (io->events & WRITE_EVENT) {
+    if (io->events & HV_WRITE) {
         ee.events |= EPOLLOUT;
     }
     // now events
-    if (events & READ_EVENT) {
+    if (events & HV_READ) {
         ee.events |= EPOLLIN;
     }
-    if (events & WRITE_EVENT) {
+    if (events & HV_WRITE) {
         ee.events |= EPOLLOUT;
     }
     int op = io->events == 0 ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
@@ -79,17 +79,17 @@ int iowatcher_del_event(hloop_t* loop, int fd, int events) {
     ee.events = 0;
     ee.data.fd = fd;
     // pre events
-    if (io->events & READ_EVENT) {
+    if (io->events & HV_READ) {
         ee.events |= EPOLLIN;
     }
-    if (io->events & WRITE_EVENT) {
+    if (io->events & HV_WRITE) {
         ee.events |= EPOLLOUT;
     }
     // now events
-    if (events & READ_EVENT) {
+    if (events & HV_READ) {
         ee.events &= ~EPOLLIN;
     }
-    if (events & WRITE_EVENT) {
+    if (events & HV_WRITE) {
         ee.events &= ~EPOLLOUT;
     }
     int op = ee.events == 0 ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
@@ -119,11 +119,11 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
             ++nevents;
             hio_t* io = loop->ios.ptr[fd];
             if (io) {
-                if (revents & EPOLLIN) {
-                    io->revents |= READ_EVENT;
+                if (revents & (EPOLLIN | EPOLLHUP | EPOLLERR)) {
+                    io->revents |= HV_READ;
                 }
-                if (revents & EPOLLOUT) {
-                    io->revents |= WRITE_EVENT;
+                if (revents & (EPOLLOUT | EPOLLHUP | EPOLLERR)) {
+                    io->revents |= HV_WRITE;
                 }
                 EVENT_PENDING(io);
             }

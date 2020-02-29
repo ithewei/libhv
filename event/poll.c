@@ -62,10 +62,10 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
         pfd = poll_ctx->fds.ptr + idx;
         assert(pfd->fd == fd);
     }
-    if (events & READ_EVENT) {
+    if (events & HV_READ) {
         pfd->events |= POLLIN;
     }
-    if (events & WRITE_EVENT) {
+    if (events & HV_WRITE) {
         pfd->events |= POLLOUT;
     }
     return 0;
@@ -80,15 +80,15 @@ int iowatcher_del_event(hloop_t* loop, int fd, int events) {
     if (idx < 0) return 0;
     struct pollfd* pfd = poll_ctx->fds.ptr + idx;
     assert(pfd->fd == fd);
-    if (events & READ_EVENT) {
+    if (events & HV_READ) {
         pfd->events &= ~POLLIN;
     }
-    if (events & WRITE_EVENT) {
+    if (events & HV_WRITE) {
         pfd->events &= ~POLLOUT;
     }
     if (pfd->events == 0) {
         pollfds_del_nomove(&poll_ctx->fds, idx);
-        // NOTE: correct event_idex
+        // NOTE: correct event_index
         if (idx < poll_ctx->fds.size) {
             hio_t* last = loop->ios.ptr[poll_ctx->fds.ptr[idx].fd];
             last->event_index[0] = idx;
@@ -116,11 +116,11 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
             ++nevents;
             hio_t* io = loop->ios.ptr[fd];
             if (io) {
-                if (revents & POLLIN) {
-                    io->revents |= READ_EVENT;
+                if (revents & (POLLIN | POLLHUP | POLLERR)) {
+                    io->revents |= HV_READ;
                 }
-                if (revents & POLLOUT) {
-                    io->revents |= WRITE_EVENT;
+                if (revents & (POLLOUT | POLLHUP | POLLERR)) {
+                    io->revents |= HV_WRITE;
                 }
                 EVENT_PENDING(io);
             }

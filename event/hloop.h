@@ -144,9 +144,9 @@ void        htimer_reset(htimer_t* timer);
 
 // io
 //-----------------------low-level apis---------------------------------------
-#define READ_EVENT  0x0001
-#define WRITE_EVENT 0x0004
-#define ALL_EVENTS  READ_EVENT|WRITE_EVENT
+#define HV_READ  0x0001
+#define HV_WRITE 0x0004
+#define HV_RDWR  (HV_READ|HV_WRITE)
 /*
 const char* hio_engine() {
 #ifdef EVENT_SELECT
@@ -168,8 +168,8 @@ const char* hio_engine() {
 */
 const char* hio_engine();
 hio_t* hio_get(hloop_t* loop, int fd);
-int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(READ_EVENT));
-int    hio_del(hio_t* io, int events DEFAULT(ALL_EVENTS));
+int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(HV_READ));
+int    hio_del(hio_t* io, int events DEFAULT(HV_RDWR));
 
 int hio_fd    (hio_t* io);
 int hio_error (hio_t* io);
