@@ -116,10 +116,17 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
             ++nevents;
             hio_t* io = loop->ios.ptr[fd];
             if (io) {
-                if (revents & POLLIN) {
+                //20200227 bugfix by song
+                //when peer close the connection,pool will capture POLLHUP event,we must process it avoid Infinite looping.
+                //refrence to https://github.com/RPCS3/rpcs3/blob/master/rpcs3/Emu/Cell/lv2/sys_net.cpp
+                if (revents & (POLLIN | POLLHUP)) {
                     io->revents |= READ_EVENT;
                 }
                 if (revents & POLLOUT) {
+                    io->revents |= WRITE_EVENT;
+                }
+                if (revents & POLLERR) {
+                    io->revents |= READ_EVENT;
                     io->revents |= WRITE_EVENT;
                 }
                 EVENT_PENDING(io);
