@@ -46,7 +46,8 @@ struct hloop_s {
     // ios: with fd as array.index
     struct io_array             ios;
     uint32_t                    nios;
-    hbuf_t                      readbuf;        // for hread
+    // one loop per thread, so one readbuf per loop is OK.
+    hbuf_t                      readbuf;
     void*                       iowatcher;
     // custom_events
     int                         sockpair[2];
@@ -116,7 +117,7 @@ struct hio_s {
     int         event_index[2]; // for poll,kqueue
     void*       hovlp;          // for iocp/overlapio
     void*       ssl;            // for SSL
-    htimer_t*   timer;         // for io timeout
+    htimer_t*   timer;          // for io timeout
 };
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)

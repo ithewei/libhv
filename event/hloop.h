@@ -133,7 +133,7 @@ htimer_t*   htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t r
  *  30      -1      -1      -1      -1          cron.hourly
  *  30      1       -1      -1      -1          cron.daily
  *  30      1       15      -1      -1          cron.monthly
- *  30      1       -1       7      -1          cron.weekly
+ *  30      1       -1       5      -1          cron.weekly
  *  30      1        1      -1      10          cron.yearly
  */
 htimer_t*   htimer_add_period(hloop_t* loop, htimer_cb cb,

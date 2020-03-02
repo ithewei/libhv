@@ -23,7 +23,6 @@
 #include "hthread.h"
 #include "hsocket.h"
 #include "hbuf.h"
-#include "hurl.h"
 #include "hgui.h"
 
 // cpp
@@ -33,6 +32,7 @@
 #include "hobj.h"
 #include "hfile.h"
 #include "hdir.h"
+#include "hurl.h"
 #include "hscope.h"
 #include "hthreadpool.h"
 #include "hobjectpool.h"
