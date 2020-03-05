@@ -1,12 +1,11 @@
 [![Build Status](https://travis-ci.org/ithewei/libhv.svg?branch=master)](https://travis-ci.org/ithewei/libhv)
 
-## Intro
+## 简介
 
-Like `libevent, libev, and libuv`,
-`libhv` provides event-loop with non-blocking IO and timer,
-but simpler apis and richer protocols.
+`libhv`是一个类似于`libevent, libev, libuv`的跨平台事件循环库，
+提供了更加简单的API接口和更加丰富的协议。
 
-## Features
+## 特征
 
 - cross-platform (Linux, Windows, Mac)
 - event-loop (IO, timer, idle)
@@ -30,7 +29,7 @@ but simpler apis and richer protocols.
     - httpd
     - curl
 
-## Getting Started
+## 入门
 
 ### HTTP
 #### http server
@@ -161,13 +160,13 @@ bin/udp 2222
 bin/nc -u 127.0.0.1 2222
 ```
 
-## BUILD
+## 构建
 
-### lib
+### 库
 - make libhv
 - sudo make install
 
-### examples
+### 示例
 - make examples
     - make test # master-workers model
     - make timer # timer add/del/reset
@@ -179,16 +178,16 @@ bin/nc -u 127.0.0.1 2222
     - make httpd # http server
     - make curl # http client
 
-### unittest
+### 单元测试
 - make unittest
 
-### compile options
-#### compile with print debug info
+### 编译选项
+#### 打印调试信息
 - make DEFINES=PRINT_DEBUG
 
-#### compile WITH_OPENSSL
-libhv combines OpenSSL perfectly, something almost all asynchronous IO network libraries don't do.<br>
-And enable SSL in libhv is so easy, just only two apis:
+#### 编译WITH_OPENSSL
+libhv完美结合了OpenSSL库，这是几乎所有的异步IO库没有做的一点。
+在libhv中开启SSL非常简单，仅需要两个API接口：
 ```
 // init global SSL_CTX, see base/ssl_ctx.h
 int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file);
@@ -197,7 +196,7 @@ int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file
 int hio_enable_ssl(hio_t* io);
 ```
 
-https is the best example.
+https就是做好的例子:
 ```
 sudo apt-get install openssl libssl-dev # ubuntu
 make clean
@@ -208,10 +207,10 @@ bin/curl -v https://localhost:8080
 curl -v https://localhost:8080 --insecure
 ```
 
-#### compile WITH_CURL
+#### 编译WITH_CURL
 - make WITH_CURL=yes DEFINES="CURL_STATICLIB"
 
-#### compile WITH_NGHTTP2
+#### 编译WITH_NGHTTP2
 ```
 sudo apt-get install libnghttp2-dev # ubuntu
 make clean
@@ -220,8 +219,8 @@ bin/httpd -d
 bin/curl -v localhost:8080 --http2
 ```
 
-#### other options
-see config.mk
+#### 更多选项
+见config.mk
 
 ### echo-servers
 ```shell
@@ -238,6 +237,72 @@ sudo echo-servers/benchmark.sh
 **echo-servers/benchmark**<br>
 ![echo-servers](html/downloads/echo-servers.jpg)
 
-Note: The client and servers are located in the same computer, the results are random, for reference only.
-In general, the performance of these libraries are similar, each has its own advantages.
+注：因为客户端和服务端测试位于同一台机器，上图结果仅供参考。总的来说，这些库性能接近，各有千秋。
 
+## 模块
+
+### 数据结构
+- array.h:       动态数组
+- list.h:        链表
+- queue.h:       队列
+- heap.h:        堆
+
+### base
+- hplatform.h:   平台相关宏
+- hdef.h:        宏定义
+- hversion.h:    版本
+- hbase.h:       基本接口
+- hsysinfo.h:    系统信息
+- hproc.h:       子进程/线程类
+- hmath.h:       math扩展函数
+- htime.h:       时间
+- herr.h:        错误码
+- hlog.h:        日志
+- hmutex.h：     同步锁
+- hthread.h：    线程
+- hsocket.h:     socket操作
+- hbuf.h:        缓存类
+- hurl.h:        URL转义
+- hgui.h:        gui相关定义
+- hstring.h:     字符串
+- hvar.h:        var变量
+- hobj.h:        对象基类
+- hfile.h:       文件类
+- hdir.h:        ls实现
+- hscope.h:      作用域RAII机制
+- hthreadpool.h: 线程池
+- hobjectpool.h: 对象池
+- ifconfig.h:    ifconfig实现
+
+### utils
+- hmain.h:       main_ctx: arg env
+- hendian.h:     大小端
+- iniparser.h:   ini解析
+- singleton.h:   单例模式
+- md5.h
+- base64.h
+- json.hpp
+
+### event
+- hloop.h:       事件循环
+
+#### iowatcher
+- EVENT_SELECT
+- EVENT_POLL
+- EVENT_EPOLL   (linux only)
+- EVENT_KQUEUE  (mac/bsd)
+- EVENT_IOCP    (windows only)
+
+### http
+- http_client.h: http客户端
+- HttpServer.h:  http服务端
+
+### 其它
+
+- hv.h：         总头文件
+- Makefile.in:   通用Makefile模板
+
+## 学习资料
+
+- libhv每日一学博客: <https://hewei.blog.csdn.net/article/details/103903123>
+- libhv QQ群`739352073`，欢迎加群讨论
