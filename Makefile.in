@@ -156,7 +156,7 @@ LDFLAGS += $(addprefix -l, $(LIBS))
 
 ifeq ($(OS), Windows)
 	LDFLAGS += -lwinmm -liphlpapi -lws2_32
-ifeq ($((ENABLE_WINDUMP), yes)
+ifeq ($(ENABLE_WINDUMP), yes)
 	CPPFLAGS += -DENABLE_WINDUMP
 	LDFLAGS += -ldbghelp
 endif
