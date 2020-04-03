@@ -304,5 +304,5 @@ sudo echo-servers/benchmark.sh
 
 ## 学习资料
 
-- libhv每日一学博客: <https://hewei.blog.csdn.net/article/details/103903123>
+- libhv 博客专栏: <https://hewei.blog.csdn.net/category_9866493.html>
 - libhv QQ群`739352073`，欢迎加群讨论
