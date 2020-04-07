@@ -229,7 +229,9 @@ endif
 
 ifneq ($(findstring STATIC, $(TARGET_TYPE)), )
 	$(AR) $(ARFLAGS) $(LIBDIR)/$@.a $^
-else
+endif
+
+ifneq ($(findstring EXECUTABLE, $(TARGET_TYPE)), )
 ifeq ($(OS), Windows)
 	$(CC) $^ -o $(BINDIR)/$@.exe $(LDFLAGS)
 else
