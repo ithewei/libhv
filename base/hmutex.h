@@ -156,8 +156,8 @@ public:
     void rdlock()   { hrwlock_rdlock(&_rwlock); }
     void rdunlock() { hrwlock_rdunlock(&_rwlock); }
 
-    void rwlock()   { hrwlock_wrlock(&_rwlock); }
-    void rwunlock() { hrwlock_wrunlock(&_rwlock); }
+    void wrlock()   { hrwlock_wrlock(&_rwlock); }
+    void wrunlock() { hrwlock_wrunlock(&_rwlock); }
 protected:
     hrwlock_t   _rwlock;
 };
