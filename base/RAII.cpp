@@ -33,7 +33,7 @@ public:
     WsaRAII() {
         WSADATA wsadata;
         WSAStartup(MAKEWORD(2,2), &wsadata);
-#ifdef WITH_WINDUMP
+#ifdef ENABLE_WINDUMP
         SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)UnhandledException);
 #endif
     }
