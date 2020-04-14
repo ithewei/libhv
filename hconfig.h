@@ -57,4 +57,8 @@
 #define HAVE_PTHREAD_MUTEX_TIMEDLOCK 0
 #endif
 
+#ifndef HAVE_SEM_TIMEDWAIT
+#define HAVE_SEM_TIMEDWAIT 0
+#endif
+
 #endif // HV_CONFIG_H_

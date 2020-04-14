@@ -204,4 +204,47 @@ typedef unsigned __int64    uint64_t;
 
 #endif
 
+#ifdef OS_WIN
+static inline void sleep(unsigned int s) {
+    Sleep(s*1000);
+}
+
+static inline void usleep(unsigned int us) {
+    Sleep(us/1000);
+}
+#endif
+
+static inline void msleep(unsigned int ms) {
+#ifdef OS_WIN
+    Sleep(ms);
+#else
+    usleep(ms*1000);
+#endif
+}
+
+#if HAVE_CLOCK_GETTIME
+#ifndef CLOCK_REALTIME
+#define CLOCK_REALTIME 0
+#endif
+
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 1
+#endif
+#endif
+
+// ms
+static inline unsigned int gettick() {
+#ifdef OS_WIN
+    return GetTickCount();
+#elif HAVE_CLOCK_GETTIME
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+#endif
+}
+
 #endif // HV_PLATFORM_H_

@@ -26,14 +26,6 @@ typedef struct datetime_s {
 } datetime_t;
 
 #ifdef OS_WIN
-static inline void sleep(unsigned int s) {
-    Sleep(s*1000);
-}
-
-static inline void usleep(unsigned int us) {
-    Sleep(us/1000);
-}
-
 #ifdef _MSC_VER
 /* @see winsock2.h
 // Structure used in select() call, taken from the BSD file sys/time.h
@@ -51,55 +43,28 @@ struct timezone {
 #include <sys/timeb.h>
 static inline int gettimeofday(struct timeval *tv, struct timezone *tz) {
     struct _timeb tb;
-
     _ftime(&tb);
-
     if (tv) {
         tv->tv_sec =  (long)tb.time;
         tv->tv_usec = tb.millitm * 1000;
     }
-
     if (tz) {
         tz->tz_minuteswest = tb.timezone;
         tz->tz_dsttime = tb.dstflag;
     }
-
     return 0;
 }
 #endif
 #endif
-
-static inline void msleep(unsigned int ms) {
-#ifdef OS_WIN
-    Sleep(ms);
-#else
-    usleep(ms*1000);
-#endif
-}
-
-// ms
-static inline unsigned int gettick() {
-#ifdef OS_WIN
-    return GetTickCount();
-#elif HAVE_CLOCK_GETTIME
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
-#else
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
-#endif
-}
-
-// us
-unsigned long long gethrtime();
 
 static inline unsigned long long timestamp_ms() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return tv.tv_sec * (unsigned long long)1000 + tv.tv_usec/1000;
 }
+
+// us
+unsigned long long gethrtime();
 
 datetime_t datetime_now();
 time_t     datetime_mktime(datetime_t* dt);

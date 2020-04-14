@@ -54,6 +54,16 @@ static inline void honce(honce_t* once, honce_fn fn) {
     PVOID dummy = NULL;
     InitOnceExecuteOnce(once, s_once_func, (PVOID)fn, &dummy);
 }
+
+#define hsem_t                      HANDLE
+#define hsem_init(psem, value)      *(psem) = CreateSemaphore(NULL, value, value+100000, NULL)
+#define hsem_destroy(psem)          CloseHandle(*(psem))
+#define hsem_wait(psem)             WaitForSingleObject(*(psem), INFINITE)
+#define hsem_post(psem)             ReleaseSemaphore(*(psem))
+// true:  WAIT_OBJECT_0
+// false: WAIT_OBJECT_TIMEOUT
+#define hsem_wait_for(psem, ms)     ( WaitForSingleObject(*(psem), ms) == WAIT_OBJECT_0 )
+
 #else
 #define hmutex_t                pthread_mutex_t
 #define hmutex_init(pmutex)     pthread_mutex_init(pmutex, NULL)
@@ -67,6 +77,12 @@ static inline void honce(honce_t* once, honce_fn fn) {
 #define hspinlock_destroy       pthread_spin_destroy
 #define hspinlock_lock          pthread_spin_lock
 #define hspinlock_unlock        pthread_spin_unlock
+#else
+#define hspinlock_t             pthread_mutex_t
+#define hspinlock_init(pmutex)  pthread_mutex_init(pmutex, NULL)
+#define hspinlock_destroy       pthread_mutex_destroy
+#define hspinlock_lock          pthread_mutex_lock
+#define hspinlock_unlock        pthread_mutex_unlock
 #endif
 
 #define hrwlock_t               pthread_rwlock_t
@@ -77,7 +93,6 @@ static inline void honce(honce_t* once, honce_fn fn) {
 #define hrwlock_wrlock          pthread_rwlock_wrlock
 #define hrwlock_wrunlock        pthread_rwlock_unlock
 
-#if HAVE_PTHREAD_MUTEX_TIMEDLOCK
 #define htimed_mutex_t              pthread_mutex_t
 #define htimed_mutex_init(pmutex)   pthread_mutex_init(pmutex, NULL)
 #define htimed_mutex_destroy        pthread_mutex_destroy
@@ -85,7 +100,8 @@ static inline void honce(honce_t* once, honce_fn fn) {
 #define htimed_mutex_unlock         pthread_mutex_unlock
 // true:  OK
 // false: ETIMEDOUT
-static inline int htimed_mutex_lock_for(htimed_mutex_t* mutex, unsigned long ms) {
+static inline int htimed_mutex_lock_for(htimed_mutex_t* mutex, unsigned int ms) {
+#if HAVE_PTHREAD_MUTEX_TIMEDLOCK
     struct timespec ts;
     struct timeval  tv;
     gettimeofday(&tv, NULL);
@@ -96,16 +112,28 @@ static inline int htimed_mutex_lock_for(htimed_mutex_t* mutex, unsigned long ms)
         ts.tv_sec += 1;
     }
     return pthread_mutex_timedlock(mutex, &ts) != ETIMEDOUT;
-}
+#else
+    int ret = 0;
+    unsigned int end = gettick() + ms;
+    while ((ret = pthread_mutex_trylock(mutex)) != 0) {
+        if (gettick() >= end) {
+            break;
+        }
+        msleep(1);
+    }
+    return ret == 0;
 #endif
+}
 
 #define hcondvar_t              pthread_cond_t
 #define hcondvar_init(pcond)    pthread_cond_init(pcond, NULL)
 #define hcondvar_destroy        pthread_cond_destroy
 #define hcondvar_wait           pthread_cond_wait
+#define hcondvar_signal         pthread_cond_signal
+#define hcondvar_broadcast      pthread_cond_broadcast
 // true:  OK
 // false: ETIMEDOUT
-static inline int hcondvar_wait_for(hcondvar_t* cond, hmutex_t* mutex, unsigned long ms) {
+static inline int hcondvar_wait_for(hcondvar_t* cond, hmutex_t* mutex, unsigned int ms) {
     struct timespec ts;
     struct timeval  tv;
     gettimeofday(&tv, NULL);
@@ -117,12 +145,44 @@ static inline int hcondvar_wait_for(hcondvar_t* cond, hmutex_t* mutex, unsigned 
     }
     return pthread_cond_timedwait(cond, mutex, &ts) != ETIMEDOUT;
 }
-#define hcondvar_signal         pthread_cond_signal
-#define hcondvar_broadcast      pthread_cond_broadcast
 
 #define honce_t                 pthread_once_t
 #define HONCE_INIT              PTHREAD_ONCE_INIT
 #define honce                   pthread_once
+
+#include <semaphore.h>
+#define hsem_t                  sem_t
+#define hsem_init(psem, value)  sem_init(psem, 0, value)
+#define hsem_destroy            sem_destroy
+#define hsem_wait               sem_wait
+#define hsem_post               sem_post
+// true:  OK
+// false: ETIMEDOUT
+static inline int hsem_wait_for(hsem_t* sem, unsigned int ms) {
+#if HAVE_SEM_TIMEDWAIT
+    struct timespec ts;
+    struct timeval  tv;
+    gettimeofday(&tv, NULL);
+    ts.tv_sec = tv.tv_sec + ms / 1000;
+    ts.tv_nsec = tv.tv_usec * 1000 + ms % 1000 * 1000000;
+    if (ts.tv_nsec >= 1000000000) {
+        ts.tv_nsec -= 1000000000;
+        ts.tv_sec += 1;
+    }
+    return sem_timedwait(sem, &ts) != ETIMEDOUT;
+#else
+    int ret = 0;
+    unsigned int end = gettick() + ms;
+    while ((ret = sem_trywait(sem)) != 0) {
+        if (gettick() >= end) {
+            break;
+        }
+        msleep(1);
+    }
+    return ret == 0;
+#endif
+}
+
 #endif
 
 #ifdef __cplusplus
@@ -146,6 +206,17 @@ public:
     void unlock() { hmutex_unlock(&_mutex); }
 protected:
     hmutex_t _mutex;
+};
+
+class SpinLock {
+public:
+    SpinLock() { hspinlock_init(&_spin); }
+    ~SpinLock() { hspinlock_destroy(&_spin); }
+
+    void lock() { hspinlock_lock(&_spin); }
+    void unlock() { hspinlock_unlock(&_spin); }
+protected:
+    hspinlock_t _spin;
 };
 
 class RWLock {
