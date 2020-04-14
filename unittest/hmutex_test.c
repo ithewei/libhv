@@ -1,8 +1,6 @@
 #include "hthread.h"
 #include "hmutex.h"
-
-#include <stdio.h>
-#include <time.h>
+#include "htime.h"
 
 void once_print() {
     printf("exec once\n");
@@ -53,12 +51,12 @@ HTHREAD_ROUTINE(test_timed_mutex) {
     htimed_mutex_t mutex;
     htimed_mutex_init(&mutex);
     htimed_mutex_lock(&mutex);
-    time_t start_time = time(NULL);
+    time_t start_time = gettick();
     htimed_mutex_lock_for(&mutex, 3000);
-    time_t end_time = time(NULL);
+    time_t end_time = gettick();
+    printf("htimed_mutex_lock_for %zdms\n", end_time - start_time);
     htimed_mutex_unlock(&mutex);
     htimed_mutex_destroy(&mutex);
-    printf("htimed_mutex_lock_for %zds\n", end_time - start_time);
     printf("htimed_mutex test OK!\n");
     return 0;
 }
@@ -72,10 +70,10 @@ HTHREAD_ROUTINE(test_condvar) {
     hmutex_lock(&mutex);
     hcondvar_signal(&cv);
     hcondvar_broadcast(&cv);
-    time_t start_time = time(NULL);
+    time_t start_time = gettick();
     hcondvar_wait_for(&cv, &mutex, 3000);
-    time_t end_time = time(NULL);
-    printf("hcondvar_wait_for %zds\n", end_time - start_time);
+    time_t end_time = gettick();
+    printf("hcondvar_wait_for %zdms\n", end_time - start_time);
     hmutex_unlock(&mutex);
 
     hmutex_destroy(&mutex);
@@ -92,10 +90,10 @@ HTHREAD_ROUTINE(test_sem) {
     }
     hsem_post(&sem);
     hsem_wait(&sem);
-    time_t start_time = time(NULL);
+    time_t start_time = gettick();
     hsem_wait_for(&sem, 3000);
-    time_t end_time = time(NULL);
-    printf("hsem_wait_for %zds\n", end_time - start_time);
+    time_t end_time = gettick();
+    printf("hsem_wait_for %zdms\n", end_time - start_time);
     hsem_destroy(&sem);
     printf("hsem test OK!\n");
     return 0;

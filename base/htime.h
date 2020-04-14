@@ -26,6 +26,14 @@ typedef struct datetime_s {
 } datetime_t;
 
 #ifdef OS_WIN
+static inline void sleep(unsigned int s) {
+    Sleep(s*1000);
+}
+
+static inline void usleep(unsigned int us) {
+    Sleep(us/1000);
+}
+
 #ifdef _MSC_VER
 /* @see winsock2.h
 // Structure used in select() call, taken from the BSD file sys/time.h
@@ -63,6 +71,9 @@ static inline unsigned long long timestamp_ms() {
     return tv.tv_sec * (unsigned long long)1000 + tv.tv_usec/1000;
 }
 
+void msleep(unsigned int ms);
+// ms
+unsigned int gettick();
 // us
 unsigned long long gethrtime();
 

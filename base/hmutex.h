@@ -2,6 +2,7 @@
 #define HV_MUTEX_H_
 
 #include "hplatform.h"
+#include "htime.h"
 
 #ifdef _MSC_VER
 #define hmutex_t                CRITICAL_SECTION

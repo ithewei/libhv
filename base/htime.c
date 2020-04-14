@@ -19,6 +19,28 @@ static const uint8_t s_days[] = \
 //   1       3       5       7   8       10      12
     {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
+void msleep(unsigned int ms) {
+#ifdef OS_WIN
+    Sleep(ms);
+#else
+    usleep(ms*1000);
+#endif
+}
+
+unsigned int gettick() {
+#ifdef OS_WIN
+    return GetTickCount();
+#elif HAVE_CLOCK_GETTIME
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+#endif
+}
+
 unsigned long long gethrtime() {
 #ifdef OS_WIN
     static LONGLONG s_freq = 0;
