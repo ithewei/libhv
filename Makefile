@@ -18,11 +18,14 @@ ifeq ($(WITH_HTTP), yes)
 LIBHV_HEADERS += $(HTTP_HEADERS)
 LIBHV_SRCDIRS += http
 ifeq ($(WITH_HTTP_SERVER), yes)
+LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
 endif
 ifeq ($(WITH_HTTP_CLIENT), yes)
+LIBHV_HEADERS += $(HTTP_CLIENT_HEADERS)
 LIBHV_SRCDIRS += http/client
 ifeq ($(WITH_CONSUL), yes)
+LIBHV_HEADERS += $(CONSUL_HEADERS)
 LIBHV_SRCDIRS += consul
 endif
 endif

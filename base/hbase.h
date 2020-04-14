@@ -1,10 +1,6 @@
 #ifndef HV_BASE_H_
 #define HV_BASE_H_
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "hdef.h"
 
 #ifdef __cplusplus

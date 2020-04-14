@@ -37,6 +37,7 @@
 - gethrtime
 - sleep
 - msleep
+- usleep
 - hv_compile_datetime
 - days_of_month
 - month_atoi
@@ -316,6 +317,7 @@
 - HSize
 - HRect
 - `hv::MutexLock`
+- `hv::SpinLock`
 - `hv::RWLock`
 
 # marcos
@@ -410,14 +412,20 @@
 - htimed_mutex_init
 - htimed_mutex_destroy
 - htimed_mutex_lock
-- htimed_mutex_unlock
 - htimed_mutex_lock_for
+- htimed_mutex_unlock
 - hcondvar_t
 - hcondvar_init
 - hcondvar_destroy
 - hcondvar_wait
+- hcondvar_wait_for
 - hcondvar_signal
 - hcondvar_broadcast
+- hsem_init
+- hsem_destroy
+- hsem_wait
+- hsem_post
+- hsem_timedwait
 - honce_t
 - HONCE_INIT
 - honce

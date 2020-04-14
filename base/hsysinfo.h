@@ -1,5 +1,5 @@
-#ifndef H_SYS_INFO_H_
-#define H_SYS_INFO_H_
+#ifndef HV_SYS_INFO_H_
+#define HV_SYS_INFO_H_
 
 #include "hplatform.h"
 
@@ -47,4 +47,4 @@ static inline int get_meminfo(meminfo_t* mem) {
 #endif
 }
 
-#endif // H_SYS_INFO_H_
+#endif // HV_SYS_INFO_H_
