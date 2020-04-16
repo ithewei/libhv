@@ -3,9 +3,7 @@
 
 #include "hdef.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+BEGIN_EXTERN_C
 
 //---------------------safe alloc/free---------------------------
 extern unsigned int g_alloc_cnt;
@@ -71,8 +69,6 @@ char* safe_strncat(char* dest, const char* src, size_t n);
 // 1 y on yes true enable
 bool getboolean(const char* str);
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
+END_EXTERN_C
 
 #endif // HV_BASE_H_

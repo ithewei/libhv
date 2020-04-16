@@ -1,12 +1,10 @@
 #ifndef HV_TIME_H_
 #define HV_TIME_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "hplatform.h"
 #include "hdef.h"
+
+BEGIN_EXTERN_C
 
 #define SECONDS_PER_HOUR    3600
 #define SECONDS_PER_DAY     86400   // 24*3600
@@ -112,8 +110,6 @@ const char* weekday_itoa(int weekday);
 
 datetime_t hv_compile_datetime();
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
+END_EXTERN_C
 
 #endif // HV_TIME_H_

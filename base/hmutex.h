@@ -4,6 +4,8 @@
 #include "hplatform.h"
 #include "htime.h"
 
+BEGIN_EXTERN_C
+
 #ifdef _MSC_VER
 #define hmutex_t                CRITICAL_SECTION
 #define hmutex_init             InitializeCriticalSection
@@ -185,6 +187,8 @@ static inline int hsem_wait_for(hsem_t* sem, unsigned int ms) {
 }
 
 #endif
+
+END_EXTERN_C
 
 #ifdef __cplusplus
 #include <mutex>
