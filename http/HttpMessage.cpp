@@ -74,7 +74,6 @@ int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
         auto iter = json.find(key);
         if (iter != json.end()) {
             switch (iter->type()) {
-                return *iter;
             case value_t::boolean:
             {
                 bool b = *iter;
@@ -118,7 +117,6 @@ double HttpMessage::Get(const char* key, double defvalue) {
         auto iter = json.find(key);
         if (iter != json.end()) {
             switch (iter->type()) {
-                return *iter;
             case value_t::boolean:
             {
                 bool b = *iter;
@@ -162,7 +160,6 @@ bool HttpMessage::Get(const char* key, bool defvalue) {
         auto iter = json.find(key);
         if (iter != json.end()) {
             switch (iter->type()) {
-                return *iter;
             case value_t::boolean:
             {
                 bool b = *iter;
