@@ -38,6 +38,8 @@
 #elif defined(__OpenBSD__)
     #define OS_OPENBSD
     #define OS_BSD
+#elif defined(sun) || defined(__sun) || defined(__sun__)
+    #define OS_SOLARIS
 #else
     #error "Unsupported operating system platform!"
 #endif
