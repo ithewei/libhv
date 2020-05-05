@@ -51,23 +51,23 @@ typedef union {
     struct sockaddr     sa;
     struct sockaddr_in  sin;
     struct sockaddr_in6 sin6;
-} sockaddr_un;
+} sockaddr_u;
 
 // @param host: domain or ip
 // @retval 0:succeed
-int Resolver(const char* host, sockaddr_un* addr);
+int Resolver(const char* host, sockaddr_u* addr);
 
-static inline socklen_t sockaddrlen(sockaddr_un* addr) {
+static inline socklen_t sockaddrlen(sockaddr_u* addr) {
     if (addr->sa.sa_family == AF_INET) {
         return sizeof(struct sockaddr_in);
     }
     else if (addr->sa.sa_family == AF_INET6) {
         return sizeof(struct sockaddr_in6);
     }
-    return sizeof(sockaddr_un);
+    return sizeof(sockaddr_u);
 }
 
-static inline const char* sockaddr_ip(sockaddr_un* addr, char *ip, int len) {
+static inline const char* sockaddr_ip(sockaddr_u* addr, char *ip, int len) {
     if (addr->sa.sa_family == AF_INET) {
         return inet_ntop(AF_INET, &addr->sin.sin_addr, ip, len);
     }
@@ -77,7 +77,7 @@ static inline const char* sockaddr_ip(sockaddr_un* addr, char *ip, int len) {
     return ip;
 }
 
-static inline uint16_t sockaddr_port(sockaddr_un* addr) {
+static inline uint16_t sockaddr_port(sockaddr_u* addr) {
     uint16_t port = 0;
     if (addr->sa.sa_family == AF_INET) {
         port = htons(addr->sin.sin_port);
@@ -88,7 +88,7 @@ static inline uint16_t sockaddr_port(sockaddr_un* addr) {
     return port;
 }
 
-static inline void sockaddr_set_port(sockaddr_un* addr, int port) {
+static inline void sockaddr_set_port(sockaddr_u* addr, int port) {
     if (addr->sa.sa_family == AF_INET) {
         addr->sin.sin_port = ntohs(port);
     }
@@ -100,12 +100,12 @@ static inline void sockaddr_set_port(sockaddr_un* addr, int port) {
 //#define INET_ADDRSTRLEN   16
 //#define INET6_ADDRSTRLEN  46
 #define SOCKADDR_STRLEN     64 // ipv4:port | [ipv6]:port
-#define SOCKADDR_STR(addr, buf) sockaddr_str((sockaddr_un*)addr, buf, sizeof(buf))
-// NOTE: typeof(addr)=[sockaddr*, sockaddr_in*, sockaddr_in6*, sockaddr_un*]
+#define SOCKADDR_STR(addr, buf) sockaddr_str((sockaddr_u*)addr, buf, sizeof(buf))
+// NOTE: typeof(addr)=[sockaddr*, sockaddr_in*, sockaddr_in6*, sockaddr_u*]
 // char buf[SOCKADDR_STRLEN] = {0};
 // SOCKADDR_STR(addr, buf);
 
-static inline const char* sockaddr_str(sockaddr_un* addr, char* buf, int len) {
+static inline const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
     char ip[SOCKADDR_STRLEN] = {0};
     uint16_t port = 0;
     if (addr->sa.sa_family == AF_INET) {
@@ -121,13 +121,13 @@ static inline const char* sockaddr_str(sockaddr_un* addr, char* buf, int len) {
     return buf;
 }
 
-static inline void sockaddr_print(sockaddr_un* addr) {
+static inline void sockaddr_print(sockaddr_u* addr) {
     char buf[SOCKADDR_STRLEN] = {0};
     sockaddr_str(addr, buf, sizeof(buf));
     puts(buf);
 }
 
-static inline int sockaddr_assign(sockaddr_un* addr, const char* host, int port) {
+static inline int sockaddr_assign(sockaddr_u* addr, const char* host, int port) {
     if (host) {
         int ret = Resolver(host, addr);
         if (ret != 0) return ret;

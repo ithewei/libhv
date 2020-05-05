@@ -27,7 +27,7 @@ int ping(const char* host, int cnt) {
     //min_rtt = MIN(rtt, min_rtt);
     //max_rtt = MAX(rtt, max_rtt);
     // gethostbyname -> socket -> setsockopt -> sendto -> recvfrom -> closesocket
-    sockaddr_un peeraddr;
+    sockaddr_u peeraddr;
     socklen_t addrlen = sizeof(peeraddr);
     memset(&peeraddr, 0, addrlen);
     int ret = Resolver(host, &peeraddr);

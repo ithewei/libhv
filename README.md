@@ -8,7 +8,7 @@ but simpler apis and richer protocols.
 
 ## Features
 
-- cross-platform (Linux, Windows, Mac)
+- cross-platform (Linux, Windows, Mac, Solaris)
 - event-loop (IO, timer, idle)
 - ENABLE_IPV6
 - WITH_OPENSSL

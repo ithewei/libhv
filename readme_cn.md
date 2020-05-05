@@ -291,6 +291,7 @@ sudo echo-servers/benchmark.sh
 - EVENT_POLL
 - EVENT_EPOLL   (linux only)
 - EVENT_KQUEUE  (mac/bsd)
+- EVENT_PORT    (solaris)
 - EVENT_IOCP    (windows only)
 
 ### http
