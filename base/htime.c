@@ -41,6 +41,7 @@ unsigned int gettick() {
 #endif
 }
 
+#ifndef OS_SOLARIS
 unsigned long long gethrtime() {
 #ifdef OS_WIN
     static LONGLONG s_freq = 0;
@@ -65,6 +66,7 @@ unsigned long long gethrtime() {
     return tv.tv_sec*(unsigned long long)1000000 + tv.tv_usec;
 #endif
 }
+#endif
 
 datetime_t datetime_now() {
     datetime_t  dt;

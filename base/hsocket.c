@@ -15,7 +15,7 @@ const char* socket_strerror(int err) {
 #endif
 }
 
-int Resolver(const char* host, sockaddr_un* addr) {
+int Resolver(const char* host, sockaddr_u* addr) {
     if (inet_pton(AF_INET, host, &addr->sin.sin_addr) == 1) {
         addr->sa.sa_family = AF_INET; // host is ipv4, so easy ;)
         return 0;
@@ -60,7 +60,7 @@ int Bind(int port, const char* host, int type) {
         WSAStartup(MAKEWORD(2,2), &wsadata);
     }
 #endif
-    sockaddr_un localaddr;
+    sockaddr_u localaddr;
     socklen_t addrlen = sizeof(localaddr);
     memset(&localaddr, 0, addrlen);
     int ret = sockaddr_assign(&localaddr, host, port);
@@ -109,7 +109,7 @@ error:
 
 int Connect(const char* host, int port, int nonblock) {
     // Resolver -> socket -> nonblocking -> connect
-    sockaddr_un peeraddr;
+    sockaddr_u peeraddr;
     socklen_t addrlen = sizeof(peeraddr);
     memset(&peeraddr, 0, addrlen);
     int ret = sockaddr_assign(&peeraddr, host, port);

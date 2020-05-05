@@ -230,8 +230,8 @@ static void on_accept(hio_t* io) {
     HttpHandler* handler = new HttpHandler;
     handler->service = (HttpService*)hevent_userdata(io);
     handler->files = &s_filecache;
-    sockaddr_ip((sockaddr_un*)hio_peeraddr(io), handler->ip, sizeof(handler->ip));
-    handler->port = sockaddr_port((sockaddr_un*)hio_peeraddr(io));
+    sockaddr_ip((sockaddr_u*)hio_peeraddr(io), handler->ip, sizeof(handler->ip));
+    handler->port = sockaddr_port((sockaddr_u*)hio_peeraddr(io));
     handler->io = io;
     hevent_set_userdata(io, handler);
 }
