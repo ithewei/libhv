@@ -34,7 +34,7 @@
 - datetime_fmt
 - gmtime_fmt
 - gettick
-- gethrtime
+- gethrtime_us
 - sleep
 - msleep
 - usleep

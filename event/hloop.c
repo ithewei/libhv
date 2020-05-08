@@ -175,7 +175,7 @@ static void hloop_init(hloop_t* loop) {
     hmutex_init(&loop->custom_events_mutex);
     // NOTE: init start_time here, because htimer_add use it.
     loop->start_ms = timestamp_ms();
-    loop->start_hrtime = loop->cur_hrtime = gethrtime();
+    loop->start_hrtime = loop->cur_hrtime = gethrtime_us();
 }
 
 static void hloop_cleanup(hloop_t* loop) {
@@ -268,7 +268,7 @@ int hloop_run(hloop_t* loop) {
         }
     }
     loop->status = HLOOP_STATUS_STOP;
-    loop->end_hrtime = gethrtime();
+    loop->end_hrtime = gethrtime_us();
     if (loop->flags & HLOOP_FLAG_AUTO_FREE) {
         hloop_cleanup(loop);
         SAFE_FREE(loop);
@@ -296,7 +296,7 @@ int hloop_resume(hloop_t* loop) {
 }
 
 void hloop_update_time(hloop_t* loop) {
-    loop->cur_hrtime = gethrtime();
+    loop->cur_hrtime = gethrtime_us();
     if (ABS((int64_t)hloop_now(loop) - (int64_t)time(NULL)) > 1) {
         // systemtime changed, we adjust start_ms
         loop->start_ms = timestamp_ms() - (loop->cur_hrtime - loop->start_hrtime) / 1000;

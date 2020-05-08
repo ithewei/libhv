@@ -193,6 +193,7 @@ END_EXTERN_C
 #ifdef __cplusplus
 #include <mutex>
 #include <condition_variable>
+// using std::mutex;
 // NOTE: test std::timed_mutex incorrect in some platforms, use htimed_mutex_t
 // using std::timed_mutex;
 using std::condition_variable;
