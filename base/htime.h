@@ -72,11 +72,8 @@ static inline unsigned long long timestamp_ms() {
 void msleep(unsigned int ms);
 // ms
 unsigned int gettick();
-
-#ifndef OS_SOLARIS  // Solaris has built-in gethrtime().
 // us
-unsigned long long gethrtime();
-#endif
+unsigned long long gethrtime_usec();
 
 datetime_t datetime_now();
 time_t     datetime_mktime(datetime_t* dt);
