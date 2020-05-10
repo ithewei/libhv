@@ -35,7 +35,10 @@ read -n1
 bin/curl -v localhost:8080/v1/api/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
 
 read -n1
-bin/curl -v localhost:8080/v1/api/form -F "file=@LICENSE"
+bin/curl -v localhost:8080/v1/api/form -F "user=admin pswd=123456"
+
+read -n1
+bin/curl -v localhost:8080/v1/api/upload -F "file=@LICENSE"
 
 read -n1
 bin/curl -v localhost:8080/v1/api/test -H "Content-Type:application/x-www-form-urlencoded" -d 'bool=1&int=123&float=3.14&string=hello'

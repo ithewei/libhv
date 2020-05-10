@@ -47,6 +47,7 @@ struct logger_s {
     FILE*               fp_;
     char                cur_logfile[256];
     time_t              last_logfile_ts;
+    int                 can_write_cnt;
 
     hmutex_t            mutex_; // thread-safe
 };
@@ -65,6 +66,7 @@ static void logger_init(logger_t* logger) {
     logger->enable_fsync = 1;
     logger_set_file(logger, DEFAULT_LOG_FILE);
     logger->last_logfile_ts = 0;
+    logger->can_write_cnt = -1;
     hmutex_init(&logger->mutex_);
 }
 
@@ -149,7 +151,7 @@ static void ts_logfile(const char* filepath, time_t ts, char* buf, int len) {
 
 static FILE* shift_logfile(logger_t* logger) {
     time_t ts_now = time(NULL);
-    int interval_days = logger->last_logfile_ts == 0 ? 0 : (ts_now+s_gmtoff) / SECONDS_PER_DAY - (logger->last_logfile_ts+s_gmtoff) / SECONDS_PER_DAY;;
+    int interval_days = logger->last_logfile_ts == 0 ? 0 : (ts_now+s_gmtoff) / SECONDS_PER_DAY - (logger->last_logfile_ts+s_gmtoff) / SECONDS_PER_DAY;
     if (logger->fp_ == NULL || interval_days > 0) {
         // close old logfile
         if (logger->fp_) {
@@ -161,9 +163,9 @@ static FILE* shift_logfile(logger_t* logger) {
         }
 
         if (logger->remain_days >= 0) {
+            char rm_logfile[256] = {0};
             if (interval_days >= logger->remain_days) {
                 // remove [today-interval_days, today-remain_days] logfile
-                char rm_logfile[256] = {0};
                 for (int i = interval_days; i >= logger->remain_days; --i) {
                     time_t ts_rm  = ts_now - i * SECONDS_PER_DAY;
                     ts_logfile(logger->filepath, ts_rm, rm_logfile, sizeof(rm_logfile));
@@ -172,7 +174,6 @@ static FILE* shift_logfile(logger_t* logger) {
             }
             else {
                 // remove today-remain_days logfile
-                char rm_logfile[256] = {0};
                 time_t ts_rm  = ts_now - logger->remain_days * SECONDS_PER_DAY;
                 ts_logfile(logger->filepath, ts_rm, rm_logfile, sizeof(rm_logfile));
                 remove(rm_logfile);
@@ -187,15 +188,14 @@ static FILE* shift_logfile(logger_t* logger) {
         logger->last_logfile_ts = ts_now;
     }
 
-    // ftruncate
-    // NOTE; estimate can_write_cnt to avoid frequent fseek/ftell
-    static int s_can_write_cnt = 0;
-    if (logger->fp_ && --s_can_write_cnt < 0) {
+    // NOTE: estimate can_write_cnt to avoid frequent fseek/ftell
+    if (logger->fp_ && --logger->can_write_cnt < 0) {
         fseek(logger->fp_, 0, SEEK_END);
         long filesize = ftell(logger->fp_);
         if (filesize > logger->max_filesize) {
             fclose(logger->fp_);
             logger->fp_ = NULL;
+            // ftruncate
             logger->fp_ = fopen(logger->cur_logfile, "w");
             // reopen with O_APPEND for multi-processes
             if (logger->fp_) {
@@ -204,7 +204,7 @@ static FILE* shift_logfile(logger_t* logger) {
             }
         }
         else {
-            s_can_write_cnt = (logger->max_filesize - filesize) / logger->bufsize;
+            logger->can_write_cnt = (logger->max_filesize - filesize) / logger->bufsize;
         }
     }
 
@@ -215,21 +215,6 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     if (level < logger->level)
         return -10;
 
-    const char* pcolor = "";
-    const char* plevel = "";
-#define XXX(id, str, clr) \
-    case id: plevel = str; pcolor = clr; break;
-
-    switch (level) {
-        LOG_LEVEL_MAP(XXX)
-    }
-#undef XXX
-
-    if (!logger->enable_color) {
-        pcolor = "";
-    }
-
-    // lock logger->buf
     int year,month,day,hour,min,sec,ms;
 #ifdef _WIN32
     SYSTEMTIME tm;
@@ -255,12 +240,29 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     sec      = tm->tm_sec;
     ms       = tv.tv_usec/1000;
 #endif
+
+    const char* pcolor = "";
+    const char* plevel = "";
+#define XXX(id, str, clr) \
+    case id: plevel = str; pcolor = clr; break;
+
+    switch (level) {
+        LOG_LEVEL_MAP(XXX)
+    }
+#undef XXX
+
+    if (!logger->enable_color) {
+        pcolor = "";
+    }
+
+    // lock logger->buf
     hmutex_lock(&logger->mutex_);
     char* buf = logger->buf;
     int bufsize = logger->bufsize;
     int len = snprintf(buf, bufsize, "%s[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s] ",
         pcolor,
-        year, month, day, hour, min, sec, ms, plevel);
+        year, month, day, hour, min, sec, ms,
+        plevel);
 
     va_list ap;
     va_start(ap, fmt);
