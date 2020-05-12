@@ -342,7 +342,9 @@ int HttpMessage::ParseBody() {
             return false;
         }
         boundary += strlen("boundary=");
-        return parse_multipart(body, form, boundary);
+        string strBoundary(boundary);
+        strBoundary = trim_pairs(strBoundary, "\"\"\'\'");
+        return parse_multipart(body, form, strBoundary.c_str());
     }
     case X_WWW_FORM_URLENCODED:
         return parse_query_params(body.c_str(), kv);

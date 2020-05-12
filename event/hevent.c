@@ -68,14 +68,14 @@ void hio_set_type(hio_t* io, hio_type_e type) {
 
 void hio_set_localaddr(hio_t* io, struct sockaddr* addr, int addrlen) {
     if (io->localaddr == NULL) {
-        SAFE_ALLOC(io->localaddr, sizeof(sockaddr_un));
+        SAFE_ALLOC(io->localaddr, sizeof(sockaddr_u));
     }
     memcpy(io->localaddr, addr, addrlen);
 }
 
 void hio_set_peeraddr (hio_t* io, struct sockaddr* addr, int addrlen) {
     if (io->peeraddr == NULL) {
-        SAFE_ALLOC(io->peeraddr, sizeof(sockaddr_un));
+        SAFE_ALLOC(io->peeraddr, sizeof(sockaddr_u));
     }
     memcpy(io->peeraddr, addr, addrlen);
 }

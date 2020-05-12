@@ -27,7 +27,7 @@ int ping(const char* host, int cnt) {
     //min_rtt = MIN(rtt, min_rtt);
     //max_rtt = MAX(rtt, max_rtt);
     // gethostbyname -> socket -> setsockopt -> sendto -> recvfrom -> closesocket
-    sockaddr_un peeraddr;
+    sockaddr_u peeraddr;
     socklen_t addrlen = sizeof(peeraddr);
     memset(&peeraddr, 0, addrlen);
     int ret = Resolver(host, &peeraddr);
@@ -67,7 +67,7 @@ int ping(const char* host, int cnt) {
         icmp_req->icmp_seq = ++seq;
         icmp_req->icmp_cksum = 0;
         icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sendbytes);
-        start_hrtime = gethrtime();
+        start_hrtime = gethrtime_us();
         addrlen = sockaddrlen(&peeraddr);
         int nsend = sendto(sockfd, sendbuf, sendbytes, 0, &peeraddr.sa, addrlen);
         if (nsend < 0) {
@@ -82,7 +82,7 @@ int ping(const char* host, int cnt) {
             continue;
         }
         ++recv_cnt;
-        end_hrtime = gethrtime();
+        end_hrtime = gethrtime_us();
         // check valid
         bool valid = false;
         int iphdr_len = ipheader->ihl * 4;

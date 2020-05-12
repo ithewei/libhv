@@ -72,8 +72,9 @@ static inline unsigned long long timestamp_ms() {
 void msleep(unsigned int ms);
 // ms
 unsigned int gettick();
+
 // us
-unsigned long long gethrtime();
+unsigned long long gethrtime_us();
 
 datetime_t datetime_now();
 time_t     datetime_mktime(datetime_t* dt);

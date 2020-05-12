@@ -45,7 +45,7 @@ static void nio_accept(hio_t* io) {
     //printd("nio_accept listenfd=%d\n", io->fd);
     socklen_t addrlen;
 accept:
-    addrlen = sizeof(sockaddr_un);
+    addrlen = sizeof(sockaddr_u);
     int connfd = accept(io->fd, io->peeraddr, &addrlen);
     hio_t* connio = NULL;
     if (connfd < 0) {
@@ -59,7 +59,7 @@ accept:
             goto accept_error;
         }
     }
-    addrlen = sizeof(sockaddr_un);
+    addrlen = sizeof(sockaddr_u);
     getsockname(connfd, io->localaddr, &addrlen);
     connio = hio_get(io->loop, connfd);
     // NOTE: inherit from listenio
@@ -105,7 +105,7 @@ accept_error:
 
 static void nio_connect(hio_t* io) {
     //printd("nio_connect connfd=%d\n", io->fd);
-    socklen_t addrlen = sizeof(sockaddr_un);
+    socklen_t addrlen = sizeof(sockaddr_u);
     int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
         io->error = socket_errno();
@@ -113,7 +113,7 @@ static void nio_connect(hio_t* io) {
         goto connect_failed;
     }
     else {
-        addrlen = sizeof(sockaddr_un);
+        addrlen = sizeof(sockaddr_u);
         getsockname(io->fd, io->localaddr, &addrlen);
         /*
         char localaddrstr[SOCKADDR_STRLEN] = {0};
@@ -176,7 +176,7 @@ read:
     case HIO_TYPE_UDP:
     case HIO_TYPE_IP:
     {
-        socklen_t addrlen = sizeof(sockaddr_un);
+        socklen_t addrlen = sizeof(sockaddr_u);
         nread = recvfrom(io->fd, buf, len, 0, io->peeraddr, &addrlen);
     }
         break;
@@ -239,7 +239,7 @@ write:
         break;
     case HIO_TYPE_UDP:
     case HIO_TYPE_IP:
-        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_un));
+        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_u));
         break;
     default:
         nwrite = write(io->fd, buf, len);
@@ -324,7 +324,7 @@ static void connect_timeout_cb(htimer_t* timer) {
 }
 
 int hio_connect(hio_t* io) {
-    int ret = connect(io->fd, io->peeraddr, sizeof(sockaddr_un));
+    int ret = connect(io->fd, io->peeraddr, sizeof(sockaddr_u));
 #ifdef OS_WIN
     if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
 #else
@@ -370,7 +370,7 @@ try_write:
             break;
         case HIO_TYPE_UDP:
         case HIO_TYPE_IP:
-            nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_un));
+            nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_u));
             break;
         default:
             nwrite = write(io->fd, buf, len);

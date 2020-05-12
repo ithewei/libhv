@@ -141,7 +141,8 @@ struct multipart_parser_userdata {
                 StringList kv = split(trim(str, " "), '=');
                 if (kv.size() == 2) {
                     const char* key = kv.begin()->c_str();
-                    const char* value = trim_pairs(*(kv.begin()+1), "\"\"").c_str();
+                    string value = *(kv.begin() + 1);
+                    value = trim_pairs(value, "\"\"\'\'");
                     if (strcmp(key, "name") == 0) {
                         name = value;
                     }
@@ -169,21 +170,21 @@ static int on_header_field(multipart_parser* parser, const char *at, size_t leng
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->handle_header();
     userdata->state = MP_HEADER_FIELD;
-    userdata->header_field.insert(userdata->header_field.size(), at, length);
+    userdata->header_field.append(at, length);
     return 0;
 }
 static int on_header_value(multipart_parser* parser, const char *at, size_t length) {
     //printf("on_header_value:%.*s\n", (int)length, at);
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->state = MP_HEADER_VALUE;
-    userdata->header_value.insert(userdata->header_value.size(), at, length);
+    userdata->header_value.append(at, length);
     return 0;
 }
 static int on_part_data(multipart_parser* parser, const char *at, size_t length) {
     //printf("on_part_data:%.*s\n", (int)length, at);
     multipart_parser_userdata* userdata = (multipart_parser_userdata*)multipart_parser_get_data(parser);
     userdata->state = MP_PART_DATA;
-    userdata->part_data.insert(userdata->part_data.size(), at, length);
+    userdata->part_data.append(at, length);
     return 0;
 }
 static int on_part_data_begin(multipart_parser* parser) {

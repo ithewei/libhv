@@ -11,6 +11,7 @@
     XXX("/kv",      POST,   http_api_kv)        \
     XXX("/json",    POST,   http_api_json)      \
     XXX("/form",    POST,   http_api_form)      \
+    XXX("/upload",  POST,   http_api_upload)    \
     XXX("/grpc",    POST,   http_api_grpc)      \
     \
     XXX("/test",    POST,   http_api_test)      \
@@ -83,6 +84,24 @@ inline int http_api_form(HttpRequest* req, HttpResponse* res) {
     }
     res->content_type = MULTIPART_FORM_DATA;
     res->form = req->form;
+    return 0;
+}
+
+inline int http_api_upload(HttpRequest* req, HttpResponse* res) {
+    if (req->content_type != MULTIPART_FORM_DATA) {
+        res->status_code = HTTP_STATUS_BAD_REQUEST;
+        return 0;
+    }
+    FormData file = req->form["file"];
+    string filepath("html/uploads/");
+    filepath += file.filename;
+    FILE* fp = fopen(filepath.c_str(), "w");
+    if (fp) {
+        hlogi("Save as %s", filepath.c_str());
+        fwrite(file.content.data(), 1, file.content.size(), fp);
+        fclose(fp);
+    }
+    response_status(res, 0, "OK");
     return 0;
 }
 

@@ -20,6 +20,8 @@
 #define EVENT_KQUEUE
 #elif defined(OS_BSD)
 #define EVENT_KQUEUE
+#elif defined(OS_SOLARIS)
+#define EVENT_PORT
 #else
 #define EVENT_SELECT
 #endif

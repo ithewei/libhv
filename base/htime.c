@@ -41,7 +41,7 @@ unsigned int gettick() {
 #endif
 }
 
-unsigned long long gethrtime() {
+unsigned long long gethrtime_us() {
 #ifdef OS_WIN
     static LONGLONG s_freq = 0;
     if (s_freq == 0) {
@@ -55,6 +55,8 @@ unsigned long long gethrtime() {
         return (unsigned long long)(count.QuadPart / (double)s_freq * 1000000);
     }
     return 0;
+#elif defined(OS_SOLARIS)
+    return gethrtime() / 1000;
 #elif HAVE_CLOCK_GETTIME
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
