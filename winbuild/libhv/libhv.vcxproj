@@ -194,8 +194,6 @@
     <ClInclude Include="..\..\utils\base64.h" />
     <ClInclude Include="..\..\utils\hbytearray.h" />
     <ClInclude Include="..\..\utils\hendian.h" />
-    <ClInclude Include="..\..\utils\hframe.h" />
-    <ClInclude Include="..\..\utils\hgl.h" />
     <ClInclude Include="..\..\utils\hmain.h" />
     <ClInclude Include="..\..\utils\htask.h" />
     <ClInclude Include="..\..\utils\iniparser.h" />
@@ -249,7 +247,6 @@
     <ClCompile Include="..\..\protocol\icmp.c" />
     <ClCompile Include="..\..\protocol\smtp.c" />
     <ClCompile Include="..\..\utils\base64.c" />
-    <ClCompile Include="..\..\utils\hframe.cpp" />
     <ClCompile Include="..\..\utils\hmain.cpp" />
     <ClCompile Include="..\..\utils\iniparser.cpp" />
     <ClCompile Include="..\..\utils\md5.c" />
