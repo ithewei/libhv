@@ -12,7 +12,17 @@ hio_t*      stdinio = NULL;
 // for socket
 hio_t*      sockio = NULL;
 
-int verbose = 0;
+const char* src_path = NULL;
+
+int verbose = 1;
+
+void cleanup(int signo) {
+    if (protocol > 2) {
+        printf("cleaning up: %s\n", src_path);
+        unlink(src_path);
+    }
+    exit(0);
+}
 
 void on_recv(hio_t* io, void* buf, int readbytes) {
     //printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
@@ -66,34 +76,64 @@ void on_connect(hio_t* io) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 3) {
-        printf("\
-Usage: cmd [-ut] host port\n\
-Options:\n\
-  -t        Use tcp protocol (default)\n\
-  -u        Use udp protocol\n\
-Examples: nc 127.0.0.1 80\n\
-          nc -u 127.0.0.1 80\n");
+    const char* protocol_name;
+    const char* host;
+    int port;
+    const char* dest_path;
+    if (argc == 3) {
+        protocol = 1;
+        protocol_name = "tcp";
+        host = argv[1];
+        port = atoi(argv[2]);
+    }
+    else if (argc == 4) {
+        if (strcmp(argv[1], "-t") == 0 || strcmp(argv[1], "-u") == 0) {
+            if (argv[1][1] == 't') {
+                protocol = 1;
+                protocol_name = "tcp";
+            } else {
+                protocol = 2;
+                protocol_name = "udp";
+            }
+            host = argv[2];
+            port = atoi(argv[3]);
+        }
+        else if (strcmp(argv[1], "-U") == 0 || strcmp(argv[1], "-D") == 0) {
+            if (argv[1][1] == 'U') {
+                protocol = 3;
+                protocol_name = "unix(stream)";
+            } else {
+                protocol = 4;
+                protocol_name = "unix(datagram)";
+            }
+            src_path = argv[2];
+            dest_path = argv[3];
+        }
+        else {
+            goto bad_args;
+        }
+    }
+    else {
+bad_args:
+        printf("Usage: cmd [-ut] host port\n"
+               "       cmd [-UD] source dest\n"
+               "Options:\n"
+               "  -t        Use tcp protocol (default)\n"
+               "  -u        Use udp protocol\n"
+               "  -U        Use Unix domain socket (SOCK_STREAM)\n"
+               "  -D        Use Unix domain socket (SOCK_DGRAM)\n"
+               "Examples: nc 127.0.0.1 80\n"
+               "          nc -u 127.0.0.1 80\n"
+               "          nc -D ~/src.sock ~/dest.sock\n");
         return -10;
     }
-
-    int index = 1;
-    const char* protocolname;
-    if (argv[1][0] == '-') {
-        ++index;
-        if (argv[1][1] == 't') {
-            protocol = 1;
-            protocolname = "tcp";
-        }
-        else if (argv[1][1] == 'u') {
-            protocol = 2;
-            protocolname = "udp";
-        }
-    }
-    const char* host = argv[index++];
-    int port = atoi(argv[index++]);
     if (verbose) {
-        printf("%s %s %d\n", protocolname, host, port);
+        if (protocol > 2) {
+            printf("%s: %s -> %s\n", protocol_name, src_path, dest_path);
+        }
+        else {
+            printf("%s: %s:%d\n", protocol_name, host, port);
+        }
     }
 
     MEMCHECK;
@@ -116,6 +156,20 @@ Examples: nc 127.0.0.1 80\n\
         sockio = create_udp_client(loop, host, port);
         hio_read(sockio);
     }
+#ifdef HAVE_UDS
+    else if (protocol == 3) {
+        // Unix domain socket (SOCK_STREAM)
+        sockio = create_unix_stream_client(loop, dest_path, src_path, on_connect);
+    }
+    else if (protocol == 4) {
+        // Unix domain socket (SOCK_DGRAM)
+        sockio = create_unix_dgram_client(loop, dest_path, src_path);
+    }
+#else
+    else {
+        printf("Unix domain socket is not supported!\n");
+    }
+#endif
     if (sockio == NULL) {
         return -20;
     }
@@ -124,8 +178,14 @@ Examples: nc 127.0.0.1 80\n\
     hio_setcb_read(sockio, on_recv);
     hio_set_readbuf(sockio, recvbuf, RECV_BUFSIZE);
 
+    signal(SIGINT, cleanup);
+    signal(SIGTERM, cleanup);
+
     hloop_run(loop);
     hloop_free(&loop);
+    if (protocol > 2) {
+        unlink(src_path);
+    }
 
     return 0;
 }

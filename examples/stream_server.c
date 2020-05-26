@@ -1,6 +1,16 @@
 #include "hloop.h"
 #include "hsocket.h"
 
+const char* path = NULL;
+
+void cleanup(int signo) {
+    if (path) {
+        printf("cleaning up: %s\n", path);
+        unlink(path);
+    }
+    exit(0);
+}
+
 void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
 }
@@ -32,18 +42,38 @@ void on_accept(hio_t* io) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        printf("Usage: cmd port\n");
+    int port;
+    if (argc == 2) {
+        port = atoi(argv[1]);
+    }
+    else if (argc == 3 && strcmp(argv[1], "--unix") == 0) {
+        path = argv[2];
+    }
+    else {
+        printf("Usage: cmd port\n"
+               "       cmd --unix path\n");
         return -10;
     }
-    int port = atoi(argv[1]);
-
+    
     hloop_t* loop = hloop_new(0);
-    hio_t* listenio = create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    hio_t* listenio = NULL;
+    if (path) {
+#ifdef HAVE_UDS
+        listenio = create_unix_stream_server(loop, path, on_accept);
+#else
+        printf("Unix domain socket is not supported!\n");
+#endif
+    } else {
+        listenio = create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    }
     if (listenio == NULL) {
         return -20;
     }
     printf("listenfd=%d\n", hio_fd(listenio));
+
+    signal(SIGINT, cleanup);
+    signal(SIGTERM, cleanup);
+
     hloop_run(loop);
     hloop_free(&loop);
     return 0;

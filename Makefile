@@ -33,7 +33,7 @@ endif
 
 default: all
 all: libhv examples
-examples: test timer loop tcp udp nc nmap httpd curl consul_cli
+examples: test timer loop stream_server dgram_server nc nmap httpd curl consul_cli
 
 clean:
 	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"
@@ -62,11 +62,11 @@ timer: prepare
 loop: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/hloop_test.c"
 
-tcp: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp.c"
+stream_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/stream_server.c"
 
-udp: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp.c"
+dgram_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/dgram_server.c"
 
 nc: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nc.c"
