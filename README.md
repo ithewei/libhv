@@ -154,12 +154,19 @@ int main(int argc, char** argv) {
 }
 ```
 ```shell
-make tcp udp nc
-bin/tcp 1111
+make stream_server dgram_server nc
+# TCP server/client
+bin/stream_server 1111
 bin/nc 127.0.0.1 1111
-
-bin/udp 2222
+# UDP server/client
+bin/dgram_server 2222
 bin/nc -u 127.0.0.1 2222
+# Unix stream socket server/client
+bin/stream_server --unix ~/server.sock
+bin/nc -U ~/client.sock ~/server.sock
+# Unix datagram socket server/client
+bin/dgram_server --unix ~/server.sock
+bin/nc -D ~/client.sock ~/server.sock
 ```
 
 ## BUILD
@@ -173,8 +180,8 @@ bin/nc -u 127.0.0.1 2222
     - make test # master-workers model
     - make timer # timer add/del/reset
     - make loop # event-loop(include idle, timer, io)
-    - make tcp  # tcp server
-    - make udp  # udp server
+    - make stream_server  # stream socket server (TCP, Unix domain socket)
+    - make dgram_server  # datagram socket server (UDP, Unix domain socket)
     - make nc   # network client
     - make nmap # host discovery
     - make httpd # http server
