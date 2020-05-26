@@ -124,6 +124,10 @@ else
 	CPPFLAGS += -DNDEBUG
 endif
 
+ifeq ($(ENABLE_UDS), yes)
+	CPPFLAGS += -DENABLE_UDS
+endif
+
 CPPFLAGS += $(addprefix -D, $(DEFINES))
 CPPFLAGS += $(addprefix -I, $(INCDIRS))
 CPPFLAGS += $(addprefix -I, $(SRCDIRS))

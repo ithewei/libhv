@@ -12,6 +12,8 @@ WITH_CONSUL=no
 # features
 # base/hsocket.c: replace gethostbyname with getaddrinfo
 ENABLE_IPV6=no
+# event/hloop.h: Enable Unix domains socket server/client APIs
+ENABLE_UDS=no
 # base/RAII.cpp: Windows MiniDumpWriteDump
 ENABLE_WINDUMP=no
 # http/http_content.h: QueryParams,MultiPart

@@ -1,5 +1,81 @@
 #include "hsocket.h"
 
+static inline int BindImpl(sockaddr_u* localaddr, int type) {
+    // socket -> setsockopt -> bind
+    int sockfd = socket(localaddr->sa.sa_family, type, 0);
+    if (sockfd < 0) {
+        perror("socket");
+        return -socket_errno();
+    }
+
+    // NOTE: SO_REUSEADDR means that you can reuse sockaddr of TIME_WAIT status
+    int reuseaddr = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
+        perror("setsockopt");
+        goto error;
+    }
+
+    if (bind(sockfd, &localaddr->sa, sockaddrlen(localaddr)) < 0) {
+        perror("bind");
+        goto error;
+    }
+
+    return sockfd;
+error:
+    closesocket(sockfd);
+    return socket_errno() > 0 ? -socket_errno() : -1;
+}
+
+static inline int ConnectImpl(sockaddr_u* peeraddr, int nonblock) {
+    int connfd = socket(peeraddr->sa.sa_family, SOCK_STREAM, 0);
+    if (connfd < 0) {
+        perror("socket");
+        return -socket_errno();
+    }
+    if (nonblock) {
+        nonblocking(connfd);
+    }
+    int ret = connect(connfd, &peeraddr->sa, sockaddrlen(peeraddr));
+#ifdef OS_WIN
+    if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
+#else
+    if (ret < 0 && socket_errno() != EINPROGRESS) {
+#endif
+        perror("connect");
+        goto error;
+    }
+    return connfd;
+error:
+    closesocket(connfd);
+    return socket_errno() > 0 ? -socket_errno() : -1;
+}
+
+static inline int ConnectTimeoutImpl(int connfd, int ms) {
+    int err;
+    socklen_t optlen = sizeof(err);
+    struct timeval tv = {ms/1000, (ms%1000)*1000};
+    fd_set writefds;
+    FD_ZERO(&writefds);
+    FD_SET(connfd, &writefds);
+    int ret = select(connfd+1, 0, &writefds, 0, &tv);
+    if (ret < 0) {
+        perror("select");
+        goto error;
+    }
+    if (ret == 0) {
+        errno = ETIMEDOUT;
+        goto error;
+    }
+    if (getsockopt(connfd, SOL_SOCKET, SO_ERROR, (char*)&err, &optlen) < 0 || err != 0) {
+        goto error;
+    }
+    blocking(connfd);
+    return connfd;
+error:
+    closesocket(connfd);
+    return socket_errno() > 0 ? -socket_errno() : -1;
+}
+
 const char* socket_strerror(int err) {
 #ifdef OS_WIN
     static char buffer[128];
@@ -68,30 +144,7 @@ int Bind(int port, const char* host, int type) {
         printf("unknown host: %s\n", host);
         return ret;
     }
-
-    // socket -> setsockopt -> bind
-    int sockfd = socket(localaddr.sa.sa_family, type, 0);
-    if (sockfd < 0) {
-        perror("socket");
-        return -socket_errno();
-    }
-
-    // NOTE: SO_REUSEADDR means that you can reuse sockaddr of TIME_WAIT status
-    int reuseaddr = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
-        perror("setsockopt");
-        goto error;
-    }
-
-    if (bind(sockfd, &localaddr.sa, sockaddrlen(&localaddr)) < 0) {
-        perror("bind");
-        goto error;
-    }
-
-    return sockfd;
-error:
-    closesocket(sockfd);
-    return socket_errno() > 0 ? -socket_errno() : -1;
+    return BindImpl(&localaddr, type);
 }
 
 int Listen(int port, const char* host) {
@@ -117,27 +170,7 @@ int Connect(const char* host, int port, int nonblock) {
         //printf("unknown host: %s\n", host);
         return ret;
     }
-    int connfd = socket(peeraddr.sa.sa_family, SOCK_STREAM, 0);
-    if (connfd < 0) {
-        perror("socket");
-        return -socket_errno();
-    }
-    if (nonblock) {
-        nonblocking(connfd);
-    }
-    ret = connect(connfd, &peeraddr.sa, sockaddrlen(&peeraddr));
-#ifdef OS_WIN
-    if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
-#else
-    if (ret < 0 && socket_errno() != EINPROGRESS) {
-#endif
-        perror("connect");
-        goto error;
-    }
-    return connfd;
-error:
-    closesocket(connfd);
-    return socket_errno() > 0 ? -socket_errno() : -1;
+    return ConnectImpl(&peeraddr, nonblock);
 }
 
 int ConnectNonblock(const char* host, int port) {
@@ -147,30 +180,59 @@ int ConnectNonblock(const char* host, int port) {
 int ConnectTimeout(const char* host, int port, int ms) {
     int connfd = Connect(host, port, 1);
     if (connfd < 0) return connfd;
-    int err;
-    socklen_t optlen = sizeof(err);
-    struct timeval tv = {ms/1000, (ms%1000)*1000};
-    fd_set writefds;
-    FD_ZERO(&writefds);
-    FD_SET(connfd, &writefds);
-    int ret = select(connfd+1, 0, &writefds, 0, &tv);
-    if (ret < 0) {
-        perror("select");
+    return ConnectTimeoutImpl(connfd, ms);
+}
+
+#ifdef HAVE_UDS
+
+int BindUnix(const char* path, int type) {
+    sockaddr_u localaddr;
+    socklen_t addrlen = sizeof(localaddr);
+    memset(&localaddr, 0, addrlen);
+    int ret = sockaddr_unix_assign(&localaddr, path);
+    if (ret != 0) {
+        printf("socket path too long: %s", path);
+        return ret;
+    }
+    return BindImpl(&localaddr, type);
+}
+
+int ListenUnix(const char* path) {
+    int sockfd = BindUnix(path, SOCK_STREAM);
+    if (sockfd < 0) return sockfd;
+    if (listen(sockfd, SOMAXCONN) < 0) {
+        perror("listen");
         goto error;
     }
-    if (ret == 0) {
-        errno = ETIMEDOUT;
-        goto error;
-    }
-    if (getsockopt(connfd, SOL_SOCKET, SO_ERROR, (char*)&err, &optlen) < 0 || err != 0) {
-        goto error;
-    }
-    blocking(connfd);
-    return connfd;
+    return sockfd;
 error:
-    closesocket(connfd);
+    closesocket(sockfd);
     return socket_errno() > 0 ? -socket_errno() : -1;
 }
+
+int ConnectUnix(const char* path, int nonblock) {
+    sockaddr_u peeraddr;
+    socklen_t addrlen = sizeof(peeraddr);
+    memset(&peeraddr, 0, addrlen);
+    int ret = sockaddr_unix_assign(&peeraddr, path);
+    if (ret != 0) {
+        printf("socket path too long: %s", path);
+        return ret;
+    }
+    return ConnectImpl(&peeraddr, nonblock);
+}
+
+int ConnectUnixNonblock(const char* path) {
+    return ConnectUnix(path, 1);
+}
+
+int ConnectUnixTimeout(const char* path, int ms) {
+    int connfd = ConnectUnix(path, 1);
+    if (connfd < 0) return connfd;
+    return ConnectTimeoutImpl(connfd, ms);
+}
+
+#endif
 
 int Socketpair(int family, int type, int protocol, int sv[2]) {
 #ifdef OS_UNIX

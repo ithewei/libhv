@@ -51,6 +51,9 @@ typedef union {
     struct sockaddr     sa;
     struct sockaddr_in  sin;
     struct sockaddr_in6 sin6;
+#ifdef HAVE_UDS
+    struct sockaddr_un  sun;
+#endif
 } sockaddr_u;
 
 // @param host: domain or ip
@@ -64,6 +67,11 @@ static inline socklen_t sockaddrlen(sockaddr_u* addr) {
     else if (addr->sa.sa_family == AF_INET6) {
         return sizeof(struct sockaddr_in6);
     }
+#ifdef HAVE_UDS
+    else if (addr->sa.sa_family == AF_UNIX) {
+        return sizeof(struct sockaddr_un);
+    }
+#endif
     return sizeof(sockaddr_u);
 }
 
@@ -99,7 +107,12 @@ static inline void sockaddr_set_port(sockaddr_u* addr, int port) {
 
 //#define INET_ADDRSTRLEN   16
 //#define INET6_ADDRSTRLEN  46
+#ifdef HAVE_UDS
+#define SOCKADDR_STRLEN     sizeof(((struct sockaddr_un*)(NULL))->sun_path)
+#else
 #define SOCKADDR_STRLEN     64 // ipv4:port | [ipv6]:port
+#endif
+
 #define SOCKADDR_STR(addr, buf) sockaddr_str((sockaddr_u*)addr, buf, sizeof(buf))
 // NOTE: typeof(addr)=[sockaddr*, sockaddr_in*, sockaddr_in6*, sockaddr_u*]
 // char buf[SOCKADDR_STRLEN] = {0};
@@ -118,6 +131,11 @@ static inline const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
         port = htons(addr->sin6.sin6_port);
         snprintf(buf, len, "[%s]:%d", ip, port);
     }
+#ifdef HAVE_UDS
+    else if (addr->sa.sa_family == AF_UNIX) {
+        snprintf(buf, len, "%s", addr->sun.sun_path);
+    }
+#endif
     return buf;
 }
 
@@ -140,6 +158,17 @@ static inline int sockaddr_assign(sockaddr_u* addr, const char* host, int port) 
     return 0;
 }
 
+#ifdef HAVE_UDS
+static inline int sockaddr_unix_assign(sockaddr_u* addr, const char* path) {
+    if (strnlen(path, SOCKADDR_STRLEN) >= SOCKADDR_STRLEN) {
+        return -1;
+    }
+    addr->sun.sun_family = AF_UNIX;
+    strcpy(addr->sun.sun_path, path);
+    return 0;
+}
+#endif
+
 // socket -> setsockopt -> bind
 // @param type: SOCK_STREAM(tcp) SOCK_DGRAM(udp)
 // @return sockfd
@@ -157,6 +186,14 @@ int ConnectNonblock(const char* host, int port);
 // Connect(host, port, 1) -> select -> blocking
 #define DEFAULT_CONNECT_TIMEOUT 5000 // ms
 int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
+
+#ifdef HAVE_UDS
+int BindUnix(const char* path, int type DEFAULT(SOCK_STREAM));
+int ListenUnix(const char* path);
+int ConnectUnix(const char* path, int nonblock DEFAULT(0));
+int ConnectUnixNonblock(const char* path);
+int ConnectUnixTimeout(const char* path, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
+#endif
 
 // Just implement Socketpair(AF_INET, SOCK_STREAM, 0, sv);
 int Socketpair(int family, int type, int protocol, int sv[2]);

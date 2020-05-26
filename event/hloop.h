@@ -233,6 +233,14 @@ hio_t* create_udp_server (hloop_t* loop, const char* host, int port);
 // @udp_client: resolver -> socket -> hio_get -> hio_set_peeraddr
 hio_t* create_udp_client (hloop_t* loop, const char* host, int port);
 
+#ifdef HAVE_UDS
+// Unix domain socket server/client
+hio_t* create_unix_stream_server (hloop_t* loop, const char* path, haccept_cb accept_cb);
+hio_t* create_unix_stream_client (hloop_t* loop, const char* dest_path, const char* src_path, hconnect_cb connect_cb);
+hio_t* create_unix_dgram_server  (hloop_t* loop, const char* path);
+hio_t* create_unix_dgram_client  (hloop_t* loop, const char* dest_path, const char* src_path);
+#endif
+
 END_EXTERN_C
 
 #endif // HV_LOOP_H_

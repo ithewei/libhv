@@ -235,6 +235,33 @@ static void hloop_cleanup(hloop_t* loop) {
     hmutex_destroy(&loop->custom_events_mutex);
 }
 
+static inline hio_t* create_client_impl(hloop_t* loop, sockaddr_u* peeraddr, int type,
+                                        hconnect_cb connect_cb, sockaddr_u* localaddr) {
+    int connfd = socket(peeraddr->sa.sa_family, type, 0);
+    if (connfd < 0) {
+        perror("socket");
+        return NULL;
+    }
+
+    hio_t* io = hio_get(loop, connfd);
+    if (io == NULL) return NULL;
+    hio_set_peeraddr(io, &peeraddr->sa, sockaddrlen(peeraddr));
+#ifdef HAVE_UDS
+    if (localaddr) {
+        if (bind(connfd, &localaddr->sa, sockaddrlen(localaddr)) < 0) {
+            perror("bind");
+            hio_free(io);
+            return NULL;
+        }
+        hio_set_localaddr(io, &localaddr->sa, sockaddrlen(localaddr));
+    }
+#endif
+    if (type == SOCK_STREAM) {
+        hconnect(loop, connfd, connect_cb);
+    }
+    return io;
+}
+
 hloop_t* hloop_new(int flags) {
     hloop_t* loop;
     SAFE_ALLOC_SIZEOF(loop);
@@ -703,17 +730,7 @@ hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb
         //printf("unknown host: %s\n", host);
         return NULL;
     }
-    int connfd = socket(peeraddr.sa.sa_family, SOCK_STREAM, 0);
-    if (connfd < 0) {
-        perror("socket");
-        return NULL;
-    }
-
-    hio_t* io = hio_get(loop, connfd);
-    if (io == NULL) return NULL;
-    hio_set_peeraddr(io, &peeraddr.sa, sockaddrlen(&peeraddr));
-    hconnect(loop, connfd, connect_cb);
-    return io;
+    return create_client_impl(loop, &peeraddr, SOCK_STREAM, connect_cb, NULL);
 }
 
 // @server: socket -> bind -> hrecvfrom
@@ -735,18 +752,72 @@ hio_t* create_udp_client(hloop_t* loop, const char* host, int port) {
         //printf("unknown host: %s\n", host);
         return NULL;
     }
+    return create_client_impl(loop, &peeraddr, SOCK_DGRAM, NULL, NULL);
+}
 
-    int sockfd = socket(peeraddr.sa.sa_family, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        perror("socket");
+#ifdef HAVE_UDS
+
+hio_t* create_unix_stream_server(hloop_t* loop, const char* path, haccept_cb accept_cb) {
+    int listenfd = ListenUnix(path);
+    if (listenfd < 0) {
         return NULL;
     }
-
-    hio_t* io = hio_get(loop, sockfd);
-    if (io == NULL) return NULL;
-    hio_set_peeraddr(io, &peeraddr.sa, sockaddrlen(&peeraddr));
+    hio_t* io = haccept(loop, listenfd, accept_cb);
+    if (io == NULL) {
+        closesocket(listenfd);
+    }
     return io;
 }
+
+hio_t* create_unix_stream_client(hloop_t* loop, const char* dest_path, const char* src_path, hconnect_cb connect_cb) {
+    sockaddr_u peeraddr, localaddr, *localaddr_p = NULL;
+    socklen_t addrlen = sizeof(peeraddr);
+    memset(&peeraddr, 0, addrlen);
+    int ret = sockaddr_unix_assign(&peeraddr, dest_path);
+    if (ret != 0) {
+        printf("socket path too long: %s", dest_path);
+        return NULL;
+    }
+    if (src_path) {
+        ret = sockaddr_unix_assign(&localaddr, src_path);
+        if (ret != 0) {
+            printf("socket path too long: %s", src_path);
+            return NULL;
+        }
+        localaddr_p = &localaddr;
+    }
+    return create_client_impl(loop, &peeraddr, SOCK_STREAM, connect_cb, localaddr_p);
+}
+
+hio_t* create_unix_dgram_server(hloop_t* loop, const char* path) {
+    int bindfd = BindUnix(path, SOCK_DGRAM);
+    if (bindfd < 0) {
+        return NULL;
+    }
+    return hio_get(loop, bindfd);
+}
+
+hio_t* create_unix_dgram_client(hloop_t* loop, const char* dest_path, const char* src_path) {
+    sockaddr_u peeraddr, localaddr, *localaddr_p = NULL;
+    socklen_t addrlen = sizeof(peeraddr);
+    memset(&peeraddr, 0, addrlen);
+    int ret = sockaddr_unix_assign(&peeraddr, dest_path);
+    if (ret != 0) {
+        printf("socket path too long: %s", dest_path);
+        return NULL;
+    }
+    if (src_path) {
+        ret = sockaddr_unix_assign(&localaddr, src_path);
+        if (ret != 0) {
+            printf("socket path too long: %s", src_path);
+            return NULL;
+        }
+        localaddr_p = &localaddr;
+    }
+    return create_client_impl(loop, &peeraddr, SOCK_DGRAM, NULL, localaddr_p);
+}
+
+#endif
 
 static void sockpair_read_cb(hio_t* io, void* buf, int readbytes) {
     hloop_t* loop = io->loop;

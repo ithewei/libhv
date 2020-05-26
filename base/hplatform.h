@@ -127,6 +127,13 @@
     #include <direct.h>     // for mkdir,rmdir,chdir,getcwd
     #include <io.h>         // for open,close,read,write,lseek,tell
 
+    #ifdef ENABLE_UDS
+    // TODO: support Unix domain socket on Windows
+    // #define HAVE_UDS
+    // #include <afunix.h>
+    #warning "Unix domain socket is not yet supported on Windows"
+    #endif
+
     #define MKDIR(dir)      mkdir(dir)
     #ifndef S_ISREG
     #define S_ISREG(st_mode) (((st_mode) & S_IFMT) == S_IFREG)
@@ -146,6 +153,11 @@
     #include <netinet/tcp.h>
     #include <netinet/udp.h>
     #include <netdb.h>  // for gethostbyname
+
+    #ifdef ENABLE_UDS
+    #define HAVE_UDS
+    #include <sys/un.h>    // For Unix domain sockets
+    #endif
 
     #define MKDIR(dir)      mkdir(dir, 0777)
 #endif
