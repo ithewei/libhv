@@ -324,7 +324,7 @@ static void connect_timeout_cb(htimer_t* timer) {
 }
 
 int hio_connect(hio_t* io) {
-    int ret = connect(io->fd, io->peeraddr, sizeof(sockaddr_u));
+    int ret = connect(io->fd, io->peeraddr, sockaddrlen((sockaddr_u*)io->peeraddr));
 #ifdef OS_WIN
     if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
 #else
