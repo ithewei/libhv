@@ -124,6 +124,18 @@ else
 	CPPFLAGS += -DNDEBUG
 endif
 
+ifeq ($(ENABLE_IPV6), yes)
+	CPPFLAGS += -DENABLE_IPV6
+endif
+
+ifeq ($(ENABLE_UDS), yes)
+	CPPFLAGS += -DENABLE_UDS
+endif
+
+ifeq ($(USE_MULTIMAP), yes)
+	CPPFLAGS += -DUSE_MULTIMAP
+endif
+
 CPPFLAGS += $(addprefix -D, $(DEFINES))
 CPPFLAGS += $(addprefix -I, $(INCDIRS))
 CPPFLAGS += $(addprefix -I, $(SRCDIRS))

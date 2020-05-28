@@ -11,6 +11,7 @@ but simpler apis and richer protocols.
 - cross-platform (Linux, Windows, Mac, Solaris)
 - event-loop (IO, timer, idle)
 - ENABLE_IPV6
+- ENABLE_UDS (Unix Domain Socket)
 - WITH_OPENSSL
 - http client/server (include https http1/x http2 grpc)
 - http web service, indexof service, api service (support RESTful API)

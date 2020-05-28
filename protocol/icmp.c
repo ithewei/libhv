@@ -68,7 +68,7 @@ int ping(const char* host, int cnt) {
         icmp_req->icmp_cksum = 0;
         icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sendbytes);
         start_hrtime = gethrtime_us();
-        addrlen = sockaddrlen(&peeraddr);
+        addrlen = sockaddr_len(&peeraddr);
         int nsend = sendto(sockfd, sendbuf, sendbytes, 0, &peeraddr.sa, addrlen);
         if (nsend < 0) {
             perror("sendto");

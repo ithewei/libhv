@@ -4,6 +4,10 @@
 #include "hplatform.h"
 #include "hdef.h"
 
+#ifdef ENABLE_UDS
+    #include <sys/un.h> // import struct sockaddr_un
+#endif
+
 #ifdef _MSC_VER
 #pragma comment(lib, "ws2_32.lib")
 #endif
@@ -47,25 +51,19 @@ typedef int         SOCKET;
 #define closesocket close
 #endif
 
+//-----------------------------sockaddr_u----------------------------------------------
 typedef union {
     struct sockaddr     sa;
     struct sockaddr_in  sin;
     struct sockaddr_in6 sin6;
+#ifdef ENABLE_UDS
+    struct sockaddr_un  sun;
+#endif
 } sockaddr_u;
 
 // @param host: domain or ip
 // @retval 0:succeed
 int Resolver(const char* host, sockaddr_u* addr);
-
-static inline socklen_t sockaddrlen(sockaddr_u* addr) {
-    if (addr->sa.sa_family == AF_INET) {
-        return sizeof(struct sockaddr_in);
-    }
-    else if (addr->sa.sa_family == AF_INET6) {
-        return sizeof(struct sockaddr_in6);
-    }
-    return sizeof(sockaddr_u);
-}
 
 static inline const char* sockaddr_ip(sockaddr_u* addr, char *ip, int len) {
     if (addr->sa.sa_family == AF_INET) {
@@ -88,6 +86,15 @@ static inline uint16_t sockaddr_port(sockaddr_u* addr) {
     return port;
 }
 
+static inline int sockaddr_set_ip(sockaddr_u* addr, const char* host) {
+    if (!host || *host == '\0') {
+        addr->sin.sin_family = AF_INET;
+        addr->sin.sin_addr.s_addr = htonl(INADDR_ANY);
+        return 0;
+    }
+    return Resolver(host, addr);
+}
+
 static inline void sockaddr_set_port(sockaddr_u* addr, int port) {
     if (addr->sa.sa_family == AF_INET) {
         addr->sin.sin_port = ntohs(port);
@@ -97,13 +104,39 @@ static inline void sockaddr_set_port(sockaddr_u* addr, int port) {
     }
 }
 
+static inline int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port) {
+    int ret = sockaddr_set_ip(addr, host);
+    if (ret != 0) return ret;
+    sockaddr_set_port(addr, port);
+    return 0;
+}
+
 //#define INET_ADDRSTRLEN   16
 //#define INET6_ADDRSTRLEN  46
+#ifdef ENABLE_UDS
+#define SOCKADDR_STRLEN     sizeof(((struct sockaddr_un*)(NULL))->sun_path)
+static inline void sockaddr_set_path(sockaddr_u* addr, const char* path) {
+    addr->sa.sa_family = AF_UNIX;
+    strncpy(addr->sun.sun_path, path, sizeof(addr->sun.sun_path));
+}
+#else
 #define SOCKADDR_STRLEN     64 // ipv4:port | [ipv6]:port
-#define SOCKADDR_STR(addr, buf) sockaddr_str((sockaddr_u*)addr, buf, sizeof(buf))
-// NOTE: typeof(addr)=[sockaddr*, sockaddr_in*, sockaddr_in6*, sockaddr_u*]
-// char buf[SOCKADDR_STRLEN] = {0};
-// SOCKADDR_STR(addr, buf);
+#endif
+
+static inline socklen_t sockaddr_len(sockaddr_u* addr) {
+    if (addr->sa.sa_family == AF_INET) {
+        return sizeof(struct sockaddr_in);
+    }
+    else if (addr->sa.sa_family == AF_INET6) {
+        return sizeof(struct sockaddr_in6);
+    }
+#ifdef ENABLE_UDS
+    else if (addr->sa.sa_family == AF_UNIX) {
+        return sizeof(struct sockaddr_un);
+    }
+#endif
+    return sizeof(sockaddr_u);
+}
 
 static inline const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
     char ip[SOCKADDR_STRLEN] = {0};
@@ -127,18 +160,10 @@ static inline void sockaddr_print(sockaddr_u* addr) {
     puts(buf);
 }
 
-static inline int sockaddr_assign(sockaddr_u* addr, const char* host, int port) {
-    if (host) {
-        int ret = Resolver(host, addr);
-        if (ret != 0) return ret;
-    }
-    else {
-        addr->sin.sin_family = AF_INET;
-        addr->sin.sin_addr.s_addr = htonl(INADDR_ANY);
-    }
-    sockaddr_set_port(addr, port);
-    return 0;
-}
+#define SOCKADDR_LEN(addr)      sockaddr_len((sockaddr_u*)addr)
+#define SOCKADDR_STR(addr, buf) sockaddr_str((sockaddr_u*)addr, buf, sizeof(buf))
+#define SOCKADDR_PRINT(addr)    sockaddr_print((sockaddr_u*)addr)
+//=====================================================================================
 
 // socket -> setsockopt -> bind
 // @param type: SOCK_STREAM(tcp) SOCK_DGRAM(udp)
@@ -146,10 +171,10 @@ static inline int sockaddr_assign(sockaddr_u* addr, const char* host, int port) 
 int Bind(int port, const char* host DEFAULT(ANYADDR), int type DEFAULT(SOCK_STREAM));
 
 // Bind -> listen
-// @return sockfd
+// @return listenfd
 int Listen(int port, const char* host DEFAULT(ANYADDR));
 
-// @return sockfd
+// @return connfd
 // Resolver -> socket -> nonblocking -> connect
 int Connect(const char* host, int port, int nonblock DEFAULT(0));
 // Connect(host, port, 1)
@@ -157,6 +182,14 @@ int ConnectNonblock(const char* host, int port);
 // Connect(host, port, 1) -> select -> blocking
 #define DEFAULT_CONNECT_TIMEOUT 5000 // ms
 int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
+
+#ifdef ENABLE_UDS
+int BindUnix(const char* path, int type DEFAULT(SOCK_STREAM));
+int ListenUnix(const char* path);
+int ConnectUnix(const char* path, int nonblock DEFAULT(0));
+int ConnectUnixNonblock(const char* path);
+int ConnectUnixTimeout(const char* path, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
+#endif
 
 // Just implement Socketpair(AF_INET, SOCK_STREAM, 0, sv);
 int Socketpair(int family, int type, int protocol, int sv[2]);

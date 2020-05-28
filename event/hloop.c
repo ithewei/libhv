@@ -696,9 +696,8 @@ hio_t* create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb 
 
 hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
     sockaddr_u peeraddr;
-    socklen_t addrlen = sizeof(peeraddr);
-    memset(&peeraddr, 0, addrlen);
-    int ret = sockaddr_assign(&peeraddr, host, port);
+    memset(&peeraddr, 0, sizeof(peeraddr));
+    int ret = sockaddr_set_ipport(&peeraddr, host, port);
     if (ret != 0) {
         //printf("unknown host: %s\n", host);
         return NULL;
@@ -711,7 +710,7 @@ hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb
 
     hio_t* io = hio_get(loop, connfd);
     if (io == NULL) return NULL;
-    hio_set_peeraddr(io, &peeraddr.sa, sockaddrlen(&peeraddr));
+    hio_set_peeraddr(io, &peeraddr.sa, sockaddr_len(&peeraddr));
     hconnect(loop, connfd, connect_cb);
     return io;
 }
@@ -728,9 +727,8 @@ hio_t* create_udp_server(hloop_t* loop, const char* host, int port) {
 // @client: Resolver -> socket -> hio_get -> hio_set_peeraddr
 hio_t* create_udp_client(hloop_t* loop, const char* host, int port) {
     sockaddr_u peeraddr;
-    socklen_t addrlen = sizeof(peeraddr);
-    memset(&peeraddr, 0, addrlen);
-    int ret = sockaddr_assign(&peeraddr, host, port);
+    memset(&peeraddr, 0, sizeof(peeraddr));
+    int ret = sockaddr_set_ipport(&peeraddr, host, port);
     if (ret != 0) {
         //printf("unknown host: %s\n", host);
         return NULL;
@@ -744,7 +742,7 @@ hio_t* create_udp_client(hloop_t* loop, const char* host, int port) {
 
     hio_t* io = hio_get(loop, sockfd);
     if (io == NULL) return NULL;
-    hio_set_peeraddr(io, &peeraddr.sa, sockaddrlen(&peeraddr));
+    hio_set_peeraddr(io, &peeraddr.sa, sockaddr_len(&peeraddr));
     return io;
 }
 
