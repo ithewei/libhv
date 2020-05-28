@@ -64,10 +64,18 @@ public:
 namespace hv {
 // NOTE: low-version NDK not provide std::to_string
 template<typename T>
-static inline std::string to_string(const T& num) {
-    std::ostringstream os;
-    os << num;
-    return os.str();
+static inline std::string to_string(const T& t) {
+    std::ostringstream oss;
+    oss << t;
+    return oss.str();
+}
+
+template<typename T>
+static inline T from_string(const std::string& str) {
+    T t;
+    std::istringstream iss(str);
+    iss >> t;
+    return t;
 }
 }
 

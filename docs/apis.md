@@ -244,6 +244,8 @@
 - dirname
 - filename
 - suffixname
+- hv::to_string
+- hv::from_string
 
 ### hdir.h
 - listdir
