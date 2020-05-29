@@ -1,6 +1,6 @@
 #include "hsocket.h"
 
-static inline int socket_errno_nagative() {
+static inline int socket_errno_negative() {
     int err = socket_errno();
     return err > 0 ? -err : -1;
 }
@@ -61,7 +61,7 @@ static int sockaddr_bind(sockaddr_u* localaddr, int type) {
     int sockfd = socket(localaddr->sa.sa_family, type, 0);
     if (sockfd < 0) {
         perror("socket");
-        return socket_errno_nagative();
+        return socket_errno_negative();
     }
 
     // NOTE: SO_REUSEADDR means that you can reuse sockaddr of TIME_WAIT status
@@ -79,7 +79,7 @@ static int sockaddr_bind(sockaddr_u* localaddr, int type) {
     return sockfd;
 error:
     closesocket(sockfd);
-    return socket_errno_nagative();
+    return socket_errno_negative();
 }
 
 static int sockaddr_connect(sockaddr_u* peeraddr, int nonblock) {
@@ -87,7 +87,7 @@ static int sockaddr_connect(sockaddr_u* peeraddr, int nonblock) {
     int connfd = socket(peeraddr->sa.sa_family, SOCK_STREAM, 0);
     if (connfd < 0) {
         perror("socket");
-        return -socket_errno();
+        return socket_errno_negative();
     }
 
     if (nonblock) {
@@ -102,7 +102,7 @@ static int sockaddr_connect(sockaddr_u* peeraddr, int nonblock) {
 #endif
         perror("connect");
         closesocket(connfd);
-        return socket_errno_nagative();
+        return socket_errno_negative();
     }
     return connfd;
 }
@@ -112,7 +112,7 @@ static int ListenFD(int sockfd) {
     if (listen(sockfd, SOMAXCONN) < 0) {
         perror("listen");
         closesocket(sockfd);
-        return socket_errno_nagative();
+        return socket_errno_negative();
     }
     return sockfd;
 }
@@ -140,7 +140,7 @@ static int ConnectFDTimeout(int connfd, int ms) {
     return connfd;
 error:
     closesocket(connfd);
-    return socket_errno_nagative();
+    return socket_errno_negative();
 }
 
 int Bind(int port, const char* host, int type) {
@@ -156,7 +156,7 @@ int Bind(int port, const char* host, int type) {
     memset(&localaddr, 0, sizeof(localaddr));
     int ret = sockaddr_set_ipport(&localaddr, host, port);
     if (ret != 0) {
-        return ret > 0 ? -ret : ret;
+        return NABS(ret);
     }
     return sockaddr_bind(&localaddr, type);
 }
@@ -172,7 +172,7 @@ int Connect(const char* host, int port, int nonblock) {
     memset(&peeraddr, 0, sizeof(peeraddr));
     int ret = sockaddr_set_ipport(&peeraddr, host, port);
     if (ret != 0) {
-        return ret > 0 ? -ret : ret;
+        return NABS(ret);
     }
     return sockaddr_connect(&peeraddr, nonblock);
 }

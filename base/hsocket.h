@@ -151,6 +151,11 @@ static inline const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
         port = htons(addr->sin6.sin6_port);
         snprintf(buf, len, "[%s]:%d", ip, port);
     }
+#ifdef ENABLE_UDS
+    else if (addr->sa.sa_family == AF_UNIX) {
+        snprintf(buf, len, "%s", addr->sun.sun_path);
+    }
+#endif
     return buf;
 }
 

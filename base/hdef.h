@@ -79,7 +79,11 @@ typedef void (*procedure_t)(void* userdata);
 #endif
 
 #ifndef ABS
-#define ABS(n) ((n) < 0 ? -(n) : (n))
+#define ABS(n)  ((n) > 0 ? (n) : -(n))
+#endif
+
+#ifndef NABS
+#define NABS(n) ((n) < 0 ? (n) : -(n))
 #endif
 
 #ifndef MAX
