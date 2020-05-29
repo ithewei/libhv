@@ -4,6 +4,7 @@
 #include "hdef.h"
 #include "hbase.h"
 #include "hsocket.h"
+#include "hmutex.h"
 
 typedef struct network_logger_s {
     hloop_t*            loop;
@@ -17,9 +18,12 @@ typedef struct nlog_client {
 } nlog_client;
 
 static network_logger_t s_logger = {0};
+static hmutex_t         s_mutex;
 
 static void on_close(hio_t* io) {
     printd("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
+
+    hmutex_lock(&s_mutex);
     struct list_node* next = s_logger.clients.next;
     nlog_client* client;
     while (next != &s_logger.clients) {
@@ -31,6 +35,7 @@ static void on_close(hio_t* io) {
             break;
         }
     }
+    hmutex_unlock(&s_mutex);
 }
 
 static void on_read(hio_t* io, void* buf, int readbytes) {
@@ -57,21 +62,28 @@ static void on_accept(hio_t* io) {
     nlog_client* client;
     SAFE_ALLOC_SIZEOF(client);
     client->io = io;
+
+    hmutex_lock(&s_mutex);
     list_add(&client->node, &s_logger.clients);
+    hmutex_unlock(&s_mutex);
 }
 
 void network_logger(int loglevel, const char* buf, int len) {
     struct list_node* node;
     nlog_client* client;
+
+    hmutex_lock(&s_mutex);
     list_for_each (node, &s_logger.clients) {
         client = list_entry(node, nlog_client, node);
         hio_write(client->io, buf, len);
     }
+    hmutex_unlock(&s_mutex);
 }
 
 hio_t* nlog_listen(hloop_t* loop, int port) {
     list_init(&s_logger.clients);
     s_logger.loop = loop;
     s_logger.listenio = create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    hmutex_init(&s_mutex);
     return s_logger.listenio;
 }
