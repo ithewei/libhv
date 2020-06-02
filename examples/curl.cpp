@@ -1,13 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "http_client.h"
+
 #ifdef _MSC_VER
 #include "misc/win32_getopt.h"
 #else
 #include <getopt.h>
 #endif
-
-#include "http_client.h"
 
 static int  http_version = 1;
 static int  grpc         = 0;

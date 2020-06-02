@@ -81,7 +81,7 @@ int main() {
     // test nonblock stdin
     printf("input 'quit' to quit loop\n");
     char buf[64];
-    hread(loop, STDIN_FILENO, buf, sizeof(buf), on_stdin);
+    hread(loop, 0, buf, sizeof(buf), on_stdin);
 
     // test custom_events
     for (int i = 0; i < 10; ++i) {

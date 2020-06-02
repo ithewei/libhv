@@ -47,7 +47,7 @@ int Resolver(const char* host, sockaddr_u* addr) {
 #else
     struct hostent* phe = gethostbyname(host);
     if (phe == NULL) {
-        printd("unknown host %s err:%d:%s\n", host, h_errno, hstrerror(h_errno));
+        printd("unknown host %s err:%d\n", host, h_errno);
         return -h_errno;
     }
     addr->sin.sin_family = AF_INET;

@@ -40,7 +40,7 @@ static void on_close(hio_t* io) {
 
 static void on_read(hio_t* io, void* buf, int readbytes) {
     printd("on_read fd=%d readbytes=%d\n", hio_fd(io), readbytes);
-    printd("< %s\n", buf);
+    printd("< %s\n", (char*)buf);
     // nothing to do
 }
 

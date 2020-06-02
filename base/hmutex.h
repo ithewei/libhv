@@ -62,7 +62,7 @@ static inline void honce(honce_t* once, honce_fn fn) {
 #define hsem_init(psem, value)      *(psem) = CreateSemaphore(NULL, value, value+100000, NULL)
 #define hsem_destroy(psem)          CloseHandle(*(psem))
 #define hsem_wait(psem)             WaitForSingleObject(*(psem), INFINITE)
-#define hsem_post(psem)             ReleaseSemaphore(*(psem))
+#define hsem_post(psem)             ReleaseSemaphore(*(psem), 1, NULL)
 // true:  WAIT_OBJECT_0
 // false: WAIT_OBJECT_TIMEOUT
 #define hsem_wait_for(psem, ms)     ( WaitForSingleObject(*(psem), ms) == WAIT_OBJECT_0 )
