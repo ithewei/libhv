@@ -22,10 +22,6 @@ export CROSS_COMPILE=arm-linux-androideabi-
 make
 ```
 
-## Windows
-### MSVC
-winbuild/libhv/libhv.sln
-
 ### mingw
 see CROSS_COMPILE
 
@@ -36,4 +32,14 @@ sudo apt-get install mingw-w64 # ubuntu
 export CROSS_COMPILE=x86_64-w64-mingw32-
 ./configure
 make
+```
+
+## cmake
+```
+mkdir build
+cd build
+cmake ..
+make libhv
+make unittest
+make examples
 ```
