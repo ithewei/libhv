@@ -107,7 +107,7 @@ static int __del_event(hloop_t* loop, int fd, int event) {
         tmp = kqueue_ctx->changes[idx];
         kqueue_ctx->changes[idx] = kqueue_ctx->changes[lastidx];
         kqueue_ctx->changes[lastidx] = tmp;
-        hio_t* last = kqueue_ctx->changes[idx].ident;
+        hio_t* last = loop->ios.ptr[kqueue_ctx->changes[idx].ident];
         if (last) {
             last->event_index[EVENT_INDEX(kqueue_ctx->changes[idx].filter)] = idx;
         }

@@ -15,12 +15,12 @@ void mylogger(int loglevel, const char* buf, int len) {
 }
 
 void on_idle(hidle_t* idle) {
-    printf("on_idle: event_id=%lu\tpriority=%d\tuserdata=%ld\n", hevent_id(idle), hevent_priority(idle), (long)(hevent_userdata(idle)));
+    printf("on_idle: event_id=%llu\tpriority=%d\tuserdata=%ld\n", hevent_id(idle), hevent_priority(idle), (long)(hevent_userdata(idle)));
 }
 
 void on_timer(htimer_t* timer) {
     hloop_t* loop = hevent_loop(timer);
-    printf("on_timer: event_id=%lu\tpriority=%d\tuserdata=%ld\ttime=%lus\thrtime=%luus\n",
+    printf("on_timer: event_id=%llu\tpriority=%d\tuserdata=%ld\ttime=%llus\thrtime=%lluus\n",
         hevent_id(timer), hevent_priority(timer), (long)(hevent_userdata(timer)), hloop_now(loop), hloop_now_hrtime(loop));
 }
 

@@ -19,7 +19,7 @@ void* safe_zalloc(size_t size);
     do {\
         void** pptr = (void**)&(ptr);\
         *pptr = safe_zalloc(size);\
-        printd("alloc(%p, size=%lu)\tat [%s:%d:%s]\n", ptr, size, __FILE__, __LINE__, __FUNCTION__);\
+        printd("alloc(%p, size=%llu)\tat [%s:%d:%s]\n", ptr, (unsigned long long)size, __FILE__, __LINE__, __FUNCTION__);\
     } while(0)
 
 #define SAFE_ALLOC_SIZEOF(ptr)  SAFE_ALLOC(ptr, sizeof(*(ptr)))
