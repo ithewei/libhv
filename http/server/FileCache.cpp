@@ -68,7 +68,7 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
             fc->content_type = http_content_type_str(TEXT_HTML);
         }
         gmtime_fmt(fc->st.st_mtime, fc->last_modified);
-        snprintf(fc->etag, sizeof(fc->etag), ETAG_FMT, fc->st.st_mtime, fc->st.st_size);
+        snprintf(fc->etag, sizeof(fc->etag), ETAG_FMT, (size_t)fc->st.st_mtime, (size_t)fc->st.st_size);
     }
     return fc;
 }

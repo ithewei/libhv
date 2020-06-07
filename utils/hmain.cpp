@@ -522,7 +522,7 @@ void handle_signal(const char* signal) {
 
 // master-workers processes
 static HTHREAD_ROUTINE(worker_thread) {
-    hlogi("worker_thread pid=%d tid=%d", getpid(), gettid());
+    hlogi("worker_thread pid=%d tid=%ld", getpid(), (long)gettid());
     if (g_worker_fn) {
         g_worker_fn(g_worker_userdata);
     }

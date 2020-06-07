@@ -276,9 +276,9 @@ int main(int argc, char** argv) {
 }
 
 void worker_fn(void* userdata) {
-    int num = (int)(intptr_t)(userdata);
+    long num = (long)(intptr_t)(userdata);
     while (1) {
-        printf("num=%d pid=%d tid=%d\n", num, getpid(), gettid());
+        printf("num=%ld pid=%d tid=%ld\n", num, getpid(), (long)gettid());
         sleep(60);
     }
 }

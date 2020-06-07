@@ -15,13 +15,15 @@ void mylogger(int loglevel, const char* buf, int len) {
 }
 
 void on_idle(hidle_t* idle) {
-    printf("on_idle: event_id=%llu\tpriority=%d\tuserdata=%ld\n", hevent_id(idle), hevent_priority(idle), (long)(hevent_userdata(idle)));
+    printf("on_idle: event_id=%llu\tpriority=%d\tuserdata=%ld\n",
+        LLU(hevent_id(idle)), hevent_priority(idle), (long)(intptr_t)(hevent_userdata(idle)));
 }
 
 void on_timer(htimer_t* timer) {
     hloop_t* loop = hevent_loop(timer);
     printf("on_timer: event_id=%llu\tpriority=%d\tuserdata=%ld\ttime=%llus\thrtime=%lluus\n",
-        hevent_id(timer), hevent_priority(timer), (long)(hevent_userdata(timer)), hloop_now(loop), hloop_now_hrtime(loop));
+        LLU(hevent_id(timer)), hevent_priority(timer), (long)(intptr_t)(hevent_userdata(timer)),
+        LLU(hloop_now(loop)), LLU(hloop_now_hrtime(loop)));
 }
 
 void cron_hourly(htimer_t* timer) {
@@ -64,7 +66,7 @@ int main() {
     // test timer timeout
     for (int i = 1; i <= 10; ++i) {
         htimer_t* timer = htimer_add(loop, on_timer, i*1000, 3);
-        hevent_set_userdata(timer, (void*)(long)i);
+        hevent_set_userdata(timer, (void*)(intptr_t)i);
     }
 
     // test timer period

@@ -78,6 +78,22 @@ typedef void (*procedure_t)(void* userdata);
 #define REPEATED
 #endif
 
+#ifndef LD
+#define LD(v)   ((long)(v))
+#endif
+
+#ifndef LU
+#define LU(v)   ((unsigned long)(v))
+#endif
+
+#ifndef LLD
+#define LLD(v)   ((long long)(v))
+#endif
+
+#ifndef LLU
+#define LLU(v)   ((unsigned long long)(v))
+#endif
+
 #ifndef ABS
 #define ABS(n)  ((n) > 0 ? (n) : -(n))
 #endif
