@@ -1,10 +1,14 @@
 #include "hmain.h"
 
-#include "hplatform.h"
 #include "hlog.h"
-#include "htime.h"
 #include "herr.h"
+#include "htime.h"
 #include "hthread.h"
+
+#ifdef OS_DARWIN
+#include <crt_externs.h>
+#define environ (*_NSGetEnviron())
+#endif
 
 main_ctx_t  g_main_ctx;
 int         g_worker_processes_num = 0;
@@ -101,7 +105,7 @@ int main_ctx_init(int argc, char** argv) {
     g_main_ctx.save_argv[g_main_ctx.argc] = NULL;
     g_main_ctx.cmdline[g_main_ctx.arg_len-1] = '\0';
 
-#if defined(OS_WIN) || defined(OS_LINUX)
+#if defined(OS_WIN) || defined(OS_LINUX) || defined(OS_DARWIN)
     // save env
     g_main_ctx.os_envp = environ;
     g_main_ctx.envc = 0;

@@ -18,17 +18,11 @@
     #include <TargetConditionals.h>
     #if defined(TARGET_OS_MAC) && TARGET_OS_MAC
         #define OS_MAC
-        #define OS_DARWIN
-        #ifdef __LP64__
-            #define OS_DARWIN64
-        #else
-            #define OS_DARWIN32
-        #endif
     #elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
         #define OS_IOS
-    #else
-        #define OS_MACOS
     #endif
+    #define OS_APPLE
+    #define OS_DARWIN
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
     #define OS_FREEBSD
     #define OS_BSD

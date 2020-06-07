@@ -54,6 +54,9 @@ endif
 ifneq ($(findstring android, $(TARGET_PLATFORM)), )
 	OS=Android
 endif
+ifneq ($(findstring apple, $(TARGET_PLATFORM)), )
+	OS=Apple
+endif
 ifndef OS
 	OS=Linux
 endif
@@ -234,6 +237,8 @@ $(TARGET): $(OBJS)
 ifneq ($(findstring SHARED, $(TARGET_TYPE)), )
 ifeq ($(OS), Windows)
 	$(CC) -shared $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
+else ifeq($(OS), Apple)
+	$(CC) -shared $^ -o $(LIBDIR)/$@.dylib $(LDFLAGS)
 else
 	$(CC) -shared $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
 endif
