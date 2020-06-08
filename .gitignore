@@ -1,3 +1,29 @@
+# Compiled Object files
+*.o
+*.lo
+*.slo
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.la
+*.lai
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
 # cache
 *~
 *.bk
@@ -15,23 +41,17 @@ cscope*
 .ycm*
 
 # output
-*.o
-*.obj
-*.out
-
 *.pid
 *.log
 *.db
 
-tmp
 include
 lib
 bin
+tmp
 dist
-build
-
-# test
 test
+build
 
 # msvc
 *.VC.*
