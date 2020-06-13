@@ -31,7 +31,7 @@ static void on_close(hio_t* io) {
         next = next->next;
         if (client->io == io) {
             list_del(next->prev);
-            SAFE_FREE(client);
+            HV_FREE(client);
             break;
         }
     }
@@ -60,7 +60,7 @@ static void on_accept(hio_t* io) {
 
     // free on_close
     nlog_client* client;
-    SAFE_ALLOC_SIZEOF(client);
+    HV_ALLOC_SIZEOF(client);
     client->io = io;
 
     hmutex_lock(&s_mutex);

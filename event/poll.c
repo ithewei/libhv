@@ -25,7 +25,7 @@ typedef struct poll_ctx_s {
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher)   return 0;
     poll_ctx_t* poll_ctx;
-    SAFE_ALLOC_SIZEOF(poll_ctx);
+    HV_ALLOC_SIZEOF(poll_ctx);
     pollfds_init(&poll_ctx->fds, FDS_INIT_SIZE);
     loop->iowatcher = poll_ctx;
     return 0;
@@ -35,7 +35,7 @@ int iowatcher_cleanup(hloop_t* loop) {
     if (loop->iowatcher == NULL)   return 0;
     poll_ctx_t* poll_ctx = (poll_ctx_t*)loop->iowatcher;
     pollfds_cleanup(&poll_ctx->fds);
-    SAFE_FREE(loop->iowatcher);
+    HV_FREE(loop->iowatcher);
     return 0;
 }
 

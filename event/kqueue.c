@@ -34,13 +34,13 @@ static void kqueue_ctx_resize(kqueue_ctx_t* kqueue_ctx, int size) {
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
     kqueue_ctx_t* kqueue_ctx;
-    SAFE_ALLOC_SIZEOF(kqueue_ctx);
+    HV_ALLOC_SIZEOF(kqueue_ctx);
     kqueue_ctx->kqfd = kqueue();
     kqueue_ctx->capacity = EVENTS_INIT_SIZE;
     kqueue_ctx->nchanges = 0;
     int bytes = sizeof(struct kevent) * kqueue_ctx->capacity;
-    SAFE_ALLOC(kqueue_ctx->changes, bytes);
-    SAFE_ALLOC(kqueue_ctx->events, bytes);
+    HV_ALLOC(kqueue_ctx->changes, bytes);
+    HV_ALLOC(kqueue_ctx->events, bytes);
     loop->iowatcher = kqueue_ctx;
     return 0;
 }
@@ -49,9 +49,9 @@ int iowatcher_cleanup(hloop_t* loop) {
     if (loop->iowatcher == NULL) return 0;
     kqueue_ctx_t* kqueue_ctx = (kqueue_ctx_t*)loop->iowatcher;
     close(kqueue_ctx->kqfd);
-    SAFE_FREE(kqueue_ctx->changes);
-    SAFE_FREE(kqueue_ctx->events);
-    SAFE_FREE(loop->iowatcher);
+    HV_FREE(kqueue_ctx->changes);
+    HV_FREE(kqueue_ctx->events);
+    HV_FREE(loop->iowatcher);
     return 0;
 }
 

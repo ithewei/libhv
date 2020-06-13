@@ -14,18 +14,16 @@ void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize);
 void* safe_calloc(size_t nmemb, size_t size);
 void* safe_zalloc(size_t size);
 
-#undef  SAFE_ALLOC
-#define SAFE_ALLOC(ptr, size)\
+#define HV_ALLOC(ptr, size)\
     do {\
         void** pptr = (void**)&(ptr);\
         *pptr = safe_zalloc(size);\
         printd("alloc(%p, size=%llu)\tat [%s:%d:%s]\n", ptr, (unsigned long long)size, __FILE__, __LINE__, __FUNCTION__);\
     } while(0)
 
-#define SAFE_ALLOC_SIZEOF(ptr)  SAFE_ALLOC(ptr, sizeof(*(ptr)))
+#define HV_ALLOC_SIZEOF(ptr)  HV_ALLOC(ptr, sizeof(*(ptr)))
 
-#undef  SAFE_FREE
-#define SAFE_FREE(ptr)\
+#define HV_FREE(ptr)\
     do {\
         if (ptr) {\
             printd("free( %p )\tat [%s:%d:%s]\n", ptr, __FILE__, __LINE__, __FUNCTION__);\
@@ -35,11 +33,11 @@ void* safe_zalloc(size_t size);
         }\
     } while(0)
 
-static inline void memcheck() {
+static inline void hv_memcheck() {
     printf("Memcheck => alloc:%u free:%u\n", g_alloc_cnt, g_free_cnt);
 }
 
-#define MEMCHECK    atexit(memcheck);
+#define HV_MEMCHECK    atexit(hv_memcheck);
 
 //-----------------------------safe string-----------------------
 char* strupper(char* str);

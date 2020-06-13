@@ -66,7 +66,7 @@ public:
 
     void cleanup() {
         if (cleanup_) {
-            SAFE_FREE(base);
+            HV_FREE(base);
             len = 0;
             cleanup_ = false;
         }
@@ -76,7 +76,7 @@ public:
         if (cap == len) return;
 
         if (base == NULL) {
-            SAFE_ALLOC(base, cap);
+            HV_ALLOC(base, cap);
         }
         else {
             base = (char*)safe_realloc(base, cap, len);

@@ -63,7 +63,7 @@ static inline type* atype##_back(atype* p) {\
 static inline void atype##_init(atype* p, int maxsize) {\
     p->size = 0;\
     p->maxsize = maxsize;\
-    SAFE_ALLOC(p->ptr, sizeof(type) * maxsize);\
+    HV_ALLOC(p->ptr, sizeof(type) * maxsize);\
 }\
 \
 static inline void atype##_clear(atype* p) {\
@@ -72,7 +72,7 @@ static inline void atype##_clear(atype* p) {\
 }\
 \
 static inline void atype##_cleanup(atype* p) {\
-    SAFE_FREE(p->ptr);\
+    HV_FREE(p->ptr);\
     p->size = p->maxsize = 0;\
 }\
 \

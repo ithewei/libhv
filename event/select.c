@@ -17,7 +17,7 @@ typedef struct select_ctx_s {
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
     select_ctx_t* select_ctx;
-    SAFE_ALLOC_SIZEOF(select_ctx);
+    HV_ALLOC_SIZEOF(select_ctx);
     select_ctx->max_fd = -1;
     FD_ZERO(&select_ctx->readfds);
     FD_ZERO(&select_ctx->writefds);
@@ -28,7 +28,7 @@ int iowatcher_init(hloop_t* loop) {
 }
 
 int iowatcher_cleanup(hloop_t* loop) {
-    SAFE_FREE(loop->iowatcher);
+    HV_FREE(loop->iowatcher);
     return 0;
 }
 

@@ -159,7 +159,7 @@ struct hio_s {
     do {\
         EVENT_INACTIVE(ev);\
         if (!ev->pending) {\
-            SAFE_FREE(ev);\
+            HV_FREE(ev);\
         }\
     } while(0)
 

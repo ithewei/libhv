@@ -191,7 +191,7 @@ static void hloop_cleanup(hloop_t* loop) {
     while (node != &loop->idles) {
         idle = IDLE_ENTRY(node);
         node = node->next;
-        SAFE_FREE(idle);
+        HV_FREE(idle);
     }
     list_init(&loop->idles);
     // timers
@@ -200,7 +200,7 @@ static void hloop_cleanup(hloop_t* loop) {
     while (loop->timers.root) {
         timer = TIMER_ENTRY(loop->timers.root);
         heap_dequeue(&loop->timers);
-        SAFE_FREE(timer);
+        HV_FREE(timer);
     }
     heap_init(&loop->timers, NULL);
     // ios
@@ -237,7 +237,7 @@ static void hloop_cleanup(hloop_t* loop) {
 
 hloop_t* hloop_new(int flags) {
     hloop_t* loop;
-    SAFE_ALLOC_SIZEOF(loop);
+    HV_ALLOC_SIZEOF(loop);
     memset(loop, 0, sizeof(hloop_t));
     hloop_init(loop);
     loop->flags |= flags;
@@ -247,7 +247,7 @@ hloop_t* hloop_new(int flags) {
 void hloop_free(hloop_t** pp) {
     if (pp && *pp) {
         hloop_cleanup(*pp);
-        SAFE_FREE(*pp);
+        HV_FREE(*pp);
         *pp = NULL;
     }
 }
@@ -271,7 +271,7 @@ int hloop_run(hloop_t* loop) {
     loop->end_hrtime = gethrtime_us();
     if (loop->flags & HLOOP_FLAG_AUTO_FREE) {
         hloop_cleanup(loop);
-        SAFE_FREE(loop);
+        HV_FREE(loop);
     }
     return 0;
 }
@@ -325,7 +325,7 @@ void* hloop_userdata(hloop_t* loop) {
 
 hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat) {
     hidle_t* idle;
-    SAFE_ALLOC_SIZEOF(idle);
+    HV_ALLOC_SIZEOF(idle);
     idle->event_type = HEVENT_TYPE_IDLE;
     idle->priority = HEVENT_LOWEST_PRIORITY;
     idle->repeat = repeat;
@@ -351,7 +351,7 @@ void hidle_del(hidle_t* idle) {
 htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat) {
     if (timeout == 0)   return NULL;
     htimeout_t* timer;
-    SAFE_ALLOC_SIZEOF(timer);
+    HV_ALLOC_SIZEOF(timer);
     timer->event_type = HEVENT_TYPE_TIMEOUT;
     timer->priority = HEVENT_HIGHEST_PRIORITY;
     timer->repeat = repeat;
@@ -390,7 +390,7 @@ htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
         return NULL;
     }
     hperiod_t* timer;
-    SAFE_ALLOC_SIZEOF(timer);
+    HV_ALLOC_SIZEOF(timer);
     timer->event_type = HEVENT_TYPE_PERIOD;
     timer->priority = HEVENT_HIGH_PRIORITY;
     timer->repeat = repeat;
@@ -473,10 +473,10 @@ static void hio_socket_init(hio_t* io) {
     nonblocking(io->fd);
     // fill io->localaddr io->peeraddr
     if (io->localaddr == NULL) {
-        SAFE_ALLOC(io->localaddr, sizeof(sockaddr_u));
+        HV_ALLOC(io->localaddr, sizeof(sockaddr_u));
     }
     if (io->peeraddr == NULL) {
-        SAFE_ALLOC(io->peeraddr, sizeof(sockaddr_u));
+        HV_ALLOC(io->peeraddr, sizeof(sockaddr_u));
     }
     socklen_t addrlen = sizeof(sockaddr_u);
     int ret = getsockname(io->fd, io->localaddr, &addrlen);
@@ -523,7 +523,7 @@ void hio_done(hio_t* io) {
     offset_buf_t* pbuf = NULL;
     while (!write_queue_empty(&io->write_queue)) {
         pbuf = write_queue_front(&io->write_queue);
-        SAFE_FREE(pbuf->base);
+        HV_FREE(pbuf->base);
         write_queue_pop_front(&io->write_queue);
     }
     write_queue_cleanup(&io->write_queue);
@@ -532,9 +532,9 @@ void hio_done(hio_t* io) {
 void hio_free(hio_t* io) {
     if (io == NULL) return;
     hio_done(io);
-    SAFE_FREE(io->localaddr);
-    SAFE_FREE(io->peeraddr);
-    SAFE_FREE(io);
+    HV_FREE(io->localaddr);
+    HV_FREE(io->peeraddr);
+    HV_FREE(io);
 }
 
 hio_t* hio_get(hloop_t* loop, int fd) {
@@ -549,7 +549,7 @@ hio_t* hio_get(hloop_t* loop, int fd) {
 
     hio_t* io = loop->ios.ptr[fd];
     if (io == NULL) {
-        SAFE_ALLOC_SIZEOF(io);
+        HV_ALLOC_SIZEOF(io);
         hio_init(io);
         io->loop = loop;
         io->fd = fd;

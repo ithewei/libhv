@@ -55,7 +55,7 @@ static inline void qtype##_init(qtype* p, int maxsize) {\
     p->_offset = 0;\
     p->size = 0;\
     p->maxsize = maxsize;\
-    SAFE_ALLOC(p->ptr, sizeof(type) * maxsize);\
+    HV_ALLOC(p->ptr, sizeof(type) * maxsize);\
 }\
 \
 static inline void qtype##_clear(qtype* p) {\
@@ -65,7 +65,7 @@ static inline void qtype##_clear(qtype* p) {\
 }\
 \
 static inline void qtype##_cleanup(qtype* p) {\
-    SAFE_FREE(p->ptr);\
+    HV_FREE(p->ptr);\
     p->_offset = p->size = p->maxsize = 0;\
 }\
 \

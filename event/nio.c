@@ -267,7 +267,7 @@ write:
     }
     pbuf->offset += nwrite;
     if (nwrite == len) {
-        SAFE_FREE(pbuf->base);
+        HV_FREE(pbuf->base);
         write_queue_pop_front(&io->write_queue);
         // write next
         goto write;
@@ -409,7 +409,7 @@ enqueue:
         rest.len = len;
         rest.offset = nwrite;
         // NOTE: free in nio_write
-        SAFE_ALLOC(rest.base, rest.len);
+        HV_ALLOC(rest.base, rest.len);
         memcpy(rest.base, (char*)buf, rest.len);
         if (io->write_queue.maxsize == 0) {
             write_queue_init(&io->write_queue, 4);

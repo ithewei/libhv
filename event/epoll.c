@@ -19,7 +19,7 @@ typedef struct epoll_ctx_s {
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
     epoll_ctx_t* epoll_ctx;
-    SAFE_ALLOC_SIZEOF(epoll_ctx);
+    HV_ALLOC_SIZEOF(epoll_ctx);
     epoll_ctx->epfd = epoll_create(EVENTS_INIT_SIZE);
     events_init(&epoll_ctx->events, EVENTS_INIT_SIZE);
     loop->iowatcher = epoll_ctx;
@@ -31,7 +31,7 @@ int iowatcher_cleanup(hloop_t* loop) {
     epoll_ctx_t* epoll_ctx = (epoll_ctx_t*)loop->iowatcher;
     close(epoll_ctx->epfd);
     events_cleanup(&epoll_ctx->events);
-    SAFE_FREE(loop->iowatcher);
+    HV_FREE(loop->iowatcher);
     return 0;
 }
 

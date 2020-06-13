@@ -22,9 +22,9 @@ int post_acceptex(hio_t* listenio, hoverlapped_t* hovlp) {
         return WSAGetLastError();
     }
     if (hovlp == NULL) {
-        SAFE_ALLOC_SIZEOF(hovlp);
+        HV_ALLOC_SIZEOF(hovlp);
         hovlp->buf.len = 20 + sizeof(struct sockaddr_in6) * 2;
-        SAFE_ALLOC(hovlp->buf.buf, hovlp->buf.len);
+        HV_ALLOC(hovlp->buf.buf, hovlp->buf.len);
     }
     hovlp->fd = connfd;
     hovlp->event = READ_EVENT;
@@ -42,7 +42,7 @@ int post_acceptex(hio_t* listenio, hoverlapped_t* hovlp) {
 
 int post_recv(hio_t* io, hoverlapped_t* hovlp) {
     if (hovlp == NULL) {
-        SAFE_ALLOC_SIZEOF(hovlp);
+        HV_ALLOC_SIZEOF(hovlp);
     }
     hovlp->fd = io->fd;
     hovlp->event = READ_EVENT;
@@ -52,7 +52,7 @@ int post_recv(hio_t* io, hoverlapped_t* hovlp) {
     }
     hovlp->buf.len = io->readbuf.len;
     if (io->io_type == HIO_TYPE_UDP || io->io_type == HIO_TYPE_IP) {
-        SAFE_ALLOC(hovlp->buf.buf, hovlp->buf.len);
+        HV_ALLOC(hovlp->buf.buf, hovlp->buf.len);
     }
     else {
         hovlp->buf.buf = io->readbuf.base;
@@ -68,7 +68,7 @@ int post_recv(hio_t* io, hoverlapped_t* hovlp) {
             io->io_type == HIO_TYPE_IP) {
         if (hovlp->addr == NULL) {
             hovlp->addrlen = sizeof(struct sockaddr_in6);
-            SAFE_ALLOC(hovlp->addr, sizeof(struct sockaddr_in6));
+            HV_ALLOC(hovlp->addr, sizeof(struct sockaddr_in6));
         }
         ret = WSARecvFrom(io->fd, &hovlp->buf, 1, &dwbytes, &flags, hovlp->addr, &hovlp->addrlen, &hovlp->ovlp, NULL);
     }
@@ -132,7 +132,7 @@ static void on_connectex_complete(hio_t* io) {
     printd("on_connectex_complete------\n");
     hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
     io->error = hovlp->error;
-    SAFE_FREE(io->hovlp);
+    HV_FREE(io->hovlp);
     if (io->error != 0) {
         hio_close(io);
         return;
@@ -184,9 +184,9 @@ static void on_wsarecv_complete(hio_t* io) {
     }
     else if (io->io_type == HIO_TYPE_UDP ||
             io->io_type == HIO_TYPE_IP) {
-        SAFE_FREE(hovlp->buf.buf);
-        SAFE_FREE(hovlp->addr);
-        SAFE_FREE(io->hovlp);
+        HV_FREE(hovlp->buf.buf);
+        HV_FREE(hovlp->addr);
+        HV_FREE(io->hovlp);
     }
 }
 
@@ -210,8 +210,8 @@ static void on_wsasend_complete(hio_t* io) {
     }
 end:
     if (io->hovlp) {
-        SAFE_FREE(hovlp->buf.buf);
-        SAFE_FREE(io->hovlp);
+        HV_FREE(hovlp->buf.buf);
+        HV_FREE(io->hovlp);
     }
 }
 
@@ -275,7 +275,7 @@ int hio_connect (hio_t* io) {
     }
     // NOTE: free on_connectex_complete
     hoverlapped_t* hovlp;
-    SAFE_ALLOC_SIZEOF(hovlp);
+    HV_ALLOC_SIZEOF(hovlp);
     hovlp->fd = io->fd;
     hovlp->event = HV_WRITE;
     hovlp->io = io;
@@ -339,12 +339,12 @@ try_send:
 WSASend:
     {
         hoverlapped_t* hovlp;
-        SAFE_ALLOC_SIZEOF(hovlp);
+        HV_ALLOC_SIZEOF(hovlp);
         hovlp->fd = io->fd;
         hovlp->event = HV_WRITE;
         hovlp->buf.len = len - nwrite;
         // NOTE: free on_send_complete
-        SAFE_ALLOC(hovlp->buf.buf, hovlp->buf.len);
+        HV_ALLOC(hovlp->buf.buf, hovlp->buf.len);
         memcpy(hovlp->buf.buf, ((char*)buf) + nwrite, hovlp->buf.len);
         hovlp->io = io;
         DWORD dwbytes = 0;
@@ -403,10 +403,10 @@ int hio_close (hio_t* io) {
         hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
         // NOTE: hread buf provided by caller
         if (hovlp->buf.buf != io->readbuf.base) {
-            SAFE_FREE(hovlp->buf.buf);
+            HV_FREE(hovlp->buf.buf);
         }
-        SAFE_FREE(hovlp->addr);
-        SAFE_FREE(io->hovlp);
+        HV_FREE(hovlp->addr);
+        HV_FREE(io->hovlp);
     }
     if (io->close_cb) {
         //printd("close_cb------\n");

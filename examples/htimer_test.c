@@ -32,7 +32,7 @@ void cron_hourly(htimer_t* timer) {
 }
 
 int main() {
-    MEMCHECK;
+    HV_MEMCHECK;
     hloop_t* loop = hloop_new(0);
 
     // on_timer_add triggered forever

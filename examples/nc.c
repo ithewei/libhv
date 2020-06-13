@@ -96,7 +96,7 @@ Examples: nc 127.0.0.1 80\n\
         printf("%s %s %d\n", protocolname, host, port);
     }
 
-    MEMCHECK;
+    HV_MEMCHECK;
 
     hloop_t* loop = hloop_new(0);
 

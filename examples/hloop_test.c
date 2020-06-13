@@ -53,7 +53,7 @@ void on_custom_events(hevent_t* ev) {
 
 int main() {
     // memcheck atexit
-    MEMCHECK;
+    HV_MEMCHECK;
 
     hloop_t* loop = hloop_new(0);
 

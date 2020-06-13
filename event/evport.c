@@ -27,12 +27,12 @@ static void evport_ctx_resize(evport_ctx_t* evport_ctx, int size) {
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
     evport_ctx_t* evport_ctx;
-    SAFE_ALLOC_SIZEOF(evport_ctx);
+    HV_ALLOC_SIZEOF(evport_ctx);
     evport_ctx->port = port_create();
     evport_ctx->capacity = EVENTS_INIT_SIZE;
     evport_ctx->nevents = 0;
     int bytes = sizeof(port_event_t) * evport_ctx->capacity;
-    SAFE_ALLOC(evport_ctx->events, bytes);
+    HV_ALLOC(evport_ctx->events, bytes);
     loop->iowatcher = evport_ctx;
     return 0;
 }
@@ -41,8 +41,8 @@ int iowatcher_cleanup(hloop_t* loop) {
     if (loop->iowatcher == NULL) return 0;
     evport_ctx_t* evport_ctx = (evport_ctx_t*)loop->iowatcher;
     close(evport_ctx->port);
-    SAFE_FREE(evport_ctx->events);
-    SAFE_FREE(loop->iowatcher);
+    HV_FREE(evport_ctx->events);
+    HV_FREE(loop->iowatcher);
     return 0;
 }
 
