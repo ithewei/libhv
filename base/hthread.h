@@ -5,16 +5,24 @@
 #include "hdef.h"
 
 #ifdef OS_WIN
-#define gettid  GetCurrentThreadId
-#elif HAVE_GETTID
-#elif defined(OS_ANDROID)
+#define hv_getpid   (long)GetCurrentProcessId
+#else
+#define hv_getpid   (long)getpid
+#endif
+
+#ifdef OS_WIN
+#define hv_gettid   (long)GetCurrentThreadId
+#elif HAVE_GETTID || defined(OS_ANDROID)
+#define hv_gettid   (long)gettid
 #elif defined(OS_LINUX)
 #include <sys/syscall.h>
-static inline int gettid() {
+static inline long hv_gettid() {
     return syscall(SYS_gettid);
 }
 #elif HAVE_PTHREAD_H
-#define gettid  pthread_self
+#define hv_gettid   (long)pthread_self
+#else
+#define hv_gettid   hv_getpid
 #endif
 
 #ifdef OS_WIN

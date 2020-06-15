@@ -4,7 +4,7 @@
 #include "htime.h"
 
 void print_task(int i) {
-    printf("thread[%ld]: task[%d]\n", (long)gettid(), i);
+    printf("thread[%ld]: task[%d]\n", hv_gettid(), i);
     sleep(1);
 }
 
