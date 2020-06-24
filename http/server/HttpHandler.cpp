@@ -5,31 +5,32 @@
 
 int HttpHandler::HandleRequest() {
     // preprocessor -> api -> web -> postprocessor
-    // preprocessor
+
+    int ret = 0;
+    http_api_handler api = NULL;
+
     req.ParseUrl();
     req.client_addr.ip = ip;
     req.client_addr.port = port;
+
+preprocessor:
     if (service->preprocessor) {
-        if (service->preprocessor(&req, &res) == HANDLE_DONE) {
-            return HANDLE_DONE;
+        ret = service->preprocessor(&req, &res);
+        if (ret != 0) {
+            goto make_http_status_page;
         }
     }
 
-    http_api_handler api = NULL;
-    int ret = 0;
     if (service->api_handlers.size() != 0) {
-        ret = service->GetApi(&req, &api);
+        service->GetApi(&req, &api);
     }
 
     if (api) {
         // api service
-        if (api(&req, &res) == HANDLE_DONE) {
-            return HANDLE_DONE;
+        ret = api(&req, &res);
+        if (ret != 0) {
+            goto make_http_status_page;
         }
-    }
-    else if (ret == HTTP_STATUS_METHOD_NOT_ALLOWED) {
-        // Method Not Allowed
-        res.status_code = HTTP_STATUS_METHOD_NOT_ALLOWED;
     }
     else if (service->document_root.size() != 0 && req.method == HTTP_GET) {
         // web service
@@ -54,21 +55,21 @@ int HttpHandler::HandleRequest() {
         }
         if (fc == NULL) {
             // Not Found
-            res.status_code = HTTP_STATUS_NOT_FOUND;
+            ret = HTTP_STATUS_NOT_FOUND;
         }
         else {
             // Not Modified
             auto iter = req.headers.find("if-not-match");
             if (iter != req.headers.end() &&
                 strcmp(iter->second.c_str(), fc->etag) == 0) {
-                res.status_code = HTTP_STATUS_NOT_MODIFIED;
+                ret = HTTP_STATUS_NOT_MODIFIED;
                 fc = NULL;
             }
             else {
                 iter = req.headers.find("if-modified-since");
                 if (iter != req.headers.end() &&
                     strcmp(iter->second.c_str(), fc->last_modified) == 0) {
-                    res.status_code = HTTP_STATUS_NOT_MODIFIED;
+                    ret = HTTP_STATUS_NOT_MODIFIED;
                     fc = NULL;
                 }
             }
@@ -76,11 +77,13 @@ int HttpHandler::HandleRequest() {
     }
     else {
         // Not Implemented
-        res.status_code = HTTP_STATUS_NOT_IMPLEMENTED;
+        ret = HTTP_STATUS_NOT_IMPLEMENTED;
     }
 
 make_http_status_page:
-    // html page
+    if (ret >= 100 && ret < 600) {
+        res.status_code = (http_status)ret;
+    }
     if (res.status_code >= 400 && res.body.size() == 0) {
         // error page
         if (service->error_page.size() != 0) {
@@ -96,8 +99,8 @@ make_http_status_page:
         }
     }
 
-    // file
     if (fc) {
+        // link file cache
         res.content = (unsigned char*)fc->filebuf.base;
         res.content_length = fc->filebuf.len;
         if (fc->content_type && *fc->content_type != '\0') {
@@ -111,11 +114,10 @@ make_http_status_page:
         res.headers["Etag"] = fc->etag;
     }
 
-    // postprocessor
+postprocessor:
     if (service->postprocessor) {
-        if (service->postprocessor(&req, &res) == HANDLE_DONE) {
-            return HANDLE_DONE;
-        }
+        ret = service->postprocessor(&req, &res);
     }
-    return HANDLE_DONE;
+
+    return ret;
 }

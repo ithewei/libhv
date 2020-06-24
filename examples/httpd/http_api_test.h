@@ -5,6 +5,7 @@
 
 // XXX(path, method, handler)
 #define HTTP_API_MAP(XXX) \
+    XXX("/login",   POST,   http_api_login)     \
     XXX("/hello",   GET,    http_api_hello)     \
     XXX("/query",   GET,    http_api_query)     \
     XXX("/echo",    POST,   http_api_echo)      \
@@ -27,6 +28,23 @@ inline int http_api_preprocessor(HttpRequest* req, HttpResponse* res) {
     //printf("%s\n", req->Dump(true, true).c_str());
     req->ParseBody();
     res->content_type = APPLICATION_JSON;
+#if 0
+    // authentication sample code
+    if (strcmp(req->path.c_str(), DEFAULT_BASE_URL "/login") != 0) {
+        string token = req->GetHeader("token");
+        if (token.empty()) {
+            response_status(res, 10011, "Miss token");
+            res->DumpBody();
+            return HTTP_STATUS_UNAUTHORIZED;
+        }
+        else if (strcmp(token.c_str(), "abcdefg") != 0) {
+            response_status(res, 10012, "Token wrong");
+            res->DumpBody();
+            return HTTP_STATUS_UNAUTHORIZED;
+        }
+        return 0;
+    }
+#endif
     return 0;
 }
 
@@ -36,7 +54,33 @@ inline int http_api_postprocessor(HttpRequest* req, HttpResponse* res) {
     return 0;
 }
 
+inline int http_api_login(HttpRequest* req, HttpResponse* res) {
+    int ret = 0;
+    string username = req->GetString("username");
+    string password = req->GetString("password");
+    if (username.empty() || password.empty()) {
+        response_status(res, 10001, "Miss username or password");
+        ret = HTTP_STATUS_BAD_REQUEST;
+    }
+    else if (strcmp(username.c_str(), "admin") != 0) {
+        response_status(res, 10002, "Username not exist");
+        ret = HTTP_STATUS_BAD_REQUEST;
+    }
+    else if (strcmp(password.c_str(), "123456") != 0) {
+        response_status(res, 10003, "Password wrong");
+        ret = HTTP_STATUS_BAD_REQUEST;
+    }
+    else {
+        res->Set("token", "abcdefg");
+        response_status(res, 0, "Login succeed.");
+        ret = HTTP_STATUS_OK;
+    }
+    res->DumpBody();
+    return ret;
+}
+
 inline int http_api_hello(HttpRequest* req, HttpResponse* res) {
+    res->content_type = TEXT_PLAIN;
     res->body = "hello";
     return 0;
 }
@@ -59,8 +103,7 @@ inline int http_api_echo(HttpRequest* req, HttpResponse* res) {
 
 inline int http_api_kv(HttpRequest*req, HttpResponse* res) {
     if (req->content_type != APPLICATION_URLENCODED) {
-        res->status_code = HTTP_STATUS_BAD_REQUEST;
-        return 0;
+        return HTTP_STATUS_BAD_REQUEST;
     }
     res->content_type = APPLICATION_URLENCODED;
     res->kv = req->kv;
@@ -69,8 +112,7 @@ inline int http_api_kv(HttpRequest*req, HttpResponse* res) {
 
 inline int http_api_json(HttpRequest* req, HttpResponse* res) {
     if (req->content_type != APPLICATION_JSON) {
-        res->status_code = HTTP_STATUS_BAD_REQUEST;
-        return 0;
+        return HTTP_STATUS_BAD_REQUEST;
     }
     res->content_type = APPLICATION_JSON;
     res->json = req->json;
@@ -79,8 +121,7 @@ inline int http_api_json(HttpRequest* req, HttpResponse* res) {
 
 inline int http_api_form(HttpRequest* req, HttpResponse* res) {
     if (req->content_type != MULTIPART_FORM_DATA) {
-        res->status_code = HTTP_STATUS_BAD_REQUEST;
-        return 0;
+        return HTTP_STATUS_BAD_REQUEST;
     }
     res->content_type = MULTIPART_FORM_DATA;
     res->form = req->form;
@@ -89,8 +130,7 @@ inline int http_api_form(HttpRequest* req, HttpResponse* res) {
 
 inline int http_api_upload(HttpRequest* req, HttpResponse* res) {
     if (req->content_type != MULTIPART_FORM_DATA) {
-        res->status_code = HTTP_STATUS_BAD_REQUEST;
-        return 0;
+        return HTTP_STATUS_BAD_REQUEST;
     }
     FormData file = req->form["file"];
     string filepath("html/uploads/");
@@ -107,8 +147,7 @@ inline int http_api_upload(HttpRequest* req, HttpResponse* res) {
 
 inline int http_api_grpc(HttpRequest* req, HttpResponse* res) {
     if (req->content_type != APPLICATION_GRPC) {
-        res->status_code = HTTP_STATUS_BAD_REQUEST;
-        return 0;
+        return HTTP_STATUS_BAD_REQUEST;
     }
     // parse protobuf: ParseFromString
     // req->body;

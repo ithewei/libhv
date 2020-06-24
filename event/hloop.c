@@ -261,7 +261,9 @@ int hloop_run(hloop_t* loop) {
             continue;
         }
         ++loop->loop_cnt;
-        if (loop->nactives == 0) break;
+        if (loop->nactives == 0 && loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) {
+            break;
+        }
         hloop_process_events(loop);
         if (loop->flags & HLOOP_FLAG_RUN_ONCE) {
             break;

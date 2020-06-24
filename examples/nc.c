@@ -98,7 +98,7 @@ Examples: nc 127.0.0.1 80\n\
 
     HV_MEMCHECK;
 
-    hloop_t* loop = hloop_new(0);
+    hloop_t* loop = hloop_new(HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS);
 
     // stdin
     stdinio = hread(loop, 0, recvbuf, RECV_BUFSIZE, on_stdin);

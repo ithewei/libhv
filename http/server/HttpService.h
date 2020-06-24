@@ -13,8 +13,12 @@
 #define DEFAULT_DOCUMENT_ROOT   "/var/www/html"
 #define DEFAULT_HOME_PAGE       "index.html"
 
-#define HANDLE_CONTINUE 0
-#define HANDLE_DONE     1
+/*
+ * @param[in] req: parsed structured http request
+ * @param[out] res: structured http response
+ * @return  0: handle continue
+ *          http_status_code: handle done
+ */
 typedef int (*http_api_handler)(HttpRequest* req, HttpResponse* res);
 
 struct http_method_handler {

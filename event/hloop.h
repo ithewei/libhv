@@ -88,12 +88,13 @@ typedef enum {
 } hio_type_e;
 
 // loop
-#define HLOOP_FLAG_RUN_ONCE    0x00000001
-#define HLOOP_FLAG_AUTO_FREE   0x00000002
+#define HLOOP_FLAG_RUN_ONCE                     0x00000001
+#define HLOOP_FLAG_AUTO_FREE                    0x00000002
+#define HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS   0x00000004
 hloop_t* hloop_new(int flags DEFAULT(HLOOP_FLAG_AUTO_FREE));
-// WARN: Not allow to call hloop_free when HLOOP_INIT_FLAG_AUTO_FREE set.
+// WARN: Forbid to call hloop_free if HLOOP_INIT_FLAG_AUTO_FREE set.
 void hloop_free(hloop_t** pp);
-// NOTE: when no active events, loop will quit.
+// NOTE: when no active events, loop will quit if HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS set.
 int hloop_run(hloop_t* loop);
 int hloop_stop(hloop_t* loop);
 int hloop_pause(hloop_t* loop);
