@@ -79,6 +79,10 @@ unsigned long long gethrtime_us();
 datetime_t datetime_now();
 time_t     datetime_mktime(datetime_t* dt);
 
+#define TIME_FMT            "%02d:%02d:%02d"
+#define TIME_FMT_BUFLEN     12
+char* duration_fmt(int sec, char* buf);
+
 #define DATETIME_FMT        "%04d-%02d-%02d %02d:%02d:%02d.%03d"
 #define DATETIME_FMT_BUFLEN 24
 char* datetime_fmt(datetime_t* dt, char* buf);

@@ -7,7 +7,7 @@
 #include "hproc.h"
 
 typedef struct main_ctx_s {
-    char    run_path[MAX_PATH];
+    char    run_dir[MAX_PATH];
     char    program_name[MAX_PATH];
     char    confile[MAX_PATH]; // default etc/${program}.conf
     char    pidfile[MAX_PATH]; // default logs/${program}.pid

@@ -239,7 +239,7 @@ ifeq ($(OS), Windows)
 	$(CC) -shared $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
 else
 ifeq ($(OS), Apple)
-	$(CC) -shared $^ -o $(LIBDIR)/$@.dylib $(LDFLAGS)
+	$(CC) -dynamiclib -install_name @rpath/$@.dylib $^ -o $(LIBDIR)/$@.dylib $(LDFLAGS)
 else
 	$(CC) -shared $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
 endif

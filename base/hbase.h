@@ -47,6 +47,8 @@ char* strreverse(char* str);
 bool strstartswith(const char* str, const char* start);
 bool strendswith(const char* str, const char* end);
 bool strcontains(const char* str, const char* sub);
+#define strrchr_dot(str) strrchr(str, '.')
+char* strrchr_dir(const char* filepath);
 
 // strncpy n = sizeof(dest_buf)-1
 // safe_strncpy n = sizeof(dest_buf)
@@ -66,6 +68,11 @@ char* safe_strncat(char* dest, const char* src, size_t n);
 
 // 1 y on yes true enable
 bool getboolean(const char* str);
+
+char* get_executable_path(char* buf, int size);
+char* get_executable_dir(char* buf, int size);
+char* get_executable_file(char* buf, int size);
+char* get_run_dir(char* buf, int size);
 
 END_EXTERN_C
 

@@ -109,6 +109,16 @@ time_t datetime_mktime(datetime_t* dt) {
     return mktime(&tm);
 }
 
+char* duration_fmt(int sec, char* buf) {
+    int h, m, s;
+    m = sec / 60;
+    s = sec % 60;
+    h = m / 60;
+    m = m % 60;
+    sprintf(buf, TIME_FMT, h, m, s);
+    return buf;
+}
+
 char* datetime_fmt(datetime_t* dt, char* buf) {
     sprintf(buf, DATETIME_FMT,
         dt->year, dt->month, dt->day,

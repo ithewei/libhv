@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef OS_DARWIN
+#include <mach-o/dyld.h> // for _NSGetExecutablePath
+#define environ (*_NSGetEnviron())
+#endif
+
 unsigned int g_alloc_cnt = 0;
 unsigned int g_free_cnt = 0;
 
@@ -145,6 +150,21 @@ bool strcontains(const char* str, const char* sub) {
     return strstr(str, sub) != NULL;
 }
 
+char* strrchr_dir(const char* filepath) {
+    char* b = (char*)filepath;
+    char* e = b;
+    while (*e) ++e;
+    while (--e >= b) {
+#ifdef OS_WIN
+        if (*e == '/' || *e == '\\')
+#else
+        if (*e == '/')
+#endif
+            return e;
+    }
+    return b;
+}
+
 bool getboolean(const char* str) {
     if (str == NULL) return false;
     int len = strlen(str);
@@ -157,4 +177,41 @@ bool getboolean(const char* str) {
     case 6: return stricmp(str, "enable") == 0;
     default: return false;
     }
+}
+
+char* get_executable_path(char* buf, int size) {
+#ifdef OS_WIN
+    GetModuleFileName(NULL, buf, size);
+#elif defined(OS_LINUX)
+    readlink("/proc/self/exe", buf, size);
+#elif defined(OS_DARWIN)
+    _NSGetExecutablePath(buf, (uint32_t*)&size);
+#endif
+    return buf;
+}
+
+char* get_executable_dir(char* buf, int size) {
+    char filepath[MAX_PATH];
+    get_executable_path(filepath, sizeof(filepath));
+    char* pos = strrchr_dir(filepath);
+    if (pos) {
+        *pos = '\0';
+        strncpy(buf, filepath, size);
+    }
+    return buf;
+}
+
+char* get_executable_file(char* buf, int size) {
+    char filepath[MAX_PATH];
+    get_executable_path(filepath, sizeof(filepath));
+    char* pos = strrchr_dir(filepath);
+    if (pos) {
+        strncpy(buf, pos+1, size);
+    }
+    return buf;
+}
+
+char* get_run_dir(char* buf, int size) {
+    getcwd(buf, size);
+    return buf;
 }

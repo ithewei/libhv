@@ -7,6 +7,7 @@
 
 #ifdef OS_DARWIN
 #include <crt_externs.h>
+#include <mach-o/dyld.h> // for _NSGetExecutablePath
 #define environ (*_NSGetEnviron())
 #endif
 
@@ -23,31 +24,13 @@ int main_ctx_init(int argc, char** argv) {
         argv = (char**)malloc(2*sizeof(char*));
         argv[0] = (char*)malloc(MAX_PATH);
         argv[1] = NULL;
-#ifdef OS_WIN
-        GetModuleFileName(NULL, argv[0], MAX_PATH);
-#elif defined(OS_LINUX)
-        readlink("/proc/self/exe", argv[0], MAX_PATH);
-#else
-        strcpy(argv[0], "./unnamed");
-#endif
+        get_executable_path(argv[0], MAX_PATH);
     }
 
-    char* cwd = getcwd(g_main_ctx.run_path, sizeof(g_main_ctx.run_path));
-    if (cwd == NULL) {
-        printf("getcwd error\n");
-    }
-    //printf("run_path=%s\n", g_main_ctx.run_path);
-    const char* b = argv[0];
-    const char* e = b;
-    while (*e) ++e;
-    --e;
-    while (e >= b) {
-        if (*e == '/' || *e == '\\') {
-            break;
-        }
-        --e;
-    }
-    strncpy(g_main_ctx.program_name, e+1, sizeof(g_main_ctx.program_name));
+    get_run_dir(g_main_ctx.run_dir, sizeof(g_main_ctx.run_dir));
+    //printf("run_dir=%s\n", g_main_ctx.run_dir);
+    char* pos = strrchr_dir(argv[0]);
+    strncpy(g_main_ctx.program_name, pos+1, sizeof(g_main_ctx.program_name));
 #ifdef OS_WIN
     if (strcmp(g_main_ctx.program_name+strlen(g_main_ctx.program_name)-4, ".exe") == 0) {
         *(g_main_ctx.program_name+strlen(g_main_ctx.program_name)-4) = '\0';
@@ -55,11 +38,11 @@ int main_ctx_init(int argc, char** argv) {
 #endif
     //printf("program_name=%s\n", g_main_ctx.program_name);
     char logpath[MAX_PATH] = {0};
-    snprintf(logpath, sizeof(logpath), "%s/logs", g_main_ctx.run_path);
+    snprintf(logpath, sizeof(logpath), "%s/logs", g_main_ctx.run_dir);
     MKDIR(logpath);
-    snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_path, g_main_ctx.program_name);
-    snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_path, g_main_ctx.program_name);
-    snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_path, g_main_ctx.program_name);
+    snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_dir, g_main_ctx.program_name);
+    snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_dir, g_main_ctx.program_name);
+    snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_dir, g_main_ctx.program_name);
     hlog_set_file(g_main_ctx.logfile);
 
     g_main_ctx.pid = getpid();
