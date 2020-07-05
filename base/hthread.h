@@ -16,7 +16,7 @@
 #define hv_gettid   (long)gettid
 #elif defined(OS_LINUX)
 #include <sys/syscall.h>
-#define hv_gettid   (long)syscall(SYS_gettid)
+#define hv_gettid() (long)syscall(SYS_gettid)
 #elif HAVE_PTHREAD_H
 #define hv_gettid   (long)pthread_self
 #else

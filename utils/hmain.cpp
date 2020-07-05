@@ -1,7 +1,5 @@
 #include "hmain.h"
 
-#include <signal.h>
-
 #include "hbase.h"
 #include "hlog.h"
 #include "herr.h"

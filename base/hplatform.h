@@ -175,6 +175,7 @@
 #include <errno.h>
 #include <time.h>
 #include <math.h>
+#include <signal.h>
 
 #ifndef __cplusplus
 #if HAVE_STDBOOL_H
