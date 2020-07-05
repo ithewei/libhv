@@ -68,7 +68,7 @@ void on_connect(hio_t* io) {
 int main(int argc, char** argv) {
     if (argc < 3) {
         printf("\
-Usage: cmd [-ut] host port\n\
+Usage: nc [-ut] host port\n\
 Options:\n\
   -t        Use tcp protocol (default)\n\
   -u        Use udp protocol\n\

@@ -1,5 +1,8 @@
 #include "hmain.h"
 
+#include <signal.h>
+
+#include "hbase.h"
 #include "hlog.h"
 #include "herr.h"
 #include "htime.h"
@@ -7,7 +10,6 @@
 
 #ifdef OS_DARWIN
 #include <crt_externs.h>
-#include <mach-o/dyld.h> // for _NSGetExecutablePath
 #define environ (*_NSGetEnviron())
 #endif
 
@@ -29,8 +31,7 @@ int main_ctx_init(int argc, char** argv) {
 
     get_run_dir(g_main_ctx.run_dir, sizeof(g_main_ctx.run_dir));
     //printf("run_dir=%s\n", g_main_ctx.run_dir);
-    char* pos = strrchr_dir(argv[0]);
-    strncpy(g_main_ctx.program_name, pos+1, sizeof(g_main_ctx.program_name));
+    strncpy(g_main_ctx.program_name, hv_basename(argv[0]), sizeof(g_main_ctx.program_name));
 #ifdef OS_WIN
     if (strcmp(g_main_ctx.program_name+strlen(g_main_ctx.program_name)-4, ".exe") == 0) {
         *(g_main_ctx.program_name+strlen(g_main_ctx.program_name)-4) = '\0';
@@ -39,7 +40,7 @@ int main_ctx_init(int argc, char** argv) {
     //printf("program_name=%s\n", g_main_ctx.program_name);
     char logpath[MAX_PATH] = {0};
     snprintf(logpath, sizeof(logpath), "%s/logs", g_main_ctx.run_dir);
-    MKDIR(logpath);
+    hv_mkdir(logpath);;
     snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_dir, g_main_ctx.program_name);
     snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_dir, g_main_ctx.program_name);
     snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_dir, g_main_ctx.program_name);
@@ -462,7 +463,7 @@ static void kill_proc(int pid) {
 #endif
 }
 
-void handle_signal(const char* signal) {
+void signal_handle(const char* signal) {
     if (strcmp(signal, "start") == 0) {
         if (g_main_ctx.oldpid > 0) {
             printf("%s is already running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);

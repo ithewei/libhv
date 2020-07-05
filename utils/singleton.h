@@ -2,8 +2,8 @@
 #define HV_SINGLETON_H_
 
 #define DISABLE_COPY(Class) \
-    Class(const Class &) = delete; \
-    Class &operator=(const Class &) = delete;
+    Class(const Class&) = delete; \
+    Class& operator=(const Class&) = delete;
 
 #define SINGLETON_DECL(Class) \
     public: \

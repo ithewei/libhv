@@ -1,3 +1,9 @@
+add_executable(mkdir_p mkdir_test.c ../base/hbase.c)
+target_include_directories(mkdir_p PRIVATE .. ../base)
+
+add_executable(date date_test.c ../base/htime.c)
+target_include_directories(date PRIVATE .. ../base)
+
 add_executable(hmutex_test hmutex_test.c ../base/htime.c)
 target_include_directories(hmutex_test PRIVATE .. ../base)
 target_link_libraries(hmutex_test -lpthread)
@@ -46,6 +52,8 @@ add_executable(webbench webbench.c)
 endif()
 
 add_custom_target(unittest DEPENDS
+    mkdir_p
+    date
     hmutex_test
     connect_test
     socketpair_test

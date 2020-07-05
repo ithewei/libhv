@@ -6,7 +6,7 @@
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        printf("Usage: cmd subcmd ServiceName [ServiceAddress ServicePort] [NodeIP NodePort]\n");
+        printf("Usage: consul_cli subcmd ServiceName [ServiceAddress ServicePort] [NodeIP NodePort]\n");
         printf("subcmd=[register,deregister,discover]\n");
         return -10;
     }

@@ -5,7 +5,7 @@
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        printf("Usage: cmd domain [nameserver]\n");
+        printf("Usage: nslookup domain [nameserver]\n");
         return -1;
     }
 

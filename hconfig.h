@@ -1,12 +1,12 @@
 #ifndef HV_CONFIG_H_
 #define HV_CONFIG_H_
 
-#ifndef HAVE_STDINT_H
-#define HAVE_STDINT_H 1
-#endif
-
 #ifndef HAVE_STDBOOL_H
 #define HAVE_STDBOOL_H 1
+#endif
+
+#ifndef HAVE_STDINT_H
+#define HAVE_STDINT_H 1
 #endif
 
 #ifndef HAVE_SYS_TYPES_H

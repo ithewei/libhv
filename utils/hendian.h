@@ -115,7 +115,8 @@ uint8_t* serialize(uint8_t* buf, T value, int host_endian = LITTLE_ENDIAN, int b
 
     if (host_endian == buf_endian) {
         memcpy(pDst, pSrc, size);
-    } else {
+    }
+    else {
         for (int i = 0; i < size; ++i) {
             pDst[i] = pSrc[size-i-1];
         }
@@ -132,7 +133,8 @@ uint8_t* deserialize(uint8_t* buf, T* value, int host_endian = LITTLE_ENDIAN, in
 
     if (host_endian == buf_endian) {
         memcpy(pDst, pSrc, size);
-    } else {
+    }
+    else {
         for (int i = 0; i < size; ++i) {
             pDst[i] = pSrc[size-i-1];
         }

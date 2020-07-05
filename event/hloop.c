@@ -69,7 +69,7 @@ static int hloop_process_timers(hloop_t* loop) {
             }
             else if (timer->event_type == HEVENT_TYPE_PERIOD) {
                 hperiod_t* period = (hperiod_t*)timer;
-                timer->next_timeout = calc_next_timeout(period->minute, period->hour, period->day,
+                timer->next_timeout = cron_next_timeout(period->minute, period->hour, period->day,
                         period->week, period->month) * 1000000;
             }
             heap_insert(&loop->timers, &timer->node);
@@ -174,7 +174,7 @@ static void hloop_init(hloop_t* loop) {
     loop->sockpair[0] = loop->sockpair[1] = -1;
     hmutex_init(&loop->custom_events_mutex);
     // NOTE: init start_time here, because htimer_add use it.
-    loop->start_ms = timestamp_ms();
+    loop->start_ms = gettimeofday_ms();
     loop->start_hrtime = loop->cur_hrtime = gethrtime_us();
 }
 
@@ -301,7 +301,7 @@ void hloop_update_time(hloop_t* loop) {
     loop->cur_hrtime = gethrtime_us();
     if (ABS((int64_t)hloop_now(loop) - (int64_t)time(NULL)) > 1) {
         // systemtime changed, we adjust start_ms
-        loop->start_ms = timestamp_ms() - (loop->cur_hrtime - loop->start_hrtime) / 1000;
+        loop->start_ms = gettimeofday_ms() - (loop->cur_hrtime - loop->start_hrtime) / 1000;
     }
 }
 
@@ -401,7 +401,7 @@ htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
     timer->day    = day;
     timer->month  = month;
     timer->week   = week;
-    timer->next_timeout = calc_next_timeout(minute, hour, day, week, month) * 1000000;
+    timer->next_timeout = cron_next_timeout(minute, hour, day, week, month) * 1000000;
     heap_insert(&loop->timers, &timer->node);
     EVENT_ADD(loop, timer, cb);
     loop->ntimers++;

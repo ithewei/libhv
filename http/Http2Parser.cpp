@@ -1,6 +1,6 @@
 #ifdef WITH_NGHTTP2
 
-#include "Http2Session.h"
+#include "Http2Parser.h"
 
 static nghttp2_nv make_nv(const char* name, const char* value) {
     nghttp2_nv nv;
@@ -43,7 +43,7 @@ static ssize_t data_source_read_callback(nghttp2_session *session,
 */
 
 
-Http2Session::Http2Session(http_session_type type) {
+Http2Parser::Http2Parser(http_session_type type) {
     if (cbs == NULL) {
         nghttp2_session_callbacks_new(&cbs);
         nghttp2_session_callbacks_set_on_header_callback(cbs, on_header_callback);
@@ -74,14 +74,14 @@ Http2Session::Http2Session(http_session_type type) {
     //state = HSS_SEND_PING;
 }
 
-Http2Session::~Http2Session() {
+Http2Parser::~Http2Parser() {
     if (session) {
         nghttp2_session_del(session);
         session = NULL;
     }
 }
 
-int Http2Session::GetSendData(char** data, size_t* len) {
+int Http2Parser::GetSendData(char** data, size_t* len) {
     // HTTP2_MAGIC,HTTP2_SETTINGS,HTTP2_HEADERS
     *len = nghttp2_session_mem_send(session, (const uint8_t**)data);
     printd("nghttp2_session_mem_send %d\n", *len);
@@ -171,7 +171,7 @@ send_done:
     return *len;
 }
 
-int Http2Session::FeedRecvData(const char* data, size_t len) {
+int Http2Parser::FeedRecvData(const char* data, size_t len) {
     printd("nghttp2_session_mem_recv %d\n", len);
     state = HSS_WANT_RECV;
     size_t ret = nghttp2_session_mem_recv(session, (const uint8_t*)data, len);
@@ -181,7 +181,7 @@ int Http2Session::FeedRecvData(const char* data, size_t len) {
     return (int)ret;
 }
 
-int Http2Session::SubmitRequest(HttpRequest* req) {
+int Http2Parser::SubmitRequest(HttpRequest* req) {
     submited = req;
 
     req->FillContentType();
@@ -236,7 +236,7 @@ int Http2Session::SubmitRequest(HttpRequest* req) {
     return 0;
 }
 
-int Http2Session::SubmitResponse(HttpResponse* res) {
+int Http2Parser::SubmitResponse(HttpResponse* res) {
     submited = res;
 
     res->FillContentType();
@@ -288,7 +288,7 @@ int Http2Session::SubmitResponse(HttpResponse* res) {
     return 0;
 }
 
-int Http2Session::InitResponse(HttpResponse* res) {
+int Http2Parser::InitResponse(HttpResponse* res) {
     res->Reset();
     res->http_major = 2;
     res->http_minor = 0;
@@ -296,7 +296,7 @@ int Http2Session::InitResponse(HttpResponse* res) {
     return 0;
 }
 
-int Http2Session::InitRequest(HttpRequest* req) {
+int Http2Parser::InitRequest(HttpRequest* req) {
     req->Reset();
     req->http_major = 2;
     req->http_minor = 0;
@@ -304,7 +304,7 @@ int Http2Session::InitRequest(HttpRequest* req) {
     return 0;
 }
 
-nghttp2_session_callbacks* Http2Session::cbs = NULL;
+nghttp2_session_callbacks* Http2Parser::cbs = NULL;
 
 int on_header_callback(nghttp2_session *session,
     const nghttp2_frame *frame,
@@ -316,11 +316,11 @@ int on_header_callback(nghttp2_session *session,
     const char* name = (const char*)_name;
     const char* value = (const char*)_value;
     printd("%s: %s\n", name, value);
-    Http2Session* hss = (Http2Session*)userdata;
+    Http2Parser* hp = (Http2Parser*)userdata;
     if (*name == ':') {
-        if (hss->parsed->type == HTTP_REQUEST) {
+        if (hp->parsed->type == HTTP_REQUEST) {
             // :method :path :scheme :authority
-            HttpRequest* req = (HttpRequest*)hss->parsed;
+            HttpRequest* req = (HttpRequest*)hp->parsed;
             if (strcmp(name, ":method") == 0) {
                 req->method = http_method_enum(value);
             }
@@ -334,17 +334,17 @@ int on_header_callback(nghttp2_session *session,
                 req->headers["Host"] = value;
             }
         }
-        else if (hss->parsed->type == HTTP_RESPONSE) {
-            HttpResponse* res = (HttpResponse*)hss->parsed;
+        else if (hp->parsed->type == HTTP_RESPONSE) {
+            HttpResponse* res = (HttpResponse*)hp->parsed;
             if (strcmp(name, ":status") == 0) {
                 res->status_code = (http_status)atoi(value);
             }
         }
     }
     else {
-        hss->parsed->headers[name] = value;
+        hp->parsed->headers[name] = value;
         if (strcmp(name, "content-type") == 0) {
-            hss->parsed->content_type = http_content_type_enum(value);
+            hp->parsed->content_type = http_content_type_enum(value);
         }
     }
     return 0;
@@ -356,9 +356,9 @@ int on_data_chunk_recv_callback(nghttp2_session *session,
     printd("on_data_chunk_recv_callback\n");
     printd("stream_id=%d length=%d\n", stream_id, (int)len);
     //printd("%.*s\n", (int)len, data);
-    Http2Session* hss = (Http2Session*)userdata;
+    Http2Parser* hp = (Http2Parser*)userdata;
 
-    if (hss->parsed->ContentType() == APPLICATION_GRPC) {
+    if (hp->parsed->ContentType() == APPLICATION_GRPC) {
         // grpc_message_hd
         if (len >= GRPC_MESSAGE_HDLEN) {
             grpc_message_hd msghd;
@@ -369,7 +369,7 @@ int on_data_chunk_recv_callback(nghttp2_session *session,
             //printd("%.*s\n", (int)len, data);
         }
     }
-    hss->parsed->body.append((const char*)data, len);
+    hp->parsed->body.append((const char*)data, len);
     return 0;
 }
 
@@ -377,19 +377,19 @@ int on_frame_recv_callback(nghttp2_session *session,
     const nghttp2_frame *frame, void *userdata) {
     printd("on_frame_recv_callback\n");
     print_frame_hd(&frame->hd);
-    Http2Session* hss = (Http2Session*)userdata;
+    Http2Parser* hp = (Http2Parser*)userdata;
     switch (frame->hd.type) {
     case NGHTTP2_DATA:
-        hss->state = HSS_RECV_DATA;
+        hp->state = HSS_RECV_DATA;
         break;
     case NGHTTP2_HEADERS:
-        hss->state = HSS_RECV_HEADERS;
+        hp->state = HSS_RECV_HEADERS;
         break;
     case NGHTTP2_SETTINGS:
-        hss->state = HSS_RECV_SETTINGS;
+        hp->state = HSS_RECV_SETTINGS;
         break;
     case NGHTTP2_PING:
-        hss->state = HSS_RECV_PING;
+        hp->state = HSS_RECV_PING;
         break;
     case NGHTTP2_RST_STREAM:
     case NGHTTP2_WINDOW_UPDATE:
@@ -398,13 +398,13 @@ int on_frame_recv_callback(nghttp2_session *session,
     default:
         break;
     }
-    if (frame->hd.stream_id >= hss->stream_id) {
-        hss->stream_id = frame->hd.stream_id;
-        hss->stream_closed = 0;
+    if (frame->hd.stream_id >= hp->stream_id) {
+        hp->stream_id = frame->hd.stream_id;
+        hp->stream_closed = 0;
         if (frame->hd.flags & NGHTTP2_FLAG_END_STREAM) {
-            printd("on_stream_closed stream_id=%d\n", hss->stream_id);
-            hss->stream_closed = 1;
-            hss->frame_type_when_stream_closed = frame->hd.type;
+            printd("on_stream_closed stream_id=%d\n", hp->stream_id);
+            hp->stream_closed = 1;
+            hp->frame_type_when_stream_closed = frame->hd.type;
         }
     }
 

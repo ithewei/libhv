@@ -10,8 +10,7 @@ BEGIN_EXTERN_C
 #define SECONDS_PER_DAY     86400   // 24*3600
 #define SECONDS_PER_WEEK    604800  // 7*24*3600
 
-#define IS_LEAP_YEAR(year) (((year)%4 == 0 && (year)%100 != 0) ||\
-                            (year)%100 == 0)
+#define IS_LEAP_YEAR(year) (((year)%4 == 0 && (year)%100 != 0) || (year)%100 == 0)
 
 typedef struct datetime_s {
     int year;
@@ -22,15 +21,6 @@ typedef struct datetime_s {
     int sec;
     int ms;
 } datetime_t;
-
-#ifdef OS_WIN
-static inline void sleep(unsigned int s) {
-    Sleep(s*1000);
-}
-
-static inline void usleep(unsigned int us) {
-    Sleep(us/1000);
-}
 
 #ifdef _MSC_VER
 /* @see winsock2.h
@@ -61,23 +51,43 @@ static inline int gettimeofday(struct timeval *tv, struct timezone *tz) {
     return 0;
 }
 #endif
+
+// sleep(s), msleep(ms), usleep(us)
+#ifdef OS_WIN
+static inline void sleep(unsigned int s) {
+    Sleep(s * 1000);
+}
+
+static inline void msleep(unsigned int ms) {
+    Sleep(ms);
+}
+
+static inline void usleep(unsigned int us) {
+    Sleep(us / 1000);
+}
+#else
+static inline void msleep(unsigned int ms) {
+    usleep(ms * 1000);
+}
 #endif
 
-static inline unsigned long long timestamp_ms() {
+// ms
+unsigned int gettick();
+
+static inline unsigned long long gettimeofday_ms() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return tv.tv_sec * (unsigned long long)1000 + tv.tv_usec/1000;
 }
-
-void msleep(unsigned int ms);
-// ms
-unsigned int gettick();
 
 // us
 unsigned long long gethrtime_us();
 
 datetime_t datetime_now();
 time_t     datetime_mktime(datetime_t* dt);
+
+datetime_t* datetime_past(datetime_t* dt, int days DEFAULT(1));
+datetime_t* datetime_future(datetime_t* dt, int days DEFAULT(1));
 
 #define TIME_FMT            "%02d:%02d:%02d"
 #define TIME_FMT_BUFLEN     12
@@ -91,20 +101,6 @@ char* datetime_fmt(datetime_t* dt, char* buf);
 #define GMTIME_FMT_BUFLEN   30
 char* gmtime_fmt(time_t time, char* buf);
 
-datetime_t* datetime_past(datetime_t* dt, int days DEFAULT(1));
-datetime_t* datetime_future(datetime_t* dt, int days DEFAULT(1));
-
-/*
- * minute   hour    day     week    month       action
- * 0~59     0~23    1~31    0~6     1~12
- *  30      -1      -1      -1      -1          cron.hourly
- *  30      1       -1      -1      -1          cron.daily
- *  30      1       15      -1      -1          cron.monthly
- *  30      1       -1       7      -1          cron.weekly
- *  30      1        1      -1      10          cron.yearly
- */
-time_t calc_next_timeout(int minute, int hour, int day, int week, int month);
-
 int days_of_month(int month, int year);
 
 int month_atoi(const char* month);
@@ -114,6 +110,17 @@ int weekday_atoi(const char* weekday);
 const char* weekday_itoa(int weekday);
 
 datetime_t hv_compile_datetime();
+
+/*
+ * minute   hour    day     week    month       action
+ * 0~59     0~23    1~31    0~6     1~12
+ *  30      -1      -1      -1      -1          cron.hourly
+ *  30      1       -1      -1      -1          cron.daily
+ *  30      1       15      -1      -1          cron.monthly
+ *  30      1       -1       0      -1          cron.weekly
+ *  30      1        1      -1      10          cron.yearly
+ */
+time_t cron_next_timeout(int minute, int hour, int day, int week, int month);
 
 END_EXTERN_C
 

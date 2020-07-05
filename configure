@@ -95,6 +95,7 @@ TARGET_ARCH=`echo $TARGET_PLATFORM | awk -F'-' '{print $1}'`
 case $TARGET_PLATFORM in
     *mingw*) TARGET_OS=Windows ;;
     *android*) TARGET_OS=Android ;;
+    *darwin*) TARGET_OS=Darwin ;;
     *) TARGET_OS=Linux ;;
 esac
 
@@ -109,8 +110,8 @@ echo "TARGET_ARCH     = $TARGET_ARCH"
 # Checks for libraries
 
 # Checks for header files
-header=stdint.h && check_header
 header=stdbool.h && check_header
+header=stdint.h && check_header
 header=sys/types.h && check_header
 header=sys/stat.h && check_header
 header=sys/time.h && check_header

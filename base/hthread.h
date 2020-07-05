@@ -16,14 +16,29 @@
 #define hv_gettid   (long)gettid
 #elif defined(OS_LINUX)
 #include <sys/syscall.h>
-static inline long hv_gettid() {
-    return syscall(SYS_gettid);
-}
+#define hv_gettid   (long)syscall(SYS_gettid)
 #elif HAVE_PTHREAD_H
 #define hv_gettid   (long)pthread_self
 #else
 #define hv_gettid   hv_getpid
 #endif
+
+/*
+#include "hthread.h"
+
+HTHREAD_ROUTINE(thread_demo) {
+    printf("thread[%ld] start\n", hv_gettid());
+    hv_delay(3000);
+    printf("thread[%ld] end\n", hv_gettid());
+    return 0;
+}
+
+int main() {
+    hthread_t th = hthread_create(thread_demo, NULL);
+    hthread_join(th);
+    return 0;
+}
+ */
 
 #ifdef OS_WIN
 typedef HANDLE      hthread_t;
@@ -68,19 +83,43 @@ static inline int hthread_join(hthread_t th) {
 #include <chrono>
 
 class HThread {
- public:
+public:
+    enum Status {
+        STOP,
+        RUNNING,
+        PAUSE,
+    };
+
+    enum SleepPolicy {
+        YIELD,
+        SLEEP_FOR,
+        SLEEP_UNTIL,
+        NO_SLEEP,
+    };
+
     HThread() {
         status = STOP;
-        status_switch = false;
+        status_changed = false;
         sleep_policy = YIELD;
         sleep_ms = 0;
     }
 
     virtual ~HThread() {}
 
+    void setStatus(Status stat) {
+        status_changed = true;
+        status = stat;
+    }
+
+    void setSleepPolicy(SleepPolicy policy, uint32_t ms = 0) {
+        sleep_policy = policy;
+        sleep_ms = ms;
+        setStatus(status);
+    }
+
     virtual int start() {
         if (status == STOP) {
-            switchStatus(RUNNING);
+            setStatus(RUNNING);
             dotask_cnt = 0;
 
             thread = std::thread([this] {
@@ -94,7 +133,7 @@ class HThread {
 
     virtual int stop() {
         if (status != STOP) {
-            switchStatus(STOP);
+            setStatus(STOP);
             thread.join();  // wait thread exit
         }
         return 0;
@@ -102,14 +141,14 @@ class HThread {
 
     virtual int pause() {
         if (status == RUNNING) {
-            switchStatus(PAUSE);
+            setStatus(PAUSE);
         }
         return 0;
     }
 
     virtual int resume() {
         if (status == PAUSE) {
-            switchStatus(RUNNING);
+            setStatus(RUNNING);
         }
         return 0;
     }
@@ -121,9 +160,9 @@ class HThread {
             }
 
             doTask();
-            dotask_cnt++;
+            ++dotask_cnt;
 
-            sleep();
+            HThread::sleep();
         }
     }
 
@@ -132,33 +171,9 @@ class HThread {
     virtual bool doFinish() {return true;}
 
     std::thread thread;
-    enum Status {
-        STOP,
-        RUNNING,
-        PAUSE,
-    };
     std::atomic<Status> status;
     uint32_t dotask_cnt;
-
-    enum SleepPolicy {
-        YIELD,
-        SLEEP_FOR,
-        SLEEP_UNTIL,
-        NO_SLEEP,
-    };
-
-    void setSleepPolicy(SleepPolicy policy, uint32_t ms = 0) {
-        status_switch = true;
-        sleep_policy = policy;
-        sleep_ms = ms;
-    }
-
- protected:
-    void switchStatus(Status stat) {
-        status_switch = true;
-        status = stat;
-    }
-
+protected:
     void sleep() {
         switch (sleep_policy) {
         case YIELD:
@@ -168,8 +183,8 @@ class HThread {
             std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
             break;
         case SLEEP_UNTIL: {
-            if (status_switch) {
-                status_switch = false;
+            if (status_changed) {
+                status_changed = false;
                 base_tp = std::chrono::system_clock::now();
             }
             base_tp += std::chrono::milliseconds(sleep_ms);
@@ -181,10 +196,11 @@ class HThread {
         }
     }
 
-    std::atomic<bool> status_switch;
     SleepPolicy sleep_policy;
-    std::chrono::system_clock::time_point base_tp;   // for SLEEP_UNTIL
-    uint32_t sleep_ms;
+    uint32_t    sleep_ms;
+    // for SLEEP_UNTIL
+    std::atomic<bool> status_changed;
+    std::chrono::system_clock::time_point base_tp;
 };
 #endif
 

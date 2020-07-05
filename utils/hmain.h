@@ -69,7 +69,7 @@ pid_t    getpid_from_pidfile();
 
 // signal=[start,stop,restart,status,reload]
 int signal_init(procedure_t reload_fn = NULL, void* reload_userdata = NULL);
-void handle_signal(const char* signal);
+void signal_handle(const char* signal);
 #ifdef OS_UNIX
 // we use SIGTERM to quit process, SIGUSR1 to reload confile
 #define SIGNAL_TERMINATE    SIGTERM

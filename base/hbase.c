@@ -151,18 +151,80 @@ bool strcontains(const char* str, const char* sub) {
 }
 
 char* strrchr_dir(const char* filepath) {
-    char* b = (char*)filepath;
-    char* e = b;
-    while (*e) ++e;
-    while (--e >= b) {
+    char* p = (char*)filepath;
+    while (*p) ++p;
+    while (--p >= filepath) {
 #ifdef OS_WIN
-        if (*e == '/' || *e == '\\')
+        if (*p == '/' || *p == '\\')
 #else
-        if (*e == '/')
+        if (*p == '/')
 #endif
-            return e;
+            return p;
     }
-    return b;
+    return NULL;
+}
+
+const char* hv_basename(const char* filepath) {
+    const char* pos = strrchr_dir(filepath);
+    return pos ? pos+1 : filepath;
+}
+
+const char* hv_suffixname(const char* filename) {
+    const char* pos = strrchr_dot(filename);
+    return pos ? pos+1 : "";
+}
+
+int hv_mkdir_p(const char* dir) {
+    if (access(dir, 0) == 0) {
+        return EEXIST;
+    }
+    char tmp[MAX_PATH];
+    safe_strncpy(tmp, dir, sizeof(tmp));
+    char* p = tmp;
+    char delim = '/';
+    while (*p) {
+#ifdef OS_WIN
+        if (*p == '/' || *p == '\\') {
+            delim = *p;
+#else
+        if (*p == '/') {
+#endif
+            *p = '\0';
+            hv_mkdir(tmp);
+            *p = delim;
+        }
+        ++p;
+    }
+    if (hv_mkdir(tmp) != 0) {
+        return EPERM;
+    }
+    return 0;
+}
+
+int hv_rmdir_p(const char* dir) {
+    if (access(dir, 0) != 0) {
+        return ENOENT;
+    }
+    if (rmdir(dir) != 0) {
+        return EPERM;
+    }
+    char tmp[MAX_PATH];
+    safe_strncpy(tmp, dir, sizeof(tmp));
+    char* p = tmp;
+    while (*p) ++p;
+    while (--p >= tmp) {
+#ifdef OS_WIN
+        if (*p == '/' || *p == '\\') {
+#else
+        if (*p == '/') {
+#endif
+            *p = '\0';
+            if (rmdir(tmp) != 0) {
+                return 0;
+            }
+        }
+    }
+    return 0;
 }
 
 bool getboolean(const char* str) {

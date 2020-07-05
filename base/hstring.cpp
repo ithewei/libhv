@@ -52,7 +52,7 @@ StringList split(const string& str, char delim) {
     return res;
 }
 
-KeyValue splitKV(const string& str, char kv_kv, char k_v) {
+hv::KeyValue splitKV(const string& str, char kv_kv, char k_v) {
     enum {
         s_key,
         s_value,
@@ -62,7 +62,7 @@ KeyValue splitKV(const string& str, char kv_kv, char k_v) {
     const char* value = NULL;
     int key_len = 0;
     int value_len = 0;
-    KeyValue kvs;
+    hv::KeyValue kvs;
     while (*p != '\0') {
         if (*p == kv_kv) {
             if (key_len && value_len) {

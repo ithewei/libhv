@@ -18,6 +18,7 @@ set(BASE_HEADERS
     base/hurl.h
     base/hgui.h
     base/ssl_ctx.h
+    base/hmap.h
     base/hstring.h
     base/hvar.h
     base/hobj.h

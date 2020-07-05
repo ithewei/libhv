@@ -227,7 +227,7 @@ int main(int argc, char** argv) {
     signal_init(on_reload);
     const char* signal = get_arg("s");
     if (signal) {
-        handle_signal(signal);
+        signal_handle(signal);
     }
 
 #ifdef OS_UNIX

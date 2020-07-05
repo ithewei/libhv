@@ -7,7 +7,7 @@
 #include "http2def.h"
 #include "FileCache.h"
 #include "HttpHandler.h"
-#include "Http2Session.h"
+#include "Http2Parser.h"
 
 #define MIN_HTTP_REQUEST        "GET / HTTP/1.1\r\n\r\n"
 #define MIN_HTTP_REQUEST_LEN    14 // exclude CRLF
@@ -23,10 +23,10 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     // printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     const char* buf = (const char*)_buf;
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
-    // HTTP1 / HTTP2 -> HttpSession -> InitRequest
+    // HTTP1 / HTTP2 -> HttpParser -> InitRequest
     // recv -> FeedRecvData -> !WantRecv -> HttpRequest ->
     // HandleRequest -> HttpResponse -> SubmitResponse -> while (GetSendData) -> send
-    if (handler->session == NULL) {
+    if (handler->parser == NULL) {
         // check request-line
         if (readbytes < MIN_HTTP_REQUEST_LEN) {
             hloge("[%s:%d] http request-line too small", handler->ip, handler->port);
@@ -46,27 +46,27 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             handler->req.http_major = 2;
             handler->req.http_minor = 0;
         }
-        handler->session = HttpSession::New(HTTP_SERVER, version);
-        if (handler->session == NULL) {
+        handler->parser = HttpParser::New(HTTP_SERVER, version);
+        if (handler->parser == NULL) {
             hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, (int)version);
             hio_close(io);
             return;
         }
-        handler->session->InitRequest(&handler->req);
+        handler->parser->InitRequest(&handler->req);
     }
 
-    HttpSession* session = handler->session;
+    HttpParser* parser = handler->parser;
     HttpRequest* req = &handler->req;
     HttpResponse* res = &handler->res;
 
-    int nfeed = session->FeedRecvData((const char*)buf, readbytes);
+    int nfeed = parser->FeedRecvData((const char*)buf, readbytes);
     if (nfeed != readbytes) {
-        hloge("[%s:%d] http parse error: %s", handler->ip, handler->port, session->StrError(session->GetError()));
+        hloge("[%s:%d] http parse error: %s", handler->ip, handler->port, parser->StrError(parser->GetError()));
         hio_close(io);
         return;
     }
 
-    if (session->WantRecv()) {
+    if (parser->WantRecv()) {
         // NOTE: KeepAlive will reset keepalive_timer,
         // if no data recv within keepalive timeout, closesocket actively.
         handler->KeepAlive();
@@ -74,18 +74,18 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     }
 
 #ifdef WITH_NGHTTP2
-    if (session->version == HTTP_V2) {
+    if (parser->version == HTTP_V2) {
         // HTTP2 extra processing steps
-        Http2Session* h2s = (Http2Session*)session;
-        if (h2s->state == HSS_RECV_PING) {
+        Http2Parser* h2p = (Http2Parser*)parser;
+        if (h2p->state == HSS_RECV_PING) {
             char* data = NULL;
             size_t len = 0;
-            while (session->GetSendData(&data, &len)) {
+            while (parser->GetSendData(&data, &len)) {
                 hio_write(io, data, len);
             }
             return;
         }
-        else if ((h2s->state == HSS_RECV_HEADERS && req->method != HTTP_POST) || h2s->state == HSS_RECV_DATA) {
+        else if ((h2p->state == HSS_RECV_HEADERS && req->method != HTTP_POST) || h2p->state == HSS_RECV_DATA) {
             goto handle_request;
         }
         else {
@@ -102,20 +102,20 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             // h2/h2c
             if (strnicmp(iter_upgrade->second.c_str(), "h2", 2) == 0) {
                 hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
-                SAFE_DELETE(handler->session);
-                session = handler->session = HttpSession::New(HTTP_SERVER, HTTP_V2);
-                if (session == NULL) {
+                SAFE_DELETE(handler->parser);
+                parser = handler->parser = HttpParser::New(HTTP_SERVER, HTTP_V2);
+                if (parser == NULL) {
                     hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
                     hio_close(io);
                     return;
                 }
                 HttpRequest http1_req = *req;
-                session->InitRequest(req);
+                parser->InitRequest(req);
                 *req = http1_req;
                 req->http_major = 2;
                 req->http_minor = 0;
                 // HTTP2_Settings: ignore
-                // session->FeedRecvData(HTTP2_Settings, );
+                // parser->FeedRecvData(HTTP2_Settings, );
             }
             else {
                 hio_close(io);
@@ -180,10 +180,10 @@ handle_request:
         }
     }
     else if (req->http_major == 2) {
-        session->SubmitResponse(res);
+        parser->SubmitResponse(res);
         char* data = NULL;
         size_t len = 0;
-        while (session->GetSendData(&data, &len)) {
+        while (parser->GetSendData(&data, &len)) {
             hio_write(io, data, len);
         }
     }
@@ -196,7 +196,7 @@ handle_request:
     if (keepalive) {
         handler->KeepAlive();
         handler->Reset();
-        session->InitRequest(req);
+        parser->InitRequest(req);
     }
     else {
         hio_close(io);
@@ -206,7 +206,7 @@ handle_request:
 static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     if (handler) {
-        SAFE_DELETE(handler->session);
+        SAFE_DELETE(handler->parser);
         delete handler;
         hevent_set_userdata(io, NULL);
     }

@@ -82,7 +82,7 @@
     F(3011, DEVICE_DISABLE,         "device disable")       \
     F(3012, DEVICE_BUSY,            "device busy")          \
 
-// grpc [4000+]
+// grpc [4xxx]
 #define FOREACH_ERR_GRPC(F)     \
     F(4000, GRPC_FIRST,                     "grpc no error")                \
     F(4001, GRPC_STATUS_CANCELLED,          "grpc status: cancelled")       \

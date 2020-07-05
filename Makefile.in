@@ -54,8 +54,8 @@ endif
 ifneq ($(findstring android, $(TARGET_PLATFORM)), )
 	OS=Android
 endif
-ifneq ($(findstring apple, $(TARGET_PLATFORM)), )
-	OS=Apple
+ifneq ($(findstring darwin, $(TARGET_PLATFORM)), )
+	OS=Darwin
 endif
 ifndef OS
 	OS=Linux
@@ -238,7 +238,7 @@ ifneq ($(findstring SHARED, $(TARGET_TYPE)), )
 ifeq ($(OS), Windows)
 	$(CC) -shared $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
 else
-ifeq ($(OS), Apple)
+ifeq ($(OS), Darwin)
 	$(CC) -dynamiclib -install_name @rpath/$@.dylib $^ -o $(LIBDIR)/$@.dylib $(LDFLAGS)
 else
 	$(CC) -shared $^ -o $(LIBDIR)/$@.so $(LDFLAGS)

@@ -5,15 +5,15 @@
 #include "hthreadpool.h"
 
 /*
-int host_discovery_task(std::string segment, void* nmap) {
+int host_discover_task(std::string segment, void* nmap) {
     Nmap* hosts= (Nmap*)nmap;
-    return host_discovery(segment.c_str(), hosts);
+    return host_discover(segment.c_str(), hosts);
 }
 */
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        printf("Usage: cmd segment\n");
+        printf("Usage: nmap segment\n");
         printf("Examples: nmap 192.168.1.123\n");
         printf("          nmap 192.168.1.x/24\n");
         printf("          nmap 192.168.x.x/16\n");
@@ -33,13 +33,13 @@ int main(int argc, char* argv[]) {
 
     if (n == 24) {
         Nmap nmap;
-        return host_discovery(segment, &nmap);
+        return host_discover(segment, &nmap);
     }
 
     char ip[INET_ADDRSTRLEN];
     if (n == 16) {
         Nmap segs;
-        int up_nsegs = segment_discovery(segment, &segs);
+        int up_nsegs = segment_discover(segment, &segs);
         if (up_nsegs == 0) return 0;
         Nmap hosts;
         for (auto& pair : segs) {
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        nmap_discovery(&hosts);
+        nmap_discover(&hosts);
         // filter up hosts
         std::vector<uint32_t> up_hosts;
         for (auto& pair : hosts) {
@@ -61,14 +61,14 @@ int main(int argc, char* argv[]) {
                 up_hosts.push_back(pair.first);
             }
         }
-        // ThreadPool + host_discovery
+        // ThreadPool + host_discover
         /*
         if (up_nsegs == 1) {
             for (auto& pair : segs) {
                 if (pair.second == 1) {
                     inet_ntop(AF_INET, (void*)&pair.first, ip, sizeof(ip));
                     Nmap hosts;
-                    return host_discovery(ip, &hosts);
+                    return host_discover(ip, &hosts);
                 }
             }
         }
@@ -81,7 +81,7 @@ int main(int argc, char* argv[]) {
         for (auto& pair : nmap) {
             if (pair.second == 1) {
                 inet_ntop(AF_INET, (void*)&pair.first, ip, sizeof(ip));
-                auto future = tp.commit(host_discovery_task, std::string(ip), &hosts[i++]);
+                auto future = tp.commit(host_discover_task, std::string(ip), &hosts[i++]);
                 futures.push_back(std::move(future));
             }
         }

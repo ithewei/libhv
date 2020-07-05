@@ -21,8 +21,8 @@ static inline int get_ncpu() {
 }
 
 typedef struct meminfo_s {
-    unsigned long total; // KB
-    unsigned long free; // KB
+    unsigned long total;    // KB
+    unsigned long free;     // KB
 } meminfo_t;
 
 static inline int get_meminfo(meminfo_t* mem) {

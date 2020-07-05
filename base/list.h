@@ -27,7 +27,10 @@ struct hlist_node {
 };
 
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
+// TODO: <sys/queue.h> defined LIST_HEAD
+#ifndef LIST_HEAD
 #define LIST_HEAD(name) struct list_head name = LIST_HEAD_INIT(name)
+#endif
 #define INIT_LIST_HEAD  list_init
 static inline void list_init(struct list_head *list)
 {

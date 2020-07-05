@@ -229,6 +229,8 @@ public:
         }
     }
 
+    void clear() {_head = _tail = _size = 0;}
+
     size_t size() {return _size;}
 
 private:

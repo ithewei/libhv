@@ -1,8 +1,8 @@
-#ifndef HTTP2_SESSION_H_
-#define HTTP2_SESSION_H_
+#ifndef HTTP2_PARSER_H_
+#define HTTP2_PARSER_H_
 
 #ifdef WITH_NGHTTP2
-#include "HttpSession.h"
+#include "HttpParser.h"
 #include "http2def.h"
 #include "grpcdef.h"
 
@@ -24,7 +24,7 @@ enum http2_session_state {
     HSS_RECV_DATA,
 };
 
-class Http2Session : public HttpSession {
+class Http2Parser : public HttpParser {
 public:
     static nghttp2_session_callbacks* cbs;
     nghttp2_session*                session;
@@ -39,8 +39,8 @@ public:
     // at least HTTP2_FRAME_HDLEN + GRPC_MESSAGE_HDLEN = 9 + 5 = 14
     unsigned char                   frame_hdbuf[32];
 
-    Http2Session(http_session_type type = HTTP_CLIENT);
-    virtual ~Http2Session();
+    Http2Parser(http_session_type type = HTTP_CLIENT);
+    virtual ~Http2Parser();
 
     virtual int GetSendData(char** data, size_t* len);
     virtual int FeedRecvData(const char* data, size_t len);
@@ -84,4 +84,4 @@ public:
 
 #endif
 
-#endif // HTTP2_SESSION_H_
+#endif // HTTP2_PARSER_H_

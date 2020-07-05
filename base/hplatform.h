@@ -21,7 +21,6 @@
     #elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
         #define OS_IOS
     #endif
-    #define OS_APPLE
     #define OS_DARWIN
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
     #define OS_FREEBSD
@@ -63,17 +62,17 @@
 // __clang__
 
 #ifdef HV_STATICLIB
-#define HEXPORT
+    #define HV_EXPORT
 #elif defined(OS_WIN)
-#ifdef DLL_EXPORTS
-#define HEXPORT  __declspec(dllexport)
-#else
-#define HEXPORT  __declspec(dllimport)
-#endif
+    #if defined(HV_EXPORTS) || defined(hv_EXPORTS)
+        #define HV_EXPORT  __declspec(dllexport)
+    #else
+        #define HV_EXPORT  __declspec(dllimport)
+    #endif
 #elif defined(__GNUC__)
-#define HEXPORT  __attribute__((visibility("default")))
+    #define HV_EXPORT  __attribute__((visibility("default")))
 #else
-#define HEXPORT
+    #define HV_EXPORT
 #endif
 
 // ARCH
@@ -106,7 +105,7 @@
 #endif
 #endif
 
-// header files
+// headers
 #ifdef OS_WIN
     #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
@@ -121,7 +120,9 @@
     #include <direct.h>     // for mkdir,rmdir,chdir,getcwd
     #include <io.h>         // for open,close,read,write,lseek,tell
 
-    #define MKDIR(dir)      mkdir(dir)
+    #define hv_delay(ms)    Sleep(ms)
+    #define hv_mkdir(dir)   mkdir(dir)
+
     #ifndef S_ISREG
     #define S_ISREG(st_mode) (((st_mode) & S_IFMT) == S_IFREG)
     #endif
@@ -141,7 +142,24 @@
     #include <netinet/udp.h>
     #include <netdb.h>  // for gethostbyname
 
-    #define MKDIR(dir)      mkdir(dir, 0777)
+    #define hv_delay(ms)    usleep((ms)*1000)
+    #define hv_mkdir(dir)   mkdir(dir, 0777)
+#endif
+
+#ifdef _MSC_VER
+    typedef int pid_t;
+    typedef int gid_t;
+    typedef int uid_t;
+    #define strcasecmp  stricmp
+    #define strncasecmp strnicmp
+#else
+    typedef int                 BOOL;
+    typedef unsigned char       BYTE;
+    typedef unsigned short      WORD;
+    typedef void*               HANDLE;
+    #include <strings.h>
+    #define stricmp     strcasecmp
+    #define strnicmp    strncasecmp
 #endif
 
 // ANSI C
@@ -154,13 +172,26 @@
 #include <ctype.h>
 #include <float.h>
 #include <limits.h>
+#include <errno.h>
 #include <time.h>
 #include <math.h>
-#include <errno.h>
-#include <signal.h>
 
+#ifndef __cplusplus
 #if HAVE_STDBOOL_H
 #include <stdbool.h>
+#else
+    #ifndef bool
+    #define bool char
+    #endif
+
+    #ifndef true
+    #define ture 1
+    #endif
+
+    #ifndef false
+    #define false 0
+    #endif
+#endif
 #endif
 
 #if HAVE_STDINT_H
@@ -175,6 +206,23 @@ typedef unsigned __int16    uint16_t;
 typedef unsigned __int32    uint32_t;
 typedef unsigned __int64    uint64_t;
 #endif
+
+typedef float               float32_t;
+typedef double              float64_t;
+
+// sizeof(var) = 8
+typedef union {
+    bool        b;
+    char        ch;
+    char*       str;
+    long long   num;
+    float       f;
+    double      lf;
+    void*       ptr;
+} var;
+
+typedef int (*method_t)(void* userdata);
+typedef void (*procedure_t)(void* userdata);
 
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>

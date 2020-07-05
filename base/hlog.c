@@ -140,6 +140,10 @@ void logger_fsync(logger_t* logger) {
     hmutex_unlock(&logger->mutex_);
 }
 
+const char* logger_get_cur_file(logger_t* logger) {
+    return logger->cur_logfile;
+}
+
 static void ts_logfile(const char* filepath, time_t ts, char* buf, int len) {
     struct tm* tm = localtime(&ts);
     snprintf(buf, len, "%s-%04d-%02d-%02d.log",

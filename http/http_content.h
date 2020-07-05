@@ -4,7 +4,7 @@
 #include "hstring.h"
 
 // QueryParams
-typedef KeyValue    QueryParams;
+typedef hv::KeyValue    QueryParams;
 std::string dump_query_params(QueryParams& query_params);
 int         parse_query_params(const char* query_string, QueryParams& query_params);
 

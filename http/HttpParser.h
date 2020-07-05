@@ -1,34 +1,34 @@
-#ifndef HTTP_SESSION_H_
-#define HTTP_SESSION_H_
+#ifndef HTTP_PARSER_H_
+#define HTTP_PARSER_H_
 
 #include "HttpMessage.h"
 
-class HttpSession {
+class HttpParser {
 public:
     http_version        version;
     http_session_type   type;
 
-    static HttpSession* New(http_session_type type = HTTP_CLIENT, http_version version = HTTP_V1);
-    virtual ~HttpSession() {}
+    static HttpParser* New(http_session_type type = HTTP_CLIENT, http_version version = HTTP_V1);
+    virtual ~HttpParser() {}
 
     virtual int GetSendData(char** data, size_t* len) = 0;
     virtual int FeedRecvData(const char* data, size_t len) = 0;
 
-    // Http1Session: http_parser_state
-    // Http2Session: http2_session_state
+    // Http1Parser: http_parser_state
+    // Http2Parser: http2_session_state
     virtual int GetState() = 0;
 
-    // Http1Session: GetState() != HP_MESSAGE_COMPLETE
-    // Http2Session: GetState() == HSS_WANT_RECV
+    // Http1Parser: GetState() != HP_MESSAGE_COMPLETE
+    // Http2Parser: GetState() == HSS_WANT_RECV
     virtual bool WantRecv() = 0;
 
-    // Http1Session: GetState() == HP_MESSAGE_COMPLETE
-    // Http2Session: GetState() == HSS_WANT_SEND
+    // Http1Parser: GetState() == HP_MESSAGE_COMPLETE
+    // Http2Parser: GetState() == HSS_WANT_SEND
     virtual bool WantSend() = 0;
 
     // IsComplete: Is recved HttpRequest or HttpResponse complete?
-    // Http1Session: GetState() == HP_MESSAGE_COMPLETE
-    // Http2Session: (state == HSS_RECV_HEADERS || state == HSS_RECV_DATA) && stream_closed
+    // Http1Parser: GetState() == HP_MESSAGE_COMPLETE
+    // Http2Parser: (state == HSS_RECV_HEADERS || state == HSS_RECV_DATA) && stream_closed
     virtual bool IsComplete() = 0;
 
     // client
@@ -45,4 +45,4 @@ public:
     virtual const char* StrError(int error) = 0;
 };
 
-#endif // HTTP_SESSION_H_
+#endif // HTTP_PARSER_H_

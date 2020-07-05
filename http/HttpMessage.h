@@ -36,7 +36,7 @@ public:
 #ifndef WITHOUT_HTTP_CONTENT
     Json                json;       // APPLICATION_JSON
     MultiPart           form;       // MULTIPART_FORM_DATA
-    KeyValue            kv;         // X_WWW_FORM_URLENCODED
+    hv::KeyValue        kv;         // X_WWW_FORM_URLENCODED
 
     // T=[bool, int64_t, double]
     template<typename T>

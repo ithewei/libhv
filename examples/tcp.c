@@ -33,7 +33,7 @@ void on_accept(hio_t* io) {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: cmd port\n");
+        printf("Usage: tcp port\n");
         return -10;
     }
     int port = atoi(argv[1]);

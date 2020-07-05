@@ -5,7 +5,7 @@
 
 BEGIN_EXTERN_C
 
-//---------------------safe alloc/free---------------------------
+//--------------------safe alloc/free---------------------------
 extern unsigned int g_alloc_cnt;
 extern unsigned int g_free_cnt;
 
@@ -39,7 +39,7 @@ static inline void hv_memcheck() {
 
 #define HV_MEMCHECK    atexit(hv_memcheck);
 
-//-----------------------------safe string-----------------------
+//--------------------safe string-------------------------------
 char* strupper(char* str);
 char* strlower(char* str);
 char* strreverse(char* str);
@@ -47,8 +47,6 @@ char* strreverse(char* str);
 bool strstartswith(const char* str, const char* start);
 bool strendswith(const char* str, const char* end);
 bool strcontains(const char* str, const char* sub);
-#define strrchr_dot(str) strrchr(str, '.')
-char* strrchr_dir(const char* filepath);
 
 // strncpy n = sizeof(dest_buf)-1
 // safe_strncpy n = sizeof(dest_buf)
@@ -65,6 +63,17 @@ char* safe_strncat(char* dest, const char* src, size_t n);
 #if !HAVE_STRLCAT
 #define strlcat safe_strncat
 #endif
+
+#define strrchr_dot(str) strrchr(str, '.')
+char* strrchr_dir(const char* filepath);
+
+// basename
+const char* hv_basename(const char* filepath);
+const char* hv_suffixname(const char* filename);
+// mkdir -p
+int hv_mkdir_p(const char* dir);
+// rmdir -p
+int hv_rmdir_p(const char* dir);
 
 // 1 y on yes true enable
 bool getboolean(const char* str);

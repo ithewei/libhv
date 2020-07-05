@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
     }
 
     std::string str7("user=admin&pswd=123456");
-    KeyValue kv = splitKV(str7, '&', '=');
+    hv::KeyValue kv = splitKV(str7, '&', '=');
     for (auto& pair : kv) {
         printf("%s=%s\n", pair.first.c_str(), pair.second.c_str());
     }

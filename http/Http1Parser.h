@@ -1,7 +1,7 @@
-#ifndef HTTP1_SESSION_H_
-#define HTTP1_SESSION_H_
+#ifndef HTTP1_PARSER_H_
+#define HTTP1_PARSER_H_
 
-#include "HttpSession.h"
+#include "HttpParser.h"
 #include "http_parser.h"
 
 enum http_parser_state {
@@ -16,7 +16,7 @@ enum http_parser_state {
     HP_MESSAGE_COMPLETE
 };
 
-class Http1Session : public HttpSession {
+class Http1Parser : public HttpParser {
 public:
     static http_parser_settings*    cbs;
     http_parser                     parser;
@@ -29,8 +29,8 @@ public:
     std::string header_value; // for on_header_value
     std::string sendbuf;      // for GetSendData
 
-    Http1Session(http_session_type type = HTTP_CLIENT);
-    virtual ~Http1Session();
+    Http1Parser(http_session_type type = HTTP_CLIENT);
+    virtual ~Http1Parser();
 
     void handle_header() {
         if (header_field.size() != 0 && header_value.size() != 0) {
@@ -117,4 +117,4 @@ public:
     }
 };
 
-#endif // HTTP1_SESSION_H_
+#endif // HTTP1_PARSER_H_

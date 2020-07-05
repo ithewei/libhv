@@ -54,7 +54,7 @@ static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
     }
 }
 
-int nmap_discovery(Nmap* nmap) {
+int nmap_discover(Nmap* nmap) {
     hloop_t* loop = hloop_new(0);
     uint64_t start_hrtime = hloop_now_hrtime(loop);
 
@@ -138,7 +138,7 @@ int nmap_discovery(Nmap* nmap) {
     return udata.up_cnt;
 }
 
-int segment_discovery(const char* segment16, Nmap* nmap) {
+int segment_discover(const char* segment16, Nmap* nmap) {
     StringList strlist = split(segment16, '.');
     if (strlist.size() != 4) return -1;
     uint32_t addr = 0;
@@ -152,10 +152,10 @@ int segment_discovery(const char* segment16, Nmap* nmap) {
         p[2] = i;
         (*nmap)[addr] = 0;
     }
-    return nmap_discovery(nmap);
+    return nmap_discover(nmap);
 }
 
-int host_discovery(const char* segment24, Nmap* nmap) {
+int host_discover(const char* segment24, Nmap* nmap) {
     StringList strlist = split(segment24, '.');
     if (strlist.size() != 4) return -1;
     uint32_t addr = 0;
@@ -170,5 +170,5 @@ int host_discovery(const char* segment24, Nmap* nmap) {
         p[3] = i;
         (*nmap)[addr] = 0;
     }
-    return nmap_discovery(nmap);
+    return nmap_discover(nmap);
 }

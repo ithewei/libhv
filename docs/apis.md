@@ -1,17 +1,84 @@
-#  c
-## functions
-### hversion.h
-- hv_version
-- hv_compile_version
-- version_atoi
-- version_itoa
+# libhv API Manual
+
+## base
+
+### hplatform.h
+- OS: OS_WIN, OS_UNIX (OS_LINUX, OS_ANDROID, OS_DARWIN ...)
+- ARCH: ARCH_X86, ARCH_X64, ARCH_ARM, ARCH_ARM64
+- BYTE_ORDER: BIG_ENDIAN, LITTLE_ENDIAN
+- HV_EXPORT
+- stdbool.h: bool, true, false
+- stdint.h: int8_t, int16_t, int32_t, int64_t
+- var
+- hv_delay
+- hv_mkdir
+- stricmp, strcasecmp
+
+### hdef.h
+- ABS, NABS
+- ARRAY_SIZE
+- BEGIN_EXTERN_C, END_EXTERN_C
+- BEGIN_NAMESPACE, END_NAMESPACE
+- BITSET, BITCLR, BITGET
+- CR, LF, CRLF
+- DEFAULT
+- ENUM, STRUCT
+- FLOAT_EQUAL_ZERO
+- IN, OUT, INOUT
+- INFINITE
+- IS_ALPHA, IS_NUM, IS_NUM
+- IS_CNTRL, IS_GRAPH
+- IS_HEX
+- IS_LOWER, IS_UPPER
+- LOWER, UPPER
+- LD, LU, LLD, LLU
+- MAKEWORD, LOBYTE, HIBYTE
+- MAKELONG, LOWORD, HIWORD
+- MAKEINT64, LOINT, HIINT
+- MAKE_FOURCC
+- MAX, MIN, LIMIT
+- MAX_PATH
+- NULL, TRUE, FALSE
+- OPTIONAL, REQUIRED, REPEATED
+- SAFE_FREE, SAFE_DELETE, SAFE_DELETE_ARRAY, SAFE_RELEASE
+- STRINGCAT
+- STRINGIFY
+- offsetof, offsetofend
+- container_of
+- prefetch
+- printd
+
+### herr.h
+- hv_strerror
+
+### htime.h
+- IS_LEAP_YEAR
+- datetime_t
+- sleep, msleep, usleep
+- gettick
+- gettimeofday
+- gettimeofday_ms
+- gethrtime_us
+- datetime_now
+- datetime_mktime
+- datetime_past
+- datetime_future
+- duration_fmt
+- datetime_fmt
+- gmtime_fmt
+- days_of_month
+- month_atoi
+- month_itoa
+- weekday_atoi
+- weekday_itoa
+- hv_compile_datetime
+- cron_next_timeout
 
 ### hmath.h
 - floor2e
 - ceil2e
 
 ### hbase.h
-- getboolean
 - safe_malloc
 - safe_calloc
 - safe_realloc
@@ -24,26 +91,117 @@
 - strstartswith
 - strendswith
 - strcontains
+- strlcpy
+- strlcat
+- strrchr_dot
+- strrchr_dir
+- hv_basename
+- hv_suffixname
+- hv_mkdir_p
+- hv_rmdir_p
+- getboolean
+- get_executable_path
+- get_executable_dir
+- get_executable_file
+- get_run_dir
 
-### htime.h
-- calc_next_timeout
-- datetime_now
-- datetime_past
-- datetime_future
-- datetime_mktime
-- datetime_fmt
-- gmtime_fmt
-- gettick
-- gethrtime_us
-- sleep
-- msleep
-- usleep
-- hv_compile_datetime
-- days_of_month
-- month_atoi
-- month_itoa
-- weekday_atoi
-- weekday_itoa
+### hversion.h
+- hv_version
+- hv_compile_version
+- version_atoi
+- version_itoa
+
+### hsysinfo.h
+- get_ncpu
+- get_meminfo
+
+### hproc.h
+- hproc_spawn
+
+### hthread.h
+- hv_getpid
+- hv_gettid
+- HTHREAD_RETTYPE
+- HTHREAD_ROUTINE
+- hthread_create
+- hthread_join
+- class HThread
+
+### hmutex.h
+- hmutex_t
+- hmutex_init
+- hmutex_destroy
+- hmutex_lock
+- hmutex_unlock
+- hspinlock_t
+- hspinlock_init
+- hspinlock_destroy
+- hspinlock_lock
+- hspinlock_unlock
+- hrwlock_t
+- hrwlock_init
+- hrwlock_destroy
+- hrwlock_rdlock
+- hrwlock_rdunlock
+- hrwlock_wrlock
+- hrwlock_wrunlock
+- htimed_mutex_t
+- htimed_mutex_init
+- htimed_mutex_destroy
+- htimed_mutex_lock
+- htimed_mutex_lock_for
+- htimed_mutex_unlock
+- hcondvar_t
+- hcondvar_init
+- hcondvar_destroy
+- hcondvar_wait
+- hcondvar_wait_for
+- hcondvar_signal
+- hcondvar_broadcast
+- hsem_init
+- hsem_destroy
+- hsem_wait
+- hsem_post
+- hsem_timedwait
+- honce_t
+- HONCE_INIT
+- honce
+- `hv::MutexLock`
+- `hv::SpinLock`
+- `hv::RWLock`
+
+### hsocket.h
+- INVALID_SOCKET
+- closesocket
+- blocking
+- nonblocking
+- Bind
+- Listen
+- Connect
+- ConnectNonblock
+- ConnectTimeout
+- Resolver
+- Socketpair
+- socket_errno
+- socket_strerror
+- sockaddr_u
+- sockaddr_ip
+- sockaddr_port
+- sockaddr_set_ip
+- sockaddr_set_port
+- sockaddr_set_ipport
+- sockaddr_len
+- sockaddr_str
+- sockaddr_print
+- SOCKADDR_LEN
+- SOCKADDR_STR
+- SOCKADDR_PRINT
+- tcp_nodelay
+- tcp_nopush
+- tcp_keepalive
+- udp_broadcast
+- so_sndtimeo
+- so_rcvtimeo
 
 ### hlog.h
 - default_logger
@@ -62,40 +220,93 @@
 - logger_set_max_bufsize
 - logger_set_max_filesize
 - logger_set_remain_days
+- logger_get_cur_file
+- hlogd, hlogi, hlogw, hloge, hlogf
+- LOGD, LOGI, LOGW, LOGE, LOGF
 
-### herr.h
-- hv_strerror
+### hbuf.h
+- hbuf_t
+- offset_buf_t
+- HBuf
+- HVLBuf
+- HRingBuf
 
-### hsocket.h
-- Bind
-- Listen
-- Connect
-- ConnectNonblock
-- ConnectTimeout
-- Resolver
-- Socketpair
-- socket_strerror
-- sockaddrlen
-- sockaddr_assign
-- sockaddr_ip
-- sockaddr_port
-- sockaddr_set_port
-- sockaddr_str
-- sockaddr_print
-- tcp_nodelay
-- tcp_nopush
-- tcp_keepalive
-- udp_broadcast
-- so_sndtimeo
-- so_rcvtimeo
+### hgui.h
+- HPoint
+- HSize
+- HRect
 
-### hproc.h
-- hproc_spawn
+### hstring.h
+- asprintf
+- trim
+- trimL
+- trimR
+- trim_pairs
+- split
+- splitKV
+- replace
+- basename
+- dirname
+- filename
+- suffixname
+- hv::to_string
+- hv::from_string
 
-### hthread.h
-- gettid
-- hthread_create
-- hthread_join
+### hfile.h
+- class HFile
+
+### hdir.h
+- listdir
+
+### hurl.h
+- url_escape
+- url_unescape
+
+### hscope.h
+- defer
+- ScopeCleanup
+- ScopeFree
+- ScopeDelete
+- ScopeDeleteArray
+- ScopeRelease
+- ScopeLock
+
+### ifconfig.h
+- ifconfig
+
+## utils
+### md5.h
+- MD5Init
+- MD5Update
+- MD5Final
+
+### base64.h
+- base64_decode
+- base64_encode
+
+### json.hpp
+
+### hmain.h
+- main_ctx_init
+- parse_opt
+- parse_opt_long
+- get_arg
+- get_env
+- setproctitle
+- signal_init
+- signal_handle
+- signal_handler
+- create_pidfile
+- delete_pidfile
+- getpid_form_pidfile
+- master_workers_run
+
+### singleton.h
+- DISABLE_COPY
+- SINGLETON_DECL
+- SINGLETON_IMPL
+
+## event
 
 ### hloop.h
 - create_tcp_client
@@ -115,6 +326,13 @@
 - hloop_set_userdata
 - hloop_userdata
 - hloop_post_event
+- hevent_loop
+- hevent_type
+- hevent_id
+- hevent_priority
+- hevent_userdata
+- hevent_set_priority
+- hevent_ser_userdata
 - haccept
 - hconnect
 - hread
@@ -157,6 +375,13 @@
 - network_logger
 - nlog_listen
 
+### nmap.h
+- nmap_discover
+- segment_discover
+- host_discover
+
+## protocol
+
 ### dns.h
 - dns_name_decode
 - dns_name_encode
@@ -188,6 +413,13 @@
 ### icmp.h
 - ping
 
+## http
+- HttpMessage
+- HttpRequest
+- HttpResponse
+- HttpParser
+- HttpService
+
 ### httpdef.h
 - http_content_type_enum
 - http_content_type_enum_by_suffix
@@ -201,58 +433,13 @@
 - http_status_enum
 - http_status_str
 
-### md5.h
-- MD5Init
-- MD5Update
-- MD5Final
-
-### base64.h
-- base64_decode
-- base64_encode
-
-### ssl_ctx.h
-- ssl_ctx_init
-- ssl_ctx_destory
-
-# cpp
-## functions
-### hmain.h
-- main_ctx_init
-- parse_opt
-- parse_opt_long
-- get_arg
-- get_env
-- setproctitle
-- signal_init
-- signal_handler
-- handle_signal
-- create_pidfile
-- delete_pidfile
-- getpid_form_pidfile
-- master_workers_run
-
-### hstring.h
-- asprintf
-- trim
-- trimL
-- trimR
-- trim_pairs
-- split
-- splitKV
-- replace
-- basename
-- dirname
-- filename
-- suffixname
-- hv::to_string
-- hv::from_string
-
-### hdir.h
-- listdir
-
-### hurl.h
-- url_escape
-- url_unescape
+### http_content.h
+- parse_query_params
+- parse_json
+- parse_multipart
+- dump_query_params
+- dump_json
+- dump_multipart
 
 ### http_client.h
 - http_client_new
@@ -269,191 +456,9 @@
 - http_server_run
 - http_server_stop
 
-### http_content.h
-- parse_query_params
-- parse_json
-- parse_multipart
-- dump_query_params
-- dump_json
-- dump_multipart
-
-### hsysinfo.h
-- get_ncpu
-- get_meminfo
-
-### ifconfig.h
-- ifconfig
-
-### nmap.h
-- nmap_discovery
-- segment_discovery
-- host_discovery
-
-## classes
-### hscope.h
-- ScopeCleanup
-- ScopeFree
-- ScopeDelete
-- ScopeDeleteArray
-- ScopeRelease
-- ScopeLock
-
-### http
-- HttpMessage
-- HttpRequest
-- HttpResponse
-- HttpService
-
-### misc
-- IniParser
-- HObject
+## other
 - HVar
-- HFile
+- HObject
 - HThread
 - HThreadPool
 - HObjectPool
-- HBuf
-- HVLBuf
-- HRingBuf
-- HPoint
-- HSize
-- HRect
-- `hv::MutexLock`
-- `hv::SpinLock`
-- `hv::RWLock`
-
-# marcos
-### hdef.h
-- ABS
-- ARRAY_SIZE
-- BITSET
-- BITCLR
-- BITGET
-- CR
-- LF
-- CRLF
-- LOWER
-- UPPER
-- IS_NUM
-- IS_UPPER
-- IS_LOWER
-- IS_ALPHA
-- IS_ALPHANUM
-- IS_HEX
-- IS_GRAPH
-- MAX
-- MIN
-- LIMIT
-- MAKE_FOURCC
-- MAKEWORD
-- HIBYTE
-- LOBYTE
-- MAKELONG
-- HIWORD
-- LOWORD
-- MAKEINT64
-- HIINT
-- LOINT
-- SAFE_ALLOC
-- SAFE_FREE
-- SAFE_DELETE
-- SAFE_DELETE_ARRAY
-- SAFE_RELEASE
-- STRINGIFY
-- STRINGCAT
-- FLOAT_EQUAL_ZERO
-- offsetof
-- offsetoffend
-- container_of
-- prefetch
-- printd
-- NULL
-- TRUE
-- FALSE
-- INFINITE
-- BEGIN_NAMESPACE
-- END_NAMESPACE
-- EXTERN_C
-- BEGIN_EXTERN_C
-- END_EXTERN_C
-- ENUM
-- STRUCT
-- DEFAULT
-
-### hlog.h
-- hlogd
-- hlogi
-- hlogw
-- hloge
-- hlogf
-- LOGD
-- LOGI
-- LOGW
-- LOGE
-- LOGF
-
-### hmutex.h
-- hmutex_t
-- hmutex_init
-- hmutex_destroy
-- hmutex_lock
-- hmutex_unlock
-- hspinlock_t
-- hspinlock_init
-- hspinlock_destroy
-- hspinlock_lock
-- hspinlock_unlock
-- hrwlock_t
-- hrwlock_init
-- hrwlock_destroy
-- hrwlock_rdlock
-- hrwlock_rdunlock
-- hrwlock_wrlock
-- hrwlock_wrunlock
-- htimed_mutex_t
-- htimed_mutex_init
-- htimed_mutex_destroy
-- htimed_mutex_lock
-- htimed_mutex_lock_for
-- htimed_mutex_unlock
-- hcondvar_t
-- hcondvar_init
-- hcondvar_destroy
-- hcondvar_wait
-- hcondvar_wait_for
-- hcondvar_signal
-- hcondvar_broadcast
-- hsem_init
-- hsem_destroy
-- hsem_wait
-- hsem_post
-- hsem_timedwait
-- honce_t
-- HONCE_INIT
-- honce
-
-### hsocket.h
-- INVALID_SOCKET
-- closesocket
-- blocking
-- nonblocking
-- SOCKADDR_STRLEN
-- SOCKADDR_STR
-
-### hloop.h
-- hevent_loop
-- hevent_type
-- hevent_id
-- hevent_priority
-- hevent_userdata
-- hevent_set_priority
-- hevent_ser_userdata
-
-### hscope.h
-- defer
-
-### singleton.h
-- DISABLE_COPY
-- SINGLETON_DECL
-- SINGLETON_IMPL
-

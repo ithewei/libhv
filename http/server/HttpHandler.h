@@ -1,7 +1,7 @@
 #ifndef HTTP_HANDLER_H_
 #define HTTP_HANDLER_H_
 
-#include "HttpSession.h"
+#include "HttpParser.h"
 #include "HttpService.h"
 #include "FileCache.h"
 #include "hloop.h"
@@ -21,7 +21,7 @@ public:
     // for handle_request
     HttpService*            service;
     FileCache*              files;
-    HttpSession*            session;
+    HttpParser*             parser;
     HttpRequest             req;
     HttpResponse            res;
     file_cache_t*           fc;
@@ -32,7 +32,7 @@ public:
     HttpHandler() {
         service = NULL;
         files = NULL;
-        session = NULL;
+        parser = NULL;
         fc = NULL;
         io = NULL;
         keepalive_timer = NULL;

@@ -9,7 +9,7 @@
 #else
 #include "herr.h"
 #include "hsocket.h"
-#include "HttpSession.h"
+#include "HttpParser.h"
 #include "ssl_ctx.h"
 #endif
 
@@ -29,7 +29,7 @@ struct http_client_s {
     CURL* curl;
 #else
     int fd;
-    HttpSession* session;
+    HttpParser*  parser;
 #endif
 #ifdef WITH_OPENSSL
     SSL* ssl;
@@ -44,7 +44,7 @@ struct http_client_s {
         curl = NULL;
 #else
         fd = -1;
-        session = NULL;
+        parser = NULL;
 #endif
 #ifdef WITH_OPENSSL
         ssl = NULL;
@@ -72,9 +72,9 @@ struct http_client_s {
             closesocket(fd);
             fd = -1;
         }
-        if (session) {
-            delete session;
-            session = NULL;
+        if (parser) {
+            delete parser;
+            parser = NULL;
         }
 #endif
     }
@@ -340,8 +340,8 @@ static int __http_client_connect(http_client_t* cli) {
 #endif
     }
 
-    if (cli->session == NULL) {
-        cli->session = HttpSession::New(HTTP_CLIENT, (http_version)cli->http_version);
+    if (cli->parser == NULL) {
+        cli->parser = HttpParser::New(HTTP_CLIENT, (http_version)cli->http_version);
     }
 
     cli->fd = connfd;
@@ -376,14 +376,14 @@ connect:
         connfd = cli->fd;
     }
 
-    cli->session->SubmitRequest(req);
+    cli->parser->SubmitRequest(req);
     char recvbuf[1024] = {0};
     int total_nsend, nsend, nrecv;
     total_nsend = nsend = nrecv = 0;
 send:
     char* data = NULL;
     size_t len  = 0;
-    while (cli->session->GetSendData(&data, &len)) {
+    while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
         while (1) {
             if (timeout > 0) {
@@ -417,7 +417,7 @@ send:
             }
         }
     }
-    cli->session->InitResponse(res);
+    cli->parser->InitResponse(res);
 recv:
     do {
         if (timeout > 0) {
@@ -438,11 +438,11 @@ recv:
         if (nrecv <= 0) {
             return socket_errno();
         }
-        int nparse = cli->session->FeedRecvData(recvbuf, nrecv);
+        int nparse = cli->parser->FeedRecvData(recvbuf, nrecv);
         if (nparse != nrecv) {
             return ERR_PARSE;
         }
-    } while(!cli->session->IsComplete());
+    } while(!cli->parser->IsComplete());
     return err;
 }
 
