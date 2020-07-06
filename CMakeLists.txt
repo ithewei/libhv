@@ -30,8 +30,8 @@ include(vars)
 
 # see configure
 # Checks for header files
-check_header("stdint.h")
 check_header("stdbool.h")
+check_header("stdint.h")
 check_header("sys/types.h")
 check_header("sys/stat.h")
 check_header("sys/time.h")

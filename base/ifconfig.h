@@ -5,9 +5,10 @@
 
 typedef struct ifconfig_s {
     char name[128];
-    char ip[32];
-    char mask[32];
-    char mac[32];
+    char ip[16];
+    char mask[16];
+    char broadcast[16];
+    char mac[20];
 } ifconfig_t;
 
 /*
@@ -15,10 +16,11 @@ typedef struct ifconfig_s {
     std::vector<ifconfig_t> ifcs;
     ifconfig(ifcs);
     for (auto& item : ifcs) {
-        printf("%s\nip: %s\nmask: %s\nmac: %s\n\n",
+        printf("%s\nip: %s\nmask: %s\nbroadcast: %s\nmac: %s\n\n",
                 item.name,
                 item.ip,
                 item.mask,
+                item.broadcast,
                 item.mac);
     }
  */

@@ -6,7 +6,6 @@
 
 #ifdef OS_DARWIN
 #include <mach-o/dyld.h> // for _NSGetExecutablePath
-#define environ (*_NSGetEnviron())
 #endif
 
 unsigned int g_alloc_cnt = 0;

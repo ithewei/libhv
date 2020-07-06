@@ -42,7 +42,6 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
     struct ifreq ifr;
     ifcs.clear();
     ifconfig_t tmp;
-    char macaddr[32] = {'\0'};
     for (int i = 0; i < cnt; ++i) {
         // name
         strcpy(ifr.ifr_name, ifc.ifc_req[i].ifr_name);
@@ -64,21 +63,21 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
         //printf("netmask: %s\n", netmask);
         strncpy(tmp.mask, netmask, sizeof(tmp.mask));
         // broadaddr
-        //iRet = ioctl(sock, SIOCGIFBRDADDR, &ifr);
-        //addr = (struct sockaddr_in*)&ifr.ifr_broadaddr;
-        //char* broadaddr = inet_ntoa(addr->sin_addr);
+        iRet = ioctl(sock, SIOCGIFBRDADDR, &ifr);
+        addr = (struct sockaddr_in*)&ifr.ifr_broadaddr;
+        char* broadaddr = inet_ntoa(addr->sin_addr);
         //printf("broadaddr: %s\n", broadaddr);
+        strncpy(tmp.broadcast, broadaddr, sizeof(tmp.broadcast));
         // hwaddr
         iRet = ioctl(sock, SIOCGIFHWADDR, &ifr);
-        snprintf(macaddr, sizeof(macaddr), "%02x:%02x:%02x:%02x:%02x:%02x",
+        snprintf(tmp.mac, sizeof(tmp.mac), "%02x:%02x:%02x:%02x:%02x:%02x",
             (unsigned char)ifr.ifr_hwaddr.sa_data[0],
             (unsigned char)ifr.ifr_hwaddr.sa_data[1],
             (unsigned char)ifr.ifr_hwaddr.sa_data[2],
             (unsigned char)ifr.ifr_hwaddr.sa_data[3],
             (unsigned char)ifr.ifr_hwaddr.sa_data[4],
             (unsigned char)ifr.ifr_hwaddr.sa_data[5]);
-        //printf("mac: %s\n", macaddr);
-        strncpy(tmp.mac, macaddr, sizeof(tmp.mac));
+        //printf("mac: %s\n", tmp.mac);
         //printf("\n");
 
         if (strcmp(tmp.ip, "0.0.0.0") == 0 ||
@@ -168,6 +167,62 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
 
     return 0;
 }
+#elif defined(OS_MAC)
+#include <ifaddrs.h>
+#include <net/if_dl.h>
+int ifconfig(std::vector<ifconfig_t>& ifcs) {
+    struct ifaddrs *ifas, *ifap;
+    int ret = getifaddrs(&ifas);
+    if (ret != 0) return ret;
+    ifconfig_s tmp;
+    for (ifap = ifas; ifap != NULL; ifap = ifap->ifa_next) {
+        if (ifap->ifa_addr->sa_family == AF_INET) {
+            // ipv4
+            struct sockaddr_in* addr = (struct sockaddr_in*)ifap->ifa_addr;
+            char* ip = inet_ntoa(addr->sin_addr);
+            // filter
+            if (strcmp(ip, "0.0.0.0") == 0 || strcmp(ip, "127.0.0.1") == 0) {
+                continue;
+            }
+            memset(&tmp, 0, sizeof(tmp));
+            strncpy(tmp.name, ifap->ifa_name, sizeof(tmp.name));
+            strncpy(tmp.ip, ip, sizeof(tmp.ip));
+            // netmask
+            addr = (struct sockaddr_in*)ifap->ifa_netmask;
+            char* netmask = inet_ntoa(addr->sin_addr);
+            strncpy(tmp.mask, netmask, sizeof(tmp.mask));
+            // broadaddr
+            addr = (struct sockaddr_in*)ifap->ifa_broadaddr;
+            char* broadaddr = inet_ntoa(addr->sin_addr);
+            strncpy(tmp.broadcast, broadaddr, sizeof(tmp.broadcast));
+            // push_back
+            ifcs.push_back(tmp);
+        }
+    }
+
+    for (ifap = ifas; ifap != NULL; ifap = ifap->ifa_next) {
+        if (ifap->ifa_addr->sa_family == AF_LINK) {
+            // hwaddr
+            for (auto iter = ifcs.begin(); iter != ifcs.end(); ++iter) {
+                if (strcmp(iter->name, ifap->ifa_name) == 0) {
+                    struct sockaddr_dl* addr = (struct sockaddr_dl*)ifap->ifa_addr;
+                    unsigned char* pmac = (unsigned char*)LLADDR(addr);
+                    snprintf(iter->mac, sizeof(iter->mac), "%02x:%02x:%02x:%02x:%02x:%02x",
+                        pmac[0], pmac[1], pmac[2], pmac[3], pmac[4], pmac[5]);
+                    // filter
+                    if (strcmp(iter->mac, "00:00:00:00:00:00") == 0) {
+                        ifcs.erase(iter);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    freeifaddrs(ifas);
+    return 0;
+}
+
 #else
 int ifconfig(std::vector<ifconfig_t>& ifcs) {
     return -10; // unimplemented
