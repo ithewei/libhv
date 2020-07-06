@@ -31,7 +31,7 @@ add_executable(objectpool_test objectpool_test.cpp)
 target_include_directories(objectpool_test PRIVATE .. ../base)
 target_link_libraries(objectpool_test -lpthread)
 
-add_executable(ls listdir_test.cpp ../base/hdir.cpp ../base/hbase.c)
+add_executable(ls listdir_test.cpp ../base/hdir.cpp)
 target_include_directories(ls PRIVATE .. ../base)
 
 add_executable(ifconfig ifconfig_test.cpp ../base/ifconfig.cpp)

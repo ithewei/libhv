@@ -3,7 +3,6 @@
 #include <string.h>
 
 #include "hplatform.h"
-#include "hbase.h"
 
 #ifdef OS_WIN
 //FILETIME starts from 1601-01-01 UTC, epoch from 1970-01-01 UTC
@@ -42,8 +41,8 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
     hdir_t tmp;
     while (readdir_r(dp, &de, &result) == 0 && result) {
         memset(&tmp, 0, sizeof(hdir_t));
-        strlcpy(tmp.name, result->d_name, sizeof(tmp.name));
-        strlcpy(path+dirlen, result->d_name, sizeof(path)-dirlen);
+        strncpy(tmp.name, result->d_name, sizeof(tmp.name));
+        strncpy(path+dirlen, result->d_name, sizeof(path)-dirlen);
         if (lstat(path, &st) == 0) {
             if (S_ISREG(st.st_mode))        tmp.type = 'f';
             else if (S_ISDIR(st.st_mode))   tmp.type = 'd';
@@ -73,7 +72,7 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
     hdir_t tmp;
     do {
         memset(&tmp, 0, sizeof(hdir_t));
-        strlcpy(tmp.name, data.cFileName, sizeof(tmp.name));
+        strncpy(tmp.name, data.cFileName, sizeof(tmp.name));
         tmp.type = 'f';
         if (data.dwFileAttributes & _A_SUBDIR) {
             tmp.type = 'd';

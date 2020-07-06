@@ -279,6 +279,6 @@ void worker_fn(void* userdata) {
     long num = (long)(intptr_t)(userdata);
     while (1) {
         printf("num=%ld pid=%ld tid=%ld\n", num, hv_getpid(), hv_gettid());
-        sleep(60);
+        hv_delay(10000);
     }
 }
