@@ -1,6 +1,9 @@
 add_executable(mkdir_p mkdir_test.c ../base/hbase.c)
 target_include_directories(mkdir_p PRIVATE .. ../base)
 
+add_executable(rmdir_p rmdir_test.c ../base/hbase.c)
+target_include_directories(rmdir_p PRIVATE .. ../base)
+
 add_executable(date date_test.c ../base/htime.c)
 target_include_directories(date PRIVATE .. ../base)
 
@@ -53,6 +56,7 @@ endif()
 
 add_custom_target(unittest DEPENDS
     mkdir_p
+    rmdir_p
     date
     hmutex_test
     connect_test
