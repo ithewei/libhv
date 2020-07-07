@@ -19,7 +19,7 @@ key = value # span
 ***********************************/
 
 class IniNode {
- public:
+public:
     enum Type {
         INI_NODE_TYPE_UNKNOWN,
         INI_NODE_TYPE_ROOT,
@@ -89,7 +89,7 @@ public:
 };
 
 class IniParser {
- public:
+public:
     IniParser();
     ~IniParser();
 
@@ -116,7 +116,7 @@ class IniParser {
     template<typename T>
     void Set(const string& key, const T& value, const string& section = "");
 
- private:
+private:
     string  _comment;
     string  _delim;
     string  _filepath;

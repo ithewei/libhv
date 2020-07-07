@@ -12,9 +12,6 @@
 #include <memory>
 #include <utility>
 
-//#include "hlog.h"
-#include "hthread.h"
-
 class HThreadPool {
 public:
     using Task = std::function<void()>;

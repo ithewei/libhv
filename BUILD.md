@@ -3,7 +3,7 @@
 - c99
 - c++11
 
-gcc4.8+, msvc2013+
+gcc4.8+, msvc2015+
 
 ## Dependencies
 modify config.mk

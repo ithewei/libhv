@@ -1,6 +1,7 @@
 #include <stdio.h>
 
 #include "hthreadpool.h"
+#include "hthread.h"
 #include "htime.h"
 
 void print_task(int i) {

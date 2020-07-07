@@ -61,6 +61,7 @@
 #endif
 // __clang__
 
+// HV_EXPORT
 #ifdef HV_STATICLIB
     #define HV_EXPORT
 #elif defined(OS_WIN)
