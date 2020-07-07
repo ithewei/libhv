@@ -58,3 +58,6 @@ build
 *.vcxproj.*
 Debug
 Release
+
+# other
+hconfig.h

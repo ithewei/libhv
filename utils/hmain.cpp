@@ -392,14 +392,12 @@ int signal_init(procedure_t reload_fn, void* reload_userdata) {
 }
 
 #elif defined(OS_WIN)
+#include <mmsystem.h> // for timeSetEvent
+
 // win32 use Event
 //static HANDLE s_hEventTerm = NULL;
 static HANDLE s_hEventReload = NULL;
 
-#include <mmsystem.h>
-#ifdef _MSC_VER
-#pragma comment(lib, "winmm.lib")
-#endif
 void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
     DWORD ret;
     /*

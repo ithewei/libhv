@@ -6,6 +6,10 @@
 #include "hstring.h"
 #include "hproc.h"
 
+#ifdef _MSC_VER
+#pragma comment(lib, "winmm.lib") // for timeSetEvent
+#endif
+
 typedef struct main_ctx_s {
     char    run_dir[MAX_PATH];
     char    program_name[MAX_PATH];

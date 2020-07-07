@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.0)
 
 project(hv VERSION 1.20)
 
-# TARGET_TYPE = SHARED or STATIC
-set(TARGET_TYPE SHARED)
+option(BUILD_SHARED "build shared library" ON)
+option(BUILD_STATIC "build static library" ON)
 
 # see config.mk
 option(WITH_PROTOCOL "compile protocol" ON)
@@ -148,15 +148,25 @@ if(WITH_HTTP)
 endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
-add_library(hv ${TARGET_TYPE} ${LIBHV_SRCS})
-target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS})
-target_link_libraries(hv ${LIBS})
+
+if(BUILD_SHARED)
+    add_library(hv SHARED ${LIBHV_SRCS})
+    target_compile_definitions(hv PRIVATE HV_EXPORTS)
+    target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS})
+    target_link_libraries(hv ${LIBS})
+    install(TARGETS hv)
+    add_custom_target(libhv DEPENDS hv)
+endif()
+
+if(BUILD_STATIC)
+    add_library(hv_static STATIC ${LIBHV_SRCS})
+    target_compile_definitions(hv_static PRIVATE HV_STATICLIB)
+    target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS})
+    install(TARGETS hv_static)
+    add_custom_target(libhv_static DEPENDS hv_static)
+endif()
 
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
-install(TARGETS hv)
 
 add_subdirectory(unittest)
 add_subdirectory(examples)
-
-add_custom_target(libhv   DEPENDS hv)
-add_custom_target(default DEPENDS hv)

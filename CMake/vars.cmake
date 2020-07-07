@@ -59,6 +59,7 @@ set(HTTP_HEADERS
     http/grpcdef.h
     http/http_content.h
     http/HttpMessage.h
+    http/HttpParser.h
 )
 
 set(HTTP_CLIENT_HEADERS http/client/http_client.h)

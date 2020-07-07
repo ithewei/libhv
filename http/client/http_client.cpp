@@ -314,7 +314,7 @@ static int __http_client_connect(http_client_t* cli) {
     }
     int connfd = ConnectTimeout(cli->host.c_str(), cli->port, blocktime);
     if (connfd < 0) {
-        return socket_errno();
+        return connfd;
     }
     tcp_nodelay(connfd, 1);
 

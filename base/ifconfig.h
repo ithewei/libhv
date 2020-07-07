@@ -3,6 +3,11 @@
 
 #include <vector>
 
+#ifdef _MSC_VER
+#pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "ws2_32.lib")
+#endif
+
 typedef struct ifconfig_s {
     char name[128];
     char ip[16];

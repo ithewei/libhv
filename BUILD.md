@@ -40,6 +40,7 @@ mkdir build
 cd build
 cmake ..
 make libhv
+make libhv_static
 make unittest
 make examples
 ```

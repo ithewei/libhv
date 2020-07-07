@@ -43,7 +43,7 @@ struct FormData {
     }
 };
 
-// Multipart
+// MultiPart
 // name => FormData
 typedef HV_MAP<std::string, FormData>          MultiPart;
 #define DEFAULT_MULTIPART_BOUNDARY  "----WebKitFormBoundary7MA4YWxkTrZu0gW"
@@ -51,6 +51,7 @@ std::string dump_multipart(MultiPart& mp, const char* boundary = DEFAULT_MULTIPA
 int         parse_multipart(std::string& str, MultiPart& mp, const char* boundary);
 
 // Json
+// https://github.com/nlohmann/json
 #include "json.hpp"
 using Json = nlohmann::json;
 extern std::string g_parse_json_errmsg;

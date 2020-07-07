@@ -97,10 +97,6 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
 #include <windows.h>
 #include <ws2ipdef.h>
 #include <iphlpapi.h>
-#ifdef _MSC_VER
-#pragma comment(lib, "iphlpapi.lib")
-#pragma comment(lib, "ws2_32.lib")
-#endif
 int ifconfig(std::vector<ifconfig_t>& ifcs) {
     PIP_ADAPTER_ADDRESSES pAddrs = NULL;
     ULONG buflen = 0;
