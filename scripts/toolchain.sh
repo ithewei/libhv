@@ -50,6 +50,7 @@ main() {
         case $TARGET_PLATFORM in
             *mingw*) TARGET_OS=Windows ;;
             *android*) TARGET_OS=Android ;;
+            *darwin*) TARGET_OS=Darwin ;;
             *) TARGET_OS=Linux ;;
         esac
         # TARGET_OS,TARGET_ARCH used by make
