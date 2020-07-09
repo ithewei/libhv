@@ -1,7 +1,5 @@
 #include "hdir.h"
 
-#include <string.h>
-
 #include "hplatform.h"
 
 #ifdef OS_WIN

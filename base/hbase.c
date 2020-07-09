@@ -1,9 +1,5 @@
 #include "hbase.h"
 
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-
 #ifdef OS_DARWIN
 #include <mach-o/dyld.h> // for _NSGetExecutablePath
 #endif
@@ -54,6 +50,14 @@ void* safe_zalloc(size_t size) {
     }
     memset(ptr, 0, size);
     return ptr;
+}
+
+void safe_free(void* ptr) {
+    if (ptr) {
+        free(ptr);
+        ptr = NULL;
+        ++g_free_cnt;
+    }
 }
 
 char* strupper(char* str) {

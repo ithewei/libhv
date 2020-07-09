@@ -1,5 +1,7 @@
 #include "hsocket.h"
 
+#include "hdef.h"
+
 static inline int socket_errno_negative() {
     int err = socket_errno();
     return err > 0 ? -err : -1;

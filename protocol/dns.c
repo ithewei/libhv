@@ -1,4 +1,6 @@
 #include "dns.h"
+
+#include "hdef.h"
 #include "hsocket.h"
 #include "herr.h"
 

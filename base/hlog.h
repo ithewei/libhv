@@ -5,6 +5,8 @@
  * hlog is thread-safe
  */
 
+#include "hexport.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -54,35 +56,35 @@ typedef enum {
 // network_logger() see event/nlog.h
 typedef void (*logger_handler)(int loglevel, const char* buf, int len);
 
-void stdout_logger(int loglevel, const char* buf, int len);
-void stderr_logger(int loglevel, const char* buf, int len);
-void file_logger(int loglevel, const char* buf, int len);
+HV_EXPORT void stdout_logger(int loglevel, const char* buf, int len);
+HV_EXPORT void stderr_logger(int loglevel, const char* buf, int len);
+HV_EXPORT void file_logger(int loglevel, const char* buf, int len);
 // network_logger implement see event/nlog.h
-// void network_logger(int loglevel, const char* buf, int len);
+// HV_EXPORT void network_logger(int loglevel, const char* buf, int len);
 
 typedef struct logger_s logger_t;
-logger_t* logger_create();
-void logger_destroy(logger_t* logger);
+HV_EXPORT logger_t* logger_create();
+HV_EXPORT void logger_destroy(logger_t* logger);
 
-void logger_set_handler(logger_t* logger, logger_handler fn);
-void logger_set_level(logger_t* logger, int level);
-void logger_set_max_bufsize(logger_t* logger, unsigned int bufsize);
-void logger_enable_color(logger_t* logger, int on);
-int  logger_print(logger_t* logger, int level, const char* fmt, ...);
+HV_EXPORT void logger_set_handler(logger_t* logger, logger_handler fn);
+HV_EXPORT void logger_set_level(logger_t* logger, int level);
+HV_EXPORT void logger_set_max_bufsize(logger_t* logger, unsigned int bufsize);
+HV_EXPORT void logger_enable_color(logger_t* logger, int on);
+HV_EXPORT int  logger_print(logger_t* logger, int level, const char* fmt, ...);
 
 // below for file logger
-void logger_set_file(logger_t* logger, const char* filepath);
-void logger_set_max_filesize(logger_t* logger, unsigned long long filesize);
-void logger_set_remain_days(logger_t* logger, int days);
-void logger_enable_fsync(logger_t* logger, int on);
-void logger_fsync(logger_t* logger);
-const char* logger_get_cur_file(logger_t* logger);
+HV_EXPORT void logger_set_file(logger_t* logger, const char* filepath);
+HV_EXPORT void logger_set_max_filesize(logger_t* logger, unsigned long long filesize);
+HV_EXPORT void logger_set_remain_days(logger_t* logger, int days);
+HV_EXPORT void logger_enable_fsync(logger_t* logger, int on);
+HV_EXPORT void logger_fsync(logger_t* logger);
+HV_EXPORT const char* logger_get_cur_file(logger_t* logger);
 
 // hlog: default logger instance
-logger_t* default_logger();
+HV_EXPORT logger_t* hv_default_logger();
 
 // macro hlog*
-#define hlog default_logger()
+#define hlog hv_default_logger()
 #define hlog_set_file(filepath)         logger_set_file(hlog, filepath)
 #define hlog_set_level(level)           logger_set_level(hlog, level)
 #define hlog_set_max_filesize(filesize) logger_set_max_filesize(hlog, filesize)

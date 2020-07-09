@@ -1,6 +1,7 @@
 #ifndef HV_MUTEX_H_
 #define HV_MUTEX_H_
 
+#include "hexport.h"
 #include "hplatform.h"
 #include "htime.h"
 
@@ -200,7 +201,7 @@ using std::condition_variable;
 using std::lock_guard;
 using std::unique_lock;
 
-namespace hv {
+BEGIN_NAMESPACE_HV
 
 class MutexLock {
 public:
@@ -238,7 +239,7 @@ protected:
     hrwlock_t   _rwlock;
 };
 
-} // end namespace
+END_NAMESPACE_HV
 
 #endif // __cplusplus
 

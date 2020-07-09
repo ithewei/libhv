@@ -294,7 +294,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     return len;
 }
 
-logger_t* default_logger() {
+logger_t* hv_default_logger() {
     static logger_t* s_logger = NULL;
     if (s_logger == NULL) {
         s_logger = logger_create();
@@ -311,7 +311,7 @@ void stderr_logger(int loglevel, const char* buf, int len) {
 }
 
 void file_logger(int loglevel, const char* buf, int len) {
-    logger_t* logger = default_logger();
+    logger_t* logger = hv_default_logger();
     FILE* fp = shift_logfile(logger);
     if (fp) {
         fwrite(buf, 1, len, fp);

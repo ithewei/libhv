@@ -1,11 +1,8 @@
 #ifndef HV_DNS_H_
 #define HV_DNS_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include "hdef.h"
+#include "hexport.h"
+#include "hplatform.h"
 
 #define DNS_PORT        53
 
@@ -82,27 +79,27 @@ typedef struct dns_s {
     dns_rr_t*       addtionals;
 } dns_t;
 
+BEGIN_EXTERN_C
+
 // www.example.com => 3www7example3com
-int dns_name_encode(const char* domain, char* buf);
+HV_EXPORT int dns_name_encode(const char* domain, char* buf);
 // 3www7example3com => www.example.com
-int dns_name_decode(const char* buf, char* domain);
+HV_EXPORT int dns_name_decode(const char* buf, char* domain);
 
-int dns_rr_pack(dns_rr_t* rr, char* buf, int len);
-int dns_rr_unpack(char* buf, int len, dns_rr_t* rr, int is_question);
+HV_EXPORT int dns_rr_pack(dns_rr_t* rr, char* buf, int len);
+HV_EXPORT int dns_rr_unpack(char* buf, int len, dns_rr_t* rr, int is_question);
 
-int dns_pack(dns_t* dns, char* buf, int len);
-int dns_unpack(char* buf, int len, dns_t* dns);
+HV_EXPORT int dns_pack(dns_t* dns, char* buf, int len);
+HV_EXPORT int dns_unpack(char* buf, int len, dns_t* dns);
 // NOTE: free dns->rrs
-void dns_free(dns_t* dns);
+HV_EXPORT void dns_free(dns_t* dns);
 
 // dns_pack -> sendto -> recvfrom -> dns_unpack
-int dns_query(dns_t* query, dns_t* response, const char* nameserver DEFAULT("127.0.1,1"));
+HV_EXPORT int dns_query(dns_t* query, dns_t* response, const char* nameserver DEFAULT("127.0.1,1"));
 
 // domain -> dns_t query; -> dns_query -> dns_t response; -> addrs
-int nslookup(const char* domain, uint32_t* addrs, int naddr, const char* nameserver DEFAULT("127.0.1.1"));
+HV_EXPORT int nslookup(const char* domain, uint32_t* addrs, int naddr, const char* nameserver DEFAULT("127.0.1.1"));
 
-#ifdef __cplusplus
-}
-#endif
+END_EXTERN_C
 
 #endif // HV_DNS_H_

@@ -1,9 +1,7 @@
 #ifndef HV_SMTP_H_
 #define HV_SMTP_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "hexport.h"
 
 #define SMTP_PORT       25
 #define SMTPS_PORT      465
@@ -57,20 +55,20 @@ typedef struct mail_s {
     char* body;
 } mail_t;
 
-const char* smtp_command_str(enum smtp_command cmd);
-const char* smtp_status_str(enum smtp_status status);
+BEGIN_EXTERN_C
+
+HV_EXPORT const char* smtp_command_str(enum smtp_command cmd);
+HV_EXPORT const char* smtp_status_str(enum smtp_status status);
 
 // cmd param\r\n
-int smtp_build_command(enum smtp_command cmd, const char* param, char* buf, int buflen);
+HV_EXPORT int smtp_build_command(enum smtp_command cmd, const char* param, char* buf, int buflen);
 // status_code status_message\r\n
 
-int sendmail(const char* smtp_server,
-             const char* username,
-             const char* password,
-             mail_t* mail);
+HV_EXPORT int sendmail(const char* smtp_server,
+                       const char* username,
+                       const char* password,
+                       mail_t* mail);
 
-#ifdef __cplusplus
-}
-#endif
+END_EXTERN_C
 
 #endif // HV_SMTP_H_

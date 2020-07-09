@@ -2,7 +2,6 @@
 #define HV_PROC_H_
 
 #include "hplatform.h"
-#include "hdef.h"
 
 typedef struct proc_ctx_s {
     pid_t           pid; // tid in win32

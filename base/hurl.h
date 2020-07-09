@@ -3,7 +3,9 @@
 
 #include <string>
 
-std::string url_escape(const char* istr);
-std::string url_unescape(const char* istr);
+#include "hexport.h"
+
+HV_EXPORT std::string url_escape(const char* istr);
+HV_EXPORT std::string url_unescape(const char* istr);
 
 #endif // HV_URL_H_

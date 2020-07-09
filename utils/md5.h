@@ -25,6 +25,8 @@ documentation and/or software.
 #ifndef __MD5_H__
 #define __MD5_H__
 
+#include "hexport.h"
+
 /* POINTER defines a generic pointer type */
 typedef unsigned char *POINTER;
 
@@ -41,16 +43,12 @@ typedef struct {
   unsigned char buffer[64];                         /* input buffer */
 } MD5_CTX;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+BEGIN_EXTERN_C
 
-void MD5Init(MD5_CTX *);
-void MD5Update(MD5_CTX *, unsigned char *, unsigned int);
-void MD5Final(unsigned char [16], MD5_CTX *);
+HV_EXPORT void MD5Init(MD5_CTX *);
+HV_EXPORT void MD5Update(MD5_CTX *, unsigned char *, unsigned int);
+HV_EXPORT void MD5Final(unsigned char [16], MD5_CTX *);
 
-#ifdef __cplusplus
-}
-#endif
+END_EXTERN_C
 
 #endif // __MD5_H__

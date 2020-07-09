@@ -1,9 +1,7 @@
 #ifndef HV_FTP_H_
 #define HV_FTP_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "hexport.h"
 
 #define FTP_COMMAND_PORT    21
 #define FTP_DATA_PORT       20
@@ -74,25 +72,25 @@ typedef struct ftp_handle_s {
     void*   userdata;
 } ftp_handle_t;
 
-const char* ftp_command_str(enum ftp_command cmd);
-const char* ftp_status_str(enum ftp_status status);
+BEGIN_EXTERN_C
 
-int ftp_connect(ftp_handle_t* hftp, const char* host, int port);
-int ftp_login(ftp_handle_t* hftp, const char* username, const char* password);
-int ftp_quit(ftp_handle_t* hftp);
+HV_EXPORT const char* ftp_command_str(enum ftp_command cmd);
+HV_EXPORT const char* ftp_status_str(enum ftp_status status);
 
-int ftp_exec(ftp_handle_t* hftp, const char* cmd, const char* param);
+HV_EXPORT int ftp_connect(ftp_handle_t* hftp, const char* host, int port);
+HV_EXPORT int ftp_login(ftp_handle_t* hftp, const char* username, const char* password);
+HV_EXPORT int ftp_quit(ftp_handle_t* hftp);
+
+HV_EXPORT int ftp_exec(ftp_handle_t* hftp, const char* cmd, const char* param);
 
 // local => remote
-int ftp_upload(ftp_handle_t* hftp, const char* local_filepath, const char* remote_filepath);
+HV_EXPORT int ftp_upload(ftp_handle_t* hftp, const char* local_filepath, const char* remote_filepath);
 // remote => local
-int ftp_download(ftp_handle_t* hftp, const char* remote_filepath, const char* local_filepath);
+HV_EXPORT int ftp_download(ftp_handle_t* hftp, const char* remote_filepath, const char* local_filepath);
 
 typedef int (*ftp_download_cb)(ftp_handle_t* hftp, char* buf, int len);
-int ftp_download_with_cb(ftp_handle_t* hftp, const char* filepath, ftp_download_cb cb);
+HV_EXPORT int ftp_download_with_cb(ftp_handle_t* hftp, const char* filepath, ftp_download_cb cb);
 
-#ifdef __cplusplus
-}
-#endif
+END_EXTERN_C
 
 #endif // HV_FTP_H_

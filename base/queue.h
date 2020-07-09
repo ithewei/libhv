@@ -9,10 +9,11 @@
  */
 
 #include <assert.h> // for assert
+#include <stddef.h> // for NULL
 #include <stdlib.h> // for malloc,realloc,free
 #include <string.h> // for memset,memmove
 
-#include "hbase.h"
+#include "hbase.h"  // for HV_ALLOC, HV_FREE
 
 #define QUEUE_INIT_SIZE     16
 

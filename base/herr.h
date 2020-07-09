@@ -3,6 +3,8 @@
 
 #include <errno.h>
 
+#include "hexport.h"
+
 #ifndef SYS_NERR
 #define SYS_NERR    133
 #endif
@@ -119,7 +121,7 @@ extern "C" {
 #endif
 
 // errcode => errmsg
-const char* hv_strerror(int err);
+HV_EXPORT const char* hv_strerror(int err);
 
 #ifdef __cplusplus
 } // extern "C"

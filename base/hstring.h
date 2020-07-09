@@ -5,6 +5,7 @@
 #include <vector>
 #include <sstream>
 
+#include "hexport.h"
 #include "hbase.h"
 #include "hmap.h"
 
@@ -40,25 +41,25 @@ static inline T from_string(const std::string& str) {
 #define SPACE_CHARS     " \t\r\n"
 #define PAIR_CHARS      "{}[]()<>\"\"\'\'``"
 
-string asprintf(const char* fmt, ...);
+HV_EXPORT string asprintf(const char* fmt, ...);
 // x,y,z
-StringList split(const string& str, char delim = ',');
+HV_EXPORT StringList split(const string& str, char delim = ',');
 // user=amdin&pswd=123456
-hv::KeyValue splitKV(const string& str, char kv_kv = '&', char k_v = '=');
-string trim(const string& str, const char* chars = SPACE_CHARS);
-string trimL(const string& str, const char* chars = SPACE_CHARS);
-string trimR(const string& str, const char* chars = SPACE_CHARS);
-string trim_pairs(const string& str, const char* pairs = PAIR_CHARS);
-string replace(const string& str, const string& find, const string& rep);
+HV_EXPORT hv::KeyValue splitKV(const string& str, char kv_kv = '&', char k_v = '=');
+HV_EXPORT string trim(const string& str, const char* chars = SPACE_CHARS);
+HV_EXPORT string trimL(const string& str, const char* chars = SPACE_CHARS);
+HV_EXPORT string trimR(const string& str, const char* chars = SPACE_CHARS);
+HV_EXPORT string trim_pairs(const string& str, const char* pairs = PAIR_CHARS);
+HV_EXPORT string replace(const string& str, const string& find, const string& rep);
 
 // str=/mnt/share/image/test.jpg
 // basename=test.jpg
 // dirname=/mnt/share/image
 // filename=test
 // suffixname=jpg
-string basename(const string& str);
-string dirname(const string& str);
-string filename(const string& str);
-string suffixname(const string& str);
+HV_EXPORT string basename(const string& str);
+HV_EXPORT string dirname(const string& str);
+HV_EXPORT string filename(const string& str);
+HV_EXPORT string suffixname(const string& str);
 
 #endif // HV_STRING_H_

@@ -5,6 +5,8 @@
 #include <string>
 using std::string;
 
+#include "hexport.h"
+
 #define DEFAULT_INI_COMMENT "#"
 #define DEFAULT_INI_DELIM   "="
 
@@ -18,7 +20,7 @@ key = value # span
 # div
 ***********************************/
 
-class IniNode {
+class HV_EXPORT IniNode {
 public:
     enum Type {
         INI_NODE_TYPE_UNKNOWN,
@@ -65,7 +67,7 @@ public:
     }
 };
 
-class IniSection : public IniNode {
+class HV_EXPORT IniSection : public IniNode {
 public:
     IniSection() : IniNode(), section(label) {
         type = INI_NODE_TYPE_SECTION;
@@ -73,7 +75,7 @@ public:
     string &section;
 };
 
-class IniKeyValue : public IniNode {
+class HV_EXPORT IniKeyValue : public IniNode {
 public:
     IniKeyValue() : IniNode(), key(label) {
         type = INI_NODE_TYPE_KEY_VALUE;
@@ -81,24 +83,22 @@ public:
     string &key;
 };
 
-class IniComment : public IniNode {
+class HV_EXPORT IniComment : public IniNode {
 public:
     IniComment() : IniNode(), comment(label) {
     }
     string &comment;
 };
 
-class IniParser {
+class HV_EXPORT IniParser {
 public:
     IniParser();
     ~IniParser();
 
-    void SetIniComment(const string& comment) {_comment = comment;}
-    void SetIniDilim(const string& delim) {_delim = delim;}
-
     int LoadFromFile(const char* filepath);
     int LoadFromMem(const char* data);
     int Unload();
+    int Reload();
 
     void DumpString(IniNode* pNode, string& str);
     string DumpString();
@@ -116,11 +116,11 @@ public:
     template<typename T>
     void Set(const string& key, const T& value, const string& section = "");
 
-private:
+public:
     string  _comment;
     string  _delim;
     string  _filepath;
-
+private:
     IniNode* root_;
 };
 

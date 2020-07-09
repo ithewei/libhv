@@ -122,7 +122,7 @@ endif()
 # see Makefile
 set(ALL_SRCDIRS . base utils event protocol http http/client http/server consul examples)
 set(LIBHV_SRCDIRS . base utils event)
-set(LIBHV_HEADERS hv.h hconfig.h)
+set(LIBHV_HEADERS hv.h hconfig.h hexport.h)
 set(LIBHV_HEADERS ${LIBHV_HEADERS} ${BASE_HEADERS} ${UTILS_HEADERS} ${EVENT_HEADERS})
 
 if(WITH_PROTOCOL)

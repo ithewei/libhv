@@ -1,6 +1,7 @@
 #ifndef HTTP_SERVER_H_
 #define HTTP_SERVER_H_
 
+#include "hexport.h"
 #include "HttpService.h"
 
 typedef struct http_server_s {
@@ -53,9 +54,9 @@ int main() {
     return 0;
 }
  */
-int http_server_run(http_server_t* server, int wait = 1);
+HV_EXPORT int http_server_run(http_server_t* server, int wait = 1);
 
 // just for worker_processes = 0
-int http_server_stop(http_server_t* server);
+HV_EXPORT int http_server_stop(http_server_t* server);
 
 #endif

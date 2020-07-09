@@ -1,5 +1,6 @@
 #ifndef HV_MATH_H_
 #define HV_MATH_H_
+
 #include <math.h>
 
 static inline unsigned long floor2e(unsigned long num) {

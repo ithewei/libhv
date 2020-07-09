@@ -27,6 +27,10 @@ int IniParser::Unload() {
     return 0;
 }
 
+int IniParser::Reload() {
+    return LoadFromFile(_filepath.c_str());
+}
+
 int IniParser::LoadFromFile(const char* filepath) {
     _filepath = filepath;
 

@@ -1,8 +1,6 @@
 #ifndef _LINUX_LIST_H
 #define _LINUX_LIST_H
 
-#include "hdef.h"
-
 /*
  * Simple doubly linked list implementation.
  *
@@ -12,6 +10,16 @@
  * generate better code by using them directly rather than
  * using the generic single-entry routines.
  */
+
+#include <stddef.h>
+
+#ifndef prefetch
+#ifdef __GNUC__
+    #define prefetch(x) __builtin_prefetch(x)
+#else
+    #define prefetch(x) (void)0
+#endif
+#endif
 
 struct list_head {
 	struct list_head *next, *prev;

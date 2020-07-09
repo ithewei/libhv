@@ -7,6 +7,7 @@
 
 // platform
 #include "hconfig.h"
+#include "hexport.h"
 #include "hplatform.h"
 
 // c

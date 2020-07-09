@@ -1,5 +1,6 @@
 #include "hloop.h"
 #include "hbase.h"
+#include "hlog.h"
 #include "nlog.h"
 
 void mylogger(int loglevel, const char* buf, int len) {

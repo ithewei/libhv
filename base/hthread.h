@@ -2,7 +2,6 @@
 #define HV_THREAD_H_
 
 #include "hplatform.h"
-#include "hdef.h"
 
 #ifdef OS_WIN
 #define hv_getpid   (long)GetCurrentProcessId

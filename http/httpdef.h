@@ -1,9 +1,7 @@
 #ifndef HTTP_DEF_H_
 #define HTTP_DEF_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "hexport.h"
 
 #define DEFAULT_HTTP_PORT       80
 #define DEFAULT_HTTPS_PORT      443
@@ -167,20 +165,20 @@ enum http_content_type {
 #undef XX
 };
 
-const char* http_status_str(enum http_status status);
-const char* http_method_str(enum http_method method);
-const char* http_content_type_str(enum http_content_type type);
+BEGIN_EXTERN_C
 
-enum http_status http_status_enum(const char* str);
-enum http_method http_method_enum(const char* str);
-enum http_content_type http_content_type_enum(const char* str);
+HV_EXPORT const char* http_status_str(enum http_status status);
+HV_EXPORT const char* http_method_str(enum http_method method);
+HV_EXPORT const char* http_content_type_str(enum http_content_type type);
 
-const char* http_content_type_suffix(enum http_content_type type);
-const char* http_content_type_str_by_suffix(const char* suffix);
-enum http_content_type http_content_type_enum_by_suffix(const char* suffix);
+HV_EXPORT enum http_status http_status_enum(const char* str);
+HV_EXPORT enum http_method http_method_enum(const char* str);
+HV_EXPORT enum http_content_type http_content_type_enum(const char* str);
 
-#ifdef __cplusplus
-}
-#endif
+HV_EXPORT const char* http_content_type_suffix(enum http_content_type type);
+HV_EXPORT const char* http_content_type_str_by_suffix(const char* suffix);
+HV_EXPORT enum http_content_type http_content_type_enum_by_suffix(const char* suffix);
+
+END_EXTERN_C
 
 #endif // HTTP_DEF_H_

@@ -1,6 +1,7 @@
 #ifndef HV_VERSION_H_
 #define HV_VERSION_H_
 
+#include "hexport.h"
 #include "hdef.h"
 
 BEGIN_EXTERN_C
@@ -20,13 +21,13 @@ static inline const char* hv_version() {
     return HV_VERSION_STRING;
 }
 
-const char* hv_compile_version();
+HV_EXPORT const char* hv_compile_version();
 
 // 1.2.3.4 => 0x01020304
-int version_atoi(const char* str);
+HV_EXPORT int version_atoi(const char* str);
 
 // 0x01020304 => 1.2.3.4
-void version_itoa(int hex, char* str);
+HV_EXPORT void version_itoa(int hex, char* str);
 
 END_EXTERN_C
 

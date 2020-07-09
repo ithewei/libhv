@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#include "hexport.h"
+
 #ifdef _MSC_VER
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
@@ -29,6 +31,6 @@ typedef struct ifconfig_s {
                 item.mac);
     }
  */
-int ifconfig(std::vector<ifconfig_t>& ifcs);
+HV_EXPORT int ifconfig(std::vector<ifconfig_t>& ifcs);
 
 #endif // HV_IFCONFIG_H_

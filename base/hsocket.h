@@ -1,8 +1,8 @@
 #ifndef HV_SOCKET_H_
 #define HV_SOCKET_H_
 
+#include "hexport.h"
 #include "hplatform.h"
-#include "hdef.h"
 
 #ifdef ENABLE_UDS
     #include <sys/un.h> // import struct sockaddr_un
@@ -24,7 +24,7 @@ static inline int socket_errno() {
     return errno;
 #endif
 }
-const char* socket_strerror(int err);
+HV_EXPORT const char* socket_strerror(int err);
 
 #ifdef OS_WIN
 typedef int socklen_t;
@@ -63,7 +63,7 @@ typedef union {
 
 // @param host: domain or ip
 // @retval 0:succeed
-int Resolver(const char* host, sockaddr_u* addr);
+HV_EXPORT int Resolver(const char* host, sockaddr_u* addr);
 
 static inline const char* sockaddr_ip(sockaddr_u* addr, char *ip, int len) {
     if (addr->sa.sa_family == AF_INET) {
@@ -173,31 +173,31 @@ static inline void sockaddr_print(sockaddr_u* addr) {
 // socket -> setsockopt -> bind
 // @param type: SOCK_STREAM(tcp) SOCK_DGRAM(udp)
 // @return sockfd
-int Bind(int port, const char* host DEFAULT(ANYADDR), int type DEFAULT(SOCK_STREAM));
+HV_EXPORT int Bind(int port, const char* host DEFAULT(ANYADDR), int type DEFAULT(SOCK_STREAM));
 
 // Bind -> listen
 // @return listenfd
-int Listen(int port, const char* host DEFAULT(ANYADDR));
+HV_EXPORT int Listen(int port, const char* host DEFAULT(ANYADDR));
 
 // @return connfd
 // Resolver -> socket -> nonblocking -> connect
-int Connect(const char* host, int port, int nonblock DEFAULT(0));
+HV_EXPORT int Connect(const char* host, int port, int nonblock DEFAULT(0));
 // Connect(host, port, 1)
-int ConnectNonblock(const char* host, int port);
+HV_EXPORT int ConnectNonblock(const char* host, int port);
 // Connect(host, port, 1) -> select -> blocking
 #define DEFAULT_CONNECT_TIMEOUT 5000 // ms
-int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
+HV_EXPORT int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
 
 #ifdef ENABLE_UDS
-int BindUnix(const char* path, int type DEFAULT(SOCK_STREAM));
-int ListenUnix(const char* path);
-int ConnectUnix(const char* path, int nonblock DEFAULT(0));
-int ConnectUnixNonblock(const char* path);
-int ConnectUnixTimeout(const char* path, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
+HV_EXPORT int BindUnix(const char* path, int type DEFAULT(SOCK_STREAM));
+HV_EXPORT int ListenUnix(const char* path);
+HV_EXPORT int ConnectUnix(const char* path, int nonblock DEFAULT(0));
+HV_EXPORT int ConnectUnixNonblock(const char* path);
+HV_EXPORT int ConnectUnixTimeout(const char* path, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
 #endif
 
 // Just implement Socketpair(AF_INET, SOCK_STREAM, 0, sv);
-int Socketpair(int family, int type, int protocol, int sv[2]);
+HV_EXPORT int Socketpair(int family, int type, int protocol, int sv[2]);
 
 static inline int tcp_nodelay(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&on, sizeof(int));

@@ -50,6 +50,8 @@ int main(int argc, char* argv[]) {
 
 #include <list>
 
+#include "hexport.h"
+
 typedef struct hdir_s {
     char    name[256];
     char    type; // f:file d:dir l:link b:block c:char s:socket p:pipe
@@ -62,6 +64,6 @@ typedef struct hdir_s {
 } hdir_t;
 
 // listdir: same as ls on unix, dir on win
-int listdir(const char* dir, std::list<hdir_t>& dirs);
+HV_EXPORT int listdir(const char* dir, std::list<hdir_t>& dirs);
 
 #endif // HV_DIR_H_

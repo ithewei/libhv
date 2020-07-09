@@ -61,21 +61,6 @@
 #endif
 // __clang__
 
-// HV_EXPORT
-#ifdef HV_STATICLIB
-    #define HV_EXPORT
-#elif defined(OS_WIN)
-    #if defined(HV_EXPORTS) || defined(hv_EXPORTS)
-        #define HV_EXPORT  __declspec(dllexport)
-    #else
-        #define HV_EXPORT  __declspec(dllimport)
-    #endif
-#elif defined(__GNUC__)
-    #define HV_EXPORT  __attribute__((visibility("default")))
-#else
-    #define HV_EXPORT
-#endif
-
 // ARCH
 #if defined(__i386) || defined(__i386__) || defined(_M_IX86)
     #define ARCH_X86

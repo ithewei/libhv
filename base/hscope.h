@@ -20,15 +20,15 @@ class ScopeCleanup {
 public:
     template<typename Fn, typename... Args>
     ScopeCleanup(Fn&& fn, Args&&... args) {
-        cleanup_ = std::bind(std::forward<Fn>(fn), std::forward<Args>(args)...);
+        _cleanup = std::bind(std::forward<Fn>(fn), std::forward<Args>(args)...);
     }
 
     ~ScopeCleanup() {
-        cleanup_();
+        _cleanup();
     }
 
 private:
-    Function cleanup_;
+    Function _cleanup;
 };
 
 template<typename T>

@@ -7,6 +7,7 @@
 #include <list>
 #include <memory>
 
+#include "hexport.h"
 #include "HttpMessage.h"
 
 #define DEFAULT_BASE_URL        "/v1/api"
@@ -34,7 +35,7 @@ typedef std::list<http_method_handler> http_method_handlers;
 // path => http_method_handlers
 typedef std::map<std::string, std::shared_ptr<http_method_handlers>> http_api_handlers;
 
-struct HttpService {
+struct HV_EXPORT HttpService {
     // preprocessor -> api -> web -> postprocessor
     http_api_handler    preprocessor;
     http_api_handler    postprocessor;

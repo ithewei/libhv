@@ -1,9 +1,9 @@
 #ifndef HV_LOOP_H_
 #define HV_LOOP_H_
 
+#include "hexport.h"
+#include "hplatform.h"
 #include "hdef.h"
-
-BEGIN_EXTERN_C
 
 typedef struct hloop_s  hloop_t;
 typedef struct hevent_s hevent_t;
@@ -87,27 +87,31 @@ typedef enum {
     HIO_TYPE_SOCKET  = 0x00FFFF00,
 } hio_type_e;
 
+BEGIN_EXTERN_C
+
 // loop
 #define HLOOP_FLAG_RUN_ONCE                     0x00000001
 #define HLOOP_FLAG_AUTO_FREE                    0x00000002
 #define HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS   0x00000004
-hloop_t* hloop_new(int flags DEFAULT(HLOOP_FLAG_AUTO_FREE));
-// WARN: Forbid to call hloop_free if HLOOP_INIT_FLAG_AUTO_FREE set.
-void hloop_free(hloop_t** pp);
-// NOTE: when no active events, loop will quit if HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS set.
-int hloop_run(hloop_t* loop);
-int hloop_stop(hloop_t* loop);
-int hloop_pause(hloop_t* loop);
-int hloop_resume(hloop_t* loop);
+HV_EXPORT hloop_t* hloop_new(int flags DEFAULT(HLOOP_FLAG_AUTO_FREE));
 
-void     hloop_update_time(hloop_t* loop);
-uint64_t hloop_now(hloop_t* loop);          // s
-uint64_t hloop_now_ms(hloop_t* loop);       // ms
-uint64_t hloop_now_hrtime(hloop_t* loop);   // us
+// WARN: Forbid to call hloop_free if HLOOP_INIT_FLAG_AUTO_FREE set.
+HV_EXPORT void hloop_free(hloop_t** pp);
+
+// NOTE: when no active events, loop will quit if HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS set.
+HV_EXPORT int hloop_run(hloop_t* loop);
+HV_EXPORT int hloop_stop(hloop_t* loop);
+HV_EXPORT int hloop_pause(hloop_t* loop);
+HV_EXPORT int hloop_resume(hloop_t* loop);
+
+HV_EXPORT void     hloop_update_time(hloop_t* loop);
+HV_EXPORT uint64_t hloop_now(hloop_t* loop);          // s
+HV_EXPORT uint64_t hloop_now_ms(hloop_t* loop);       // ms
+HV_EXPORT uint64_t hloop_now_hrtime(hloop_t* loop);   // us
 
 // userdata
-void  hloop_set_userdata(hloop_t* loop, void* userdata);
-void* hloop_userdata(hloop_t* loop);
+HV_EXPORT void  hloop_set_userdata(hloop_t* loop, void* userdata);
+HV_EXPORT void* hloop_userdata(hloop_t* loop);
 
 // custom_event
 /*
@@ -119,15 +123,15 @@ void* hloop_userdata(hloop_t* loop);
  * hloop_post_event(loop, &ev);
  */
 // NOTE: hloop_post_event is thread-safe
-void hloop_post_event(hloop_t* loop, hevent_t* ev);
+HV_EXPORT void hloop_post_event(hloop_t* loop, hevent_t* ev);
 
 // idle
-hidle_t*    hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT(INFINITE));
-void        hidle_del(hidle_t* idle);
+HV_EXPORT hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT(INFINITE));
+HV_EXPORT void     hidle_del(hidle_t* idle);
 
 // timer
 // @param timeout: unit(ms)
-htimer_t*   htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat DEFAULT(INFINITE));
+HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat DEFAULT(INFINITE));
 /*
  * minute   hour    day     week    month       cb
  * 0~59     0~23    1~31    0~6     1~12
@@ -137,11 +141,12 @@ htimer_t*   htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t r
  *  30      1       -1       5      -1          cron.weekly
  *  30      1        1      -1      10          cron.yearly
  */
-htimer_t*   htimer_add_period(hloop_t* loop, htimer_cb cb,
-                int8_t minute DEFAULT(0),  int8_t hour  DEFAULT(-1), int8_t day DEFAULT(-1),
-                int8_t week   DEFAULT(-1), int8_t month DEFAULT(-1), uint32_t repeat DEFAULT(INFINITE));
-void        htimer_del(htimer_t* timer);
-void        htimer_reset(htimer_t* timer);
+HV_EXPORT htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
+                        int8_t minute DEFAULT(0),  int8_t hour  DEFAULT(-1), int8_t day DEFAULT(-1),
+                        int8_t week   DEFAULT(-1), int8_t month DEFAULT(-1), uint32_t repeat DEFAULT(INFINITE));
+
+HV_EXPORT void htimer_del(htimer_t* timer);
+HV_EXPORT void htimer_reset(htimer_t* timer);
 
 // io
 //-----------------------low-level apis---------------------------------------
@@ -167,72 +172,78 @@ const char* hio_engine() {
 #endif
 }
 */
-const char* hio_engine();
-hio_t* hio_get(hloop_t* loop, int fd);
-int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(HV_READ));
-int    hio_del(hio_t* io, int events DEFAULT(HV_RDWR));
+HV_EXPORT const char* hio_engine();
 
-int hio_fd    (hio_t* io);
-int hio_error (hio_t* io);
-hio_type_e hio_type(hio_t* io);
-struct sockaddr* hio_localaddr(hio_t* io);
-struct sockaddr* hio_peeraddr (hio_t* io);
+HV_EXPORT hio_t* hio_get(hloop_t* loop, int fd);
+HV_EXPORT int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(HV_READ));
+HV_EXPORT int    hio_del(hio_t* io, int events DEFAULT(HV_RDWR));
 
-void hio_set_readbuf(hio_t* io, void* buf, size_t len);
-// ssl
-int  hio_enable_ssl(hio_t* io);
+// hio_t fields
+HV_EXPORT int hio_fd    (hio_t* io);
+HV_EXPORT int hio_error (hio_t* io);
+HV_EXPORT hio_type_e hio_type(hio_t* io);
+HV_EXPORT struct sockaddr* hio_localaddr(hio_t* io);
+HV_EXPORT struct sockaddr* hio_peeraddr (hio_t* io);
 
-void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
-void hio_setcb_connect  (hio_t* io, hconnect_cb connect_cb);
-void hio_setcb_read     (hio_t* io, hread_cb    read_cb);
-void hio_setcb_write    (hio_t* io, hwrite_cb   write_cb);
-void hio_setcb_close    (hio_t* io, hclose_cb   close_cb);
+// TODO: One loop per thread, one readbuf per loop.
+// But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
+HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
+// Enable SSL/TLS is so easy :)
+HV_EXPORT int  hio_enable_ssl(hio_t* io);
 
-int hio_read   (hio_t* io);
-int hio_write  (hio_t* io, const void* buf, size_t len);
-int hio_close  (hio_t* io);
-int hio_accept (hio_t* io);
-int hio_connect(hio_t* io);
+// set callbacks
+HV_EXPORT void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
+HV_EXPORT void hio_setcb_connect  (hio_t* io, hconnect_cb connect_cb);
+HV_EXPORT void hio_setcb_read     (hio_t* io, hread_cb    read_cb);
+HV_EXPORT void hio_setcb_write    (hio_t* io, hwrite_cb   write_cb);
+HV_EXPORT void hio_setcb_close    (hio_t* io, hclose_cb   close_cb);
+
+// Nonblocking, poll IO events in the loop to call corresponding callback.
+HV_EXPORT int hio_accept (hio_t* io);
+HV_EXPORT int hio_connect(hio_t* io);
+HV_EXPORT int hio_read   (hio_t* io);
+HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
+HV_EXPORT int hio_close  (hio_t* io);
 
 //------------------high-level apis-------------------------------------------
 // hio_get -> hio_set_readbuf -> hio_setcb_read -> hio_read
-hio_t* hread    (hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb);
+HV_EXPORT hio_t* hread    (hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb);
 // hio_get -> hio_setcb_write -> hio_write
-hio_t* hwrite   (hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
+HV_EXPORT hio_t* hwrite   (hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 // hio_get -> hio_close
-void   hclose   (hloop_t* loop, int fd);
+HV_EXPORT void   hclose   (hloop_t* loop, int fd);
 
 // tcp
 // hio_get -> hio_setcb_accept -> hio_accept
-hio_t* haccept  (hloop_t* loop, int listenfd, haccept_cb accept_cb);
+HV_EXPORT hio_t* haccept  (hloop_t* loop, int listenfd, haccept_cb accept_cb);
 // hio_get -> hio_setcb_connect -> hio_connect
-hio_t* hconnect (hloop_t* loop, int connfd,   hconnect_cb connect_cb);
+HV_EXPORT hio_t* hconnect (hloop_t* loop, int connfd,   hconnect_cb connect_cb);
 // hio_get -> hio_set_readbuf -> hio_setcb_read -> hio_read
-hio_t* hrecv    (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb);
+HV_EXPORT hio_t* hrecv    (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb);
 // hio_get -> hio_setcb_write -> hio_write
-hio_t* hsend    (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
+HV_EXPORT hio_t* hsend    (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 
 // udp/ip
 // for HIO_TYPE_IP
-void hio_set_type(hio_t* io, hio_type_e type);
-void hio_set_localaddr(hio_t* io, struct sockaddr* addr, int addrlen);
-void hio_set_peeraddr (hio_t* io, struct sockaddr* addr, int addrlen);
+HV_EXPORT void hio_set_type(hio_t* io, hio_type_e type);
+HV_EXPORT void hio_set_localaddr(hio_t* io, struct sockaddr* addr, int addrlen);
+HV_EXPORT void hio_set_peeraddr (hio_t* io, struct sockaddr* addr, int addrlen);
 // NOTE: must call hio_set_peeraddr before hrecvfrom/hsendto
 // hio_get -> hio_set_readbuf -> hio_setcb_read -> hio_read
-hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb read_cb);
+HV_EXPORT hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb read_cb);
 // hio_get -> hio_setcb_write -> hio_write
-hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
+HV_EXPORT hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 
 //----------------- top-level apis---------------------------------------------
 // @tcp_server: socket -> bind -> listen -> haccept
-hio_t* create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
+HV_EXPORT hio_t* create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 // @tcp_client: resolver -> socket -> hio_get -> hio_set_peeraddr -> hconnect
-hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+HV_EXPORT hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 
 // @udp_server: socket -> bind -> hio_get
-hio_t* create_udp_server (hloop_t* loop, const char* host, int port);
+HV_EXPORT hio_t* create_udp_server (hloop_t* loop, const char* host, int port);
 // @udp_client: resolver -> socket -> hio_get -> hio_set_peeraddr
-hio_t* create_udp_client (hloop_t* loop, const char* host, int port);
+HV_EXPORT hio_t* create_udp_client (hloop_t* loop, const char* host, int port);
 
 END_EXTERN_C
 

@@ -1,7 +1,6 @@
 #include "iowatcher.h"
 
 #ifdef EVENT_NOEVENT
-#include "htime.h"
 int iowatcher_init(hloop_t* loop) {
     return 0;
 }
@@ -19,7 +18,7 @@ int iowatcher_del_event(hloop_t* loop, int fd, int events) {
 }
 
 int iowatcher_poll_events(hloop_t* loop, int timeout) {
-    msleep(timeout);
+    hv_delay(timeout);
     return 0;
 }
 

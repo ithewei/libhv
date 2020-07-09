@@ -1,9 +1,10 @@
 #ifndef HTTP_PARSER_H_
 #define HTTP_PARSER_H_
 
+#include "hexport.h"
 #include "HttpMessage.h"
 
-class HttpParser {
+class HV_EXPORT HttpParser {
 public:
     http_version        version;
     http_session_type   type;

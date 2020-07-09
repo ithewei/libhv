@@ -1,9 +1,8 @@
 #ifndef HV_HEAP_H_
 #define HV_HEAP_H_
 
-#include <assert.h>
-
-#include "hdef.h"
+#include <assert.h> // for assert
+#include <stddef.h> // for NULL
 
 struct heap_node {
     struct heap_node* parent;

@@ -1,6 +1,7 @@
 #include "icmp.h"
 
 #include "netinet.h"
+#include "hdef.h"
 #include "hsocket.h"
 #include "htime.h"
 

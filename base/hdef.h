@@ -1,7 +1,10 @@
 #ifndef HV_DEF_H_
 #define HV_DEF_H_
 
-#include "hplatform.h"
+#include <stddef.h>
+#include <stdio.h>  // for printf, fprintf
+#include <stdlib.h> // for malloc, free
+#include <string.h> // for memset
 
 #ifndef ABS
 #define ABS(n)  ((n) > 0 ? (n) : -(n))
@@ -41,19 +44,6 @@
 
 #define FLOAT_PRECISION     1e-6
 #define FLOAT_EQUAL_ZERO(f) (ABS(f) < FLOAT_PRECISION)
-
-// @param[IN|OUT|INOUT]
-#ifndef IN
-#define IN
-#endif
-
-#ifndef OUT
-#define OUT
-#endif
-
-#ifndef INOUT
-#define INOUT
-#endif
 
 #ifndef INFINITE
 #define INFINITE    (uint32_t)-1
@@ -132,7 +122,7 @@ ASCII:
 #define LLU(v)  ((unsigned long long)(v))
 #endif
 
-#ifndef OS_WIN
+#ifndef _WIN32
 
 // MAKEWORD, HIBYTE, LOBYTE
 #ifndef MAKEWORD
@@ -160,7 +150,7 @@ ASCII:
 #define LOWORD(n)        ( (WORD)(n & 0xffff) )
 #endif
 
-#endif // OS_WIN
+#endif // _WIN32
 
 // MAKEINT64, HIINT, LOINT
 #ifndef MAKEINT64
@@ -197,7 +187,11 @@ ASCII:
 #endif
 
 #ifndef NULL
-#define NULL        0
+#ifdef __cplusplus
+    #define NULL    0
+#else
+    #define NULL    ((void*)0)
+#endif
 #endif
 
 #ifndef TRUE
@@ -208,17 +202,17 @@ ASCII:
 #define FALSE       0
 #endif
 
-// @field[OPTIONAL|REQUIRED|REPEATED]
-#ifndef OPTIONAL
-#define OPTIONAL
-#endif
-
-#ifndef REQUIRED
-#define REQUIRED
-#endif
-
-#ifndef REPEATED
-#define REPEATED
+#ifndef SAFE_ALLOC
+#define SAFE_ALLOC(p, size)\
+    do {\
+        void* ptr = malloc(size);\
+        if (!ptr) {\
+            fprintf(stderr, "malloc failed!\n");\
+            exit(-1);\
+        }\
+        memset(ptr, 0, size);\
+        *(void**)&(p) = ptr;\
+    } while(0)
 #endif
 
 #ifndef SAFE_FREE
@@ -258,80 +252,16 @@ ASCII:
 ((type*)((char*)(ptr) - offsetof(type, member)))
 #endif
 
-#ifndef prefetch
-#ifdef __GNUC__
-#define prefetch(x) __builtin_prefetch(x)
-#else
-#define prefetch(x) (void)0
-#endif
-#endif
-
 #ifdef PRINT_DEBUG
-#define printd printf
+#define printd(...) printf(__VA_ARGS__)
 #else
 #define printd(...)
 #endif
 
-// __cplusplus
-#ifdef __cplusplus
-
-#ifndef EXTERN_C
-#define EXTERN_C            extern "C"
-#endif
-
-#ifndef BEGIN_EXTERN_C
-#define BEGIN_EXTERN_C      extern "C" {
-#endif
-
-#ifndef END_EXTERN_C
-#define END_EXTERN_C        } // extern "C"
-#endif
-
-#ifndef BEGIN_NAMESPACE
-#define BEGIN_NAMESPACE(ns) namespace ns {
-#endif
-
-#ifndef END_NAMESPACE
-#define END_NAMESPACE(ns)   } // ns
-#endif
-
-#ifndef DEFAULT
-#define DEFAULT(x)  = x
-#endif
-
-#ifndef ENUM
-#define ENUM(e)     enum e
-#endif
-
-#ifndef STRUCT
-#define STRUCT(s)   struct s
-#endif
-
+#ifdef PRINT_ERROR
+#define printe(...) fprintf(stderr, __VA_ARGS__)
 #else
-
-#define EXTERN_C    extern
-#define BEGIN_EXTERN_C
-#define END_EXTERN_C
-
-#define BEGIN_NAMESPACE(ns)
-#define END_NAMESPACE(ns)
-
-#ifndef DEFAULT
-#define DEFAULT(x)
+#define printe(...)
 #endif
-
-#ifndef ENUM
-#define ENUM(e)\
-typedef enum e e;\
-enum e
-#endif
-
-#ifndef STRUCT
-#define STRUCT(s)\
-typedef struct s s;\
-struct s
-#endif
-
-#endif // __cplusplus
 
 #endif // HV_DEF_H_

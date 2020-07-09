@@ -1,20 +1,18 @@
 #ifndef __BASE64_H__
 #define __BASE64_H__
 
+#include "hexport.h"
+
 enum {BASE64_OK = 0, BASE64_INVALID};
 
 #define BASE64_ENCODE_OUT_SIZE(s)   (((s) + 2) / 3 * 4)
 #define BASE64_DECODE_OUT_SIZE(s)   (((s)) / 4 * 3)
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+BEGIN_EXTERN_C
 
-int base64_encode(const unsigned char *in, unsigned int inlen, char *out);
-int base64_decode(const char *in, unsigned int inlen, unsigned char *out);
+HV_EXPORT int base64_encode(const unsigned char *in, unsigned int inlen, char *out);
+HV_EXPORT int base64_decode(const char *in, unsigned int inlen, unsigned char *out);
 
-#ifdef __cplusplus
-} // extern "C"
-#endif
+END_EXTERN_C
 
 #endif // __BASE64_H__
