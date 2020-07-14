@@ -19,7 +19,7 @@
     - ftp
     - smtp
 - apps
-    - ls
+    - ls,mkdir_p,rmdir_p
     - ifconfig
     - ping
     - nc
@@ -162,8 +162,8 @@ bin/nc 127.0.0.1 1111
 bin/udp 2222
 bin/nc -u 127.0.0.1 2222
 
-make loop
-bin/loop
+make hloop_test
+bin/hloop_test
 bin/nc 127.0.0.1 10514
 ```
 
