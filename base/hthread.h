@@ -16,6 +16,12 @@
 #elif defined(OS_LINUX)
 #include <sys/syscall.h>
 #define hv_gettid() (long)syscall(SYS_gettid)
+#elif defined(OS_DARWIN)
+static inline long hv_gettid() {
+    uint64_t tid = 0;
+    pthread_threadid_np(NULL, &tid);
+    return tid;
+}
 #elif HAVE_PTHREAD_H
 #define hv_gettid   (long)pthread_self
 #else

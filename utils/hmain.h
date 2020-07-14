@@ -13,6 +13,7 @@
 typedef struct main_ctx_s {
     char    run_dir[MAX_PATH];
     char    program_name[MAX_PATH];
+
     char    confile[MAX_PATH]; // default etc/${program}.conf
     char    pidfile[MAX_PATH]; // default logs/${program}.pid
     char    logfile[MAX_PATH]; // default logs/${program}.log
@@ -20,20 +21,31 @@ typedef struct main_ctx_s {
     pid_t   pid;    // getpid
     pid_t   oldpid; // getpid_from_pidfile
 
+    // arg
     int     argc;
     int     arg_len;
     char**  os_argv;
     char**  save_argv;
     char*   cmdline;
+    keyval_t    arg_kv;
+    StringList  arg_list;
 
+    // env
     int     envc;
     int     env_len;
     char**  os_envp;
     char**  save_envp;
-
-    keyval_t    arg_kv;
-    StringList  arg_list;
     keyval_t    env_kv;
+
+    // signals
+    procedure_t reload_fn;
+    void*       reload_userdata;
+    // master workers model
+    int             worker_processes;
+    int             worker_threads;
+    procedure_t     worker_fn;
+    void*           worker_userdata;
+    proc_ctx_t*     proc_ctxs;
 } main_ctx_t;
 
 // arg_type
@@ -51,29 +63,29 @@ typedef struct option_s {
     int         arg_type;
 } option_t;
 
-int main_ctx_init(int argc, char** argv);
+HV_EXPORT int main_ctx_init(int argc, char** argv);
 // ls -a -l
 // ls -al
 // watch -n 10 ls
 // watch -n10 ls
-int parse_opt(int argc, char** argv, const char* opt);
+HV_EXPORT int parse_opt(int argc, char** argv, const char* opt);
 // gcc -g -Wall -O3 -std=cpp main.c
-int parse_opt_long(int argc, char** argv, const option_t* long_options, int size);
-const char* get_arg(const char* key);
-const char* get_env(const char* key);
+HV_EXPORT int parse_opt_long(int argc, char** argv, const option_t* long_options, int size);
+HV_EXPORT const char* get_arg(const char* key);
+HV_EXPORT const char* get_env(const char* key);
 
 #ifdef OS_UNIX
-void setproctitle(const char* title);
+HV_EXPORT void setproctitle(const char* title);
 #endif
 
 // pidfile
-int      create_pidfile();
-void     delete_pidfile();
-pid_t    getpid_from_pidfile();
+HV_EXPORT int   create_pidfile();
+HV_EXPORT void  delete_pidfile();
+HV_EXPORT pid_t getpid_from_pidfile();
 
 // signal=[start,stop,restart,status,reload]
-int signal_init(procedure_t reload_fn = NULL, void* reload_userdata = NULL);
-void signal_handle(const char* signal);
+HV_EXPORT int  signal_init(procedure_t reload_fn = NULL, void* reload_userdata = NULL);
+HV_EXPORT void signal_handle(const char* signal);
 #ifdef OS_UNIX
 // we use SIGTERM to quit process, SIGUSR1 to reload confile
 #define SIGNAL_TERMINATE    SIGTERM
@@ -84,15 +96,12 @@ void signal_handler(int signo);
 // global var
 #define DEFAULT_WORKER_PROCESSES    4
 #define MAXNUM_WORKER_PROCESSES     1024
-extern main_ctx_t   g_main_ctx;
-extern int          g_worker_processes_num;
-extern int          g_worker_threads_num;
-extern proc_ctx_t*  g_worker_processes;
-extern procedure_t  g_worker_fn;
-extern void*        g_worker_userdata;
+HV_EXPORT extern main_ctx_t   g_main_ctx;
 
 // master-workers processes
-int master_workers_run(procedure_t worker_fn, void* worker_userdata,
+HV_EXPORT int master_workers_run(
+        procedure_t worker_fn,
+        void* worker_userdata = NULL,
         int worker_processes = DEFAULT_WORKER_PROCESSES,
         int worker_threads = 0,
         bool wait = true);

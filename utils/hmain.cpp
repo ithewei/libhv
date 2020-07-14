@@ -12,11 +12,6 @@
 #endif
 
 main_ctx_t  g_main_ctx;
-int         g_worker_processes_num = 0;
-int         g_worker_threads_num = 0;
-proc_ctx_t* g_worker_processes = NULL;
-procedure_t g_worker_fn = NULL;
-void*       g_worker_userdata = NULL;
 
 int main_ctx_init(int argc, char** argv) {
     if (argc == 0 || argv == NULL) {
@@ -36,9 +31,9 @@ int main_ctx_init(int argc, char** argv) {
     }
 #endif
     //printf("program_name=%s\n", g_main_ctx.program_name);
-    char logpath[MAX_PATH] = {0};
-    snprintf(logpath, sizeof(logpath), "%s/logs", g_main_ctx.run_dir);
-    hv_mkdir(logpath);;
+    char logdir[MAX_PATH] = {0};
+    snprintf(logdir, sizeof(logdir), "%s/logs", g_main_ctx.run_dir);
+    hv_mkdir(logdir);;
     snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_dir, g_main_ctx.program_name);
     snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_dir, g_main_ctx.program_name);
     snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_dir, g_main_ctx.program_name);
@@ -116,6 +111,17 @@ int main_ctx_init(int argc, char** argv) {
         g_main_ctx.env_kv[std::string(b, delim-b)] = std::string(delim+1);
     }
 #endif
+
+    // signals
+    g_main_ctx.reload_fn = NULL;
+    g_main_ctx.reload_userdata = NULL;
+
+    // master workers
+    g_main_ctx.worker_processes = 0;
+    g_main_ctx.worker_threads = 0;
+    g_main_ctx.worker_fn = 0;
+    g_main_ctx.worker_userdata = 0;
+    g_main_ctx.proc_ctxs = NULL;
 
     return 0;
 }
@@ -325,8 +331,6 @@ pid_t getpid_from_pidfile() {
     return readbytes <= 0 ? -1 : atoi(pid);
 }
 
-static procedure_t s_reload_fn = NULL;
-static void*       s_reload_userdata = NULL;
 #ifdef OS_UNIX
 // unix use signal
 #include <sys/wait.h>
@@ -339,24 +343,12 @@ void signal_handler(int signo) {
         hlogi("killall processes");
         signal(SIGCHLD, SIG_IGN);
         // master send SIGKILL => workers
-        for (int i = 0; i < g_worker_processes_num; ++i) {
-            if (g_worker_processes[i].pid <= 0) break;
-            kill(g_worker_processes[i].pid, SIGKILL);
-            g_worker_processes[i].pid = -1;
+        for (int i = 0; i < g_main_ctx.worker_processes; ++i) {
+            if (g_main_ctx.proc_ctxs[i].pid <= 0) break;
+            kill(g_main_ctx.proc_ctxs[i].pid, SIGKILL);
+            g_main_ctx.proc_ctxs[i].pid = -1;
         }
         exit(0);
-        break;
-    case SIGNAL_RELOAD:
-        if (s_reload_fn) {
-            s_reload_fn(s_reload_userdata);
-            if (getpid_from_pidfile() == getpid()) {
-                // master send SIGNAL_RELOAD => workers
-                for (int i = 0; i < g_worker_processes_num; ++i) {
-                    if (g_worker_processes[i].pid <= 0) break;
-                    kill(g_worker_processes[i].pid, SIGNAL_RELOAD);
-                }
-            }
-        }
         break;
     case SIGCHLD:
     {
@@ -364,15 +356,27 @@ void signal_handler(int signo) {
         int status = 0;
         while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
             hlogw("proc stop/waiting, pid=%d status=%d", pid, status);
-            for (int i = 0; i < g_worker_processes_num; ++i) {
-                if (g_worker_processes[i].pid == pid) {
-                    g_worker_processes[i].pid = -1;
-                    hproc_spawn(&g_worker_processes[i]);
+            for (int i = 0; i < g_main_ctx.worker_processes; ++i) {
+                if (g_main_ctx.proc_ctxs[i].pid == pid) {
+                    g_main_ctx.proc_ctxs[i].pid = -1;
+                    hproc_spawn(&g_main_ctx.proc_ctxs[i]);
                     break;
                 }
             }
         }
     }
+        break;
+    case SIGNAL_RELOAD:
+        if (g_main_ctx.reload_fn) {
+            g_main_ctx.reload_fn(g_main_ctx.reload_userdata);
+            if (getpid_from_pidfile() == getpid()) {
+                // master send SIGNAL_RELOAD => workers
+                for (int i = 0; i < g_main_ctx.worker_processes; ++i) {
+                    if (g_main_ctx.proc_ctxs[i].pid <= 0) break;
+                    kill(g_main_ctx.proc_ctxs[i].pid, SIGNAL_RELOAD);
+                }
+            }
+        }
         break;
     default:
         break;
@@ -380,8 +384,8 @@ void signal_handler(int signo) {
 }
 
 int signal_init(procedure_t reload_fn, void* reload_userdata) {
-    s_reload_fn = reload_fn;
-    s_reload_userdata = reload_userdata;
+    g_main_ctx.reload_fn = reload_fn;
+    g_main_ctx.reload_userdata = reload_userdata;
 
     signal(SIGINT, signal_handler);
     signal(SIGCHLD, signal_handler);
@@ -414,8 +418,8 @@ void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, 
     ret = WaitForSingleObject(s_hEventReload, 0);
     if (ret == WAIT_OBJECT_0) {
         hlogi("pid=%d recv event [RELOAD]", getpid());
-        if (s_reload_fn) {
-            s_reload_fn(s_reload_userdata);
+        if (g_main_ctx.reload_fn) {
+            g_main_ctx.reload_fn(g_main_ctx.reload_userdata);
         }
     }
 }
@@ -428,8 +432,8 @@ void signal_cleanup() {
 }
 
 int signal_init(procedure_t reload_fn, void* reload_userdata) {
-    s_reload_fn = reload_fn;
-    s_reload_userdata = reload_userdata;
+    g_main_ctx.reload_fn = reload_fn;
+    g_main_ctx.reload_userdata = reload_userdata;
 
     char eventname[MAX_PATH] = {0};
     //snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
@@ -507,8 +511,8 @@ void signal_handle(const char* signal) {
 // master-workers processes
 static HTHREAD_ROUTINE(worker_thread) {
     hlogi("worker_thread pid=%ld tid=%ld", hv_getpid(), hv_gettid());
-    if (g_worker_fn) {
-        g_worker_fn(g_worker_userdata);
+    if (g_main_ctx.worker_fn) {
+        g_main_ctx.worker_fn(g_main_ctx.worker_userdata);
     }
     return 0;
 }
@@ -523,7 +527,7 @@ static void worker_init(void* userdata) {
 }
 
 static void worker_proc(void* userdata) {
-    for (int i = 1; i < g_worker_threads_num; ++i) {
+    for (int i = 1; i < g_main_ctx.worker_threads; ++i) {
         hthread_create(worker_thread, NULL);
     }
     worker_thread(NULL);
@@ -541,9 +545,9 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
 #endif
     if (worker_threads == 0) worker_threads = 1;
 
-    g_worker_threads_num = worker_threads;
-    g_worker_fn = worker_fn;
-    g_worker_userdata = worker_userdata;
+    g_main_ctx.worker_threads = worker_threads;
+    g_main_ctx.worker_fn = worker_fn;
+    g_main_ctx.worker_userdata = worker_userdata;
 
     if (worker_processes == 0) {
         // single process
@@ -560,7 +564,7 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
         }
     }
     else {
-        if (g_worker_processes_num != 0) {
+        if (g_main_ctx.worker_processes != 0) {
             return ERR_OVER_LIMIT;
         }
         // master-workers processes
@@ -570,12 +574,12 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
         setproctitle(proctitle);
         signal(SIGNAL_RELOAD, signal_handler);
 #endif
-        g_worker_processes_num = worker_processes;
-        int bytes = g_worker_processes_num * sizeof(proc_ctx_t);
-        g_worker_processes = (proc_ctx_t*)malloc(bytes);
-        memset(g_worker_processes, 0, bytes);
-        proc_ctx_t* ctx = g_worker_processes;
-        for (int i = 0; i < g_worker_processes_num; ++i, ++ctx) {
+        g_main_ctx.worker_processes = worker_processes;
+        int bytes = g_main_ctx.worker_processes * sizeof(proc_ctx_t);
+        g_main_ctx.proc_ctxs = (proc_ctx_t*)malloc(bytes);
+        memset(g_main_ctx.proc_ctxs, 0, bytes);
+        proc_ctx_t* ctx = g_main_ctx.proc_ctxs;
+        for (int i = 0; i < g_main_ctx.worker_processes; ++i, ++ctx) {
             ctx->init = worker_init;
             ctx->proc = worker_proc;
             hproc_spawn(ctx);

@@ -81,6 +81,27 @@ int parse_confile(const char* confile) {
         loglevel = LOG_LEVEL_VERBOSE;
     }
     hlog_set_level(loglevel);
+    // log_filesize
+    str = ini.GetValue("log_filesize");
+    if (!str.empty()) {
+        int num = atoi(str.c_str());
+        if (num > 0) {
+            // 16 16M 16MB
+            const char* p = str.c_str() + str.size() - 1;
+            char unit;
+            if (*p >= '0' && *p <= '9') unit = 'M';
+            else if (*p == 'B')         unit = *(p-1);
+            else                        unit = *p;
+            unsigned long long filesize = num;
+            switch (unit) {
+            case 'K': filesize <<= 10; break;
+            case 'M': filesize <<= 20; break;
+            case 'G': filesize <<= 30; break;
+            default:  filesize <<= 20; break;
+            }
+            hlog_set_max_filesize(filesize);
+        }
+    }
     // log_remain_days
     str = ini.GetValue("log_remain_days");
     if (!str.empty()) {
@@ -101,6 +122,9 @@ int parse_confile(const char* confile) {
         }
     }
     g_http_server.worker_processes = LIMIT(0, worker_processes, MAXNUM_WORKER_PROCESSES);
+    // worker_threads
+    int worker_threads = ini.Get<int>("worker_threads");
+    g_http_server.worker_threads = LIMIT(0, worker_threads, 16);
 
     // port
     int port = 0;
