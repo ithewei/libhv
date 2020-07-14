@@ -5,8 +5,7 @@
 
 BEGIN_EXTERN_C
 
-extern void* g_ssl_ctx; // for SSL_CTX
-
+HV_EXPORT void* ssl_ctx_instance();
 HV_EXPORT int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file);
 HV_EXPORT int ssl_ctx_destory();
 

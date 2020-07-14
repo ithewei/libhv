@@ -6,11 +6,11 @@
 #include "openssl/ssl.h"
 #endif
 
-void* g_ssl_ctx = 0;
+static void* s_ssl_ctx = 0;
 
 int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file) {
 #ifdef WITH_OPENSSL
-    if (g_ssl_ctx != NULL) {
+    if (s_ssl_ctx != NULL) {
         return 0;
     }
     SSL_CTX* ctx = SSL_CTX_new(TLS_method());
@@ -38,7 +38,7 @@ int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file
         }
     }
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
-    g_ssl_ctx = ctx;
+    s_ssl_ctx = ctx;
     return 0;
 #else
     fprintf(stderr, "Please recompile WITH_OPENSSL.\n");
@@ -48,10 +48,14 @@ int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file
 
 int ssl_ctx_destory() {
 #ifdef WITH_OPENSSL
-    if (g_ssl_ctx) {
-        SSL_CTX_free((SSL_CTX*)g_ssl_ctx);
-        g_ssl_ctx = NULL;
+    if (s_ssl_ctx) {
+        SSL_CTX_free((SSL_CTX*)s_ssl_ctx);
+        s_ssl_ctx = NULL;
     }
 #endif
     return 0;
+}
+
+void* ssl_ctx_instance() {
+    return s_ssl_ctx;
 }

@@ -32,7 +32,7 @@ endif
 
 default: all
 all: libhv examples
-examples: test timer loop tcp udp nc nmap httpd curl consul_cli
+examples: hmain_test htimer_test hloop_test tcp udp nc nmap httpd curl consul_cli
 
 clean:
 	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"

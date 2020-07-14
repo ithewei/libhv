@@ -4,11 +4,19 @@
 #include <mach-o/dyld.h> // for _NSGetExecutablePath
 #endif
 
-unsigned int g_alloc_cnt = 0;
-unsigned int g_free_cnt = 0;
+static unsigned int s_alloc_cnt = 0;
+static unsigned int s_free_cnt = 0;
+
+unsigned int hv_alloc_cnt() {
+    return s_alloc_cnt;
+}
+
+unsigned int hv_free_cnt() {
+    return s_free_cnt;
+}
 
 void* safe_malloc(size_t size) {
-    ++g_alloc_cnt;
+    ++s_alloc_cnt;
     void* ptr = malloc(size);
     if (!ptr) {
         fprintf(stderr, "malloc failed!\n");
@@ -18,8 +26,8 @@ void* safe_malloc(size_t size) {
 }
 
 void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize) {
-    ++g_alloc_cnt;
-    ++g_free_cnt;
+    ++s_alloc_cnt;
+    ++s_free_cnt;
     void* ptr = realloc(oldptr, newsize);
     if (!ptr) {
         fprintf(stderr, "realloc failed!\n");
@@ -32,7 +40,7 @@ void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize) {
 }
 
 void* safe_calloc(size_t nmemb, size_t size) {
-    ++g_alloc_cnt;
+    ++s_alloc_cnt;
     void* ptr =  calloc(nmemb, size);
     if (!ptr) {
         fprintf(stderr, "calloc failed!\n");
@@ -42,7 +50,7 @@ void* safe_calloc(size_t nmemb, size_t size) {
 }
 
 void* safe_zalloc(size_t size) {
-    ++g_alloc_cnt;
+    ++s_alloc_cnt;
     void* ptr = malloc(size);
     if (!ptr) {
         fprintf(stderr, "malloc failed!\n");
@@ -56,7 +64,7 @@ void safe_free(void* ptr) {
     if (ptr) {
         free(ptr);
         ptr = NULL;
-        ++g_free_cnt;
+        ++s_free_cnt;
     }
 }
 

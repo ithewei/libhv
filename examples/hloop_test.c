@@ -78,7 +78,9 @@ int main() {
     htimer_add(loop, timer_write_log, 1000, INFINITE);
     logger_set_handler(hlog, mylogger);
     hlog_set_file("loop.log");
+#ifndef _MSC_VER
     logger_enable_color(hlog, 1);
+#endif
     nlog_listen(loop, DEFAULT_LOG_PORT);
 
     // test nonblock stdin

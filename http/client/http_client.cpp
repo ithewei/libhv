@@ -320,10 +320,10 @@ static int __http_client_connect(http_client_t* cli) {
 
     if (cli->tls) {
 #ifdef WITH_OPENSSL
-        if (g_ssl_ctx == NULL) {
+        if (ssl_ctx_instance() == NULL) {
             ssl_ctx_init(NULL, NULL, NULL);
         }
-        cli->ssl = SSL_new((SSL_CTX*)g_ssl_ctx);
+        cli->ssl = SSL_new((SSL_CTX*)ssl_ctx_instance());
         SSL_set_fd(cli->ssl, connfd);
         if (SSL_connect(cli->ssl) != 1) {
             int err = SSL_get_error(cli->ssl, -1);

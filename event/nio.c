@@ -67,7 +67,7 @@ accept:
 
 #ifdef WITH_OPENSSL
     if (io->io_type == HIO_TYPE_SSL) {
-        SSL_CTX* ssl_ctx = (SSL_CTX*)g_ssl_ctx;
+        SSL_CTX* ssl_ctx = (SSL_CTX*)ssl_ctx_instance();
         if (ssl_ctx == NULL) {
             goto accept_error;
         }
@@ -124,7 +124,7 @@ static void nio_connect(hio_t* io) {
         */
 #ifdef WITH_OPENSSL
         if (io->io_type == HIO_TYPE_SSL) {
-            SSL_CTX* ssl_ctx = (SSL_CTX*)g_ssl_ctx;
+            SSL_CTX* ssl_ctx = (SSL_CTX*)ssl_ctx_instance();
             if (ssl_ctx == NULL) {
                 goto connect_failed;
             }

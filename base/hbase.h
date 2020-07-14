@@ -8,9 +8,6 @@
 BEGIN_EXTERN_C
 
 //--------------------safe alloc/free---------------------------
-extern unsigned int g_alloc_cnt;
-extern unsigned int g_free_cnt;
-
 HV_EXPORT void* safe_malloc(size_t size);
 HV_EXPORT void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize);
 HV_EXPORT void* safe_calloc(size_t nmemb, size_t size);
@@ -31,10 +28,11 @@ HV_EXPORT void  safe_free(void* ptr);
         printd("free( %p )\tat [%s:%d:%s]\n", ptr, __FILE__, __LINE__, __FUNCTION__);\
     } while(0)
 
+HV_EXPORT unsigned int hv_alloc_cnt();
+HV_EXPORT unsigned int hv_free_cnt();
 static inline void hv_memcheck() {
-    printf("Memcheck => alloc:%u free:%u\n", g_alloc_cnt, g_free_cnt);
+    printf("Memcheck => alloc:%u free:%u\n", hv_alloc_cnt(), hv_free_cnt());
 }
-
 #define HV_MEMCHECK    atexit(hv_memcheck);
 
 //--------------------safe string-------------------------------
