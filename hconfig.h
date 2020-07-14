@@ -34,11 +34,11 @@
 #endif
 
 #ifndef HAVE_STRLCPY
-#define HAVE_STRLCPY 0
+#define HAVE_STRLCPY 1
 #endif
 
 #ifndef HAVE_STRLCAT
-#define HAVE_STRLCAT 0
+#define HAVE_STRLCAT 1
 #endif
 
 #ifndef HAVE_CLOCK_GETTIME

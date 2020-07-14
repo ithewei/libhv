@@ -52,13 +52,13 @@ install:
 	$(CP) include/hv/* $(INSTALL_INCDIR)
 	$(CP) lib/libhv.a lib/libhv.so $(INSTALL_LIBDIR)
 
-test: prepare
+hmain_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils" SRCS="examples/hmain_test.cpp"
 
-timer: prepare
+htimer_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/htimer_test.c"
 
-loop: prepare
+hloop_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/hloop_test.c"
 
 tcp: prepare
@@ -120,4 +120,4 @@ echo-servers:
 	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo     echo-servers/poco_echo.cpp   -lPocoNet -lPocoUtil -lPocoFoundation
 	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo    echo-servers/muduo_echo.cpp  -lmuduo_net -lmuduo_base -lpthread
 
-.PHONY: clean prepare libhv install examples test timer loop tcp udp nc nmap httpd curl consul_cli unittest webbench echo-servers
+.PHONY: clean prepare libhv install examples hmain_test htimer_test hloop_test tcp udp nc nmap httpd curl consul_cli unittest webbench echo-servers

@@ -175,15 +175,12 @@ bin/nc 127.0.0.1 10514
 
 ### 示例
 - make examples
-    - make test # master-workers model
-    - make timer # timer add/del/reset
-    - make loop # event-loop(include idle, timer, io)
-    - make tcp  # tcp server
-    - make udp  # udp server
-    - make nc   # network client
-    - make nmap # host discovery
+    - make tcp   # tcp server
+    - make udp   # udp server
+    - make nc    # network client
+    - make nmap  # host discovery
     - make httpd # http server
-    - make curl # http client
+    - make curl  # http client
 
 ### 单元测试
 - make unittest

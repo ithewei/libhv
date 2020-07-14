@@ -2,9 +2,9 @@
 #define HV_EXPORT_H_
 
 // HV_EXPORT
-#ifdef HV_STATICLIB
+#if defined(HV_STATICLIB) || defined(HV_SOURCE)
     #define HV_EXPORT
-#elif defined(_WIN32)
+#elif defined(_MSC_VER)
     #if defined(HV_EXPORTS) || defined(hv_EXPORTS)
         #define HV_EXPORT  __declspec(dllexport)
     #else
