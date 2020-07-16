@@ -32,6 +32,9 @@ but simpler apis and richer protocols.
     - curl
 
 ## Getting Started
+```
+./getting_started.sh
+```
 
 ### HTTP
 #### http server
@@ -80,7 +83,6 @@ int main(int argc, char* argv[]) {
 ```
 
 ```shell
-# see getting_started.sh
 git clone https://github.com/ithewei/libhv.git
 cd libhv
 make httpd curl

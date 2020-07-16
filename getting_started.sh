@@ -1,6 +1,7 @@
 #!/bin/bash
 
 if [ ! -x bin/httpd -o ! -x bin/curl ]; then
+    make clean
     make httpd curl
 fi
 
@@ -52,4 +53,8 @@ bin/curl -v localhost:8080/v1/api/test -F 'bool=1 int=123 float=3.14 string=hell
 # RESTful API: /group/:group_name/user/:user_id
 read -n1
 bin/curl -v -X DELETE localhost:8080/v1/api/group/test/user/123
+
+# see logs
+read -n1
+tail -n 100 logs/httpd*.log
 
