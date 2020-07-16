@@ -239,10 +239,9 @@ std::string dump_json(Json& json) {
     return json.dump();
 }
 
-std::string g_parse_json_errmsg;
 int parse_json(const char* str, Json& json, std::string& errmsg) {
     try {
-        json = Json::parse(str);
+        json = nlohmann::json::parse(str);
     }
     catch(nlohmann::detail::exception e) {
         errmsg = e.what();
