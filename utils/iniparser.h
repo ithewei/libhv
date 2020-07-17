@@ -1,7 +1,6 @@
 #ifndef HV_INI_PARSER_H_
 #define HV_INI_PARSER_H_
 
-#include <list>
 #include <string>
 using std::string;
 
@@ -10,85 +9,8 @@ using std::string;
 #define DEFAULT_INI_COMMENT "#"
 #define DEFAULT_INI_DELIM   "="
 
-/**********************************
-# div
-
-[section]
-
-key = value # span
-
-# div
-***********************************/
-
-class HV_EXPORT IniNode {
-public:
-    enum Type {
-        INI_NODE_TYPE_UNKNOWN,
-        INI_NODE_TYPE_ROOT,
-        INI_NODE_TYPE_SECTION,
-        INI_NODE_TYPE_KEY_VALUE,
-        INI_NODE_TYPE_DIV,
-        INI_NODE_TYPE_SPAN,
-    } type;
-    string  label; // section|key|comment
-    string  value;
-    std::list<IniNode*>    children;
-
-    virtual ~IniNode() {
-        for (auto pNode : children) {
-            if (pNode) {
-                delete pNode;
-            }
-        }
-        children.clear();
-    }
-
-    void Add(IniNode* pNode) {
-        children.push_back(pNode);
-    }
-
-    void Del(IniNode* pNode) {
-        for (auto iter = children.begin(); iter != children.end(); ++iter) {
-            if ((*iter) == pNode) {
-                delete (*iter);
-                children.erase(iter);
-                return;
-            }
-        }
-    }
-
-    IniNode* Get(const string& label, Type type = INI_NODE_TYPE_KEY_VALUE) {
-        for (auto pNode : children) {
-            if (pNode->type == type && pNode->label == label) {
-                return pNode;
-            }
-        }
-        return NULL;
-    }
-};
-
-class HV_EXPORT IniSection : public IniNode {
-public:
-    IniSection() : IniNode(), section(label) {
-        type = INI_NODE_TYPE_SECTION;
-    }
-    string &section;
-};
-
-class HV_EXPORT IniKeyValue : public IniNode {
-public:
-    IniKeyValue() : IniNode(), key(label) {
-        type = INI_NODE_TYPE_KEY_VALUE;
-    }
-    string &key;
-};
-
-class HV_EXPORT IniComment : public IniNode {
-public:
-    IniComment() : IniNode(), comment(label) {
-    }
-    string &comment;
-};
+// fwd
+class IniNode;
 
 class HV_EXPORT IniParser {
 public:
@@ -100,7 +22,6 @@ public:
     int Unload();
     int Reload();
 
-    void DumpString(IniNode* pNode, string& str);
     string DumpString();
     int Save();
     int SaveAs(const char* filepath);
@@ -115,6 +36,9 @@ public:
     // T = [bool, int, float]
     template<typename T>
     void Set(const string& key, const T& value, const string& section = "");
+
+protected:
+    void DumpString(IniNode* pNode, string& str);
 
 public:
     string  _comment;

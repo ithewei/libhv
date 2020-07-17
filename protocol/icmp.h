@@ -8,7 +8,7 @@ BEGIN_EXTERN_C
 // @param cnt: ping count
 // @return: ok count
 // @note: printd $CC -DPRINT_DEBUG
-int ping(const char* host, int cnt DEFAULT(4));
+HV_EXPORT int ping(const char* host, int cnt DEFAULT(4));
 
 END_EXTERN_C
 

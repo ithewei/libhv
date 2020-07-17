@@ -1,7 +1,6 @@
 #ifndef HTTP_SERVICE_H_
 #define HTTP_SERVICE_H_
 
-#include <string.h>
 #include <string>
 #include <map>
 #include <list>

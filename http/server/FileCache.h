@@ -3,11 +3,10 @@
 
 #include <map>
 #include <string>
+#include <mutex>
 
 #include "hbuf.h"
-#include "hfile.h"
 #include "hstring.h"
-#include "hmutex.h"
 
 #define HTTP_HEADER_MAX_LENGTH      1024 // 1k
 
