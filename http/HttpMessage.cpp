@@ -55,7 +55,7 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
 }
 
 template<>
-int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
+HV_EXPORT int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
     if (content_type == APPLICATION_JSON) {
         auto value = json[key];
         if (value.is_number()) {
@@ -83,7 +83,7 @@ int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
 }
 
 template<>
-double HttpMessage::Get(const char* key, double defvalue) {
+HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
     if (content_type == APPLICATION_JSON) {
         auto value = json[key];
         if (value.is_number()) {
@@ -107,7 +107,7 @@ double HttpMessage::Get(const char* key, double defvalue) {
 }
 
 template<>
-bool HttpMessage::Get(const char* key, bool defvalue) {
+HV_EXPORT bool HttpMessage::Get(const char* key, bool defvalue) {
     if (content_type == APPLICATION_JSON) {
         auto value = json[key];
         if (value.is_boolean()) {
