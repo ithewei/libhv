@@ -18,9 +18,11 @@
 
 // DEPRECATED
 #if defined(__GNUC__) || defined(__clang__)
-    #define DEPRECATED __attribute__((visibility("deprecated")))
+    #define DEPRECATED  __attribute__((visibility("deprecated")))
+    #define UNUSED      __attribute__((visibility("unused")))
 #else
     #define DEPRECATED
+    #define UNUSED(v)   ((void)(v))
 #endif
 
 // @param[IN | OUT | INOUT]
