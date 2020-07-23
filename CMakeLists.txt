@@ -154,7 +154,7 @@ list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
 
 if(BUILD_SHARED)
     add_library(hv SHARED ${LIBHV_SRCS})
-    target_compile_definitions(hv PRIVATE HV_EXPORTS)
+    target_compile_definitions(hv PRIVATE HV_DYNAMICLIB)
     target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS})
     target_link_libraries(hv ${LIBS})
     install(TARGETS hv LIBRARY DESTINATION lib)

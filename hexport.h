@@ -5,7 +5,7 @@
 #if defined(HV_STATICLIB) || defined(HV_SOURCE)
     #define HV_EXPORT
 #elif defined(_MSC_VER)
-    #if defined(HV_EXPORTS) || defined(hv_EXPORTS)
+    #if defined(HV_DYNAMICLIB) || defined(HV_EXPORTS) || defined(hv_EXPORTS)
         #define HV_EXPORT  __declspec(dllexport)
     #else
         #define HV_EXPORT  __declspec(dllimport)
@@ -18,9 +18,11 @@
 
 // DEPRECATED
 #if defined(__GNUC__) || defined(__clang__)
-    #define DEPRECATED __attribute__((visibility("deprecated")))
+    #define DEPRECATED  __attribute__((visibility("deprecated")))
+    #define UNUSED      __attribute__((visibility("unused")))
 #else
     #define DEPRECATED
+    #define UNUSED(v)   ((void)(v))
 #endif
 
 // @param[IN | OUT | INOUT]
