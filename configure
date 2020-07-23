@@ -112,6 +112,7 @@ echo "TARGET_ARCH     = $TARGET_ARCH"
 # Checks for header files
 header=stdbool.h && check_header
 header=stdint.h && check_header
+header=stdatomic.h && check_header
 header=sys/types.h && check_header
 header=sys/stat.h && check_header
 header=sys/time.h && check_header

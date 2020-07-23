@@ -9,6 +9,10 @@
 #define HAVE_STDINT_H @HAVE_STDINT_H@
 #endif
 
+#ifndef HAVE_STDATOMIC_H
+#define HAVE_STDATOMIC_H @HAVE_STDATOMIC_H@
+#endif
+
 #ifndef HAVE_SYS_TYPES_H
 #define HAVE_SYS_TYPES_H @HAVE_SYS_TYPES_H@
 #endif

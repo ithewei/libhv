@@ -256,6 +256,7 @@ sudo echo-servers/benchmark.sh
 ### base
 - hplatform.h:   平台相关宏
 - hdef.h:        宏定义
+- hatomic.h:     原子操作
 - hversion.h:    版本
 - hbase.h:       基本接口
 - hsysinfo.h:    系统信息

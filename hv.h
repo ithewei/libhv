@@ -12,6 +12,7 @@
 
 // c
 #include "hdef.h"   // <stddef.h>
+#include "hatomic.h"// <stdatomic.h>
 #include "herr.h"   // <errno.h>
 #include "htime.h"  // <time.h>
 #include "hmath.h"  // <math.h>

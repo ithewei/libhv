@@ -3,6 +3,7 @@
 set(BASE_HEADERS
     base/hplatform.h
     base/hdef.h
+    base/hatomic.h
     base/hversion.h
     base/hbase.h
     base/hsysinfo.h
