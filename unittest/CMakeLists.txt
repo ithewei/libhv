@@ -22,7 +22,7 @@ target_include_directories(socketpair_test PRIVATE .. ../base)
 add_executable(defer_test defer_test.cpp)
 target_include_directories(defer_test PRIVATE .. ../base)
 
-add_executable(hstring_test hstring_test.cpp ../base/hstring.cpp ../base/hbase.c)
+add_executable(hstring_test hstring_test.cpp ../base/hstring.cpp)
 target_include_directories(hstring_test PRIVATE .. ../base)
 
 add_executable(threadpool_test threadpool_test.cpp)

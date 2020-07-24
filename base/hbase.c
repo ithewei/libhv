@@ -19,7 +19,6 @@ unsigned int hv_free_cnt() {
 
 void* safe_malloc(size_t size) {
     ATOMIC_INC(&s_alloc_cnt);
-    ++s_alloc_cnt;
     void* ptr = malloc(size);
     if (!ptr) {
         fprintf(stderr, "malloc failed!\n");

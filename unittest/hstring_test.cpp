@@ -1,6 +1,7 @@
 #include "hstring.h"
 
 int main(int argc, char** argv) {
+    /*
     char str1[] = "a1B2*C3d4==";
     char str2[] = "a1B2*C3d4==";
     printf("strupper %s\n", strupper(str1));
@@ -13,6 +14,7 @@ int main(int argc, char** argv) {
         (int)strstartswith(str4, "123"),
         (int)strendswith(str4, "789"),
         (int)strcontains(str4, "456"));
+    */
 
     std::string str5 = asprintf("%s%d", "hello", 5);
     printf("asprintf %s\n", str5.c_str());

@@ -97,7 +97,7 @@ unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/connect_test      unittest/connect_test.c       base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/socketpair_test   unittest/socketpair_test.c    base/hsocket.c
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/defer_test        unittest/defer_test.cpp
-	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/hstring_test      unittest/hstring_test.cpp     base/hstring.cpp base/hbase.c
+	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/hstring_test      unittest/hstring_test.cpp     base/hstring.cpp
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/threadpool_test   unittest/threadpool_test.cpp  -pthread
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/objectpool_test   unittest/objectpool_test.cpp  -pthread
 	$(CXX) -g -Wall -std=c++11 -I. -Ibase            -o bin/ls                unittest/listdir_test.cpp     base/hdir.cpp
