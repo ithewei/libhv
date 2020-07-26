@@ -54,14 +54,13 @@
 - printd, printe
 
 ### hatomic.h
-- atomic_bool, atomic_char, atomic_short, atomic_int, atomic_long ...
-- atomic_flag
-- atomic_flag_test_and_set
-- atomic_flag_clear
-- atomic_fetch_add
-- atomic_fetch_sub
-- ATOMIC_ADD, ATOMIC_SUB
-- ATOMIC_INC, ATOMIC_DEC
+- hatomic_flag_t, hatomic_t
+- hatomic_flag_test_and_set
+- hatomic_flag_clear
+- hatomic_add
+- hatomic_sub
+- hatomic_inc
+- hatomic_dec
 
 ### herr.h
 - hv_strerror

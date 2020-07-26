@@ -28,10 +28,10 @@ HV_EXPORT void  safe_free(void* ptr);
         printd("free( %p )\tat [%s:%d:%s]\n", ptr, __FILE__, __LINE__, __FUNCTION__);\
     } while(0)
 
-HV_EXPORT unsigned int hv_alloc_cnt();
-HV_EXPORT unsigned int hv_free_cnt();
+HV_EXPORT long hv_alloc_cnt();
+HV_EXPORT long hv_free_cnt();
 static inline void hv_memcheck() {
-    printf("Memcheck => alloc:%u free:%u\n", hv_alloc_cnt(), hv_free_cnt());
+    printf("Memcheck => alloc:%ld free:%ld\n", hv_alloc_cnt(), hv_free_cnt());
 }
 #define HV_MEMCHECK    atexit(hv_memcheck);
 

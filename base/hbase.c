@@ -6,19 +6,19 @@
 
 #include "hatomic.h"
 
-static atomic_uint s_alloc_cnt = 0;
-static atomic_uint s_free_cnt = 0;
+static hatomic_t s_alloc_cnt = HATOMIC_VAR_INIT(0);
+static hatomic_t s_free_cnt = HATOMIC_VAR_INIT(0);
 
-unsigned int hv_alloc_cnt() {
+long hv_alloc_cnt() {
     return s_alloc_cnt;
 }
 
-unsigned int hv_free_cnt() {
+long hv_free_cnt() {
     return s_free_cnt;
 }
 
 void* safe_malloc(size_t size) {
-    ATOMIC_INC(&s_alloc_cnt);
+    hatomic_inc(&s_alloc_cnt);
     void* ptr = malloc(size);
     if (!ptr) {
         fprintf(stderr, "malloc failed!\n");
@@ -28,8 +28,8 @@ void* safe_malloc(size_t size) {
 }
 
 void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize) {
-    ATOMIC_INC(&s_alloc_cnt);
-    ATOMIC_INC(&s_free_cnt);
+    hatomic_inc(&s_alloc_cnt);
+    hatomic_inc(&s_free_cnt);
     void* ptr = realloc(oldptr, newsize);
     if (!ptr) {
         fprintf(stderr, "realloc failed!\n");
@@ -42,7 +42,7 @@ void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize) {
 }
 
 void* safe_calloc(size_t nmemb, size_t size) {
-    ATOMIC_INC(&s_alloc_cnt);
+    hatomic_inc(&s_alloc_cnt);
     void* ptr =  calloc(nmemb, size);
     if (!ptr) {
         fprintf(stderr, "calloc failed!\n");
@@ -52,7 +52,7 @@ void* safe_calloc(size_t nmemb, size_t size) {
 }
 
 void* safe_zalloc(size_t size) {
-    ATOMIC_INC(&s_alloc_cnt);
+    hatomic_inc(&s_alloc_cnt);
     void* ptr = malloc(size);
     if (!ptr) {
         fprintf(stderr, "malloc failed!\n");
@@ -66,7 +66,7 @@ void safe_free(void* ptr) {
     if (ptr) {
         free(ptr);
         ptr = NULL;
-        ATOMIC_INC(&s_free_cnt);
+        hatomic_inc(&s_free_cnt);
     }
 }
 
