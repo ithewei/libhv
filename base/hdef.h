@@ -1,10 +1,7 @@
 #ifndef HV_DEF_H_
 #define HV_DEF_H_
 
-#include <stddef.h>
-#include <stdio.h>  // for printf, fprintf
-#include <stdlib.h> // for malloc, free
-#include <string.h> // for memset
+#include "hplatform.h"
 
 #ifndef ABS
 #define ABS(n)  ((n) > 0 ? (n) : -(n))
