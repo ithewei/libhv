@@ -55,6 +55,9 @@ public:
 
         // bin/curl -v localhost:8080/upload -F "file=@LICENSE"
         http.POST("/upload", Handler::upload);
+
+        // curl -v http://ip:port/login -H "Content-Type:application/json" -d '{"username":"admin","password":"123456"}'
+        http.POST("/login", Handler::login);
     }
 };
 

@@ -20,12 +20,10 @@ public:
             string token = req->GetHeader("token");
             if (token.empty()) {
                 response_status(res, 10011, "Miss token");
-                res->DumpBody();
                 return HTTP_STATUS_UNAUTHORIZED;
             }
             else if (strcmp(token.c_str(), "abcdefg") != 0) {
                 response_status(res, 10012, "Token wrong");
-                res->DumpBody();
                 return HTTP_STATUS_UNAUTHORIZED;
             }
             return 0;
@@ -136,7 +134,7 @@ public:
         }
         else {
             res->Set("token", "abcdefg");
-            response_status(res, 0, "Login succeed.");
+            response_status(res, 0, "OK");
             return HTTP_STATUS_OK;
         }
     }
