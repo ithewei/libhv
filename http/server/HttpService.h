@@ -83,7 +83,8 @@ struct HV_EXPORT HttpService {
         Handle("PUT", relativePath, handlerFunc);
     }
 
-    void DELETE(const char* relativePath, http_api_handler handlerFunc) {
+    // NOTE: Windows <winnt.h> #define DELETE as a macro, we have to replace DELETE with Delete.
+    void Delete(const char* relativePath, http_api_handler handlerFunc) {
         Handle("DELETE", relativePath, handlerFunc);
     }
 

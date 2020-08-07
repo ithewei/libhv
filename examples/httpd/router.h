@@ -51,7 +51,7 @@ public:
 
         // RESTful API: /group/:group_name/user/:user_id
         // curl -v -X DELETE http://ip:port/group/test/user/123
-        http.DELETE("/group/:group_name/user/:user_id", Handler::restful);
+        http.Delete("/group/:group_name/user/:user_id", Handler::restful);
 
         // bin/curl -v localhost:8080/upload -F "file=@LICENSE"
         http.POST("/upload", Handler::upload);
