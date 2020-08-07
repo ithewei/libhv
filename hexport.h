@@ -16,13 +16,22 @@
     #define HV_EXPORT
 #endif
 
-// DEPRECATED
-#if defined(__GNUC__) || defined(__clang__)
-    #define DEPRECATED  __attribute__((visibility("deprecated")))
-    #define UNUSED      __attribute__((visibility("unused")))
+// HV_DEPRECATED
+#if defined(HV_NO_DEPRECATED)
+#define HV_DEPRECATED
+#elif defined(_GNUC_) || defined(__clang__)
+#define HV_DEPRECATED   __attribute__((deprecated))
+#elif defined(_MSC_VER)
+#define HV_DEPRECATED   __declspec(deprecated)
 #else
-    #define DEPRECATED
-    #define UNUSED(v)   ((void)(v))
+#define HV_DEPRECATED
+#endif
+
+// HV_UNUSED
+#if defined(__GNUC__)
+    #define HV_UNUSED   __attribute__((visibility("unused")))
+#else
+    #define HV_UNUSED
 #endif
 
 // @param[IN | OUT | INOUT]

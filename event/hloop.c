@@ -123,8 +123,8 @@ static int hloop_process_events(hloop_t* loop) {
 
     // calc blocktime
     int32_t blocktime = MAX_BLOCK_TIME;
-    hloop_update_time(loop);
     if (loop->timers.root) {
+        hloop_update_time(loop);
         uint64_t next_min_timeout = TIMER_ENTRY(loop->timers.root)->next_timeout;
         int64_t blocktime_us = next_min_timeout - hloop_now_hrtime(loop);
         if (blocktime_us <= 0) goto process_timers;
