@@ -102,6 +102,28 @@ void logger_set_level(logger_t* logger, int level) {
     logger->level = level;
 }
 
+void logger_set_level_by_str(logger_t* logger, const char* szLoglevel) {
+    int loglevel = DEFAULT_LOG_LEVEL;
+    if (strcmp(szLoglevel, "VERBOSE") == 0) {
+        loglevel = LOG_LEVEL_VERBOSE;
+    } else if (strcmp(szLoglevel, "DEBUG") == 0) {
+        loglevel = LOG_LEVEL_DEBUG;
+    } else if (strcmp(szLoglevel, "INFO") == 0) {
+        loglevel = LOG_LEVEL_INFO;
+    } else if (strcmp(szLoglevel, "WARN") == 0) {
+        loglevel = LOG_LEVEL_WARN;
+    } else if (strcmp(szLoglevel, "ERROR") == 0) {
+        loglevel = LOG_LEVEL_ERROR;
+    } else if (strcmp(szLoglevel, "FATAL") == 0) {
+        loglevel = LOG_LEVEL_FATAL;
+    } else if (strcmp(szLoglevel, "SILENT") == 0) {
+        loglevel = LOG_LEVEL_SILENT;
+    } else {
+        loglevel = DEFAULT_LOG_LEVEL;
+    }
+    logger->level = loglevel;
+}
+
 void logger_set_remain_days(logger_t* logger, int days) {
     logger->remain_days = days;
 }
@@ -125,6 +147,27 @@ void logger_set_file(logger_t* logger, const char* filepath) {
 }
 
 void logger_set_max_filesize(logger_t* logger, unsigned long long filesize) {
+    logger->max_filesize = filesize;
+}
+
+void logger_set_max_filesize_by_str(logger_t* logger, const char* str) {
+    int num = atoi(str);
+    if (num <= 0) return;
+    // 16 16M 16MB
+    const char* e = str;
+    while (*e != '\0') ++e;
+    --e;
+    char unit;
+    if (*e >= '0' && *e <= '9') unit = 'M';
+    else if (*e == 'B')         unit = *(e-1);
+    else                        unit = *e;
+    unsigned long long filesize = num;
+    switch (unit) {
+    case 'K': filesize <<= 10; break;
+    case 'M': filesize <<= 20; break;
+    case 'G': filesize <<= 30; break;
+    default:  filesize <<= 20; break;
+    }
     logger->max_filesize = filesize;
 }
 

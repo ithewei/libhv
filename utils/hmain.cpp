@@ -305,6 +305,7 @@ int create_pidfile() {
         return -1;
     }
 
+    g_main_ctx.pid = hv_getpid();
     char pid[16] = {0};
     snprintf(pid, sizeof(pid), "%d\n", g_main_ctx.pid);
     fwrite(pid, 1, strlen(pid), fp);

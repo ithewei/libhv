@@ -71,47 +71,14 @@ int parse_confile(const char* confile) {
     }
     hlog_set_file(g_main_ctx.logfile);
     // loglevel
-    const char* szLoglevel = g_conf_ctx.parser->GetValue("loglevel").c_str();
-    int loglevel = LOG_LEVEL_INFO;
-    if (stricmp(szLoglevel, "VERBOSE") == 0) {
-        loglevel = LOG_LEVEL_VERBOSE;
-    } else if (stricmp(szLoglevel, "DEBUG") == 0) {
-        loglevel = LOG_LEVEL_DEBUG;
-    } else if (stricmp(szLoglevel, "INFO") == 0) {
-        loglevel = LOG_LEVEL_INFO;
-    } else if (stricmp(szLoglevel, "WARN") == 0) {
-        loglevel = LOG_LEVEL_WARN;
-    } else if (stricmp(szLoglevel, "ERROR") == 0) {
-        loglevel = LOG_LEVEL_ERROR;
-    } else if (stricmp(szLoglevel, "FATAL") == 0) {
-        loglevel = LOG_LEVEL_FATAL;
-    } else if (stricmp(szLoglevel, "SILENT") == 0) {
-        loglevel = LOG_LEVEL_SILENT;
-    } else {
-        loglevel = LOG_LEVEL_INFO;
+    str = g_conf_ctx.parser->GetValue("loglevel");
+    if (!str.empty()) {
+        hlog_set_level_by_str(str.c_str());
     }
-    g_conf_ctx.loglevel = loglevel;
-    hlog_set_level(loglevel);
     // log_filesize
     str = g_conf_ctx.parser->GetValue("log_filesize");
     if (!str.empty()) {
-        int num = atoi(str.c_str());
-        if (num > 0) {
-            // 16 16M 16MB
-            const char* p = str.c_str() + str.size() - 1;
-            char unit;
-            if (*p >= '0' && *p <= '9') unit = 'M';
-            else if (*p == 'B')         unit = *(p-1);
-            else                        unit = *p;
-            unsigned long long filesize = num;
-            switch (unit) {
-            case 'K': filesize <<= 10; break;
-            case 'M': filesize <<= 20; break;
-            case 'G': filesize <<= 30; break;
-            default:  filesize <<= 20; break;
-            }
-            hlog_set_max_filesize(filesize);
-        }
+        hlog_set_max_filesize_by_str(str.c_str());
     }
     // log_remain_days
     str = g_conf_ctx.parser->GetValue("log_remain_days");
@@ -161,24 +128,6 @@ int parse_confile(const char* confile) {
 
     hlogi("parse_confile('%s') OK", confile);
     return 0;
-}
-
-void master_init(void* userdata) {
-#ifdef OS_UNIX
-    char proctitle[256] = {0};
-    snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
-    setproctitle(proctitle);
-    signal(SIGNAL_RELOAD, signal_handler);
-#endif
-}
-
-void worker_init(void* userdata) {
-#ifdef OS_UNIX
-    char proctitle[256] = {0};
-    snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
-    setproctitle(proctitle);
-    signal(SIGNAL_RELOAD, signal_handler);
-#endif
 }
 
 static void on_reload(void* userdata) {
@@ -258,8 +207,6 @@ int main(int argc, char** argv) {
             printf("daemon error: %d\n", ret);
             exit(-10);
         }
-        // parent process exit after daemon, so pid changed.
-        g_main_ctx.pid = getpid();
     }
 #endif
 

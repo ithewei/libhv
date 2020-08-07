@@ -1,1 +1,1 @@
-bin/curl -v localhost:8080/v1/api/upload -F "file=@LICENSE"
+bin/curl -v localhost:8080/upload -F "file=@LICENSE"

@@ -3,8 +3,9 @@
 #include "iniparser.h"
 
 #include "HttpServer.h"
-#include "http_api_test.h"
 #include "ssl_ctx.h"
+
+#include "router.h"
 
 http_server_t   g_http_server;
 HttpService     g_http_service;
@@ -61,53 +62,27 @@ int parse_confile(const char* confile) {
     }
     hlog_set_file(g_main_ctx.logfile);
     // loglevel
-    const char* szLoglevel = ini.GetValue("loglevel").c_str();
-    int loglevel = LOG_LEVEL_DEBUG;
-    if (stricmp(szLoglevel, "VERBOSE") == 0) {
-        loglevel = LOG_LEVEL_VERBOSE;
-    } else if (stricmp(szLoglevel, "DEBUG") == 0) {
-        loglevel = LOG_LEVEL_DEBUG;
-    } else if (stricmp(szLoglevel, "INFO") == 0) {
-        loglevel = LOG_LEVEL_INFO;
-    } else if (stricmp(szLoglevel, "WARN") == 0) {
-        loglevel = LOG_LEVEL_WARN;
-    } else if (stricmp(szLoglevel, "ERROR") == 0) {
-        loglevel = LOG_LEVEL_ERROR;
-    } else if (stricmp(szLoglevel, "FATAL") == 0) {
-        loglevel = LOG_LEVEL_FATAL;
-    } else if (stricmp(szLoglevel, "SILENT") == 0) {
-        loglevel = LOG_LEVEL_SILENT;
-    } else {
-        loglevel = LOG_LEVEL_VERBOSE;
+    str = ini.GetValue("loglevel");
+    if (!str.empty()) {
+        hlog_set_level_by_str(str.c_str());
     }
-    hlog_set_level(loglevel);
     // log_filesize
     str = ini.GetValue("log_filesize");
     if (!str.empty()) {
-        int num = atoi(str.c_str());
-        if (num > 0) {
-            // 16 16M 16MB
-            const char* p = str.c_str() + str.size() - 1;
-            char unit;
-            if (*p >= '0' && *p <= '9') unit = 'M';
-            else if (*p == 'B')         unit = *(p-1);
-            else                        unit = *p;
-            unsigned long long filesize = num;
-            switch (unit) {
-            case 'K': filesize <<= 10; break;
-            case 'M': filesize <<= 20; break;
-            case 'G': filesize <<= 30; break;
-            default:  filesize <<= 20; break;
-            }
-            hlog_set_max_filesize(filesize);
-        }
+        hlog_set_max_filesize_by_str(str.c_str());
     }
     // log_remain_days
     str = ini.GetValue("log_remain_days");
     if (!str.empty()) {
         hlog_set_remain_days(atoi(str.c_str()));
     }
+    // log_fsync
+    str = ini.GetValue("log_fsync");
+    if (!str.empty()) {
+        logger_enable_fsync(hlog, getboolean(str.c_str()));
+    }
     hlogi("%s version: %s", g_main_ctx.program_name, hv_compile_version());
+    hlog_fsync();
 
     // worker_processes
     int worker_processes = 0;
@@ -263,23 +238,14 @@ int main(int argc, char** argv) {
             printf("daemon error: %d\n", ret);
             exit(-10);
         }
-        // parent process exit after daemon, so pid changed.
-        g_main_ctx.pid = getpid();
     }
 #endif
 
     // pidfile
     create_pidfile();
 
-    // HttpService
-    g_http_service.preprocessor = http_api_preprocessor;
-    g_http_service.postprocessor = http_api_postprocessor;
-#define XXX(path, method, handler) \
-    g_http_service.AddApi(path, HTTP_##method, handler);
-    HTTP_API_MAP(XXX)
-#undef XXX
-
     // http_server
+    Router::Register(g_http_service);
     g_http_server.service = &g_http_service;
     ret = http_server_run(&g_http_server);
     return ret;
