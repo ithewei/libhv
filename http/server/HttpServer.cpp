@@ -17,6 +17,7 @@ static FileCache    s_filecache;
 
 struct HttpServerPrivdata {
     std::vector<hloop_t*>   loops;
+    std::mutex              loops_mutex;
 };
 
 static void on_recv(hio_t* io, void* _buf, int readbytes) {
@@ -279,7 +280,9 @@ static void worker_fn(void* userdata) {
     hevent_set_userdata(timer, &s_filecache);
     // for SDK implement http_server_stop
     HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
+    privdata->loops_mutex.lock();
     privdata->loops.push_back(loop);
+    privdata->loops_mutex.unlock();
     hloop_run(loop);
     hloop_free(&loop);
 }
