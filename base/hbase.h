@@ -24,8 +24,11 @@ HV_EXPORT void  safe_free(void* ptr);
 
 #define HV_FREE(ptr)\
     do {\
-        safe_free(ptr);\
-        printd("free( %p )\tat [%s:%d:%s]\n", ptr, __FILE__, __LINE__, __FUNCTION__);\
+        if (ptr) {\
+            safe_free(ptr);\
+            printd("free( %p )\tat [%s:%d:%s]\n", ptr, __FILE__, __LINE__, __FUNCTION__);\
+            ptr = NULL;\
+        }\
     } while(0)
 
 HV_EXPORT long hv_alloc_cnt();

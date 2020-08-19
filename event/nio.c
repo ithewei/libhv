@@ -192,7 +192,7 @@ read:
         }
         else {
             io->error = socket_errno();
-            /* perror("read"); */
+            // perror("read");
             goto read_error;
         }
     }
@@ -253,7 +253,7 @@ write:
         }
         else {
             io->error = socket_errno();
-            /* perror("write"); */
+            // perror("write");
             goto write_error;
         }
     }
@@ -384,7 +384,7 @@ try_write:
                 goto enqueue;
             }
             else {
-                /* perror("write"); */
+                // perror("write");
                 io->error = socket_errno();
                 goto write_error;
             }
@@ -401,9 +401,9 @@ try_write:
             //goto write_done;
             return nwrite;
         }
+enqueue:
         hio_add(io, hio_handle_events, HV_WRITE);
     }
-enqueue:
     if (nwrite < len) {
         offset_buf_t rest;
         rest.len = len;
