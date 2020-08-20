@@ -32,7 +32,7 @@ void read_cb(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
     }
     uv_write_req_t* wr = (uv_write_req_t*)malloc(sizeof(uv_write_req_t));
     wr->buf.base = buf->base;
-    wr->buf.len = buf->len;
+    wr->buf.len = nread;
     uv_write(&wr->req, stream, &wr->buf, 1, write_cb);
 }
 

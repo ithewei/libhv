@@ -1,8 +1,13 @@
-#! /bin/bash
+#!/bin/bash
+
+SCRIPT_DIR=$(cd `dirname $0`; pwd)
+cd ${SCRIPT_DIR}/..
 
 killall_echo_servers() {
     #sudo killall libevent_echo libev_echo libuv_echo libhv_echo asio_echo poco_echo muduo_echo
-    ps aux | grep _echo | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+    if [ $(ps aux | grep _echo | grep -v grep | wc -l) -gt 0 ]; then
+        ps aux | grep _echo | grep -v grep | awk '{print $2}' | xargs sudo kill -9
+    fi
 }
 
 export LD_LIBRARY_PATH=lib:$LD_LIBRARY_PATH
@@ -58,7 +63,7 @@ fi
 sleep 1
 
 client=2
-time=60
+time=10
 if [ $# -gt 0 ]; then
     time=$1
 fi

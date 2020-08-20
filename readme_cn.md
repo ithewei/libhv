@@ -228,14 +228,12 @@ bin/curl -v localhost:8080 --http2
 
 ### echo-servers
 ```shell
-make libhv
-make webbench
-
 # ubuntu16.04
-sudo apt-get install libevent-dev libev-dev libuv1-dev libboost-dev libasio-dev libpoco-dev
+sudo apt install libevent-dev libev-dev libuv1-dev libboost-dev libboost-system-dev libasio-dev libpoco-dev
 # muduo install => https://github.com/chenshuo/muduo.git
-make echo-servers
-sudo echo-servers/benchmark.sh
+cd echo-servers
+./build.sh
+./benchmark.sh
 ```
 
 **echo-servers/benchmark**<br>
