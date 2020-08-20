@@ -1,27 +1,35 @@
 #!/bin/bash
 
 SCRIPT_DIR=$(cd `dirname $0`; pwd)
-cd ${SCRIPT_DIR}/..
+ROOT_DIR=${SCRIPT_DIR}/..
 
 # install libevent libev libuv asio poco
 UNAME=$(uname -a)
 case ${UNAME} in
     *Ubuntu*|*Debian*)
-        sudo apt install libevent-dev libev-dev libuv1-dev libboost-dev libboost-system-dev libasio-dev libpoco-dev;;
-    *Centos*);;
-    *Darwin*);;
-    *);;
+        sudo apt install libevent-dev libev-dev libuv1-dev libboost-dev libboost-system-dev libasio-dev libpoco-dev
+        ;;
+    *CentOS*)
+        sudo yum install libevent-devel libev-devel libuv-devel boost-devel asio-devel poco-devel
+        ;;
+    *Darwin*)
+        brew install libevent libev libuv boost asio poco
+        ;;
+    *)
+        echo 'please install libevent libev libuv boost asio poco'
+        ;;
 esac
 
 # install muduo => https://github.com/chenshuo/muduo.git
 if false; then
+cd ${ROOT_DIR}/..
 git clone https://github.com/chenshuo/muduo.git
-pushd muduo
+cd muduo
 mkdir build && cd build
-make && sudo make install
-popd
+cmake .. && make && sudo make install
 fi
 
+cd ${ROOT_DIR}
 make libhv && sudo make install
 make echo-servers
 make webbench

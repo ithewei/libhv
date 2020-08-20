@@ -17,11 +17,6 @@ do
     esac
 done
 
-echo host=$host
-echo port=$port
-echo client=$client
-echo time=$time
-
 SCRIPT_DIR=$(cd `dirname $0`; pwd)
 cd ${SCRIPT_DIR}/..
 
