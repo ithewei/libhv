@@ -14,6 +14,14 @@ case ${UNAME} in
 esac
 
 # install muduo => https://github.com/chenshuo/muduo.git
+if false; then
+git clone https://github.com/chenshuo/muduo.git
+pushd muduo
+mkdir build && cd build
+make && sudo make install
+popd
+fi
 
 make libhv && sudo make install
+make echo-servers
 make webbench

@@ -1,5 +1,27 @@
 #!/bin/bash
 
+host=127.0.0.1
+port=2000
+# client: fork numbers
+client=2
+time=10
+
+while getopts 'h:p:c:t:' opt
+do
+    case $opt in
+        h) host=$OPTARG;;
+        p) port=$OPTARG;;
+        c) client=$OPTARG;;
+        t) time=$OPTARG;;
+        *) exit -1;;
+    esac
+done
+
+echo host=$host
+echo port=$port
+echo client=$client
+echo time=$time
+
 SCRIPT_DIR=$(cd `dirname $0`; pwd)
 cd ${SCRIPT_DIR}/..
 
@@ -12,11 +34,9 @@ killall_echo_servers() {
 
 export LD_LIBRARY_PATH=lib:$LD_LIBRARY_PATH
 
-ip=127.0.0.1
-sport=2000
-port=$sport
-
 killall_echo_servers
+
+sport=$port
 
 if [ -x bin/libevent_echo ]; then
     let port++
@@ -62,14 +82,9 @@ fi
 
 sleep 1
 
-client=2
-time=10
-if [ $# -gt 0 ]; then
-    time=$1
-fi
 for ((p=$sport+1; p<=$port; ++p)); do
     echo -e "\n==============$p====================================="
-    bin/webbench -q -c $client -t $time $ip:$p
+    bin/webbench -q -c $client -t $time $host:$p
     sleep 1
 done
 
