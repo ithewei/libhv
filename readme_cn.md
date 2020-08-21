@@ -237,7 +237,7 @@ cd echo-servers
 ```
 
 **echo-servers/benchmark**<br>
-![echo-servers](html/downloads/echo-servers.jpg)
+![echo-servers](html/downloads/echo-servers.png)
 
 注：因为客户端和服务端测试位于同一台机器，上图结果仅供参考。总的来说，这些库性能接近，各有千秋。
 

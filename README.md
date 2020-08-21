@@ -238,8 +238,5 @@ cd echo-servers
 ```
 
 **echo-servers/benchmark**<br>
-![echo-servers](html/downloads/echo-servers.jpg)
-
-Note: The client and servers are located in the same computer, the results are random, for reference only.
-In general, the performance of these libraries are similar, each has its own advantages.
+![echo-servers](html/downloads/echo-servers.png)
 
