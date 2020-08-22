@@ -1,0 +1,289 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{0A6CE059-DCEB-397E-AC8F-4A73D98297D6}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>Win32</Platform>
+    <ProjectName>hv_static</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">S:\repos\libhv\vs2015\lib\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">hv_static.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">hv_static</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">S:\repos\libhv\vs2015\lib\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">hv_static.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">hv_static</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>S:\repos\libhv\.;S:\repos\libhv\include;S:\repos\libhv\3rd\include;S:\repos\libhv\src;S:\repos\libhv\base;S:\repos\libhv\utils;S:\repos\libhv\event;S:\repos\libhv\protocol;S:\repos\libhv\http;S:\repos\libhv\http\server;S:\repos\libhv\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;HV_STATICLIB;_WIN32_WINNT=0x0600;CMAKE_INTDIR="Debug";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;HV_STATICLIB;_WIN32_WINNT=0x0600;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>S:\repos\libhv\.;S:\repos\libhv\include;S:\repos\libhv\3rd\include;S:\repos\libhv\src;S:\repos\libhv\base;S:\repos\libhv\utils;S:\repos\libhv\event;S:\repos\libhv\protocol;S:\repos\libhv\http;S:\repos\libhv\http\server;S:\repos\libhv\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>S:\repos\libhv\.;S:\repos\libhv\include;S:\repos\libhv\3rd\include;S:\repos\libhv\src;S:\repos\libhv\base;S:\repos\libhv\utils;S:\repos\libhv\event;S:\repos\libhv\protocol;S:\repos\libhv\http;S:\repos\libhv\http\server;S:\repos\libhv\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:X86</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>S:\repos\libhv\.;S:\repos\libhv\include;S:\repos\libhv\3rd\include;S:\repos\libhv\src;S:\repos\libhv\base;S:\repos\libhv\utils;S:\repos\libhv\event;S:\repos\libhv\protocol;S:\repos\libhv\http;S:\repos\libhv\http\server;S:\repos\libhv\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;HV_STATICLIB;_WIN32_WINNT=0x0600;CMAKE_INTDIR="Release";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;HV_STATICLIB;_WIN32_WINNT=0x0600;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>S:\repos\libhv\.;S:\repos\libhv\include;S:\repos\libhv\3rd\include;S:\repos\libhv\src;S:\repos\libhv\base;S:\repos\libhv\utils;S:\repos\libhv\event;S:\repos\libhv\protocol;S:\repos\libhv\http;S:\repos\libhv\http\server;S:\repos\libhv\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>S:\repos\libhv\.;S:\repos\libhv\include;S:\repos\libhv\3rd\include;S:\repos\libhv\src;S:\repos\libhv\base;S:\repos\libhv\utils;S:\repos\libhv\event;S:\repos\libhv\protocol;S:\repos\libhv\http;S:\repos\libhv\http\server;S:\repos\libhv\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Lib>
+      <AdditionalOptions>%(AdditionalOptions) /machine:X86</AdditionalOptions>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="S:\repos\libhv\CMakeLists.txt">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Building Custom Rule S:/repos/libhv/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">setlocal
+D:\app\cmake-3.16.6-win64-x64\bin\cmake.exe -SS:/repos/libhv -BS:/repos/libhv/vs2015 --check-stamp-file S:/repos/libhv/vs2015/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeCInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeCXXInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeCommonLanguageInclude.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeGenericSystem.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeInitializeConfigs.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeLanguageInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeRCInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeSystemSpecificInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeSystemSpecificInitialize.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CheckIncludeFiles.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CheckSymbolExists.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Compiler\CMakeCommonCompilerMacros.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Compiler\MSVC-C.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Compiler\MSVC-CXX.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\Windows-MSVC-C.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\Windows-MSVC-CXX.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\Windows-MSVC.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\Windows.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\WindowsPaths.cmake;S:\repos\libhv\CMake\utils.cmake;S:\repos\libhv\CMake\vars.cmake;S:\repos\libhv\hconfig.h.in;S:\repos\libhv\vs2015\CMakeFiles\3.16.6\CMakeCCompiler.cmake;S:\repos\libhv\vs2015\CMakeFiles\3.16.6\CMakeCXXCompiler.cmake;S:\repos\libhv\vs2015\CMakeFiles\3.16.6\CMakeRCCompiler.cmake;S:\repos\libhv\vs2015\CMakeFiles\3.16.6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">S:\repos\libhv\vs2015\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Building Custom Rule S:/repos/libhv/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">setlocal
+D:\app\cmake-3.16.6-win64-x64\bin\cmake.exe -SS:/repos/libhv -BS:/repos/libhv/vs2015 --check-stamp-file S:/repos/libhv/vs2015/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeCInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeCXXInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeCommonLanguageInclude.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeGenericSystem.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeInitializeConfigs.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeLanguageInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeRCInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeSystemSpecificInformation.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CMakeSystemSpecificInitialize.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CheckIncludeFiles.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\CheckSymbolExists.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Compiler\CMakeCommonCompilerMacros.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Compiler\MSVC-C.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Compiler\MSVC-CXX.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\Windows-MSVC-C.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\Windows-MSVC-CXX.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\Windows-MSVC.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\Windows.cmake;D:\app\cmake-3.16.6-win64-x64\share\cmake-3.16\Modules\Platform\WindowsPaths.cmake;S:\repos\libhv\CMake\utils.cmake;S:\repos\libhv\CMake\vars.cmake;S:\repos\libhv\hconfig.h.in;S:\repos\libhv\vs2015\CMakeFiles\3.16.6\CMakeCCompiler.cmake;S:\repos\libhv\vs2015\CMakeFiles\3.16.6\CMakeCXXCompiler.cmake;S:\repos\libhv\vs2015\CMakeFiles\3.16.6\CMakeRCCompiler.cmake;S:\repos\libhv\vs2015\CMakeFiles\3.16.6\CMakeSystem.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">S:\repos\libhv\vs2015\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="S:\repos\libhv\base\RAII.cpp" />
+    <ClCompile Include="S:\repos\libhv\base\hbase.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\base\hdir.cpp" />
+    <ClCompile Include="S:\repos\libhv\base\herr.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\base\hlog.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\base\hsocket.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\base\hstring.cpp" />
+    <ClCompile Include="S:\repos\libhv\base\htime.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\base\hurl.cpp" />
+    <ClCompile Include="S:\repos\libhv\base\hversion.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\base\ifconfig.cpp" />
+    <ClCompile Include="S:\repos\libhv\base\ssl_ctx.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\utils\base64.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\utils\hmain.cpp" />
+    <ClCompile Include="S:\repos\libhv\utils\iniparser.cpp" />
+    <ClCompile Include="S:\repos\libhv\utils\md5.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\epoll.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\evport.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\hevent.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\hloop.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\iocp.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\kqueue.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\nio.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\nlog.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\nmap.cpp" />
+    <ClCompile Include="S:\repos\libhv\event\noevent.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\overlapio.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\poll.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\event\select.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\protocol\dns.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\protocol\ftp.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\protocol\icmp.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\protocol\smtp.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\http\Http1Parser.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\Http2Parser.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\HttpMessage.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\HttpParser.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\http_content.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\http_parser.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\http\httpdef.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\http\multipart_parser.c">
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">CompileAsC</CompileAs>
+      <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">CompileAsC</CompileAs>
+    </ClCompile>
+    <ClCompile Include="S:\repos\libhv\http\server\FileCache.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\server\HttpHandler.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\server\HttpServer.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\server\HttpService.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\server\http_page.cpp" />
+    <ClCompile Include="S:\repos\libhv\http\client\http_client.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="S:\repos\libhv\vs2015\ZERO_CHECK.vcxproj">
+      <Project>{C514CE56-E21C-34D1-A82B-5F6FD510C149}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

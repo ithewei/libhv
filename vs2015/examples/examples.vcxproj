@@ -1,0 +1,173 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{17854119-4DA1-3A0D-BACC-3DFBD98D97E2}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>Win32</Platform>
+    <ProjectName>examples</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Utility</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Midl>
+      <AdditionalIncludeDirectories>S:\repos\libhv\.;S:\repos\libhv\include;S:\repos\libhv\3rd\include;S:\repos\libhv\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Midl>
+      <AdditionalIncludeDirectories>S:\repos\libhv\.;S:\repos\libhv\include;S:\repos\libhv\3rd\include;S:\repos\libhv\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <CustomBuild Include="S:\repos\libhv\vs2015\CMakeFiles\669e45ac34618e185605e101fc0eaca5\examples.rule">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">S:\repos\libhv\vs2015\examples\bin\Debug\hmain_test.exe;S:\repos\libhv\vs2015\examples\bin\Debug\htimer_test.exe;S:\repos\libhv\vs2015\examples\bin\Debug\hloop_test.exe;S:\repos\libhv\vs2015\examples\bin\Debug\tcp.exe;S:\repos\libhv\vs2015\examples\bin\Debug\udp.exe;S:\repos\libhv\vs2015\examples\bin\Debug\nc.exe;S:\repos\libhv\vs2015\examples\bin\Debug\nmap.exe;S:\repos\libhv\vs2015\examples\bin\Debug\httpd.exe;S:\repos\libhv\vs2015\examples\bin\Debug\curl.exe;S:\repos\libhv\vs2015\examples\bin\Debug\consul_cli.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">S:\repos\libhv\vs2015\examples\CMakeFiles\examples</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'"></Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">setlocal
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">S:\repos\libhv\vs2015\examples\bin\Release\hmain_test.exe;S:\repos\libhv\vs2015\examples\bin\Release\htimer_test.exe;S:\repos\libhv\vs2015\examples\bin\Release\hloop_test.exe;S:\repos\libhv\vs2015\examples\bin\Release\tcp.exe;S:\repos\libhv\vs2015\examples\bin\Release\udp.exe;S:\repos\libhv\vs2015\examples\bin\Release\nc.exe;S:\repos\libhv\vs2015\examples\bin\Release\nmap.exe;S:\repos\libhv\vs2015\examples\bin\Release\httpd.exe;S:\repos\libhv\vs2015\examples\bin\Release\curl.exe;S:\repos\libhv\vs2015\examples\bin\Release\consul_cli.exe;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">S:\repos\libhv\vs2015\examples\CMakeFiles\examples</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="S:\repos\libhv\examples\CMakeLists.txt">
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Building Custom Rule S:/repos/libhv/examples/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">setlocal
+D:\app\cmake-3.16.6-win64-x64\bin\cmake.exe -SS:/repos/libhv -BS:/repos/libhv/vs2015 --check-stamp-file S:/repos/libhv/vs2015/examples/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">S:\repos\libhv\vs2015\examples\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</LinkObjects>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Building Custom Rule S:/repos/libhv/examples/CMakeLists.txt</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">setlocal
+D:\app\cmake-3.16.6-win64-x64\bin\cmake.exe -SS:/repos/libhv -BS:/repos/libhv/vs2015 --check-stamp-file S:/repos/libhv/vs2015/examples/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd</Command>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">S:\repos\libhv\vs2015\examples\CMakeFiles\generate.stamp</Outputs>
+      <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">false</LinkObjects>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="S:\repos\libhv\vs2015\examples\CMakeFiles\examples" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="S:\repos\libhv\vs2015\ZERO_CHECK.vcxproj">
+      <Project>{C514CE56-E21C-34D1-A82B-5F6FD510C149}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\consul_cli.vcxproj">
+      <Project>{9C99785B-DFAC-398A-BBF8-A4243AB00583}</Project>
+      <Name>consul_cli</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\curl.vcxproj">
+      <Project>{ED79FC32-574F-3EFB-8C87-E2772018AD40}</Project>
+      <Name>curl</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\hloop_test.vcxproj">
+      <Project>{8919753D-5033-3E3C-ACF6-A691BA6D27CA}</Project>
+      <Name>hloop_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\hmain_test.vcxproj">
+      <Project>{25B7E018-1F39-3DED-940E-E66ABDC41A8C}</Project>
+      <Name>hmain_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\htimer_test.vcxproj">
+      <Project>{B74A4065-0487-321B-8344-F1DB8C652C0D}</Project>
+      <Name>htimer_test</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\httpd.vcxproj">
+      <Project>{897B0A4C-A640-3E2D-BBD7-2D715B139ACC}</Project>
+      <Name>httpd</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\nc.vcxproj">
+      <Project>{AB18DC0D-F3C9-3988-9BB7-A52A585540EB}</Project>
+      <Name>nc</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\nmap.vcxproj">
+      <Project>{EB5933D4-107A-3E68-B464-12EF0A13CB3A}</Project>
+      <Name>nmap</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\tcp.vcxproj">
+      <Project>{3B210E51-2D3C-39A2-818F-CE190FF016EF}</Project>
+      <Name>tcp</Name>
+    </ProjectReference>
+    <ProjectReference Include="S:\repos\libhv\vs2015\examples\udp.vcxproj">
+      <Project>{94B94387-D903-3192-90DD-139904C3DF0F}</Project>
+      <Name>udp</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

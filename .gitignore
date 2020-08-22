@@ -58,3 +58,8 @@ build
 *.vcxproj.*
 Debug
 Release
+
+# cmake
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
