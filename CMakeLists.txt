@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.0)
 
-project(hv VERSION 1.20)
+project(hv VERSION 1.20.8)
 
 option(BUILD_SHARED "build shared library" ON)
 option(BUILD_STATIC "build static library" ON)
@@ -169,6 +169,7 @@ if(BUILD_STATIC)
     add_custom_target(libhv_static DEPENDS hv_static)
 endif()
 
+file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
 
 add_subdirectory(unittest)

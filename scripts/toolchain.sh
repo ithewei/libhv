@@ -54,10 +54,10 @@ main() {
             *) TARGET_OS=Linux ;;
         esac
         # TARGET_OS,TARGET_ARCH used by make
-        export H_HOST_OS=$HOST_OS
-        export H_HOST_ARCH=$HOST_ARCH
-        export H_TARGET_OS=$TARGET_OS
-        export H_TARGET_ARCH=$TARGET_ARCH
+        export HV_HOST_OS=$HOST_OS
+        export HV_HOST_ARCH=$HOST_ARCH
+        export HV_TARGET_OS=$TARGET_OS
+        export HV_TARGET_ARCH=$TARGET_ARCH
         export HOST=$TARGET_PLATFORM
     elif [ $COMMAND = "unset" ]; then
         unset  CROSS_COMPILE
@@ -95,7 +95,7 @@ echo "STRIP  =   $STRIP"
 echo "RANLIB =   $RANLIB"
 echo "NM     =   $NM"
 
-echo "H_HOST_OS     = $HOST_OS"
-echo "H_HOST_ARCH   = $HOST_ARCH"
-echo "H_TARGET_OS   = $TARGET_OS"
-echo "H_TARGET_ARCH = $TARGET_ARCH"
+echo "HV_HOST_OS     = $HOST_OS"
+echo "HV_HOST_ARCH   = $HOST_ARCH"
+echo "HV_TARGET_OS   = $TARGET_OS"
+echo "HV_TARGET_ARCH = $TARGET_ARCH"

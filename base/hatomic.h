@@ -14,7 +14,7 @@ using std::atomic_long;
 
 #else
 
-#include "hconfig.h"    // for HAVE_STDATOMIC_H
+#include "hplatform.h"  // for HAVE_STDATOMIC_H
 #if HAVE_STDATOMIC_H
 
 // c11
@@ -28,8 +28,6 @@ using std::atomic_long;
 #define ATOMIC_DEC(p)               ATOMIC_SUB(p, 1)
 
 #else
-
-#include "hplatform.h"  // for bool, size_t
 
 typedef volatile bool               atomic_bool;
 typedef volatile char               atomic_char;

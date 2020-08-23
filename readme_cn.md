@@ -186,8 +186,6 @@ bin/nc 127.0.0.1 10514
 - make unittest
 
 ### 编译选项
-#### 打印调试信息
-- make DEFINES=PRINT_DEBUG
 
 #### 编译WITH_OPENSSL
 libhv完美结合了OpenSSL库，这是几乎所有的异步IO库没有做的一点。
@@ -202,7 +200,7 @@ int hio_enable_ssl(hio_t* io);
 
 https就是做好的例子:
 ```
-sudo apt-get install openssl libssl-dev # ubuntu
+sudo apt install openssl libssl-dev # ubuntu
 make clean
 make libhv httpd curl WITH_OPENSSL=yes
 # editor etc/httpd.conf => ssl = on
@@ -216,7 +214,7 @@ curl -v https://localhost:8080 --insecure
 
 #### 编译WITH_NGHTTP2
 ```
-sudo apt-get install libnghttp2-dev # ubuntu
+sudo apt install libnghttp2-dev # ubuntu
 make clean
 make libhv httpd curl WITH_NGHTTP2=yes
 bin/httpd -d

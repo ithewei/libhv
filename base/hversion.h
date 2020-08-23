@@ -8,7 +8,7 @@ BEGIN_EXTERN_C
 
 #define HV_VERSION_MAJOR    1
 #define HV_VERSION_MINOR    20
-#define HV_VERSION_PATCH    7
+#define HV_VERSION_PATCH    8
 
 #define HV_VERSION_STRING   STRINGIFY(HV_VERSION_MAJOR) "." \
                             STRINGIFY(HV_VERSION_MINOR) "." \
