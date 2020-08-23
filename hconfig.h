@@ -10,7 +10,7 @@
 #endif
 
 #ifndef HAVE_STDATOMIC_H
-#define HAVE_STDATOMIC_H 0
+#define HAVE_STDATOMIC_H 1
 #endif
 
 #ifndef HAVE_SYS_TYPES_H

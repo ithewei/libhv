@@ -187,8 +187,6 @@ bin/nc 127.0.0.1 10514
 - make unittest
 
 ### compile options
-#### compile with print debug info
-- make DEFINES=PRINT_DEBUG
 
 #### compile WITH_OPENSSL
 libhv combines OpenSSL perfectly, something almost all asynchronous IO network libraries don't do.<br>
@@ -203,7 +201,7 @@ int hio_enable_ssl(hio_t* io);
 
 https is the best example.
 ```
-sudo apt-get install openssl libssl-dev # ubuntu
+sudo apt install openssl libssl-dev # ubuntu
 make clean
 make libhv httpd curl WITH_OPENSSL=yes
 # editor etc/httpd.conf => ssl = on
@@ -217,7 +215,7 @@ curl -v https://localhost:8080 --insecure
 
 #### compile WITH_NGHTTP2
 ```
-sudo apt-get install libnghttp2-dev # ubuntu
+sudo apt install libnghttp2-dev # ubuntu
 make clean
 make libhv httpd curl WITH_NGHTTP2=yes
 bin/httpd -d
