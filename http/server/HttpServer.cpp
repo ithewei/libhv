@@ -189,7 +189,10 @@ handle_request:
         }
     }
 
-    hlogi("[%s:%d][%s %s]=>[%d %s]",
+    static long s_pid = hv_getpid();
+    long tid = hv_gettid();
+    hlogi("[%ld-%ld][%s:%d][%s %s]=>[%d %s]",
+        s_pid, tid,
         handler->ip, handler->port,
         http_method_str(req->method), req->path.c_str(),
         res->status_code, http_status_str(res->status_code));

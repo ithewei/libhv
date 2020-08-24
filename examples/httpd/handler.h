@@ -37,6 +37,22 @@ public:
         return 0;
     }
 
+    static int sleep(HttpRequest* req, HttpResponse* res) {
+        time_t start_time = time(NULL);
+        std::string strTime = req->GetParam("t");
+        if (!strTime.empty()) {
+            int sec = atoi(strTime.c_str());
+            if (sec > 0) {
+                hv_delay(sec*1000);
+            }
+        }
+        time_t end_time = time(NULL);
+        res->Set("start_time", start_time);
+        res->Set("end_time", end_time);
+        response_status(res, 0, "OK");
+        return 200;
+    }
+
     static int query(HttpRequest* req, HttpResponse* res) {
         // scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
         // ?query => HttpRequest::query_params

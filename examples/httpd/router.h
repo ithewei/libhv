@@ -25,6 +25,9 @@ public:
             return 200;
         });
 
+        // curl -v http://ip:port/sleep?t=3
+        http.GET("/sleep", Handler::sleep);
+
         // curl -v http://ip:port/query?page_no=1\&page_size=10
         http.GET("/query", Handler::query);
 
