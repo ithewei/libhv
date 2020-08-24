@@ -102,19 +102,22 @@ static inline void honce(honce_t* once, honce_fn fn) {
 #define htimed_mutex_destroy        pthread_mutex_destroy
 #define htimed_mutex_lock           pthread_mutex_lock
 #define htimed_mutex_unlock         pthread_mutex_unlock
+static inline void timespec_after(struct timespec* ts, unsigned int ms) {
+    struct timeval  tv;
+    gettimeofday(&tv, NULL);
+    ts->tv_sec = tv.tv_sec + ms / 1000;
+    ts->tv_nsec = tv.tv_usec * 1000 + ms % 1000 * 1000000;
+    if (ts->tv_nsec >= 1000000000) {
+        ts->tv_nsec -= 1000000000;
+        ts->tv_sec += 1;
+    }
+}
 // true:  OK
 // false: ETIMEDOUT
 static inline int htimed_mutex_lock_for(htimed_mutex_t* mutex, unsigned int ms) {
 #if HAVE_PTHREAD_MUTEX_TIMEDLOCK
     struct timespec ts;
-    struct timeval  tv;
-    gettimeofday(&tv, NULL);
-    ts.tv_sec = tv.tv_sec + ms / 1000;
-    ts.tv_nsec = tv.tv_usec * 1000 + ms % 1000 * 1000000;
-    if (ts.tv_nsec >= 1000000000) {
-        ts.tv_nsec -= 1000000000;
-        ts.tv_sec += 1;
-    }
+    timespec_after(&ts, ms);
     return pthread_mutex_timedlock(mutex, &ts) != ETIMEDOUT;
 #else
     int ret = 0;
@@ -139,14 +142,7 @@ static inline int htimed_mutex_lock_for(htimed_mutex_t* mutex, unsigned int ms) 
 // false: ETIMEDOUT
 static inline int hcondvar_wait_for(hcondvar_t* cond, hmutex_t* mutex, unsigned int ms) {
     struct timespec ts;
-    struct timeval  tv;
-    gettimeofday(&tv, NULL);
-    ts.tv_sec = tv.tv_sec + ms / 1000;
-    ts.tv_nsec = tv.tv_usec * 1000 + ms % 1000 * 1000000;
-    if (ts.tv_nsec >= 1000000000) {
-        ts.tv_nsec -= 1000000000;
-        ts.tv_sec += 1;
-    }
+    timespec_after(&ts, ms);
     return pthread_cond_timedwait(cond, mutex, &ts) != ETIMEDOUT;
 }
 
@@ -165,14 +161,7 @@ static inline int hcondvar_wait_for(hcondvar_t* cond, hmutex_t* mutex, unsigned 
 static inline int hsem_wait_for(hsem_t* sem, unsigned int ms) {
 #if HAVE_SEM_TIMEDWAIT
     struct timespec ts;
-    struct timeval  tv;
-    gettimeofday(&tv, NULL);
-    ts.tv_sec = tv.tv_sec + ms / 1000;
-    ts.tv_nsec = tv.tv_usec * 1000 + ms % 1000 * 1000000;
-    if (ts.tv_nsec >= 1000000000) {
-        ts.tv_nsec -= 1000000000;
-        ts.tv_sec += 1;
-    }
+    timespec_after(&ts, ms);
     return sem_timedwait(sem, &ts) != ETIMEDOUT;
 #else
     int ret = 0;
