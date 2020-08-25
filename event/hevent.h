@@ -89,6 +89,7 @@ struct hperiod_s {
 QUEUE_DECL(offset_buf_t, write_queue);
 struct hio_s {
     HEVENT_FIELDS
+    // flags
     unsigned    ready       :1;
     unsigned    closed      :1;
     unsigned    accept      :1;
@@ -98,6 +99,7 @@ struct hio_s {
     unsigned    send        :1;
     unsigned    recvfrom    :1;
     unsigned    sendto      :1;
+// public:
     int         fd;
     hio_type_e  io_type;
     int         error;
@@ -113,11 +115,18 @@ struct hio_s {
     hclose_cb   close_cb;
     haccept_cb  accept_cb;
     hconnect_cb connect_cb;
-//private:
+    // timers
+    int         connect_timeout;    // ms
+    htimer_t*   connect_timer;
+    int         keepalive_timeout;  // ms
+    htimer_t*   keepalive_timer;
+    int         heartbeat_interval; // ms
+    hio_send_heartbeat_fn heartbeat_fn;
+    htimer_t*   heartbeat_timer;
+// private:
     int         event_index[2]; // for poll,kqueue
     void*       hovlp;          // for iocp/overlapio
     void*       ssl;            // for SSL
-    htimer_t*   timer;          // for io timeout
 };
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)

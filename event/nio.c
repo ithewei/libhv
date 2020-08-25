@@ -4,6 +4,148 @@
 #include "hsocket.h"
 #include "hlog.h"
 
+static void __connect_timeout_cb(htimer_t* timer) {
+    hio_t* io = (hio_t*)timer->privdata;
+    if (io) {
+        char localaddrstr[SOCKADDR_STRLEN] = {0};
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
+        hlogw("connect timeout [%s] <=> [%s]",
+                SOCKADDR_STR(io->localaddr, localaddrstr),
+                SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        hio_close(io);
+    }
+}
+
+static void __keepalive_timeout_cb(htimer_t* timer) {
+    hio_t* io = (hio_t*)timer->privdata;
+    if (io) {
+        char localaddrstr[SOCKADDR_STRLEN] = {0};
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
+        hlogw("keepalive timeout [%s] <=> [%s]",
+                SOCKADDR_STR(io->localaddr, localaddrstr),
+                SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        hio_close(io);
+    }
+}
+
+static void __heartbeat_timer_cb(htimer_t* timer) {
+    hio_t* io = (hio_t*)timer->privdata;
+    if (io && io->heartbeat_fn) {
+        io->heartbeat_fn(io);
+    }
+}
+
+static void __accept_cb(hio_t* io) {
+    /*
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
+    printd("accept connfd=%d [%s] <= [%s]\n", io->fd,
+            SOCKADDR_STR(io->localaddr, localaddrstr),
+            SOCKADDR_STR(io->peeraddr, peeraddrstr));
+    */
+
+    if (io->accept_cb) {
+        // printd("accept_cb------\n");
+        io->accept_cb(io);
+        // printd("accept_cb======\n");
+    }
+
+    if (io->keepalive_timeout > 0) {
+        io->keepalive_timer = htimer_add(io->loop, __keepalive_timeout_cb, io->keepalive_timeout, 1);
+        io->keepalive_timer->privdata = io;
+    }
+
+    if (io->heartbeat_interval > 0) {
+        io->heartbeat_timer = htimer_add(io->loop, __heartbeat_timer_cb, io->heartbeat_interval, INFINITE);
+        io->heartbeat_timer->privdata = io;
+    }
+}
+
+static void __connect_cb(hio_t* io) {
+    /*
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
+    printd("connect connfd=%d [%s] => [%s]\n", io->fd,
+            SOCKADDR_STR(io->localaddr, localaddrstr),
+            SOCKADDR_STR(io->peeraddr, peeraddrstr));
+    */
+    if (io->connect_timer) {
+        htimer_del(io->connect_timer);
+        io->connect_timer = NULL;
+        io->connect_timeout = 0;
+    }
+
+    if (io->connect_cb) {
+        // printd("connect_cb------\n");
+        io->connect_cb(io);
+        // printd("connect_cb======\n");
+    }
+
+    if (io->keepalive_timeout > 0) {
+        io->keepalive_timer = htimer_add(io->loop, __keepalive_timeout_cb, io->keepalive_timeout, 1);
+        io->keepalive_timer->privdata = io;
+    }
+
+    if (io->heartbeat_interval > 0) {
+        io->heartbeat_timer = htimer_add(io->loop, __heartbeat_timer_cb, io->heartbeat_interval, INFINITE);
+        io->heartbeat_timer->privdata = io;
+    }
+}
+
+static void __read_cb(hio_t* io, void* buf, int readbytes) {
+    // printd("> %.*s\n", readbytes, buf);
+    if (io->keepalive_timer) {
+        htimer_reset(io->keepalive_timer);
+    }
+
+    if (io->read_cb) {
+        // printd("read_cb------\n");
+        io->read_cb(io, buf, readbytes);
+        // printd("read_cb======\n");
+    }
+}
+
+static void __write_cb(hio_t* io, const void* buf, int writebytes) {
+    // printd("< %.*s\n", writebytes, buf);
+    if (io->keepalive_timer) {
+        htimer_reset(io->keepalive_timer);
+    }
+
+    if (io->write_cb) {
+        // printd("write_cb------\n");
+        io->write_cb(io, buf, writebytes);
+        // printd("write_cb======\n");
+    }
+}
+
+static void __close_cb(hio_t* io) {
+    // printd("close fd=%d\n", io->fd);
+    if (io->connect_timer) {
+        htimer_del(io->connect_timer);
+        io->connect_timer = NULL;
+        io->connect_timeout = 0;
+    }
+
+    if (io->keepalive_timer) {
+        htimer_del(io->keepalive_timer);
+        io->keepalive_timer = NULL;
+        io->keepalive_timeout = 0;
+    }
+
+    if (io->heartbeat_timer) {
+        htimer_del(io->heartbeat_timer);
+        io->heartbeat_timer = NULL;
+        io->heartbeat_interval = 0;
+        io->heartbeat_fn = NULL;
+    }
+
+    if (io->close_cb) {
+        // printd("close_cb------\n");
+        io->close_cb(io);
+        // printd("close_cb======\n");
+    }
+}
+
 #ifdef WITH_OPENSSL
 #include "openssl/ssl.h"
 #include "openssl/err.h"
@@ -20,10 +162,10 @@ static void ssl_do_handshark(hio_t* io) {
         io->cb = NULL;
         printd("ssl handshark finished.\n");
         if (io->accept_cb) {
-            io->accept_cb(io);
+            __accept_cb(io);
         }
         else if (io->connect_cb) {
-            io->connect_cb(io);
+            __connect_cb(io);
         }
     }
     else {
@@ -63,6 +205,7 @@ accept:
     getsockname(connfd, io->localaddr, &addrlen);
     connio = hio_get(io->loop, connfd);
     // NOTE: inherit from listenio
+    connio->accept_cb = io->accept_cb;
     connio->userdata = io->userdata;
 
 #ifdef WITH_OPENSSL
@@ -74,7 +217,6 @@ accept:
         SSL* ssl = SSL_new(ssl_ctx);
         SSL_set_fd(ssl, connfd);
         connio->ssl = ssl;
-        connio->accept_cb = io->accept_cb;
         hio_enable_ssl(connio);
         //int ret = SSL_accept(ssl);
         SSL_set_accept_state(ssl);
@@ -82,20 +224,9 @@ accept:
     }
 #endif
 
-    if (io->io_type != HIO_TYPE_SSL) {
+    if (connio->io_type != HIO_TYPE_SSL) {
         // NOTE: SSL call accept_cb after handshark finished
-        if (io->accept_cb) {
-            /*
-            char localaddrstr[SOCKADDR_STRLEN] = {0};
-            char peeraddrstr[SOCKADDR_STRLEN] = {0};
-            printd("accept listenfd=%d connfd=%d [%s] <= [%s]\n", io->fd, connfd,
-                    SOCKADDR_STR(io->localaddr, localaddrstr),
-                    SOCKADDR_STR(io->peeraddr, peeraddrstr));
-            */
-            //printd("accept_cb------\n");
-            io->accept_cb(connio);
-            //printd("accept_cb======\n");
-        }
+        __accept_cb(connio);
     }
     goto accept;
 
@@ -115,13 +246,7 @@ static void nio_connect(hio_t* io) {
     else {
         addrlen = sizeof(sockaddr_u);
         getsockname(io->fd, io->localaddr, &addrlen);
-        /*
-        char localaddrstr[SOCKADDR_STRLEN] = {0};
-        char peeraddrstr[SOCKADDR_STRLEN] = {0};
-        printd("connect connfd=%d [%s] => [%s]\n", io->fd,
-                SOCKADDR_STR(io->localaddr, localaddrstr),
-                SOCKADDR_STR(io->peeraddr, peeraddrstr));
-        */
+
 #ifdef WITH_OPENSSL
         if (io->io_type == HIO_TYPE_SSL) {
             SSL_CTX* ssl_ctx = (SSL_CTX*)ssl_ctx_instance();
@@ -136,13 +261,10 @@ static void nio_connect(hio_t* io) {
             ssl_do_handshark(io);
         }
 #endif
+
         if (io->io_type != HIO_TYPE_SSL) {
             // NOTE: SSL call connect_cb after handshark finished
-            if (io->connect_cb) {
-                //printd("connect_cb------\n");
-                io->connect_cb(io);
-                //printd("connect_cb======\n");
-            }
+            __connect_cb(io);
         }
         return;
     }
@@ -199,12 +321,7 @@ read:
     if (nread == 0) {
         goto disconnect;
     }
-    //printd("> %.*s\n", nread, buf);
-    if (io->read_cb) {
-        //printd("read_cb------\n");
-        io->read_cb(io, buf, nread);
-        //printd("read_cb======\n");
-    }
+    __read_cb(io, buf, nread);
     if (nread == len) {
         goto read;
     }
@@ -260,11 +377,7 @@ write:
     if (nwrite == 0) {
         goto disconnect;
     }
-    if (io->write_cb) {
-        //printd("write_cb------\n");
-        io->write_cb(io, buf, nwrite);
-        //printd("write_cb======\n");
-    }
+    __write_cb(io, buf, nwrite);
     pbuf->offset += nwrite;
     if (nwrite == len) {
         HV_FREE(pbuf->base);
@@ -298,10 +411,6 @@ static void hio_handle_events(hio_t* io) {
             // NOTE: connect just do once
             // ONESHOT
             io->connect = 0;
-            if (io->timer) {
-                htimer_del(io->timer);
-                io->timer = NULL;
-            }
 
             nio_connect(io);
         }
@@ -318,11 +427,6 @@ int hio_accept(hio_t* io) {
     return 0;
 }
 
-#define CONNECT_TIMEOUT     5000 // ms
-static void connect_timeout_cb(htimer_t* timer) {
-    hio_close((hio_t*)timer->userdata);
-}
-
 int hio_connect(hio_t* io) {
     int ret = connect(io->fd, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
 #ifdef OS_WIN
@@ -336,14 +440,12 @@ int hio_connect(hio_t* io) {
     }
     if (ret == 0) {
         // connect ok
-        if (io->connect_cb) {
-            io->connect_cb(io);
-        }
+        __connect_cb(io);
         return 0;
     }
-    htimer_t* timer = htimer_add(io->loop, connect_timeout_cb, CONNECT_TIMEOUT, 1);
-    timer->userdata = io;
-    io->timer = timer;
+    int timeout = io->connect_timeout ? io->connect_timeout : HIO_DEFAULT_CONNECT_TIMEOUT;
+    io->connect_timer = htimer_add(io->loop, __connect_timeout_cb, timeout, 1);
+    io->connect_timer->privdata = io;
     return hio_add(io, hio_handle_events, HV_WRITE);
 }
 
@@ -392,11 +494,7 @@ try_write:
         if (nwrite == 0) {
             goto disconnect;
         }
-        if (io->write_cb) {
-            //printd("try_write_cb------\n");
-            io->write_cb(io, buf, nwrite);
-            //printd("try_write_cb======\n");
-        }
+        __write_cb(io, buf, nwrite);
         if (nwrite == len) {
             //goto write_done;
             return nwrite;
@@ -424,7 +522,6 @@ disconnect:
 }
 
 int hio_close (hio_t* io) {
-    printd("close fd=%d\n", io->fd);
     if (io->closed) return 0;
     io->closed = 1;
     hio_del(io, HV_RDWR);
@@ -438,11 +535,7 @@ int hio_close (hio_t* io) {
         SSL_free((SSL*)io->ssl);
     }
 #endif
-    if (io->close_cb) {
-        //printd("close_cb------\n");
-        io->close_cb(io);
-        //printd("close_cb======\n");
-    }
+    __close_cb(io);
     return 0;
 }
 #endif

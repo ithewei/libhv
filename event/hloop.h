@@ -5,8 +5,8 @@
 #include "hplatform.h"
 #include "hdef.h"
 
-typedef struct hloop_s  hloop_t;
-typedef struct hevent_s hevent_t;
+typedef struct hloop_s      hloop_t;
+typedef struct hevent_s     hevent_t;
 
 typedef struct hidle_s      hidle_t;
 typedef struct htimer_s     htimer_t;
@@ -54,6 +54,7 @@ typedef enum {
     uint64_t            event_id;       \
     hevent_cb           cb;             \
     void*               userdata;       \
+    void*               privdata;       \
     int                 priority;       \
     struct hevent_s*    pending_next;   \
     HEVENT_FLAGS
@@ -87,6 +88,10 @@ typedef enum {
     HIO_TYPE_SOCKET  = 0x00FFFF00,
 } hio_type_e;
 
+#define HIO_DEFAULT_CONNECT_TIMEOUT     5000    // ms
+#define HIO_DEFAULT_KEEPALIVE_TIMEOUT   75000   // ms
+#define HIO_DEFAULT_HEARTBEAT_INTERVAL  3000    // ms
+
 BEGIN_EXTERN_C
 
 // loop
@@ -108,6 +113,7 @@ HV_EXPORT void     hloop_update_time(hloop_t* loop);
 HV_EXPORT uint64_t hloop_now(hloop_t* loop);          // s
 HV_EXPORT uint64_t hloop_now_ms(hloop_t* loop);       // ms
 HV_EXPORT uint64_t hloop_now_hrtime(hloop_t* loop);   // us
+#define hloop_now_us hloop_now_hrtime
 
 // userdata
 HV_EXPORT void  hloop_set_userdata(hloop_t* loop, void* userdata);
@@ -185,18 +191,33 @@ HV_EXPORT hio_type_e hio_type(hio_t* io);
 HV_EXPORT struct sockaddr* hio_localaddr(hio_t* io);
 HV_EXPORT struct sockaddr* hio_peeraddr (hio_t* io);
 
-// TODO: One loop per thread, one readbuf per loop.
-// But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
-HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
-// Enable SSL/TLS is so easy :)
-HV_EXPORT int  hio_enable_ssl(hio_t* io);
-
 // set callbacks
 HV_EXPORT void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
 HV_EXPORT void hio_setcb_connect  (hio_t* io, hconnect_cb connect_cb);
 HV_EXPORT void hio_setcb_read     (hio_t* io, hread_cb    read_cb);
 HV_EXPORT void hio_setcb_write    (hio_t* io, hwrite_cb   write_cb);
 HV_EXPORT void hio_setcb_close    (hio_t* io, hclose_cb   close_cb);
+
+// some useful settings
+// Enable SSL/TLS is so easy :)
+HV_EXPORT int  hio_enable_ssl(hio_t* io);
+// TODO: One loop per thread, one readbuf per loop.
+// But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
+HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
+// connect timeout => hclose_cb
+HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
+// keepalive timeout => hclose_cb
+HV_EXPORT void hio_set_keepalive_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_KEEPALIVE_TIMEOUT));
+/*
+void send_heartbeat(hio_t* io) {
+    static char buf[] = "PING\r\n";
+    hio_write(io, buf, 6);
+}
+hio_set_heartbeat(io, 3000, send_heartbeat);
+*/
+typedef void (*hio_send_heartbeat_fn)(hio_t* io);
+// heartbeat interval => hio_send_heartbeat_fn
+HV_EXPORT void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn);
 
 // Nonblocking, poll IO events in the loop to call corresponding callback.
 HV_EXPORT int hio_accept (hio_t* io);

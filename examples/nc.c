@@ -14,6 +14,12 @@ hio_t*      sockio = NULL;
 
 int verbose = 0;
 
+void send_heartbeat(hio_t* io) {
+    static char buf[] = "PING\r\n";
+    // printf("send_heartbeat %s", buf);
+    hio_write(io, buf, 6);
+}
+
 void on_recv(hio_t* io, void* buf, int readbytes) {
     //printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     if (verbose) {
@@ -123,6 +129,7 @@ Examples: nc 127.0.0.1 80\n\
     hio_setcb_close(sockio, on_close);
     hio_setcb_read(sockio, on_recv);
     hio_set_readbuf(sockio, recvbuf, RECV_BUFSIZE);
+    // hio_set_heartbeat(sockio, 1000, send_heartbeat);
 
     hloop_run(loop);
     hloop_free(&loop);

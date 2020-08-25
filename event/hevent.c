@@ -21,27 +21,6 @@ struct sockaddr* hio_peeraddr(hio_t* io) {
     return io->peeraddr;
 }
 
-void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
-    if (buf == NULL || len == 0) {
-        hloop_t* loop = io->loop;
-        if (loop && (loop->readbuf.base == NULL || loop->readbuf.len == 0)) {
-            loop->readbuf.len = HLOOP_READ_BUFSIZE;
-            loop->readbuf.base = (char*)malloc(loop->readbuf.len);
-            io->readbuf = loop->readbuf;
-        }
-    }
-    else {
-        io->readbuf.base = (char*)buf;
-        io->readbuf.len = len;
-    }
-}
-
-int hio_enable_ssl(hio_t* io) {
-    printd("ssl fd=%d\n", io->fd);
-    io->io_type = HIO_TYPE_SSL;
-    return 0;
-}
-
 void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb) {
     io->accept_cb = accept_cb;
 }
@@ -78,4 +57,37 @@ void hio_set_peeraddr (hio_t* io, struct sockaddr* addr, int addrlen) {
         HV_ALLOC(io->peeraddr, sizeof(sockaddr_u));
     }
     memcpy(io->peeraddr, addr, addrlen);
+}
+
+int hio_enable_ssl(hio_t* io) {
+    io->io_type = HIO_TYPE_SSL;
+    return 0;
+}
+
+void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
+    if (buf == NULL || len == 0) {
+        hloop_t* loop = io->loop;
+        if (loop && (loop->readbuf.base == NULL || loop->readbuf.len == 0)) {
+            loop->readbuf.len = HLOOP_READ_BUFSIZE;
+            HV_ALLOC(loop->readbuf.base, loop->readbuf.len);
+            io->readbuf = loop->readbuf;
+        }
+    }
+    else {
+        io->readbuf.base = (char*)buf;
+        io->readbuf.len = len;
+    }
+}
+
+void hio_set_connect_timeout(hio_t* io, int timeout_ms) {
+    io->connect_timeout = timeout_ms;
+}
+
+void hio_set_keepalive_timeout(hio_t* io, int timeout_ms) {
+    io->keepalive_timeout = timeout_ms;
+}
+
+void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
+    io->heartbeat_interval = interval_ms;
+    io->heartbeat_fn = fn;
 }

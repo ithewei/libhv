@@ -161,18 +161,28 @@ process_timers:
 
 static void hloop_init(hloop_t* loop) {
     loop->status = HLOOP_STATUS_STOP;
+
     // idles
     list_init(&loop->idles);
+
     // timers
     heap_init(&loop->timers, timers_compare);
-    // ios: init when hio_add
-    //io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
+
+    // ios: init when hio_get
+    // io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
+
+    // readbuf: alloc when hio_set_readbuf
+    // loop->readbuf.len = HLOOP_READ_BUFSIZE;
+    // HV_ALLOC(loop->readbuf.base, loop->readbuf.len);
+
     // iowatcher: init when iowatcher_add_event
-    //iowatcher_init(loop);
+    // iowatcher_init(loop);
+
     // custom_events: init when hloop_post_event
-    //event_queue_init(&loop->custom_events, 4);
+    // event_queue_init(&loop->custom_events, 4);
     loop->sockpair[0] = loop->sockpair[1] = -1;
     hmutex_init(&loop->custom_events_mutex);
+
     // NOTE: init start_time here, because htimer_add use it.
     loop->start_ms = gettimeofday_ms();
     loop->start_hrtime = loop->cur_hrtime = gethrtime_us();
@@ -184,6 +194,7 @@ static void hloop_cleanup(hloop_t* loop) {
     for (int i = 0; i < HEVENT_PRIORITY_SIZE; ++i) {
         loop->pendings[i] = NULL;
     }
+
     // idles
     printd("cleanup idles...\n");
     struct list_node* node = loop->idles.next;
@@ -194,6 +205,7 @@ static void hloop_cleanup(hloop_t* loop) {
         HV_FREE(idle);
     }
     list_init(&loop->idles);
+
     // timers
     printd("cleanup timers...\n");
     htimer_t* timer;
@@ -203,6 +215,7 @@ static void hloop_cleanup(hloop_t* loop) {
         HV_FREE(timer);
     }
     heap_init(&loop->timers, NULL);
+
     // ios
     printd("cleanup ios...\n");
     for (int i = 0; i < loop->ios.maxsize; ++i) {
@@ -215,14 +228,17 @@ static void hloop_cleanup(hloop_t* loop) {
         }
     }
     io_array_cleanup(&loop->ios);
+
     // readbuf
     if (loop->readbuf.base && loop->readbuf.len) {
-        free(loop->readbuf.base);
+        HV_FREE(loop->readbuf.base);
         loop->readbuf.base = NULL;
         loop->readbuf.len = 0;
     }
+
     // iowatcher
     iowatcher_cleanup(loop);
+
     // custom_events
     hmutex_lock(&loop->custom_events_mutex);
     if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
@@ -238,7 +254,6 @@ static void hloop_cleanup(hloop_t* loop) {
 hloop_t* hloop_new(int flags) {
     hloop_t* loop;
     HV_ALLOC_SIZEOF(loop);
-    memset(loop, 0, sizeof(hloop_t));
     hloop_init(loop);
     loop->flags |= flags;
     return loop;
@@ -439,14 +454,6 @@ const char* hio_engine() {
 #endif
 }
 
-void hio_init(hio_t* io) {
-    memset(io, 0, sizeof(hio_t));
-    io->event_type = HEVENT_TYPE_IO;
-    io->event_index[0] = io->event_index[1] = -1;
-    // write_queue init when hwrite try_write failed
-    //write_queue_init(&io->write_queue, 4);;
-}
-
 static void fill_io_type(hio_t* io) {
     int type = 0;
     socklen_t optlen = sizeof(int);
@@ -495,25 +502,37 @@ static void hio_socket_init(hio_t* io) {
     }
 }
 
+void hio_init(hio_t* io) {
+    // write_queue init when hwrite try_write failed
+    // write_queue_init(&io->write_queue, 4);
+}
+
 void hio_ready(hio_t* io) {
     if (io->ready) return;
+    // flags
     io->ready = 1;
     io->closed = 0;
     io->accept = io->connect = io->connectex = 0;
     io->recv = io->send = 0;
     io->recvfrom = io->sendto = 0;
+    // public:
     io->io_type = HIO_TYPE_UNKNOWN;
     io->error = 0;
     io->events = io->revents = 0;
+    // callbacks
     io->read_cb = NULL;
     io->write_cb = NULL;
     io->close_cb = 0;
     io->accept_cb = 0;
     io->connect_cb = 0;
+    // timers
+    io->connect_timer = NULL;
+    // private:
     io->event_index[0] = io->event_index[1] = -1;
     io->hovlp = NULL;
     io->ssl = NULL;
-    io->timer = NULL;
+
+    // io_type
     fill_io_type(io);
     if (io->io_type & HIO_TYPE_SOCKET) {
         hio_socket_init(io);
@@ -553,6 +572,7 @@ hio_t* hio_get(hloop_t* loop, int fd) {
     if (io == NULL) {
         HV_ALLOC_SIZEOF(io);
         hio_init(io);
+        io->event_type = HEVENT_TYPE_IO;
         io->loop = loop;
         io->fd = fd;
         loop->ios.ptr[fd] = io;

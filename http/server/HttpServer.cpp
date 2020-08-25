@@ -68,9 +68,6 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     }
 
     if (parser->WantRecv()) {
-        // NOTE: KeepAlive will reset keepalive_timer,
-        // if no data recv within keepalive timeout, closesocket actively.
-        handler->KeepAlive();
         return;
     }
 
@@ -198,7 +195,6 @@ handle_request:
         res->status_code, http_status_str(res->status_code));
 
     if (keepalive) {
-        handler->KeepAlive();
         handler->Reset();
         parser->InitRequest(req);
     }
@@ -229,6 +225,7 @@ static void on_accept(hio_t* io) {
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_read(io);
+    hio_set_keepalive_timeout(io, HIO_DEFAULT_KEEPALIVE_TIMEOUT);
     // new HttpHandler
     // delete on_close
     HttpHandler* handler = new HttpHandler;
@@ -236,7 +233,6 @@ static void on_accept(hio_t* io) {
     handler->files = &s_filecache;
     sockaddr_ip((sockaddr_u*)hio_peeraddr(io), handler->ip, sizeof(handler->ip));
     handler->port = sockaddr_port((sockaddr_u*)hio_peeraddr(io));
-    handler->io = io;
     hevent_set_userdata(io, handler);
 }
 

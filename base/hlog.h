@@ -46,7 +46,7 @@ typedef enum {
     LOG_LEVEL_SILENT
 } log_level_e;
 
-#define DEFAULT_LOG_FILE            "default"
+#define DEFAULT_LOG_FILE            "libhv"
 #define DEFAULT_LOG_LEVEL           LOG_LEVEL_INFO
 #define DEFAULT_LOG_REMAIN_DAYS     1
 #define DEFAULT_LOG_MAX_BUFSIZE     (1<<14)  // 16k
