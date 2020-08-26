@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     int port = atoi(argv[1]);
 
     hloop_t* loop = hloop_new(0);
-    hio_t* listenio = create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    hio_t* listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
     if (listenio == NULL) {
         return -20;
     }

@@ -14,6 +14,13 @@
 
 #define IO_ARRAY_INIT_SIZE              1024
 #define CUSTOM_EVENT_QUEUE_INIT_SIZE    16
+
+/*
+ * hio lifeline:
+ * hio_get => HV_ALLOC_SIZEOF(io) => hio_init =>
+ * hio_ready => hio_add => hio_del => hio_done =>
+ * hio_free => HV_FREE(io)
+ */
 static void hio_init(hio_t* io);
 static void hio_ready(hio_t* io);
 static void hio_done(hio_t* io);
@@ -221,9 +228,6 @@ static void hloop_cleanup(hloop_t* loop) {
     for (int i = 0; i < loop->ios.maxsize; ++i) {
         hio_t* io = loop->ios.ptr[i];
         if (io) {
-            if ((!(io->io_type&HIO_TYPE_STDIO)) && io->active) {
-                hio_close(io);
-            }
             hio_free(io);
         }
     }
@@ -503,6 +507,16 @@ static void hio_socket_init(hio_t* io) {
 }
 
 void hio_init(hio_t* io) {
+    // alloc localaddr,peeraddr when hio_socket_init
+    /*
+    if (io->localaddr == NULL) {
+        HV_ALLOC(io->localaddr, sizeof(sockaddr_u));
+    }
+    if (io->peeraddr == NULL) {
+        HV_ALLOC(io->peeraddr, sizeof(sockaddr_u));
+    }
+    */
+
     // write_queue init when hwrite try_write failed
     // write_queue_init(&io->write_queue, 4);
 }
@@ -515,6 +529,7 @@ void hio_ready(hio_t* io) {
     io->accept = io->connect = io->connectex = 0;
     io->recv = io->send = 0;
     io->recvfrom = io->sendto = 0;
+    io->close = 0;
     // public:
     io->io_type = HIO_TYPE_UNKNOWN;
     io->error = 0;
@@ -526,7 +541,15 @@ void hio_ready(hio_t* io) {
     io->accept_cb = 0;
     io->connect_cb = 0;
     // timers
+    io->connect_timeout = 0;
     io->connect_timer = NULL;
+    io->close_timeout = 0;
+    io->close_timer = NULL;
+    io->keepalive_timeout = 0;
+    io->keepalive_timer = NULL;
+    io->heartbeat_interval = 0;
+    io->heartbeat_fn = NULL;
+    io->heartbeat_timer = NULL;
     // private:
     io->event_index[0] = io->event_index[1] = -1;
     io->hovlp = NULL;
@@ -540,7 +563,9 @@ void hio_ready(hio_t* io) {
 }
 
 void hio_done(hio_t* io) {
+    if (!io->ready) return;
     io->ready = 0;
+
     offset_buf_t* pbuf = NULL;
     while (!write_queue_empty(&io->write_queue)) {
         pbuf = write_queue_front(&io->write_queue);
@@ -552,7 +577,9 @@ void hio_done(hio_t* io) {
 
 void hio_free(hio_t* io) {
     if (io == NULL) return;
+    // NOTE: call hio_done to cleanup write_queue
     hio_done(io);
+    hio_close(io);
     HV_FREE(io->localaddr);
     HV_FREE(io->peeraddr);
     HV_FREE(io);
@@ -592,13 +619,13 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
     if (io->fd < 3) return 0;
 #endif
     hloop_t* loop = io->loop;
-    if (!io->ready) {
-        hio_ready(io);
-    }
-
     if (!io->active) {
         EVENT_ADD(loop, io, cb);
         loop->nios++;
+    }
+
+    if (!io->ready) {
+        hio_ready(io);
     }
 
     if (cb) {
@@ -612,7 +639,11 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
 
 int hio_del(hio_t* io, int events) {
     printd("hio_del fd=%d io->events=%d events=%d\n", io->fd, io->events, events);
-    if (!io->active) return 0;
+#ifdef OS_WIN
+    // Windows iowatcher not work on stdio
+    if (io->fd < 3) return 0;
+#endif
+    if (!io->active || !io->ready) return 0;
     iowatcher_del_event(io->loop, io->fd, events);
     io->events &= ~events;
     if (io->events == 0) {
@@ -668,6 +699,12 @@ hio_t* hconnect (hloop_t* loop, int connfd, hconnect_cb connect_cb) {
     return io;
 }
 
+void hclose (hloop_t* loop, int fd) {
+    hio_t* io = hio_get(loop, fd);
+    if (io == NULL) return;
+    hio_close(io);
+}
+
 hio_t* hrecv (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb) {
     //hio_t* io = hio_get(loop, connfd);
     //if (io == NULL) return NULL;
@@ -704,7 +741,7 @@ hio_t* hsendto (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_c
     return hwrite(loop, sockfd, buf, len, write_cb);
 }
 
-hio_t* create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb) {
+hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb) {
     int listenfd = Listen(port, host);
     if (listenfd < 0) {
         return NULL;
@@ -716,7 +753,7 @@ hio_t* create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb 
     return io;
 }
 
-hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
+hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
     sockaddr_u peeraddr;
     memset(&peeraddr, 0, sizeof(peeraddr));
     int ret = sockaddr_set_ipport(&peeraddr, host, port);
@@ -738,7 +775,7 @@ hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb
 }
 
 // @server: socket -> bind -> hrecvfrom
-hio_t* create_udp_server(hloop_t* loop, const char* host, int port) {
+hio_t* hloop_create_udp_server(hloop_t* loop, const char* host, int port) {
     int bindfd = Bind(port, host, SOCK_DGRAM);
     if (bindfd < 0) {
         return NULL;
@@ -747,7 +784,7 @@ hio_t* create_udp_server(hloop_t* loop, const char* host, int port) {
 }
 
 // @client: Resolver -> socket -> hio_get -> hio_set_peeraddr
-hio_t* create_udp_client(hloop_t* loop, const char* host, int port) {
+hio_t* hloop_create_udp_client(hloop_t* loop, const char* host, int port) {
     sockaddr_u peeraddr;
     memset(&peeraddr, 0, sizeof(peeraddr));
     int ret = sockaddr_set_ipport(&peeraddr, host, port);

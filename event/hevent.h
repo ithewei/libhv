@@ -99,6 +99,7 @@ struct hio_s {
     unsigned    send        :1;
     unsigned    recvfrom    :1;
     unsigned    sendto      :1;
+    unsigned    close       :1;
 // public:
     int         fd;
     hio_type_e  io_type;
@@ -118,6 +119,8 @@ struct hio_s {
     // timers
     int         connect_timeout;    // ms
     htimer_t*   connect_timer;
+    int         close_timeout;      // ms
+    htimer_t*   close_timer;
     int         keepalive_timeout;  // ms
     htimer_t*   keepalive_timer;
     int         heartbeat_interval; // ms

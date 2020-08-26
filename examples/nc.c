@@ -115,11 +115,11 @@ Examples: nc 127.0.0.1 80\n\
     // socket
     if (protocol == 1) {
         // tcp
-        sockio = create_tcp_client(loop, host, port, on_connect);
+        sockio = hloop_create_tcp_client(loop, host, port, on_connect);
     }
     else if (protocol == 2) {
         // udp
-        sockio = create_udp_client(loop, host, port);
+        sockio = hloop_create_udp_client(loop, host, port);
         hio_read(sockio);
     }
     if (sockio == NULL) {

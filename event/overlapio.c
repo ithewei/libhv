@@ -377,28 +377,29 @@ disconnect:
 }
 
 int hio_close (hio_t* io) {
-    printd("close fd=%d\n", io->fd);
     if (io->closed) return 0;
     io->closed = 1;
     hio_del(io, HV_RDWR);
+    if (io->io_type & HIO_TYPE_SOCKET) {
 #ifdef USE_DISCONNECTEX
-    // DisconnectEx reuse socket
-    if (io->connectex) {
-        io->connectex = 0;
-        LPFN_DISCONNECTEX DisconnectEx = NULL;
-        GUID guidDisconnectEx = WSAID_DISCONNECTEX;
-        DWORD dwbytes;
-        if (WSAIoctl(io->fd, SIO_GET_EXTENSION_FUNCTION_POINTER,
-            &guidDisconnectEx, sizeof(guidDisconnectEx),
-            &DisconnectEx, sizeof(DisconnectEx),
-            &dwbytes, NULL, NULL) != 0) {
-            return;
+        // DisconnectEx reuse socket
+        if (io->connectex) {
+            io->connectex = 0;
+            LPFN_DISCONNECTEX DisconnectEx = NULL;
+            GUID guidDisconnectEx = WSAID_DISCONNECTEX;
+            DWORD dwbytes;
+            if (WSAIoctl(io->fd, SIO_GET_EXTENSION_FUNCTION_POINTER,
+                &guidDisconnectEx, sizeof(guidDisconnectEx),
+                &DisconnectEx, sizeof(DisconnectEx),
+                &dwbytes, NULL, NULL) != 0) {
+                return;
+            }
+            DisconnectEx(io->fd, NULL, 0, 0);
         }
-        DisconnectEx(io->fd, NULL, 0, 0);
-    }
 #else
-    closesocket(io->fd);
+        closesocket(io->fd);
 #endif
+    }
     if (io->hovlp) {
         hoverlapped_t* hovlp = (hoverlapped_t*)io->hovlp;
         // NOTE: hread buf provided by caller

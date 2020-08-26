@@ -89,6 +89,7 @@ typedef enum {
 } hio_type_e;
 
 #define HIO_DEFAULT_CONNECT_TIMEOUT     5000    // ms
+#define HIO_DEFAULT_CLOSE_TIMEOUT       60000   // ms
 #define HIO_DEFAULT_KEEPALIVE_TIMEOUT   75000   // ms
 #define HIO_DEFAULT_HEARTBEAT_INTERVAL  3000    // ms
 
@@ -206,6 +207,8 @@ HV_EXPORT int  hio_enable_ssl(hio_t* io);
 HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
+// close timeout => hclose_cb
+HV_EXPORT void hio_set_close_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CLOSE_TIMEOUT));
 // keepalive timeout => hclose_cb
 HV_EXPORT void hio_set_keepalive_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_KEEPALIVE_TIMEOUT));
 /*
@@ -220,10 +223,15 @@ typedef void (*hio_send_heartbeat_fn)(hio_t* io);
 HV_EXPORT void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn);
 
 // Nonblocking, poll IO events in the loop to call corresponding callback.
+// hio_add(io, HV_READ) => accept => haccept_cb
 HV_EXPORT int hio_accept (hio_t* io);
+// connect => hio_add(io, HV_WRITE) => hconnect_cb
 HV_EXPORT int hio_connect(hio_t* io);
+// hio_add(io, HV_READ) => read => hread_cb
 HV_EXPORT int hio_read   (hio_t* io);
+// hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
+// hio_del(io, HV_RDWR) => close => hclose_cb
 HV_EXPORT int hio_close  (hio_t* io);
 
 //------------------high-level apis-------------------------------------------
@@ -244,8 +252,7 @@ HV_EXPORT hio_t* hrecv    (hloop_t* loop, int connfd, void* buf, size_t len, hre
 // hio_get -> hio_setcb_write -> hio_write
 HV_EXPORT hio_t* hsend    (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 
-// udp/ip
-// for HIO_TYPE_IP
+// udp
 HV_EXPORT void hio_set_type(hio_t* io, hio_type_e type);
 HV_EXPORT void hio_set_localaddr(hio_t* io, struct sockaddr* addr, int addrlen);
 HV_EXPORT void hio_set_peeraddr (hio_t* io, struct sockaddr* addr, int addrlen);
@@ -257,14 +264,18 @@ HV_EXPORT hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t l
 
 //----------------- top-level apis---------------------------------------------
 // @tcp_server: socket -> bind -> listen -> haccept
-HV_EXPORT hio_t* create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
+// @see examples/tcp.c
+HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 // @tcp_client: resolver -> socket -> hio_get -> hio_set_peeraddr -> hconnect
-HV_EXPORT hio_t* create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+// @see examples/nc.c
+HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 
 // @udp_server: socket -> bind -> hio_get
-HV_EXPORT hio_t* create_udp_server (hloop_t* loop, const char* host, int port);
+// @see examples/udp.c
+HV_EXPORT hio_t* hloop_create_udp_server (hloop_t* loop, const char* host, int port);
 // @udp_client: resolver -> socket -> hio_get -> hio_set_peeraddr
-HV_EXPORT hio_t* create_udp_client (hloop_t* loop, const char* host, int port);
+// @see examples/nc.c
+HV_EXPORT hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int port);
 
 END_EXTERN_C
 

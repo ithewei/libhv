@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     int port = atoi(argv[1]);
 
     hloop_t* loop = hloop_new(0);
-    hio_t* io = create_udp_server(loop, "0.0.0.0", port);
+    hio_t* io = hloop_create_udp_server(loop, "0.0.0.0", port);
     if (io == NULL) {
         return -20;
     }

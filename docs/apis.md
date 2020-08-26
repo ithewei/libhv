@@ -324,10 +324,10 @@
 ## event
 
 ### hloop.h
-- create_tcp_client
-- create_tcp_server
-- create_udp_client
-- create_udp_server
+- hloop_create_tcp_client
+- hloop_create_tcp_server
+- hloop_create_udp_client
+- hloop_create_udp_server
 - hloop_new
 - hloop_free
 - hloop_run

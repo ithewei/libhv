@@ -83,7 +83,7 @@ void network_logger(int loglevel, const char* buf, int len) {
 hio_t* nlog_listen(hloop_t* loop, int port) {
     list_init(&s_logger.clients);
     s_logger.loop = loop;
-    s_logger.listenio = create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    s_logger.listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
     hmutex_init(&s_mutex);
     return s_logger.listenio;
 }

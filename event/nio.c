@@ -12,6 +12,20 @@ static void __connect_timeout_cb(htimer_t* timer) {
         hlogw("connect timeout [%s] <=> [%s]",
                 SOCKADDR_STR(io->localaddr, localaddrstr),
                 SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        io->error = ETIMEDOUT;
+        hio_close(io);
+    }
+}
+
+static void __close_timeout_cb(htimer_t* timer) {
+    hio_t* io = (hio_t*)timer->privdata;
+    if (io) {
+        char localaddrstr[SOCKADDR_STRLEN] = {0};
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
+        hlogw("close timeout [%s] <=> [%s]",
+                SOCKADDR_STR(io->localaddr, localaddrstr),
+                SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        io->error = ETIMEDOUT;
         hio_close(io);
     }
 }
@@ -24,6 +38,7 @@ static void __keepalive_timeout_cb(htimer_t* timer) {
         hlogw("keepalive timeout [%s] <=> [%s]",
                 SOCKADDR_STR(io->localaddr, localaddrstr),
                 SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        io->error = ETIMEDOUT;
         hio_close(io);
     }
 }
@@ -124,6 +139,12 @@ static void __close_cb(hio_t* io) {
         htimer_del(io->connect_timer);
         io->connect_timer = NULL;
         io->connect_timeout = 0;
+    }
+
+    if (io->close_timer) {
+        htimer_del(io->close_timer);
+        io->close_timer = NULL;
+        io->close_timeout = 0;
     }
 
     if (io->keepalive_timer) {
@@ -273,15 +294,8 @@ connect_failed:
     hio_close(io);
 }
 
-static void nio_read(hio_t* io) {
-    //printd("nio_read fd=%d\n", io->fd);
-    int nread;
-    if (io->readbuf.base == NULL || io->readbuf.len == 0) {
-        hio_set_readbuf(io, io->loop->readbuf.base, io->loop->readbuf.len);
-    }
-    void* buf = io->readbuf.base;
-    int   len = io->readbuf.len;
-read:
+static int __nio_read(hio_t* io, void* buf, int len) {
+    int nread = 0;
     switch (io->io_type) {
 #ifdef WITH_OPENSSL
     case HIO_TYPE_SSL:
@@ -306,6 +320,45 @@ read:
         nread = read(io->fd, buf, len);
         break;
     }
+    return nread;
+}
+
+static int __nio_write(hio_t* io, const void* buf, int len) {
+    int nwrite = 0;
+    switch (io->io_type) {
+#ifdef WITH_OPENSSL
+    case HIO_TYPE_SSL:
+        nwrite = SSL_write((SSL*)io->ssl, buf, len);
+        break;
+#endif
+    case HIO_TYPE_TCP:
+#ifdef OS_UNIX
+        nwrite = write(io->fd, buf, len);
+#else
+        nwrite = send(io->fd, buf, len, 0);
+#endif
+        break;
+    case HIO_TYPE_UDP:
+    case HIO_TYPE_IP:
+        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_u));
+        break;
+    default:
+        nwrite = write(io->fd, buf, len);
+        break;
+    }
+    return nwrite;
+}
+
+static void nio_read(hio_t* io) {
+    //printd("nio_read fd=%d\n", io->fd);
+    if (io->readbuf.base == NULL || io->readbuf.len == 0) {
+        hio_set_readbuf(io, io->loop->readbuf.base, io->loop->readbuf.len);
+    }
+    void* buf = io->readbuf.base;
+    int   len = io->readbuf.len;
+    int   nread = 0;
+read:
+    nread = __nio_read(io, buf, len);
     //printd("read retval=%d\n", nread);
     if (nread < 0) {
         if (socket_errno() == EAGAIN) {
@@ -336,32 +389,16 @@ static void nio_write(hio_t* io) {
     int nwrite = 0;
 write:
     if (write_queue_empty(&io->write_queue)) {
+        if (io->close) {
+            io->close = 0;
+            hio_close(io);
+        }
         return;
     }
     offset_buf_t* pbuf = write_queue_front(&io->write_queue);
     char* buf = pbuf->base + pbuf->offset;
     int len = pbuf->len - pbuf->offset;
-    switch (io->io_type) {
-#ifdef WITH_OPENSSL
-    case HIO_TYPE_SSL:
-        nwrite = SSL_write((SSL*)io->ssl, buf, len);
-        break;
-#endif
-    case HIO_TYPE_TCP:
-#ifdef OS_UNIX
-        nwrite = write(io->fd, buf, len);
-#else
-        nwrite = send(io->fd, buf, len, 0);
-#endif
-        break;
-    case HIO_TYPE_UDP:
-    case HIO_TYPE_IP:
-        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_u));
-        break;
-    default:
-        nwrite = write(io->fd, buf, len);
-        break;
-    }
+    nwrite = __nio_write(io, buf, len);
     //printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
         if (socket_errno() == EAGAIN) {
@@ -457,27 +494,7 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
     int nwrite = 0;
     if (write_queue_empty(&io->write_queue)) {
 try_write:
-        switch (io->io_type) {
-#ifdef WITH_OPENSSL
-        case HIO_TYPE_SSL:
-            nwrite = SSL_write((SSL*)io->ssl, buf, len);
-            break;
-#endif
-        case HIO_TYPE_TCP:
-#ifdef OS_UNIX
-            nwrite = write(io->fd, buf, len);
-#else
-            nwrite = send(io->fd, buf, len, 0);
-#endif
-            break;
-        case HIO_TYPE_UDP:
-        case HIO_TYPE_IP:
-            nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
-            break;
-        default:
-            nwrite = write(io->fd, buf, len);
-            break;
-        }
+        nwrite = __nio_write(io, buf, len);
         //printd("write retval=%d\n", nwrite);
         if (nwrite < 0) {
             if (socket_errno() == EAGAIN) {
@@ -523,13 +540,24 @@ disconnect:
 
 int hio_close (hio_t* io) {
     if (io->closed) return 0;
+    if (!write_queue_empty(&io->write_queue) && io->error == 0 && io->close == 0) {
+        io->close = 1;
+        hlogw("write_queue not empty, close later.");
+        int timeout_ms = io->close_timeout ? io->close_timeout : HIO_DEFAULT_CLOSE_TIMEOUT;
+        io->close_timer = htimer_add(io->loop, __close_timeout_cb, timeout_ms, 1);
+        io->close_timer->privdata = io;
+        return 0;
+    }
+
     io->closed = 1;
     hio_del(io, HV_RDWR);
+    if (io->io_type & HIO_TYPE_SOCKET) {
 #ifdef OS_UNIX
-    close(io->fd);
+        close(io->fd);
 #else
-    closesocket(io->fd);
+        closesocket(io->fd);
 #endif
+    }
 #ifdef WITH_OPENSSL
     if (io->ssl) {
         SSL_free((SSL*)io->ssl);

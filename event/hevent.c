@@ -83,6 +83,10 @@ void hio_set_connect_timeout(hio_t* io, int timeout_ms) {
     io->connect_timeout = timeout_ms;
 }
 
+void hio_set_close_timeout(hio_t* io, int timeout_ms) {
+    io->close_timeout = timeout_ms;
+}
+
 void hio_set_keepalive_timeout(hio_t* io, int timeout_ms) {
     io->keepalive_timeout = timeout_ms;
 }
