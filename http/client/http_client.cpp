@@ -133,7 +133,9 @@ const char* http_client_get_header(http_client_t* cli, const char* key) {
 
 int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) {
     for (auto& pair : cli->headers) {
-        req->headers[pair.first] = pair.second;
+        if (req->headers.find(pair.first) == req->headers.end()) {
+            req->headers[pair.first] = pair.second;
+        }
     }
     return __http_client_send(cli, req, res);
 }
