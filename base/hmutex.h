@@ -224,11 +224,26 @@ public:
 
     void wrlock()   { hrwlock_wrlock(&_rwlock); }
     void wrunlock() { hrwlock_wrunlock(&_rwlock); }
+
+    void lock()     { rdlock(); }
+    void unlock()   { rdunlock(); }
 protected:
     hrwlock_t   _rwlock;
 };
 
+template<class T>
+class LockGuard {
+public:
+    LockGuard(T& t) : _lock(t) { _lock.lock(); }
+    ~LockGuard() { _lock.unlock(); }
+protected:
+    T& _lock;
+};
+
 END_NAMESPACE_HV
+
+// same as java synchronized(lock) { ... }
+#define synchronized(lock) for (std::lock_guard<std::mutex> _lock_(lock), *p = &_lock_; p != NULL; p = NULL)
 
 #endif // __cplusplus
 

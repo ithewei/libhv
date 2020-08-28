@@ -184,6 +184,8 @@
 - `hv::MutexLock`
 - `hv::SpinLock`
 - `hv::RWLock`
+- `hv::LockGuard`
+- synchronized
 
 ### hsocket.h
 - INVALID_SOCKET

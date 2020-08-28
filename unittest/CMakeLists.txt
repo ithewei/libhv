@@ -26,6 +26,10 @@ target_include_directories(socketpair_test PRIVATE .. ../base)
 add_executable(defer_test defer_test.cpp)
 target_include_directories(defer_test PRIVATE .. ../base)
 
+add_executable(synchronized_test synchronized_test.cpp)
+target_include_directories(synchronized_test PRIVATE .. ../base)
+target_link_libraries(synchronized_test -lpthread)
+
 add_executable(hstring_test hstring_test.cpp ../base/hstring.cpp)
 target_include_directories(hstring_test PRIVATE .. ../base)
 
@@ -69,6 +73,7 @@ add_custom_target(unittest DEPENDS
     connect_test
     socketpair_test
     defer_test
+    synchronized_test
     hstring_test
     threadpool_test
     objectpool_test
