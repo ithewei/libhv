@@ -154,7 +154,7 @@ char* duration_fmt(int sec, char* buf) {
 char* datetime_fmt(datetime_t* dt, char* buf) {
     sprintf(buf, DATETIME_FMT,
         dt->year, dt->month, dt->day,
-        dt->hour, dt->min, dt->sec, dt->ms);
+        dt->hour, dt->min, dt->sec);
     return buf;
 }
 
@@ -199,7 +199,7 @@ datetime_t hv_compile_datetime() {
     datetime_t dt;
     char month[32];
     sscanf(__DATE__, "%s %d %d", month, &dt.day, &dt.year);
-    sscanf(__TIME__, "%d %d %d", &dt.hour, &dt.min, &dt.sec);
+    sscanf(__TIME__, "%d:%d:%d", &dt.hour, &dt.min, &dt.sec);
     dt.month = month_atoi(month);
     return dt;
 }

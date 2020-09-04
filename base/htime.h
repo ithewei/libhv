@@ -93,7 +93,7 @@ HV_EXPORT datetime_t* datetime_future(datetime_t* dt, int days DEFAULT(1));
 #define TIME_FMT_BUFLEN     12
 HV_EXPORT char* duration_fmt(int sec, char* buf);
 
-#define DATETIME_FMT        "%04d-%02d-%02d %02d:%02d:%02d.%03d"
+#define DATETIME_FMT        "%04d-%02d-%02d %02d:%02d:%02d"
 #define DATETIME_FMT_BUFLEN 24
 HV_EXPORT char* datetime_fmt(datetime_t* dt, char* buf);
 
