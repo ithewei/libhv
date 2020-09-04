@@ -29,24 +29,21 @@ public:
     }
 };
 
-HObjectPool<Task> tasks;
+HObjectPool<Task> task_pool(1, 5);
 
 void task_thread(int id) {
     printf("thread %d run...\n", id);
-    auto pObj = tasks.Get();
-    if (pObj) {
-        pObj->Do();
-        tasks.Release(pObj);
+    HPoolObject<Task> pTask(task_pool);
+    if (pTask) {
+        pTask->Do();
     }
     else {
-        printf("objects too little\n");
+        printf("No available task in pool\n");
     }
     printf("thread %d exit\n", id);
 }
 
 int main(int argc, char** argv) {
-    tasks.pool_size = 5;
-    tasks.timeout = 3000;
     for (int i = 0; i < 10; ++i) {
         new std::thread(task_thread, i);
     }
