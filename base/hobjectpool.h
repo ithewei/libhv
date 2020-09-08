@@ -136,10 +136,12 @@ private:
     std::condition_variable cond_;
 };
 
-template <typename T>
+template<class T, class TFactory = HObjectFactory<T>>
 class HPoolObject {
 public:
-    HPoolObject(HObjectPool<T>& pool) : pool_(pool)
+    typedef HObjectPool<T> PoolType;
+
+    HPoolObject(PoolType& pool) : pool_(pool)
     {
         sptr_ = pool_.Borrow();
     }
@@ -170,7 +172,7 @@ public:
     }
 
 private:
-    HObjectPool<T>& pool_;
+    PoolType& pool_;
     std::shared_ptr<T> sptr_;
 };
 

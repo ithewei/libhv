@@ -8,13 +8,16 @@
 #include <string.h>
 
 #ifdef _WIN32
-#define DIR_SEPARATOR   '\\'
+#define DIR_SEPARATOR       '\\'
+#define DIR_SEPARATOR_STR   "\\"
 #else
-#define DIR_SEPARATOR   '/'
+#define DIR_SEPARATOR       '/'
+#define DIR_SEPARATOR_STR   "/"
 #endif
 
 #ifndef __FILENAME__
-#define __FILENAME__  (strrchr(__FILE__, DIR_SEPARATOR) + 1)
+// #define __FILENAME__  (strrchr(__FILE__, DIR_SEPARATOR) ? strrchr(__FILE__, DIR_SEPARATOR) + 1 : __FILE__)
+#define __FILENAME__  (strrchr(DIR_SEPARATOR_STR __FILE__, DIR_SEPARATOR) + 1)
 #endif
 
 #include "hexport.h"
