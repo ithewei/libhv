@@ -139,7 +139,7 @@ private:
 template<class T, class TFactory = HObjectFactory<T>>
 class HPoolObject {
 public:
-    typedef HObjectPool<T> PoolType;
+    typedef HObjectPool<T, TFactory> PoolType;
 
     HPoolObject(PoolType& pool) : pool_(pool)
     {
