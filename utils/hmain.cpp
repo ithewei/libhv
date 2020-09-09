@@ -358,9 +358,18 @@ void signal_handler(int signo) {
         while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
             hlogw("proc stop/waiting, pid=%d status=%d", pid, status);
             for (int i = 0; i < g_main_ctx.worker_processes; ++i) {
-                if (g_main_ctx.proc_ctxs[i].pid == pid) {
-                    g_main_ctx.proc_ctxs[i].pid = -1;
-                    hproc_spawn(&g_main_ctx.proc_ctxs[i]);
+                proc_ctx_t* ctx = g_main_ctx.proc_ctxs + i;
+                if (ctx->pid == pid) {
+                    ctx->pid = -1;
+                    // NOTE: avoid frequent crash and restart
+                    time_t run_time = time(NULL) - ctx->start_time;
+                    if (ctx->spawn_cnt < 3 || run_time > 3600) {
+                        hproc_spawn(ctx);
+                    }
+                    else {
+                        hloge("proc crash, pid=%d spawn_cnt=%d run_time=%us",
+                                pid, ctx->spawn_cnt, (unsigned int)run_time);
+                    }
                     break;
                 }
             }

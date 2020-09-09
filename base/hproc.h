@@ -5,6 +5,8 @@
 
 typedef struct proc_ctx_s {
     pid_t           pid; // tid in Windows
+    time_t          start_time;
+    int             spawn_cnt;
     procedure_t     init;
     void*           init_userdata;
     procedure_t     proc;
@@ -28,6 +30,8 @@ static inline void hproc_run(proc_ctx_t* ctx) {
 #ifdef OS_UNIX
 // unix use multi-processes
 static inline int hproc_spawn(proc_ctx_t* ctx) {
+    ++ctx->spawn_cnt;
+    ctx->start_time = time(NULL);
     pid_t pid = fork();
     if (pid < 0) {
         perror("fork");
@@ -51,6 +55,8 @@ static void win_thread(void* userdata) {
     hproc_run(ctx);
 }
 static inline int hproc_spawn(proc_ctx_t* ctx) {
+    ++ctx->spawn_cnt;
+    ctx->start_time = time(NULL);
     HANDLE h = (HANDLE)_beginthread(win_thread, 0, ctx);
     if (h == NULL) {
         return -1;
