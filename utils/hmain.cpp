@@ -369,6 +369,18 @@ void signal_handler(int signo) {
                     else {
                         hloge("proc crash, pid=%d spawn_cnt=%d run_time=%us",
                                 pid, ctx->spawn_cnt, (unsigned int)run_time);
+
+                        bool have_worker = false;
+                        for (int i = 0; i < g_main_ctx.worker_processes; ++i) {
+                            if (g_main_ctx.proc_ctxs[i].pid > 0) {
+                                have_worker = true;
+                                break;
+                            }
+                        }
+                        if (!have_worker) {
+                            hlogw("No alive worker process, exit master process!");
+                            exit(0);
+                        }
                     }
                     break;
                 }
