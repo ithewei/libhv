@@ -58,7 +58,7 @@ static inline type* atype##_front(atype* p) {\
 }\
 \
 static inline type* atype##_back(atype* p) {\
-    return p->size == 0 ? NULL : p->ptr+p->size-1;\
+    return p->size == 0 ? NULL : p->ptr + p->size - 1;\
 }\
 \
 static inline void atype##_init(atype* p, int maxsize) {\
@@ -84,7 +84,7 @@ static inline void atype##_resize(atype* p, int maxsize) {\
 }\
 \
 static inline void atype##_double_resize(atype* p) {\
-    atype##_resize(p, p->maxsize*2);\
+    atype##_resize(p, p->maxsize * 2);\
 }\
 \
 static inline void atype##_push_back(atype* p, type* elem) {\
@@ -109,7 +109,7 @@ static inline void atype##_add(atype* p, type* elem, int pos) {\
         atype##_double_resize(p);\
     }\
     if (pos < p->size) {\
-        memmove(p->ptr + pos+1, p->ptr + pos, sizeof(type)*(p->size-pos));\
+        memmove(p->ptr + pos+1, p->ptr + pos, sizeof(type) * (p->size - pos));\
     }\
     p->ptr[pos] = *elem;\
     p->size++;\
@@ -122,7 +122,7 @@ static inline void atype##_del(atype* p, int pos) {\
     assert(pos >= 0 && pos < p->size);\
     p->size--;\
     if (pos < p->size) {\
-        memmove(p->ptr + pos, p->ptr + pos+1, sizeof(type)*(p->size-pos));\
+        memmove(p->ptr + pos, p->ptr + pos+1, sizeof(type) * (p->size - pos));\
     }\
 }\
 \
