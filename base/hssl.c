@@ -49,7 +49,7 @@ error:
     return NULL;
 }
 
-void hssl_ctx_destory(hssl_ctx_t ssl_ctx) {
+void hssl_ctx_cleanup(hssl_ctx_t ssl_ctx) {
     if (ssl_ctx) {
         if (ssl_ctx == s_ssl_ctx) {
             s_ssl_ctx = NULL;
@@ -73,19 +73,31 @@ void hssl_free(hssl_t ssl) {
     }
 }
 
-int hssl_connect(hssl_t ssl) {
-    int ret = SSL_connect((SSL*)ssl);
-    if (ret == 1) return 0;
-
-    int err = SSL_get_error((SSL*)ssl, ret);
-    return err;
-}
-
 int hssl_accept(hssl_t ssl) {
     int ret = SSL_accept((SSL*)ssl);
     if (ret == 1) return 0;
 
     int err = SSL_get_error((SSL*)ssl, ret);
+    if (err == SSL_ERROR_WANT_READ) {
+        return HSSL_WANT_READ;
+    }
+    else if (err == SSL_ERROR_WANT_WRITE) {
+        return HSSL_WANT_WRITE;
+    }
+    return err;
+}
+
+int hssl_connect(hssl_t ssl) {
+    int ret = SSL_connect((SSL*)ssl);
+    if (ret == 1) return 0;
+
+    int err = SSL_get_error((SSL*)ssl, ret);
+    if (err == SSL_ERROR_WANT_READ) {
+        return HSSL_WANT_READ;
+    }
+    else if (err == SSL_ERROR_WANT_WRITE) {
+        return HSSL_WANT_WRITE;
+    }
     return err;
 }
 
@@ -102,30 +114,6 @@ int hssl_close(hssl_t ssl) {
     return 0;
 }
 
-int hssl_set_accept_state(hssl_t ssl) {
-    SSL_set_accept_state((SSL*)ssl);
-    return 0;
-}
-
-int hssl_set_connect_state(hssl_t ssl) {
-    SSL_set_connect_state((SSL*)ssl);
-    return 0;
-}
-
-int hssl_do_handshark(hssl_t ssl) {
-    int ret = SSL_do_handshake((SSL*)ssl);
-    if (ret == 1) return 0;
-
-    int err = SSL_get_error((SSL*)ssl, ret);
-    if (err == SSL_ERROR_WANT_READ) {
-        return HSSL_WANT_READ;
-    }
-    else if (err == SSL_ERROR_WANT_WRITE) {
-        return HSSL_WANT_WRITE;
-    }
-    return err;
-}
-
 #else
 
 #include "hplatform.h"
@@ -135,7 +123,7 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
     return NULL;
 }
 
-void hssl_ctx_destory(hssl_ctx_t ssl_ctx) {
+void hssl_ctx_cleanup(hssl_ctx_t ssl_ctx) {
 }
 
 hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd) {
@@ -145,11 +133,11 @@ hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd) {
 void hssl_free(hssl_t ssl) {
 }
 
-int hssl_connect(hssl_t ssl) {
+int hssl_accept(hssl_t ssl) {
     return 0;
 }
 
-int hssl_accept(hssl_t ssl) {
+int hssl_connect(hssl_t ssl) {
     return 0;
 }
 
@@ -164,18 +152,6 @@ int hssl_write(hssl_t ssl, const void* buf, int len) {
 }
 
 int hssl_close(hssl_t ssl) {
-    return 0;
-}
-
-int hssl_set_accept_state(hssl_t ssl) {
-    return 0;
-}
-
-int hssl_set_connect_state(hssl_t ssl) {
-    return 0;
-}
-
-int hssl_do_handshark(hssl_t ssl) {
     return 0;
 }
 #endif

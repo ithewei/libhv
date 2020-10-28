@@ -168,25 +168,42 @@ static void __close_cb(hio_t* io) {
     }
 }
 
-static void ssl_do_handshark(hio_t* io) {
-    printd("ssl handshark...\n");
-    int ret = hssl_do_handshark(io->ssl);
+static void ssl_server_handshark(hio_t* io) {
+    printd("ssl server handshark...\n");
+    int ret = hssl_accept(io->ssl);
     if (ret == 0) {
         // handshark finish
         iowatcher_del_event(io->loop, io->fd, HV_READ);
         io->events &= ~HV_READ;
         io->cb = NULL;
         printd("ssl handshark finished.\n");
-        if (io->accept_cb) {
-            __accept_cb(io);
-        }
-        else if (io->connect_cb) {
-            __connect_cb(io);
-        }
+        __accept_cb(io);
     }
     else if (ret == HSSL_WANT_READ) {
         if ((io->events & HV_READ) == 0) {
-            hio_add(io, ssl_do_handshark, HV_READ);
+            hio_add(io, ssl_server_handshark, HV_READ);
+        }
+    }
+    else {
+        hloge("ssl handshake failed: %d", ret);
+        hio_close(io);
+    }
+}
+
+static void ssl_client_handshark(hio_t* io) {
+    printd("ssl client handshark...\n");
+    int ret = hssl_connect(io->ssl);
+    if (ret == 0) {
+        // handshark finish
+        iowatcher_del_event(io->loop, io->fd, HV_READ);
+        io->events &= ~HV_READ;
+        io->cb = NULL;
+        printd("ssl handshark finished.\n");
+        __connect_cb(io);
+    }
+    else if (ret == HSSL_WANT_READ) {
+        if ((io->events & HV_READ) == 0) {
+            hio_add(io, ssl_client_handshark, HV_READ);
         }
     }
     else {
@@ -231,9 +248,7 @@ accept:
         }
         hio_enable_ssl(connio);
         connio->ssl = ssl;
-        // int ret = hssl_accept(ssl);
-        hssl_set_accept_state(ssl);
-        ssl_do_handshark(connio);
+        ssl_server_handshark(connio);
     }
     else {
         // NOTE: SSL call accept_cb after handshark finished
@@ -269,9 +284,7 @@ static void nio_connect(hio_t* io) {
                 goto connect_failed;
             }
             io->ssl = ssl;
-            // int ret = hssl_connect(ssl);
-            hssl_set_connect_state(ssl);
-            ssl_do_handshark(io);
+            ssl_client_handshark(io);
         }
         else {
             // NOTE: SSL call connect_cb after handshark finished
