@@ -2,6 +2,7 @@
 #ifndef EVENT_IOCP
 #include "hevent.h"
 #include "hsocket.h"
+#include "hssl.h"
 #include "hlog.h"
 
 static void __connect_timeout_cb(htimer_t* timer) {
@@ -167,16 +168,10 @@ static void __close_cb(hio_t* io) {
     }
 }
 
-#ifdef WITH_OPENSSL
-#include "openssl/ssl.h"
-#include "openssl/err.h"
-#include "ssl_ctx.h"
-
 static void ssl_do_handshark(hio_t* io) {
-    SSL* ssl = (SSL*)io->ssl;
     printd("ssl handshark...\n");
-    int ret = SSL_do_handshake(ssl);
-    if (ret == 1) {
+    int ret = hssl_do_handshark(io->ssl);
+    if (ret == 0) {
         // handshark finish
         iowatcher_del_event(io->loop, io->fd, HV_READ);
         io->events &= ~HV_READ;
@@ -189,20 +184,16 @@ static void ssl_do_handshark(hio_t* io) {
             __connect_cb(io);
         }
     }
-    else {
-        int errcode = SSL_get_error(ssl, ret);
-        if (errcode == SSL_ERROR_WANT_READ) {
-            if ((io->events & HV_READ) == 0) {
-                hio_add(io, ssl_do_handshark, HV_READ);
-            }
-        }
-        else {
-            hloge("ssl handshake failed: %d", errcode);
-            hio_close(io);
+    else if (ret == HSSL_WANT_READ) {
+        if ((io->events & HV_READ) == 0) {
+            hio_add(io, ssl_do_handshark, HV_READ);
         }
     }
+    else {
+        hloge("ssl handshake failed: %d", ret);
+        hio_close(io);
+    }
 }
-#endif
 
 static void nio_accept(hio_t* io) {
     //printd("nio_accept listenfd=%d\n", io->fd);
@@ -229,26 +220,26 @@ accept:
     connio->accept_cb = io->accept_cb;
     connio->userdata = io->userdata;
 
-#ifdef WITH_OPENSSL
     if (io->io_type == HIO_TYPE_SSL) {
-        SSL_CTX* ssl_ctx = (SSL_CTX*)ssl_ctx_instance();
+        hssl_ctx_t ssl_ctx = hssl_ctx_instance();
         if (ssl_ctx == NULL) {
             goto accept_error;
         }
-        SSL* ssl = SSL_new(ssl_ctx);
-        SSL_set_fd(ssl, connfd);
-        connio->ssl = ssl;
+        hssl_t ssl = hssl_new(ssl_ctx, connfd);
+        if (ssl == NULL) {
+            goto accept_error;
+        }
         hio_enable_ssl(connio);
-        //int ret = SSL_accept(ssl);
-        SSL_set_accept_state(ssl);
+        connio->ssl = ssl;
+        // int ret = hssl_accept(ssl);
+        hssl_set_accept_state(ssl);
         ssl_do_handshark(connio);
     }
-#endif
-
-    if (connio->io_type != HIO_TYPE_SSL) {
+    else {
         // NOTE: SSL call accept_cb after handshark finished
         __accept_cb(connio);
     }
+
     goto accept;
 
 accept_error:
@@ -268,25 +259,25 @@ static void nio_connect(hio_t* io) {
         addrlen = sizeof(sockaddr_u);
         getsockname(io->fd, io->localaddr, &addrlen);
 
-#ifdef WITH_OPENSSL
         if (io->io_type == HIO_TYPE_SSL) {
-            SSL_CTX* ssl_ctx = (SSL_CTX*)ssl_ctx_instance();
+            hssl_ctx_t ssl_ctx = hssl_ctx_instance();
             if (ssl_ctx == NULL) {
                 goto connect_failed;
             }
-            SSL* ssl = SSL_new(ssl_ctx);
-            SSL_set_fd(ssl, io->fd);
+            hssl_t ssl = hssl_new(ssl_ctx, io->fd);
+            if (ssl == NULL) {
+                goto connect_failed;
+            }
             io->ssl = ssl;
-            //int ret = SSL_connect(ssl);
-            SSL_set_connect_state(ssl);
+            // int ret = hssl_connect(ssl);
+            hssl_set_connect_state(ssl);
             ssl_do_handshark(io);
         }
-#endif
-
-        if (io->io_type != HIO_TYPE_SSL) {
+        else {
             // NOTE: SSL call connect_cb after handshark finished
             __connect_cb(io);
         }
+
         return;
     }
 
@@ -297,11 +288,9 @@ connect_failed:
 static int __nio_read(hio_t* io, void* buf, int len) {
     int nread = 0;
     switch (io->io_type) {
-#ifdef WITH_OPENSSL
     case HIO_TYPE_SSL:
-        nread = SSL_read((SSL*)io->ssl, buf, len);
+        nread = hssl_read(io->ssl, buf, len);
         break;
-#endif
     case HIO_TYPE_TCP:
 #ifdef OS_UNIX
         nread = read(io->fd, buf, len);
@@ -326,11 +315,9 @@ static int __nio_read(hio_t* io, void* buf, int len) {
 static int __nio_write(hio_t* io, const void* buf, int len) {
     int nwrite = 0;
     switch (io->io_type) {
-#ifdef WITH_OPENSSL
     case HIO_TYPE_SSL:
-        nwrite = SSL_write((SSL*)io->ssl, buf, len);
+        nwrite = hssl_write(io->ssl, buf, len);
         break;
-#endif
     case HIO_TYPE_TCP:
 #ifdef OS_UNIX
         nwrite = write(io->fd, buf, len);
@@ -558,11 +545,10 @@ int hio_close (hio_t* io) {
         closesocket(io->fd);
 #endif
     }
-#ifdef WITH_OPENSSL
     if (io->ssl) {
-        SSL_free((SSL*)io->ssl);
+        hssl_free(io->ssl);
+        io->ssl = NULL;
     }
-#endif
     __close_cb(io);
     return 0;
 }

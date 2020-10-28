@@ -192,8 +192,8 @@ bin/nc 127.0.0.1 10514
 libhv combines OpenSSL perfectly, something almost all asynchronous IO network libraries don't do.<br>
 And enable SSL in libhv is so easy, just only two apis:
 ```
-// init global SSL_CTX, see base/ssl_ctx.h
-int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file);
+// init ssl_ctx, see base/hssl.h
+hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
 
 // enable ssl, see event/hloop.h
 int hio_enable_ssl(hio_t* io);

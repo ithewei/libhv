@@ -15,10 +15,10 @@ set(BASE_HEADERS
     base/hmutex.h
     base/hthread.h
     base/hsocket.h
+    base/hssl.h
     base/hbuf.h
     base/hurl.h
     base/hgui.h
-    base/ssl_ctx.h
     base/hmap.h
     base/hstring.h
     base/hvar.h

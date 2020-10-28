@@ -643,13 +643,16 @@ int hio_del(hio_t* io, int events) {
     // Windows iowatcher not work on stdio
     if (io->fd < 3) return 0;
 #endif
-    if (!io->active || !io->ready) return 0;
-    iowatcher_del_event(io->loop, io->fd, events);
-    io->events &= ~events;
-    if (io->events == 0) {
-        io->loop->nios--;
-        // NOTE: not EVENT_DEL, avoid free
-        EVENT_INACTIVE(io);
+    if (io->active) {
+        iowatcher_del_event(io->loop, io->fd, events);
+        io->events &= ~events;
+        if (io->events == 0) {
+            io->loop->nios--;
+            // NOTE: not EVENT_DEL, avoid free
+            EVENT_INACTIVE(io);
+        }
+    }
+    if (!io->active) {
         hio_done(io);
     }
     return 0;

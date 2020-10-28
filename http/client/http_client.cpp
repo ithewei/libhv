@@ -9,18 +9,14 @@
 #else
 #include "herr.h"
 #include "hsocket.h"
+#include "hssl.h"
 #include "HttpParser.h"
-#include "ssl_ctx.h"
-#endif
-
-#ifdef WITH_OPENSSL
-#include "openssl/ssl.h"
 #endif
 
 struct http_client_s {
     std::string  host;
     int          port;
-    int          tls;
+    int          https;
     int          http_version;
     int          timeout; // s
     http_headers headers;
@@ -29,25 +25,21 @@ struct http_client_s {
     CURL* curl;
 #else
     int fd;
+    hssl_t ssl;
     HttpParser*  parser;
-#endif
-#ifdef WITH_OPENSSL
-    SSL* ssl;
 #endif
 
     http_client_s() {
         port = DEFAULT_HTTP_PORT;
-        tls = 0;
+        https = 0;
         http_version = 1;
         timeout = DEFAULT_HTTP_TIMEOUT;
 #ifdef WITH_CURL
         curl = NULL;
 #else
         fd = -1;
-        parser = NULL;
-#endif
-#ifdef WITH_OPENSSL
         ssl = NULL;
+        parser = NULL;
 #endif
     }
 
@@ -56,18 +48,16 @@ struct http_client_s {
     }
 
     void Close() {
-#ifdef WITH_OPENSSL
-        if (ssl) {
-            SSL_free(ssl);
-            ssl = NULL;
-        }
-#endif
 #ifdef WITH_CURL
         if (curl) {
             curl_easy_cleanup(curl);
             curl = NULL;
         }
 #else
+        if (ssl) {
+            hssl_free(ssl);
+            ssl = NULL;
+        }
         if (fd > 0) {
             closesocket(fd);
             fd = -1;
@@ -82,9 +72,9 @@ struct http_client_s {
 
 static int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res);
 
-http_client_t* http_client_new(const char* host, int port, int tls) {
+http_client_t* http_client_new(const char* host, int port, int https) {
     http_client_t* cli = new http_client_t;
-    cli->tls = tls;
+    cli->https = https;
     cli->port = port;
     if (host) {
         cli->host = host;
@@ -320,26 +310,24 @@ static int __http_client_connect(http_client_t* cli) {
     }
     tcp_nodelay(connfd, 1);
 
-    if (cli->tls) {
-#ifdef WITH_OPENSSL
-        if (ssl_ctx_instance() == NULL) {
-            ssl_ctx_init(NULL, NULL, NULL);
+    if (cli->https) {
+        if (hssl_ctx_instance() == NULL) {
+            hssl_ctx_init(NULL);
         }
-        cli->ssl = SSL_new((SSL_CTX*)ssl_ctx_instance());
-        SSL_set_fd(cli->ssl, connfd);
-        if (SSL_connect(cli->ssl) != 1) {
-            int err = SSL_get_error(cli->ssl, -1);
-            fprintf(stderr, "SSL handshark failed: %d\n", err);
-            SSL_free(cli->ssl);
+        hssl_ctx_t ssl_ctx = hssl_ctx_instance();
+        if (ssl_ctx == NULL) {
+            closesocket(connfd);
+            return ERR_INVALID_PROTOCOL;
+        }
+        cli->ssl = hssl_new(ssl_ctx, connfd);
+        int ret = hssl_connect(cli->ssl);
+        if (ret != 0) {
+            fprintf(stderr, "SSL handshark failed: %d\n", ret);
+            hssl_free(cli->ssl);
             cli->ssl = NULL;
             closesocket(connfd);
-            return err;
+            return ret;
         }
-#else
-        fprintf(stderr, "Please recompile WITH_OPENSSL\n");
-        closesocket(connfd);
-        return ERR_INVALID_PROTOCOL;
-#endif
     }
 
     if (cli->parser == NULL) {
@@ -361,8 +349,8 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) 
         cli->host = req->host;
         cli->port = req->port;
     }
-    if (cli->tls == 0) {
-        cli->tls = req->https;
+    if (cli->https == 0) {
+        cli->https = req->https;
     }
     cli->http_version = req->http_major;
 
@@ -395,12 +383,10 @@ send:
                 }
                 so_sndtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
             }
-#ifdef WITH_OPENSSL
-            if (cli->tls) {
-                nsend = SSL_write(cli->ssl, data+total_nsend, len-total_nsend);
+            if (cli->https) {
+                nsend = hssl_write(cli->ssl, data+total_nsend, len-total_nsend);
             }
-#endif
-            if (!cli->tls) {
+            else {
                 nsend = send(connfd, data+total_nsend, len-total_nsend, 0);
             }
             if (nsend <= 0) {
@@ -429,12 +415,10 @@ recv:
             }
             so_rcvtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
         }
-#ifdef WITH_OPENSSL
-        if (cli->tls) {
-            nrecv = SSL_read(cli->ssl, recvbuf, sizeof(recvbuf));
+        if (cli->https) {
+            nrecv = hssl_read(cli->ssl, recvbuf, sizeof(recvbuf));
         }
-#endif
-        if (!cli->tls) {
+        else {
             nrecv = recv(connfd, recvbuf, sizeof(recvbuf), 0);
         }
         if (nrecv <= 0) {

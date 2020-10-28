@@ -191,8 +191,8 @@ bin/nc 127.0.0.1 10514
 libhv完美结合了OpenSSL库，这是几乎所有的异步IO库没有做的一点。
 在libhv中开启SSL非常简单，仅需要两个API接口：
 ```
-// init global SSL_CTX, see base/ssl_ctx.h
-int ssl_ctx_init(const char* crt_file, const char* key_file, const char* ca_file);
+// init ssl_ctx, see base/hssl.h
+hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
 
 // enable ssl, see event/hloop.h
 int hio_enable_ssl(hio_t* io);

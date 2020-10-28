@@ -3,7 +3,6 @@
 #include "iniparser.h"
 
 #include "HttpServer.h"
-#include "ssl_ctx.h"
 
 #include "router.h"
 
@@ -149,7 +148,12 @@ int parse_confile(const char* confile) {
         std::string crt_file = ini.GetValue("ssl_certificate");
         std::string key_file = ini.GetValue("ssl_privatekey");
         std::string ca_file = ini.GetValue("ssl_ca_certificate");
-        if (ssl_ctx_init(crt_file.c_str(), key_file.c_str(), ca_file.c_str()) != 0) {
+        hssl_ctx_init_param_t param;
+        memset(&param, 0, sizeof(param));
+        param.crt_file = crt_file.c_str();
+        param.key_file = key_file.c_str();
+        param.ca_file = ca_file.c_str();
+        if (hssl_ctx_init(&param) == NULL) {
             hloge("SSL certificate verify failed!");
             exit(0);
         }
