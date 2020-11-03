@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <string>
+
 #include "nmap.h"
 #include "hthreadpool.h"
 
