@@ -2,8 +2,7 @@
 
 ## 简介
 
-`libhv`是一个类似于`libevent, libev, libuv`的跨平台事件循环库，
-提供了更加简单的API接口和更加丰富的协议。
+`libhv`是一个类似于`libevent、libev、libuv`的跨平台网络库，提供了更简单的接口和更丰富的协议。
 
 ## 特征
 
@@ -19,7 +18,6 @@
     - ftp
     - smtp
 - apps
-    - ls,mkdir_p,rmdir_p
     - ifconfig
     - ping
     - nc
@@ -237,10 +235,6 @@ cd echo-servers
 **echo-servers/benchmark**<br>
 ![echo-servers](html/downloads/echo-servers.png)
 
-注：因为客户端和服务端测试位于同一台机器，上图结果仅供参考。总的来说，这些库性能接近，各有千秋。
-
-## 模块
-
 ### 数据结构
 - array.h:       动态数组
 - list.h:        链表
@@ -248,44 +242,48 @@ cd echo-servers
 - heap.h:        堆
 
 ### base
+- hv.h：         总头文件
+- hexport.h:     导出宏
 - hplatform.h:   平台相关宏
-- hdef.h:        宏定义
+- hdef.h:        常用宏定义
 - hatomic.h:     原子操作
-- hversion.h:    版本
-- hbase.h:       基本接口
-- hsysinfo.h:    系统信息
-- hproc.h:       子进程/线程类
-- hmath.h:       math扩展函数
-- htime.h:       时间
 - herr.h:        错误码
-- hlog.h:        日志
-- hmutex.h：     同步锁
+- htime.h:       时间日期
+- hmath.h:       数学函数
+- hbase.h:       基本接口
+- hversion.h:    版本
+- hsysinfo.h:    系统信息
+- hproc.h:       进程
 - hthread.h：    线程
-- hsocket.h:     socket操作
-- hbuf.h:        缓存类
-- hurl.h:        URL转义
-- hgui.h:        gui相关定义
+- hmutex.h：     互斥锁
+- hsocket.h:     套接字
+- hssl.h:        SSL/TLS加密通信
+- hlog.h:        日志
+- hbuf.h:        缓存
 - hstring.h:     字符串
 - hvar.h:        var变量
 - hobj.h:        对象基类
 - hfile.h:       文件类
 - hdir.h:        ls实现
-- hscope.h:      作用域RAII机制
+- hurl.h:        URL相关
+- hscope.h:      作用域
 - hthreadpool.h: 线程池
 - hobjectpool.h: 对象池
 - ifconfig.h:    ifconfig实现
 
 ### utils
-- hmain.h:       main_ctx: arg env
+- hmain.h:       命令行解析
 - hendian.h:     大小端
 - iniparser.h:   ini解析
 - singleton.h:   单例模式
-- md5.h
-- base64.h
-- json.hpp
+- md5.h:         MD5数字摘要
+- base64.h:      base64编码
+- json.hpp:      json解析
 
 ### event
 - hloop.h:       事件循环
+- nlog.h:        网络日志
+- nmap.h:        nmap实现
 
 #### iowatcher
 - EVENT_SELECT
@@ -299,10 +297,11 @@ cd echo-servers
 - http_client.h: http客户端
 - HttpServer.h:  http服务端
 
-### 其它
-
-- hv.h：         总头文件
-- Makefile.in:   通用Makefile模板
+### protocol
+- dns.h:         DNS域名查询
+- icmp.h:        ping实现
+- ftp.h:         FTP文件传输协议
+- smtp.h:        SMTP邮件传输协议
 
 ## 学习资料
 

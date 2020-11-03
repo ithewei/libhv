@@ -12,7 +12,7 @@
 typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
 typedef std::string                                         http_body;
 
-struct NetAddr {
+struct HNetAddr {
     std::string     ip;
     int             port;
 
@@ -35,7 +35,7 @@ public:
     int                 content_length;
     http_content_type   content_type;
 #ifndef WITHOUT_HTTP_CONTENT
-    Json                json;       // APPLICATION_JSON
+    hv::Json            json;       // APPLICATION_JSON
     MultiPart           form;       // MULTIPART_FORM_DATA
     hv::KeyValue        kv;         // X_WWW_FORM_URLENCODED
 
@@ -150,7 +150,7 @@ public:
     std::string         path;
     QueryParams         query_params;
     // client_addr
-    NetAddr             client_addr;
+    HNetAddr            client_addr;
 
     HttpRequest() : HttpMessage() {
         type = HTTP_REQUEST;

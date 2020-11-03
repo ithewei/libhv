@@ -187,7 +187,7 @@ const char* logger_get_cur_file(logger_t* logger) {
     return logger->cur_logfile;
 }
 
-static void ts_logfile(const char* filepath, time_t ts, char* buf, int len) {
+static void logfile_name(const char* filepath, time_t ts, char* buf, int len) {
     struct tm* tm = localtime(&ts);
     snprintf(buf, len, "%s-%04d-%02d-%02d.log",
             filepath,
@@ -196,7 +196,7 @@ static void ts_logfile(const char* filepath, time_t ts, char* buf, int len) {
             tm->tm_mday);
 }
 
-static FILE* shift_logfile(logger_t* logger) {
+static FILE* logfile_shift(logger_t* logger) {
     time_t ts_now = time(NULL);
     int interval_days = logger->last_logfile_ts == 0 ? 0 : (ts_now+s_gmtoff) / SECONDS_PER_DAY - (logger->last_logfile_ts+s_gmtoff) / SECONDS_PER_DAY;
     if (logger->fp_ == NULL || interval_days > 0) {
@@ -215,14 +215,14 @@ static FILE* shift_logfile(logger_t* logger) {
                 // remove [today-interval_days, today-remain_days] logfile
                 for (int i = interval_days; i >= logger->remain_days; --i) {
                     time_t ts_rm  = ts_now - i * SECONDS_PER_DAY;
-                    ts_logfile(logger->filepath, ts_rm, rm_logfile, sizeof(rm_logfile));
+                    logfile_name(logger->filepath, ts_rm, rm_logfile, sizeof(rm_logfile));
                     remove(rm_logfile);
                 }
             }
             else {
                 // remove today-remain_days logfile
                 time_t ts_rm  = ts_now - logger->remain_days * SECONDS_PER_DAY;
-                ts_logfile(logger->filepath, ts_rm, rm_logfile, sizeof(rm_logfile));
+                logfile_name(logger->filepath, ts_rm, rm_logfile, sizeof(rm_logfile));
                 remove(rm_logfile);
             }
         }
@@ -230,7 +230,7 @@ static FILE* shift_logfile(logger_t* logger) {
 
     // open today logfile
     if (logger->fp_ == NULL) {
-        ts_logfile(logger->filepath, ts_now, logger->cur_logfile, sizeof(logger->cur_logfile));
+        logfile_name(logger->filepath, ts_now, logger->cur_logfile, sizeof(logger->cur_logfile));
         logger->fp_ = fopen(logger->cur_logfile, "a");
         logger->last_logfile_ts = ts_now;
     }
@@ -256,6 +256,16 @@ static FILE* shift_logfile(logger_t* logger) {
     }
 
     return logger->fp_;
+}
+
+static void logfile_write(logger_t* logger, const char* buf, int len) {
+    FILE* fp = logfile_shift(logger);
+    if (fp) {
+        fwrite(buf, 1, len, fp);
+        if (logger->enable_fsync) {
+            fflush(fp);
+        }
+    }
 }
 
 int logger_print(logger_t* logger, int level, const char* fmt, ...) {
@@ -324,13 +334,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
         logger->handler(level, buf, len);
     }
     else {
-        FILE* fp = shift_logfile(logger);
-        if (fp) {
-            fwrite(buf, 1, len, fp);
-            if (logger->enable_fsync) {
-                fflush(fp);
-            }
-        }
+        logfile_write(logger, buf, len);
     }
 
     hmutex_unlock(&logger->mutex_);
@@ -354,12 +358,5 @@ void stderr_logger(int loglevel, const char* buf, int len) {
 }
 
 void file_logger(int loglevel, const char* buf, int len) {
-    logger_t* logger = hv_default_logger();
-    FILE* fp = shift_logfile(logger);
-    if (fp) {
-        fwrite(buf, 1, len, fp);
-        if (logger->enable_fsync) {
-            fflush(fp);
-        }
-    }
+    logfile_write(hv_default_logger(), buf, len);
 }

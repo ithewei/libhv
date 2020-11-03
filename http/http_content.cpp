@@ -238,11 +238,11 @@ int parse_multipart(std::string& str, MultiPart& mp, const char* boundary) {
     return nparse == str.size() ? 0 : -1;
 }
 
-std::string dump_json(Json& json) {
+std::string dump_json(hv::Json& json) {
     return json.dump();
 }
 
-int parse_json(const char* str, Json& json, std::string& errmsg) {
+int parse_json(const char* str, hv::Json& json, std::string& errmsg) {
     try {
         json = nlohmann::json::parse(str);
     }

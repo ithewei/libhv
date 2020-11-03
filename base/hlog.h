@@ -103,7 +103,7 @@ HV_EXPORT const char* logger_get_cur_file(logger_t* logger);
 HV_EXPORT logger_t* hv_default_logger();
 
 // macro hlog*
-#define hlog hv_default_logger()
+#define hlog                            hv_default_logger()
 #define hlog_set_file(filepath)         logger_set_file(hlog, filepath)
 #define hlog_set_level(level)           logger_set_level(hlog, level)
 #define hlog_set_level_by_str(level)    logger_set_level_by_str(hlog, level)

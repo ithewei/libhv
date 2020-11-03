@@ -54,11 +54,13 @@ HV_EXPORT int         parse_multipart(std::string& str, MultiPart& mp, const cha
 // Json
 // https://github.com/nlohmann/json
 #include "json.hpp"
+namespace hv { // NOTE: Avoid conflict with jsoncpp
 using Json = nlohmann::json;
 // using Json = nlohmann::ordered_json;
+}
 
-HV_EXPORT std::string dump_json(Json& json);
-HV_EXPORT int         parse_json(const char* str, Json& json, std::string& errmsg);
+HV_EXPORT std::string dump_json(hv::Json& json);
+HV_EXPORT int         parse_json(const char* str, hv::Json& json, std::string& errmsg);
 #endif
 
 #endif // HTTP_CONTENT_H_

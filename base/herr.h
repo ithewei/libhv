@@ -50,8 +50,6 @@
     \
     F(1400, REQUEST,        "Bad request")      \
     F(1401, RESPONSE,       "Bad response")     \
-    \
-    F(1429, BUSY,           "Busy")             \
 
 // [-1xxx]
 #define FOREACH_ERR_FUNC(F)   \
@@ -71,18 +69,6 @@
     F(-1019,    SENDTO,     "sendto() error")   \
     F(-1020,    SETSOCKOPT, "setsockopt() error")   \
     F(-1021,    GETSOCKOPT, "getsockopt() error")   \
-
-// [3xxx]
-#define FOREACH_ERR_SERVICE(F)  \
-    F(3000, RESOURCE_NOT_FOUND,     "resource not found")   \
-    F(3001, GROUP_NOT_FOUND,        "group not found")      \
-    F(3002, PERSON_NOT_FOUND,       "person not found")     \
-    F(3003, FACE_NOT_FOUND,         "face not found")       \
-    F(3004, DEVICE_NOT_FOUND,       "device not found")     \
-    \
-    F(3010, DEVICE_DISCONNECT,      "device disconnect")    \
-    F(3011, DEVICE_DISABLE,         "device disable")       \
-    F(3012, DEVICE_BUSY,            "device busy")          \
 
 // grpc [4xxx]
 #define FOREACH_ERR_GRPC(F)     \
@@ -106,7 +92,6 @@
 #define FOREACH_ERR(F)      \
     FOREACH_ERR_COMMON(F)   \
     FOREACH_ERR_FUNC(F)     \
-    FOREACH_ERR_SERVICE(F)  \
     FOREACH_ERR_GRPC(F)     \
 
 #undef ERR_OK // prevent conflict

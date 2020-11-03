@@ -149,6 +149,7 @@ int main(int argc, char** argv) {
         exit(ret);
     }
 
+    /*
     printf("---------------arg------------------------------\n");
     printf("%s\n", g_main_ctx.cmdline);
     for (auto& pair : g_main_ctx.arg_kv) {
@@ -164,6 +165,7 @@ int main(int argc, char** argv) {
         printf("%s=%s\n", pair.first.c_str(), pair.second.c_str());
     }
     printf("================================================\n");
+    */
 
     // help
     if (get_arg("h")) {
@@ -222,6 +224,6 @@ void worker_fn(void* userdata) {
     long num = (long)(intptr_t)(userdata);
     while (1) {
         printf("num=%ld pid=%ld tid=%ld\n", num, hv_getpid(), hv_gettid());
-        hv_delay(10000);
+        hv_delay(60000);
     }
 }

@@ -45,6 +45,15 @@ documentation and/or software.
 #define S43 15
 #define S44 21
 
+/* POINTER defines a generic pointer type */
+typedef unsigned char *POINTER;
+
+/* UINT2 defines a two byte word */
+typedef unsigned short int UINT2;
+
+/* UINT4 defines a four byte word */
+typedef unsigned long int UINT4;
+
 static void MD5Transform(UINT4 [4], unsigned char [64]);
 static void Encode(unsigned char *, UINT4 *, unsigned int);
 static void Decode(UINT4 *, unsigned char *, unsigned int);

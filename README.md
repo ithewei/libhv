@@ -20,7 +20,6 @@ but simpler apis and richer protocols.
     - ftp
     - smtp
 - apps
-    - ls,mkdir_p,rmdir_p
     - ifconfig
     - ping
     - nc

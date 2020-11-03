@@ -28,7 +28,6 @@
 
 #include "hlog.h"
 #include "hbuf.h"
-#include "hgui.h"
 
 // cpp
 #ifdef __cplusplus

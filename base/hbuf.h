@@ -56,9 +56,7 @@ public:
     void*  data() { return base; }
     size_t size() { return len; }
 
-    bool isNull() {
-        return base == NULL || len == 0;
-    }
+    bool isNull() { return base == NULL || len == 0; }
 
     void cleanup() {
         if (cleanup_) {
@@ -102,7 +100,7 @@ public:
     HVLBuf(size_t cap) : HBuf(cap) {_offset = _size = 0;}
     virtual ~HVLBuf() {}
 
-    char* data() { return base+_offset; }
+    char* data() { return base + _offset; }
     size_t size() { return _size; }
 
     void push_front(void* ptr, size_t len) {
