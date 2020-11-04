@@ -89,6 +89,14 @@ int on_headers_complete(http_parser* parser) {
     if (iter != hp->parsed->headers.end()) {
         hp->parsed->content_type = http_content_type_enum(iter->second.c_str());
     }
+    iter = hp->parsed->headers.find("content-length");
+    if (iter != hp->parsed->headers.end()) {
+        int content_length = atoi(iter->second.c_str());
+        hp->parsed->content_length = content_length;
+        if (content_length > hp->parsed->body.capacity()) {
+            hp->parsed->body.reserve(content_length);
+        }
+    }
     hp->parsed->http_major = parser->http_major;
     hp->parsed->http_minor = parser->http_minor;
     if (hp->parsed->type == HTTP_REQUEST) {
