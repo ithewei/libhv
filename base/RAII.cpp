@@ -64,24 +64,3 @@ public:
 };
 static CurlRAII s_curl;
 #endif
-
-#ifdef WITH_OPENSSL
-#include "openssl/ssl.h"
-#include "openssl/err.h"
-#ifdef _MSC_VER
-//#pragma comment(lib, "libssl.a")
-//#pragma comment(lib, "libcrypto.a")
-#endif
-class OpensslRAII {
-public:
-    OpensslRAII() {
-        //OPENSSL_init_ssl(OPENSSL_INIT_SSL_DEFAULT, NULL);
-        SSL_load_error_strings();
-        SSL_library_init();
-    }
-
-    ~OpensslRAII() {
-    }
-};
-static OpensslRAII s_openssl;
-#endif

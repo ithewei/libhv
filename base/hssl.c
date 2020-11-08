@@ -1,6 +1,7 @@
 #include "hssl.h"
 
 static hssl_ctx_t s_ssl_ctx = 0;
+
 hssl_ctx_t hssl_ctx_instance() {
     return s_ssl_ctx;
 }
@@ -8,9 +9,29 @@ hssl_ctx_t hssl_ctx_instance() {
 #ifdef WITH_OPENSSL
 
 #include "openssl/ssl.h"
+#include "openssl/err.h"
+#ifdef _MSC_VER
+//#pragma comment(lib, "libssl.a")
+//#pragma comment(lib, "libcrypto.a")
+#endif
 
 hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
+    static int s_initialized = 0;
+    if (s_initialized == 0) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+        SSL_library_init();
+        SSL_load_error_strings();
+#else
+        OPENSSL_init_ssl(OPENSSL_INIT_SSL_DEFAULT, NULL);
+#endif
+        s_initialized = 1;
+    }
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    SSL_CTX* ctx = SSL_CTX_new(SSLv23_method());
+#else
     SSL_CTX* ctx = SSL_CTX_new(TLS_method());
+#endif
     if (ctx == NULL) return NULL;
     int mode = SSL_VERIFY_NONE;
     if (param) {
