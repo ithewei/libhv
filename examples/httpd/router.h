@@ -13,15 +13,15 @@ public:
         http.postprocessor = Handler::postprocessor;
 
         // curl -v http://ip:port/ping
-        http.GET("/ping", [](HttpRequest* req, HttpResponse* res) {
-            res->body = "PONG";
+        http.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
+            resp->body = "pong";
             return 200;
         });
 
         // curl -v http://ip:port/echo -d "hello,world!"
-        http.POST("/echo", [](HttpRequest* req, HttpResponse* res) {
-            res->content_type = req->content_type;
-            res->body = req->body;
+        http.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
+            resp->content_type = req->content_type;
+            resp->body = req->body;
             return 200;
         });
 
