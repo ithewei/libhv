@@ -91,6 +91,7 @@ int main() {
     // test custom_events
     for (int i = 0; i < 10; ++i) {
         hevent_t ev;
+        memset(&ev, 0, sizeof(ev));
         ev.event_type = (hevent_type_e)(HEVENT_TYPE_CUSTOM + i);
         ev.cb = on_custom_events;
         ev.userdata = (void*)(long)i;

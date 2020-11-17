@@ -88,6 +88,11 @@ void logger_destroy(logger_t* logger) {
     if (logger) {
         if (logger->buf) {
             free(logger->buf);
+            logger->buf = NULL;
+        }
+        if (logger->fp_) {
+            fclose(logger->fp_);
+            logger->fp_ = NULL;
         }
         hmutex_destroy(&logger->mutex_);
         free(logger);
