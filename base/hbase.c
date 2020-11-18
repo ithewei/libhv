@@ -258,7 +258,9 @@ char* get_executable_path(char* buf, int size) {
 #ifdef OS_WIN
     GetModuleFileName(NULL, buf, size);
 #elif defined(OS_LINUX)
-    readlink("/proc/self/exe", buf, size);
+    if (readlink("/proc/self/exe", buf, size) == -1) {
+        return NULL;
+    }
 #elif defined(OS_DARWIN)
     _NSGetExecutablePath(buf, (uint32_t*)&size);
 #endif
@@ -287,6 +289,5 @@ char* get_executable_file(char* buf, int size) {
 }
 
 char* get_run_dir(char* buf, int size) {
-    getcwd(buf, size);
-    return buf;
+    return getcwd(buf, size);
 }

@@ -190,8 +190,7 @@ int dns_unpack(char* buf, int len, dns_t* dns) {
     int i;
     if (hdr->nquestion) {
         int bytes = hdr->nquestion * sizeof(dns_rr_t);
-        dns->questions = (dns_rr_t*)malloc(bytes);
-        memset(dns->questions, 0, bytes);
+        SAFE_ALLOC(dns->questions, bytes);
         for (i = 0; i < hdr->nquestion; ++i) {
             int packetlen = dns_rr_unpack(buf+off, len-off, dns->questions+i, 1);
             if (packetlen < 0) return -1;
@@ -200,8 +199,7 @@ int dns_unpack(char* buf, int len, dns_t* dns) {
     }
     if (hdr->nanswer) {
         int bytes = hdr->nanswer * sizeof(dns_rr_t);
-        dns->answers = (dns_rr_t*)malloc(bytes);
-        memset(dns->answers, 0, bytes);
+        SAFE_ALLOC(dns->answers, bytes);
         for (i = 0; i < hdr->nanswer; ++i) {
             int packetlen = dns_rr_unpack(buf+off, len-off, dns->answers+i, 0);
             if (packetlen < 0) return -1;
@@ -210,8 +208,7 @@ int dns_unpack(char* buf, int len, dns_t* dns) {
     }
     if (hdr->nauthority) {
         int bytes = hdr->nauthority * sizeof(dns_rr_t);
-        dns->authorities = (dns_rr_t*)malloc(bytes);
-        memset(dns->authorities, 0, bytes);
+        SAFE_ALLOC(dns->authorities, bytes);
         for (i = 0; i < hdr->nauthority; ++i) {
             int packetlen = dns_rr_unpack(buf+off, len-off, dns->authorities+i, 0);
             if (packetlen < 0) return -1;
@@ -220,8 +217,7 @@ int dns_unpack(char* buf, int len, dns_t* dns) {
     }
     if (hdr->naddtional) {
         int bytes = hdr->naddtional * sizeof(dns_rr_t);
-        dns->addtionals = (dns_rr_t*)malloc(bytes);
-        memset(dns->addtionals, 0, bytes);
+        SAFE_ALLOC(dns->addtionals, bytes);
         for (i = 0; i < hdr->naddtional; ++i) {
             int packetlen = dns_rr_unpack(buf+off, len-off, dns->addtionals+i, 0);
             if (packetlen < 0) return -1;

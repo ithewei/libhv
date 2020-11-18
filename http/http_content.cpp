@@ -61,10 +61,8 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
 
 #ifndef WITHOUT_HTTP_CONTENT
 
-#include <sys/types.h>
-#include <sys/stat.h>
-
 #include "hstring.h" // for split
+#include "hfile.h"
 #include "httpdef.h" // for http_content_type_str_by_suffix
 
 std::string dump_multipart(MultiPart& mp, const char* boundary) {
@@ -80,14 +78,9 @@ std::string dump_multipart(MultiPart& mp, const char* boundary) {
         auto& form = pair.second;
         if (form.filename.size() != 0) {
             if (form.content.size() == 0) {
-                FILE* fp = fopen(form.filename.c_str(), "r");
-                if (fp) {
-                    struct stat st;
-                    if (stat(form.filename.c_str(), &st) == 0 && st.st_size != 0) {
-                        form.content.resize(st.st_size);
-                        fread((void*)form.content.data(), 1, st.st_size, fp);
-                    }
-                    fclose(fp);
+                HFile file;
+                if (file.open(form.filename.c_str(), "r") == 0) {
+                    file.readall(form.content);
                 }
             }
             snprintf(c_str, sizeof(c_str), "; filename=\"%s\"", basename(form.filename).c_str());

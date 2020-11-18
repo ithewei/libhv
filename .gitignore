@@ -52,6 +52,7 @@ tmp
 dist
 test
 build
+html/uploads
 
 # msvc
 *.VC.*

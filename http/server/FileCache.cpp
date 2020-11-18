@@ -2,6 +2,7 @@
 
 #include "hscope.h"
 #include "htime.h"
+#include "hlog.h"
 
 #include "httpdef.h" // for http_content_type_str_by_suffix
 #include "http_page.h" //make_index_of_page
@@ -53,7 +54,11 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
         if (S_ISREG(fc->st.st_mode)) {
             // FILE
             fc->resize_buf(fc->st.st_size);
-            read(fd, fc->filebuf.base, fc->filebuf.len);
+            int nread = read(fd, fc->filebuf.base, fc->filebuf.len);
+            if (nread != fc->filebuf.len) {
+                hloge("Too large file: %s", filepath);
+                return NULL;
+            }
             const char* suffix = strrchr(filepath, '.');
             if (suffix) {
                 fc->content_type = http_content_type_str_by_suffix(++suffix);

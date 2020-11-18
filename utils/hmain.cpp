@@ -16,9 +16,8 @@ main_ctx_t  g_main_ctx;
 int main_ctx_init(int argc, char** argv) {
     if (argc == 0 || argv == NULL) {
         argc = 1;
-        argv = (char**)malloc(2*sizeof(char*));
-        argv[0] = (char*)malloc(MAX_PATH);
-        argv[1] = NULL;
+        SAFE_ALLOC(argv, 2 * sizeof(char*));
+        SAFE_ALLOC(argv[0], MAX_PATH);
         get_executable_path(argv[0], MAX_PATH);
     }
 
@@ -64,10 +63,11 @@ int main_ctx_init(int argc, char** argv) {
         g_main_ctx.arg_len += strlen(argv[i]) + 1;
     }
     g_main_ctx.argc = i;
-    char* argp = (char*)malloc(g_main_ctx.arg_len);
-    memset(argp, 0, g_main_ctx.arg_len);
-    g_main_ctx.save_argv = (char**)malloc((g_main_ctx.argc+1) * sizeof(char*));
-    char* cmdline = (char*)malloc(g_main_ctx.arg_len);
+    char* argp = NULL;
+    SAFE_ALLOC(argp, g_main_ctx.arg_len);
+    SAFE_ALLOC(g_main_ctx.save_argv, (g_main_ctx.argc + 1) * sizeof(char*));
+    char* cmdline = NULL;
+    SAFE_ALLOC(cmdline, g_main_ctx.arg_len);
     g_main_ctx.cmdline = cmdline;
     for (i = 0; argv[i]; ++i) {
         g_main_ctx.save_argv[i] = argp;
@@ -91,9 +91,9 @@ int main_ctx_init(int argc, char** argv) {
         g_main_ctx.env_len += strlen(environ[i]) + 1;
     }
     g_main_ctx.envc = i;
-    char* envp = (char*)malloc(g_main_ctx.env_len);
-    memset(envp, 0, g_main_ctx.env_len);
-    g_main_ctx.save_envp = (char**)malloc((g_main_ctx.envc+1) * sizeof(char*));
+    char* envp = NULL;
+    SAFE_ALLOC(envp, g_main_ctx.env_len);
+    SAFE_ALLOC(g_main_ctx.save_envp, (g_main_ctx.envc + 1) * sizeof(char*));
     for (i = 0; environ[i]; ++i) {
         g_main_ctx.save_envp[i] = envp;
         strcpy(g_main_ctx.save_envp[i], environ[i]);
@@ -307,8 +307,12 @@ int create_pidfile() {
 
     g_main_ctx.pid = hv_getpid();
     char pid[16] = {0};
-    snprintf(pid, sizeof(pid), "%d\n", g_main_ctx.pid);
-    fwrite(pid, 1, strlen(pid), fp);
+    int len = snprintf(pid, sizeof(pid), "%d\n", g_main_ctx.pid);
+    int nwrite = fwrite(pid, 1, len, fp);
+    if (nwrite != len) {
+        fprintf(stderr, "fwrite failed!\n");
+        exit(-1);
+    }
     fclose(fp);
     hlogi("create_pidfile('%s') pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
     atexit(delete_pidfile);
@@ -598,8 +602,7 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
 #endif
         g_main_ctx.worker_processes = worker_processes;
         int bytes = g_main_ctx.worker_processes * sizeof(proc_ctx_t);
-        g_main_ctx.proc_ctxs = (proc_ctx_t*)malloc(bytes);
-        memset(g_main_ctx.proc_ctxs, 0, bytes);
+        SAFE_ALLOC(g_main_ctx.proc_ctxs, bytes);
         proc_ctx_t* ctx = g_main_ctx.proc_ctxs;
         for (int i = 0; i < g_main_ctx.worker_processes; ++i, ++ctx) {
             ctx->init = worker_init;

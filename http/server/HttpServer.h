@@ -36,15 +36,13 @@ typedef struct http_server_s {
 /*
 #include "HttpServer.h"
 
-int http_api_hello(HttpRequest* req, HttpResponse* res) {
-    res->body = "hello";
-    return 0;
-}
-
 int main() {
     HttpService service;
     service.base_url = "/v1/api";
-    service.AddApi("/hello", HTTP_GET, http_api_hello);
+    service.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
+        resp->body = "pong";
+        return 200;
+    });
 
     http_server_t server;
     server.port = 8080;
@@ -53,7 +51,7 @@ int main() {
     http_server_run(&server);
     return 0;
 }
- */
+*/
 HV_EXPORT int http_server_run(http_server_t* server, int wait = 1);
 
 // just for worker_processes = 0
