@@ -22,7 +22,9 @@ option(USE_MULTIMAP "MultiMap" OFF)
 
 option(WITH_CURL "with curl library" OFF)
 option(WITH_NGHTTP2 "with nghttp2 library" OFF)
+
 option(WITH_OPENSSL "with openssl library" OFF)
+option(WITH_MBEDTLS "with mbedtls library" OFF)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake;${CMAKE_MODULE_PATH}")
 include(utils)
@@ -100,6 +102,11 @@ endif()
 if(WITH_OPENSSL)
     add_definitions(-DWITH_OPENSSL)
     set(LIBS ${LIBS} ssl crypto)
+endif()
+
+if(WITH_MBEDTLS)
+    add_definitions(-DWITH_MBEDTLS)
+    set(LIBS ${LIBS} mbedtls mbedx509 mbedcrypto)
 endif()
 
 if(WIN32)

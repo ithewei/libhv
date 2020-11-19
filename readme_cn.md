@@ -10,7 +10,7 @@
 - event-loop (IO, timer, idle)
 - ENABLE_IPV6
 - ENABLE_UDS (Unix Domain Socket)
-- WITH_OPENSSL
+- WITH_OPENSSL or WITH_MBEDTLS
 - http client/server (include https http1/x http2 grpc)
 - http web service, indexof service, api service (support RESTful API)
 - protocols
@@ -186,7 +186,6 @@ bin/nc 127.0.0.1 10514
 ### 编译选项
 
 #### 编译WITH_OPENSSL
-libhv完美结合了OpenSSL库，这是几乎所有的异步IO库没有做的一点。
 在libhv中开启SSL非常简单，仅需要两个API接口：
 ```
 // init ssl_ctx, see base/hssl.h

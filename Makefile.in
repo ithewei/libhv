@@ -164,6 +164,11 @@ endif
 ifeq ($(WITH_OPENSSL), yes)
 	CPPFLAGS += -DWITH_OPENSSL
 	LDFLAGS += -lssl -lcrypto
+else
+ifeq ($(WITH_MBEDTLS), yes)
+	CPPFLAGS += -DWITH_MBEDTLS
+	LDFLAGS += -lmbedtls -lmbedx509 -lmbedcrypto
+endif
 endif
 
 LDFLAGS += $(addprefix -L, $(LIBDIRS))

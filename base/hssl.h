@@ -8,15 +8,16 @@ typedef void* hssl_t; ///> SSL
 
 enum {
     HSSL_OK = 0,
-    HSSL_WANT_READ = 2,
-    HSSL_WANT_WRITE = 3,
+    HSSL_WANT_READ = -2,
+    HSSL_WANT_WRITE = -3,
 };
 
 typedef struct {
     const char* crt_file;
     const char* key_file;
     const char* ca_file;
-    int         verify_peer;
+    short       verify_peer;
+    short       endpoint; // 0: server 1: client
 } hssl_ctx_init_param_t;
 
 BEGIN_EXTERN_C

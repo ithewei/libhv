@@ -12,7 +12,7 @@ but simpler apis and richer protocols.
 - event-loop (IO, timer, idle)
 - ENABLE_IPV6
 - ENABLE_UDS (Unix Domain Socket)
-- WITH_OPENSSL
+- WITH_OPENSSL or WITH_MBEDTLS
 - http client/server (include https http1/x http2 grpc)
 - http web service, indexof service, api service (support RESTful API)
 - protocols
@@ -188,8 +188,7 @@ bin/nc 127.0.0.1 10514
 ### compile options
 
 #### compile WITH_OPENSSL
-libhv combines OpenSSL perfectly, something almost all asynchronous IO network libraries don't do.<br>
-And enable SSL in libhv is so easy, just only two apis:
+Enable SSL in libhv is so easy, just only two apis:
 ```
 // init ssl_ctx, see base/hssl.h
 hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
