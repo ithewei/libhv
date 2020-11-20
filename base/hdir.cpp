@@ -33,11 +33,10 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
     // opendir -> readdir -> closedir
     DIR* dp = opendir(dir);
     if (dp == NULL) return -1;
-    struct dirent  de;
     struct dirent* result = NULL;
     struct stat st;
     hdir_t tmp;
-    while (readdir_r(dp, &de, &result) == 0 && result) {
+    while ((result = readdir(dp))) {
         memset(&tmp, 0, sizeof(hdir_t));
         strncpy(tmp.name, result->d_name, sizeof(tmp.name));
         strncpy(path+dirlen, result->d_name, sizeof(path)-dirlen);
