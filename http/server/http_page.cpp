@@ -62,7 +62,7 @@ void make_index_of_page(const char* dir, std::string& page, const char* url) {
             else {
                 float hsize;
                 if (item.size < 1024) {
-                    snprintf(c_str, sizeof(c_str), "%lu", item.size);
+                    snprintf(c_str, sizeof(c_str), "%lu", (unsigned long)item.size);
                 }
                 else if ((hsize = item.size/1024.0f) < 1024.0f) {
                     snprintf(c_str, sizeof(c_str), "%.1fK", hsize);

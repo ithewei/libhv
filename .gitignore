@@ -52,6 +52,7 @@ tmp
 dist
 test
 build
+hconfig.h
 html/uploads
 
 # msvc

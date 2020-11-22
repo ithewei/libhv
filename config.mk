@@ -16,7 +16,7 @@ ENABLE_IPV6=no
 ENABLE_UDS=no
 # base/RAII.cpp: Windows MiniDumpWriteDump
 ENABLE_WINDUMP=no
-# http/http_content.h: QueryParams,MultiPart
+# http/http_content.h: KeyValue,QueryParams,MultiPart
 USE_MULTIMAP=no
 
 # dependencies

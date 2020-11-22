@@ -168,6 +168,7 @@ bin/nc 127.0.0.1 10514
 ```
 
 ## BUILD
+see BUILD.md
 
 ### lib
 - make libhv
@@ -201,21 +202,23 @@ https is the best example.
 ```
 sudo apt install openssl libssl-dev # ubuntu
 make clean
-make libhv httpd curl WITH_OPENSSL=yes
+make WITH_OPENSSL=yes
 # editor etc/httpd.conf => ssl = on
-bin/httpd -d
+bin/httpd -s restart -d
 bin/curl -v https://localhost:8080
 curl -v https://localhost:8080 --insecure
 ```
 
 #### compile WITH_CURL
-- make WITH_CURL=yes DEFINES="CURL_STATICLIB"
+```
+make WITH_CURL=yes DEFINES="CURL_STATICLIB"
+```
 
 #### compile WITH_NGHTTP2
 ```
 sudo apt install libnghttp2-dev # ubuntu
 make clean
-make libhv httpd curl WITH_NGHTTP2=yes
+make WITH_NGHTTP2=yes
 bin/httpd -d
 bin/curl -v localhost:8080 --http2
 ```
@@ -225,9 +228,6 @@ see config.mk
 
 ### echo-servers
 ```shell
-# ubuntu16.04
-sudo apt install libevent-dev libev-dev libuv1-dev libboost-dev libboost-system-dev libasio-dev libpoco-dev
-# muduo install => https://github.com/chenshuo/muduo.git
 cd echo-servers
 ./build.sh
 ./benchmark.sh
