@@ -4,7 +4,7 @@
 
 Like `libevent, libev, and libuv`,
 `libhv` provides event-loop with non-blocking IO and timer,
-but simpler apis and richer protocols.
+but simpler api and richer protocols.
 
 ## Features
 

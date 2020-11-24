@@ -196,9 +196,12 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) 
 
     // http2
     if (req->http_major == 2) {
-        //curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_0);
-        //No Connection: Upgrade
+#if LIBCURL_VERSION_NUM < 0x073100 // 7.49.0
+        curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_0);
+#else
+        // No Connection: Upgrade
         curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_2_PRIOR_KNOWLEDGE);
+#endif
     }
 
     // TCP_NODELAY

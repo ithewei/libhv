@@ -41,7 +41,7 @@ static const char detail_options[] = R"(
   -h|--help                 Print this information
   -v|--version              Print version
   -c|--confile <confile>    Set configure file, default etc/{program}.conf
-  -t|--test                 Test Configure file and exit
+  -t|--test                 Test configure file and exit
   -s|--signal <signal>      Send <signal> to process,
                             <signal>=[start,stop,restart,status,reload]
   -d|--daemon               Daemonize

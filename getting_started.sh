@@ -1,63 +1,71 @@
 #!/bin/bash
 
+echo "Welcome to libhv!"
+echo "Press any key to run ..."
+
+# run curl
+echo_cmd() {
+    echo -e "\n\033[36m$cmd\033[0m"
+    read -n1
+}
+
+run_cmd() {
+    echo_cmd
+    $cmd
+}
+
+# compile httpd curl
 if [ ! -x bin/httpd -o ! -x bin/curl ]; then
+    cmd="make httpd curl" && echo_cmd
+    ./configure
     make clean
-    make httpd curl
+    make -j4 httpd curl
 fi
 
+# run httpd
 processes=$(ps aux | grep -v grep | grep httpd | wc -l)
 if [ $processes -lt 1 ]; then
-    bin/httpd -s restart -d
+    cmd="bin/httpd -c etc/httpd.conf -s restart -d" && run_cmd
 fi
-ps aux | grep httpd
-
-PS4="\033[32m+ \033[0m"
-set -x
+ps aux | grep -v grep | grep httpd
 
 # http web service
-read -n1
-bin/curl -v localhost:8080
+cmd="bin/curl -v localhost:8080" && run_cmd
 
 # http indexof service
-read -n1
-bin/curl -v localhost:8080/downloads/
+cmd="bin/curl -v localhost:8080/downloads/" && run_cmd
 
 # http api service
-read -n1
-bin/curl -v localhost:8080/ping
+cmd="bin/curl -v localhost:8080/ping" && run_cmd
 
-read -n1
-bin/curl -v localhost:8080/echo -d "hello,world!"
+cmd="bin/curl -v localhost:8080/echo -d 'hello,world!'" && echo_cmd
+bin/curl -v localhost:8080/echo -d 'hello,world!'
 
-read -n1
-bin/curl -v localhost:8080/query?page_no=1\&page_size=10
+cmd="bin/curl -v localhost:8080/query?page_no=1&page_size=10" && run_cmd
 
-read -n1
-bin/curl -v localhost:8080/kv   -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
+cmd="bin/curl -v localhost:8080/kv   -H 'Content-Type:application/x-www-form-urlencoded' -d 'user=admin&pswd=123456'" && echo_cmd
+     bin/curl -v localhost:8080/kv   -H 'Content-Type:application/x-www-form-urlencoded' -d 'user=admin&pswd=123456'
 
-read -n1
-bin/curl -v localhost:8080/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
+cmd="bin/curl -v localhost:8080/json -H 'Content-Type:application/json' -d '{\"user\":\"admin\",\"pswd\":\"123456\"}'" && echo_cmd
+     bin/curl -v localhost:8080/json -H 'Content-Type:application/json' -d '{"user":"admin","pswd":"123456"}'
 
-read -n1
-bin/curl -v localhost:8080/form -F "user=admin pswd=123456"
+cmd="bin/curl -v localhost:8080/form -F 'user=admin pswd=123456'" && echo_cmd
+     bin/curl -v localhost:8080/form -F 'user=admin pswd=123456'
 
-read -n1
-bin/curl -v localhost:8080/upload -F "file=@LICENSE"
+cmd="bin/curl -v localhost:8080/upload -F 'file=@LICENSE'" && echo_cmd
+     bin/curl -v localhost:8080/upload -F 'file=@LICENSE'
 
-read -n1
-bin/curl -v localhost:8080/test -H "Content-Type:application/x-www-form-urlencoded" -d 'bool=1&int=123&float=3.14&string=hello'
+cmd="bin/curl -v localhost:8080/test -H 'Content-Type:application/x-www-form-urlencoded' -d 'bool=1&int=123&float=3.14&string=hello'" && echo_cmd
+     bin/curl -v localhost:8080/test -H 'Content-Type:application/x-www-form-urlencoded' -d 'bool=1&int=123&float=3.14&string=hello'
 
-read -n1
-bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
+cmd="bin/curl -v localhost:8080/test -H 'Content-Type:application/json' -d '{\"bool\":true,\"int\":123,\"float\":3.14,\"string\":\"hello\"}'" && echo_cmd
+     bin/curl -v localhost:8080/test -H 'Content-Type:application/json' -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
 
-read -n1
-bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
+cmd="bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'" && echo_cmd
+     bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
 
 # RESTful API: /group/:group_name/user/:user_id
-read -n1
-bin/curl -v -X DELETE localhost:8080/group/test/user/123
+cmd="bin/curl -v -X DELETE localhost:8080/group/test/user/123" && run_cmd
 
-# see logs
-read -n1
-tail -n 100 logs/httpd*.log
-
+# show log
+cmd="tail -n 100 logs/httpd*.log" && run_cmd
