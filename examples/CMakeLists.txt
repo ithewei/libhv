@@ -42,10 +42,17 @@ add_executable(httpd ${BASE_SRCS} ${UTILS_SRCS} ${EVENT_SRCS} ${HTTP_SRCS} ${HTT
 target_include_directories(httpd PRIVATE .. ../base ../utils ../event ../http ../http/server httpd)
 target_link_libraries(httpd ${LIBS})
 
-add_executable(curl curl.cpp ${BASE_SRCS} ${UTILS_SRCS} ${HTTP_SRCS} ${HTTP_CLIENT_SRCS})
-# target_compile_definitions(curl PRIVATE -DWITH_CURL -DCURL_STATICLIB)
-target_include_directories(curl PRIVATE .. ../base ../utils ../http ../http/client)
-target_link_libraries(curl ${LIBS})
+if(WITH_CURL)
+    set(CURL_TARGET_NAME hv_curl)
+else()
+    set(CURL_TARGET_NAME curl)
+endif()
+add_executable(${CURL_TARGET_NAME} curl.cpp ${BASE_SRCS} ${UTILS_SRCS} ${HTTP_SRCS} ${HTTP_CLIENT_SRCS})
+if(WITH_CURL)
+    set_target_properties(${CURL_TARGET_NAME} PROPERTIES OUTPUT_NAME curl)
+endif()
+target_include_directories(${CURL_TARGET_NAME} PRIVATE .. ../base ../utils ../http ../http/client)
+target_link_libraries(${CURL_TARGET_NAME} ${LIBS})
 
 add_executable(consul_cli consul_cli.cpp ${BASE_SRCS} ${UTILS_SRCS} ${HTTP_SRCS} ${HTTP_CLIENT_SRCS} ${CONSUL_SRCS})
 target_compile_definitions(consul_cli PRIVATE PRINT_DEBUG)
@@ -61,6 +68,6 @@ add_custom_target(examples DEPENDS
     nc
     nmap
     httpd
-    curl
+    ${CURL_TARGET_NAME}
     consul_cli
 )
