@@ -5,6 +5,9 @@ project(hv VERSION 1.20.8)
 option(BUILD_SHARED "build shared library" ON)
 option(BUILD_STATIC "build static library" ON)
 
+option(BUILD_EXAMPLES "build examples" ON)
+option(BUILD_UNITTEST "build unittest" ON)
+
 # see config.mk
 option(WITH_PROTOCOL "compile protocol" ON)
 
@@ -179,5 +182,10 @@ endif()
 file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
 
-add_subdirectory(unittest)
-add_subdirectory(examples)
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+
+if(BUILD_UNITTEST)
+    add_subdirectory(unittest)
+endif()

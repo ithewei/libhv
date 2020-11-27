@@ -8,6 +8,8 @@
 typedef struct hloop_s      hloop_t;
 typedef struct hevent_s     hevent_t;
 
+// NOTE: The following structures are subclasses of hevent_t,
+// inheriting hevent_t data members and function members.
 typedef struct hidle_s      hidle_t;
 typedef struct htimer_s     htimer_t;
 typedef struct htimeout_s   htimeout_t;

@@ -194,7 +194,7 @@ const char* logger_get_cur_file(logger_t* logger) {
 
 static void logfile_name(const char* filepath, time_t ts, char* buf, int len) {
     struct tm* tm = localtime(&ts);
-    snprintf(buf, len, "%s-%04d-%02d-%02d.log",
+    snprintf(buf, len, "%s.%04d%02d%02d.log",
             filepath,
             tm->tm_year+1900,
             tm->tm_mon+1,
@@ -313,16 +313,18 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     }
 #undef XXX
 
-    if (!logger->enable_color) {
-        pcolor = "";
-    }
-
     // lock logger->buf
     hmutex_lock(&logger->mutex_);
+
     char* buf = logger->buf;
     int bufsize = logger->bufsize;
-    int len = snprintf(buf, bufsize, "%s[%04d-%02d-%02d %02d:%02d:%02d.%03d][%s] ",
-        pcolor,
+    int len = 0;
+
+    if (logger->enable_color) {
+        len = snprintf(buf, bufsize, "%s", pcolor);
+    }
+
+    len += snprintf(buf + len, bufsize - len, "%04d-%02d-%02d %02d:%02d:%02d.%03d %s ",
         year, month, day, hour, min, sec, ms,
         plevel);
 

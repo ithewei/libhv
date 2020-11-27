@@ -13,6 +13,10 @@ add_executable(hatomic_test hatomic_test.c)
 target_include_directories(hatomic_test PRIVATE .. ../base)
 target_link_libraries(hatomic_test -lpthread)
 
+add_executable(hthread_test hthread_test.cpp)
+target_include_directories(hthread_test PRIVATE .. ../base)
+target_link_libraries(hthread_test -lpthread)
+
 add_executable(hmutex_test hmutex_test.c ../base/htime.c)
 target_include_directories(hmutex_test PRIVATE .. ../base)
 target_link_libraries(hmutex_test -lpthread)
@@ -69,6 +73,7 @@ add_custom_target(unittest DEPENDS
     rmdir_p
     date
     hatomic_test
+    hthread_test
     hmutex_test
     connect_test
     socketpair_test
