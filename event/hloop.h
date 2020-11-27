@@ -103,7 +103,7 @@ BEGIN_EXTERN_C
 #define HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS   0x00000004
 HV_EXPORT hloop_t* hloop_new(int flags DEFAULT(HLOOP_FLAG_AUTO_FREE));
 
-// WARN: Forbid to call hloop_free if HLOOP_INIT_FLAG_AUTO_FREE set.
+// WARN: Forbid to call hloop_free if HLOOP_FLAG_AUTO_FREE set.
 HV_EXPORT void hloop_free(hloop_t** pp);
 
 // NOTE: when no active events, loop will quit if HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS set.

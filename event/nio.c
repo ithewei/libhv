@@ -551,18 +551,14 @@ int hio_close (hio_t* io) {
 
     io->closed = 1;
     hio_del(io, HV_RDWR);
-    if (io->io_type & HIO_TYPE_SOCKET) {
-#ifdef OS_UNIX
-        close(io->fd);
-#else
-        closesocket(io->fd);
-#endif
-    }
+    __close_cb(io);
     if (io->ssl) {
         hssl_free(io->ssl);
         io->ssl = NULL;
     }
-    __close_cb(io);
+    if (io->io_type & HIO_TYPE_SOCKET) {
+        closesocket(io->fd);
+    }
     return 0;
 }
 #endif
