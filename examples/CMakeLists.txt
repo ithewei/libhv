@@ -36,32 +36,48 @@ if(WITH_HTTP)
     include_directories(../http)
 if(WITH_HTTP_SERVER)
     include_directories(../http/server)
-    list(APPEND EXAMPLES httpd)
+
+    # httpd
     aux_source_directory(httpd HTTPD_SRCS)
     add_executable(httpd ${HTTPD_SRCS})
     target_link_libraries(httpd hv)
+
+    # http_server_test
+    add_executable(http_server_test http_server_test.cpp)
+    target_link_libraries(http_server_test hv)
+
+    list(APPEND EXAMPLES httpd http_server_test)
 endif()
 
 if(WITH_HTTP_CLIENT)
     include_directories(../http/client)
+
+    # curl
     set(CURL_TARGET_NAME curl)
     if(WITH_CURL)
         set(CURL_TARGET_NAME hv_curl)
     endif()
-    list(APPEND EXAMPLES ${CURL_TARGET_NAME})
     add_executable(${CURL_TARGET_NAME} curl.cpp)
     if(WITH_CURL)
         set_target_properties(${CURL_TARGET_NAME} PROPERTIES OUTPUT_NAME curl)
     endif()
     target_link_libraries(${CURL_TARGET_NAME} hv)
+
+    # http_client_test
+    add_executable(http_client_test http_client_test.cpp)
+    target_link_libraries(http_client_test hv)
+
+    list(APPEND EXAMPLES ${CURL_TARGET_NAME} http_client_test)
 endif()
 
 if(WITH_CONSUL)
     include_directories(../consul)
-    list(APPEND EXAMPLES consul_cli)
+
     add_executable(consul_cli consul_cli.cpp)
     target_compile_definitions(consul_cli PRIVATE PRINT_DEBUG)
     target_link_libraries(consul_cli hv)
+
+    list(APPEND EXAMPLES consul_cli)
 endif()
 endif()
 

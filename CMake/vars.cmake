@@ -63,6 +63,6 @@ set(HTTP_HEADERS
     http/HttpParser.h
 )
 
-set(HTTP_CLIENT_HEADERS http/client/http_client.h)
+set(HTTP_CLIENT_HEADERS http/client/http_client.h http/client/requests.h)
 set(HTTP_SERVER_HEADERS http/server/HttpService.h http/server/HttpServer.h)
 set(CONSUL_HEADERS consul/consul.h)

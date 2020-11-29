@@ -32,7 +32,9 @@ endif
 
 default: all
 all: libhv examples
-examples: hmain_test htimer_test hloop_test tcp udp nc nmap httpd curl consul_cli
+examples: hmain_test htimer_test hloop_test \
+	tcp udp nc nmap httpd curl \
+	http_server_test http_client_test consul_cli
 
 clean:
 	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"
@@ -83,8 +85,14 @@ httpd: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server examples/httpd"
 
 curl: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp"
-	# $(MAKEF) TARGET=$@ SRCDIRS="$(CURL_SRCDIRS)" SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes DEFINES="CURL_STATICLIB"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp"
+	# $(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes DEFINES="CURL_STATICLIB"
+
+http_server_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server" SRCS="examples/http_server_test.cpp"
+
+http_client_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client" SRCS="examples/http_client_test.cpp"
 
 consul_cli: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="PRINT_DEBUG"
@@ -124,4 +132,4 @@ echo-servers:
 	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo     echo-servers/poco_echo.cpp   -lPocoNet -lPocoUtil -lPocoFoundation
 	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo    echo-servers/muduo_echo.cpp  -lmuduo_net -lmuduo_base -lpthread
 
-.PHONY: clean prepare libhv install examples hmain_test htimer_test hloop_test tcp udp nc nmap httpd curl consul_cli unittest webbench echo-servers
+.PHONY: clean prepare libhv install examples tcp udp nc nmap httpd curl consul_cli unittest webbench echo-servers

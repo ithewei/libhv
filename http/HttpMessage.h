@@ -192,7 +192,10 @@ public:
 
 class HV_EXPORT HttpResponse : public HttpMessage {
 public:
-    http_status         status_code;
+    http_status status_code;
+    const char* status_message() {
+        return http_status_str(status_code);
+    }
 
     HttpResponse() : HttpMessage() {
         type = HTTP_RESPONSE;

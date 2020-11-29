@@ -35,15 +35,20 @@
 
 ### HTTP
 #### http server
-see `examples/httpd/httpd.cpp`
+see `examples/http_server_test.cpp`
 ```c++
 #include "HttpServer.h"
 
 int main() {
     HttpService service;
-    service.base_url = "/v1/api";
-    service.POST("/echo", [](HttpRequest* req, HttpResponse* res) {
-        res->body = req->body;
+    service.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
+        resp->body = "pong";
+        return 200;
+    });
+
+    service.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
+        resp->content_type = req->content_type;
+        resp->body = req->body;
         return 200;
     });
 
@@ -55,25 +60,28 @@ int main() {
 }
 ```
 #### http client
-see `examples/curl.cpp`
+see `examples/http_client_test.cpp`
 ```c++
-#include "http_client.h"
+#include "requests.h"
 
-int main(int argc, char* argv[]) {
-    HttpRequest req;
-    req.method = HTTP_POST;
-    req.url = "http://localhost:8080/v1/api/echo";
-    req.body = "hello,world!";
-    HttpResponse res;
-    int ret = http_client_send(&req, &res);
-    printf("%s\n", req.Dump(true,true).c_str());
-    if (ret != 0) {
-        printf("* Failed:%s:%d\n", http_client_strerror(ret), ret);
+int main() {
+    auto resp = requests::get("http://www.example.com");
+    if (resp == NULL) {
+        printf("request failed!\n");
+    } else {
+        printf("%d %s\r\n", resp->status_code, resp->status_message());
+        printf("%s\n", resp->body.c_str());
     }
-    else {
-        printf("%s\n", res.Dump(true,true).c_str());
+
+    auto resp2 = requests::post("127.0.0.1:8080/echo", "hello,world!");
+    if (resp2 == NULL) {
+        printf("request failed!\n");
+    } else {
+        printf("%d %s\r\n", resp2->status_code, resp2->status_message());
+        printf("%s\n", resp2->body.c_str());
     }
-    return ret;
+
+    return 0;
 }
 ```
 
