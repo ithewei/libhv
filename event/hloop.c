@@ -202,6 +202,16 @@ static void hloop_cleanup(hloop_t* loop) {
         loop->pendings[i] = NULL;
     }
 
+    // ios
+    printd("cleanup ios...\n");
+    for (int i = 0; i < loop->ios.maxsize; ++i) {
+        hio_t* io = loop->ios.ptr[i];
+        if (io) {
+            hio_free(io);
+        }
+    }
+    io_array_cleanup(&loop->ios);
+
     // idles
     printd("cleanup idles...\n");
     struct list_node* node = loop->idles.next;
@@ -222,16 +232,6 @@ static void hloop_cleanup(hloop_t* loop) {
         HV_FREE(timer);
     }
     heap_init(&loop->timers, NULL);
-
-    // ios
-    printd("cleanup ios...\n");
-    for (int i = 0; i < loop->ios.maxsize; ++i) {
-        hio_t* io = loop->ios.ptr[i];
-        if (io) {
-            hio_free(io);
-        }
-    }
-    io_array_cleanup(&loop->ios);
 
     // readbuf
     if (loop->readbuf.base && loop->readbuf.len) {
@@ -660,7 +660,7 @@ int hio_del(hio_t* io, int events) {
 
 hio_t* hread(hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
     hio_t* io = hio_get(loop, fd);
-    if (io == NULL) return NULL;
+    assert(io != NULL);
     io->readbuf.base = (char*)buf;
     io->readbuf.len = len;
     if (read_cb) {
@@ -672,7 +672,7 @@ hio_t* hread(hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
 
 hio_t* hwrite(hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb write_cb) {
     hio_t* io = hio_get(loop, fd);
-    if (io == NULL) return NULL;
+    assert(io != NULL);
     if (write_cb) {
         io->write_cb = write_cb;
     }
@@ -682,8 +682,7 @@ hio_t* hwrite(hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb writ
 
 hio_t* haccept(hloop_t* loop, int listenfd, haccept_cb accept_cb) {
     hio_t* io = hio_get(loop, listenfd);
-    if (io == NULL) return NULL;
-    io->accept = 1;
+    assert(io != NULL);
     if (accept_cb) {
         io->accept_cb = accept_cb;
     }
@@ -693,8 +692,7 @@ hio_t* haccept(hloop_t* loop, int listenfd, haccept_cb accept_cb) {
 
 hio_t* hconnect (hloop_t* loop, int connfd, hconnect_cb connect_cb) {
     hio_t* io = hio_get(loop, connfd);
-    if (io == NULL) return NULL;
-    io->connect = 1;
+    assert(io != NULL);
     if (connect_cb) {
         io->connect_cb = connect_cb;
     }
@@ -704,13 +702,13 @@ hio_t* hconnect (hloop_t* loop, int connfd, hconnect_cb connect_cb) {
 
 void hclose (hloop_t* loop, int fd) {
     hio_t* io = hio_get(loop, fd);
-    if (io == NULL) return;
+    assert(io != NULL);
     hio_close(io);
 }
 
 hio_t* hrecv (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb) {
     //hio_t* io = hio_get(loop, connfd);
-    //if (io == NULL) return NULL;
+    //assert(io != NULL);
     //io->recv = 1;
     //if (io->io_type != HIO_TYPE_SSL) {
         //io->io_type = HIO_TYPE_TCP;
@@ -720,7 +718,7 @@ hio_t* hrecv (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb
 
 hio_t* hsend (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb write_cb) {
     //hio_t* io = hio_get(loop, connfd);
-    //if (io == NULL) return NULL;
+    //assert(io != NULL);
     //io->send = 1;
     //if (io->io_type != HIO_TYPE_SSL) {
         //io->io_type = HIO_TYPE_TCP;
@@ -730,7 +728,7 @@ hio_t* hsend (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb 
 
 hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb read_cb) {
     //hio_t* io = hio_get(loop, sockfd);
-    //if (io == NULL) return NULL;
+    //assert(io != NULL);
     //io->recvfrom = 1;
     //io->io_type = HIO_TYPE_UDP;
     return hread(loop, sockfd, buf, len, read_cb);
@@ -738,7 +736,7 @@ hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb rea
 
 hio_t* hsendto (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb) {
     //hio_t* io = hio_get(loop, sockfd);
-    //if (io == NULL) return NULL;
+    //assert(io != NULL);
     //io->sendto = 1;
     //io->io_type = HIO_TYPE_UDP;
     return hwrite(loop, sockfd, buf, len, write_cb);
@@ -771,7 +769,7 @@ hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconn
     }
 
     hio_t* io = hio_get(loop, connfd);
-    if (io == NULL) return NULL;
+    assert(io != NULL);
     hio_set_peeraddr(io, &peeraddr.sa, sockaddr_len(&peeraddr));
     hconnect(loop, connfd, connect_cb);
     return io;
@@ -803,7 +801,7 @@ hio_t* hloop_create_udp_client(hloop_t* loop, const char* host, int port) {
     }
 
     hio_t* io = hio_get(loop, sockfd);
-    if (io == NULL) return NULL;
+    assert(io != NULL);
     hio_set_peeraddr(io, &peeraddr.sa, sockaddr_len(&peeraddr));
     return io;
 }

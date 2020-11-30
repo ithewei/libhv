@@ -460,6 +460,7 @@ static void hio_handle_events(hio_t* io) {
 }
 
 int hio_accept(hio_t* io) {
+    io->accept = 1;
     hio_add(io, hio_handle_events, HV_READ);
     return 0;
 }
@@ -483,6 +484,7 @@ int hio_connect(hio_t* io) {
     int timeout = io->connect_timeout ? io->connect_timeout : HIO_DEFAULT_CONNECT_TIMEOUT;
     io->connect_timer = htimer_add(io->loop, __connect_timeout_cb, timeout, 1);
     io->connect_timer->privdata = io;
+    io->connect = 1;
     return hio_add(io, hio_handle_events, HV_WRITE);
 }
 

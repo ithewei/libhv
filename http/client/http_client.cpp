@@ -1,46 +1,52 @@
 #include "http_client.h"
 
-#define MAX_CONNECT_TIMEOUT 3000 // ms
-
-#include "hstring.h" // import asprintf,trim
+#include <mutex>
 
 #ifdef WITH_CURL
 #include "curl/curl.h"
-#else
+#endif
+
 #include "herr.h"
+#include "hstring.h"
 #include "hsocket.h"
 #include "hssl.h"
 #include "HttpParser.h"
-#endif
 
+// for async
+#include "hthread.h"
+#include "hloop.h"
 struct http_client_s {
     std::string  host;
     int          port;
     int          https;
-    int          http_version;
     int          timeout; // s
     http_headers headers;
 //private:
 #ifdef WITH_CURL
     CURL* curl;
-#else
-    int fd;
-    hssl_t ssl;
-    HttpParser*  parser;
 #endif
+    int fd;
+    // for sync
+    hssl_t          ssl;
+    HttpParserPtr   parser;
+    // for async
+    std::mutex  mutex_;
+    hthread_t   thread_;
+    hloop_t*    loop_;
 
     http_client_s() {
+        host = LOCALHOST;
         port = DEFAULT_HTTP_PORT;
         https = 0;
-        http_version = 1;
         timeout = DEFAULT_HTTP_TIMEOUT;
 #ifdef WITH_CURL
         curl = NULL;
-#else
+#endif
         fd = -1;
         ssl = NULL;
-        parser = NULL;
-#endif
+
+        thread_ = 0;
+        loop_ = NULL;
     }
 
     ~http_client_s() {
@@ -48,12 +54,20 @@ struct http_client_s {
     }
 
     void Close() {
+        if (loop_) {
+            hloop_stop(loop_);
+            loop_ = NULL;
+        }
+        if (thread_) {
+            hthread_join(thread_);
+            thread_ = 0;
+        }
 #ifdef WITH_CURL
         if (curl) {
             curl_easy_cleanup(curl);
             curl = NULL;
         }
-#else
+#endif
         if (ssl) {
             hssl_free(ssl);
             ssl = NULL;
@@ -62,24 +76,16 @@ struct http_client_s {
             closesocket(fd);
             fd = -1;
         }
-        if (parser) {
-            delete parser;
-            parser = NULL;
-        }
-#endif
     }
 };
 
-static int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res);
+static int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp);
 
 http_client_t* http_client_new(const char* host, int port, int https) {
     http_client_t* cli = new http_client_t;
-    cli->https = https;
+    if (host) cli->host = host;
     cli->port = port;
-    if (host) {
-        cli->host = host;
-        cli->headers["Host"] = asprintf("%s:%d", host, port);
-    }
+    cli->https = https;
     cli->headers["Connection"] = "keep-alive";
     return cli;
 }
@@ -121,26 +127,40 @@ const char* http_client_get_header(http_client_t* cli, const char* key) {
     return NULL;
 }
 
-int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) {
+int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
+    if (!cli || !req || !resp) return ERR_NULL_POINTER;
+
+    if (req->url.empty() || *req->url.c_str() == '/') {
+        req->host = cli->host;
+        req->port = cli->port;
+        req->https = cli->https;
+    }
+
+    if (req->timeout == 0) {
+        req->timeout = cli->timeout;
+    }
+
     for (auto& pair : cli->headers) {
         if (req->headers.find(pair.first) == req->headers.end()) {
             req->headers[pair.first] = pair.second;
         }
     }
-    return __http_client_send(cli, req, res);
+
+    return __http_client_send(cli, req, resp);
 }
 
-int http_client_send(HttpRequest* req, HttpResponse* res, int timeout) {
+int http_client_send(HttpRequest* req, HttpResponse* resp) {
+    if (!req || !resp) return ERR_NULL_POINTER;
+
     http_client_t cli;
-    cli.timeout = timeout;
-    return __http_client_send(&cli, req, res);
+    return __http_client_send(&cli, req, resp);
 }
 
 #ifdef WITH_CURL
 static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
     if (buf == NULL || userdata == NULL)    return 0;
 
-    HttpResponse* res = (HttpResponse*)userdata;
+    HttpResponse* resp = (HttpResponse*)userdata;
 
     std::string str(buf);
     std::string::size_type pos = str.find_first_of(':');
@@ -158,16 +178,16 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
                 sscanf(buf, "HTTP/%d %d", &http_major, &status_code);
                 http_minor = 0;
             }
-            res->http_major = http_major;
-            res->http_minor = http_minor;
-            res->status_code = (http_status)status_code;
+            resp->http_major = http_major;
+            resp->http_minor = http_minor;
+            resp->status_code = (http_status)status_code;
         }
     }
     else {
         // headers
         std::string key = trim(str.substr(0, pos));
         std::string value = trim(str.substr(pos+1));
-        res->headers[key] = value;
+        resp->headers[key] = value;
     }
     return size*cnt;
 }
@@ -175,16 +195,12 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
 static size_t s_body_cb(char *buf, size_t size, size_t cnt, void *userdata) {
     if (buf == NULL || userdata == NULL)    return 0;
 
-    HttpResponse* res = (HttpResponse*)userdata;
-    res->body.append(buf, size*cnt);
+    HttpResponse* resp = (HttpResponse*)userdata;
+    resp->body.append(buf, size*cnt);
     return size*cnt;
 }
 
-int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) {
-    if (req == NULL || res == NULL) {
-        return -1;
-    }
-
+int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     if (cli->curl == NULL) {
         cli->curl = curl_easy_init();
     }
@@ -264,19 +280,19 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) 
     }
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, s_body_cb);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, res);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, resp);
 
     curl_easy_setopt(curl, CURLOPT_HEADER, 0);
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, s_header_cb);
-    curl_easy_setopt(curl, CURLOPT_HEADERDATA, res);
+    curl_easy_setopt(curl, CURLOPT_HEADERDATA, resp);
 
     int ret = curl_easy_perform(curl);
     /*
     if (ret != 0) {
         hloge("curl error: %d: %s", ret, curl_easy_strerror((CURLcode)ret));
     }
-    if (res->body.length() != 0) {
-        hlogd("[Response]\n%s", res->body.c_str());
+    if (resp->body.length() != 0) {
+        hlogd("[Response]\n%s", resp->body.c_str());
     }
     double total_time, name_time, conn_time, pre_time;
     curl_easy_getinfo(curl, CURLINFO_TOTAL_TIME, &total_time);
@@ -302,12 +318,13 @@ const char* http_client_strerror(int errcode) {
     return curl_easy_strerror((CURLcode)errcode);
 }
 #else
-static int __http_client_connect(http_client_t* cli) {
-    int blocktime = MAX_CONNECT_TIMEOUT;
-    if (cli->timeout > 0) {
-        blocktime = MIN(cli->timeout*1000, blocktime);
+static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
+    int blocktime = DEFAULT_CONNECT_TIMEOUT;
+    if (req->timeout > 0) {
+        blocktime = MIN(req->timeout*1000, blocktime);
     }
-    int connfd = ConnectTimeout(cli->host.c_str(), cli->port, blocktime);
+    req->ParseUrl();
+    int connfd = ConnectTimeout(req->host.c_str(), req->port, blocktime);
     if (connfd < 0) {
         return connfd;
     }
@@ -334,35 +351,25 @@ static int __http_client_connect(http_client_t* cli) {
     }
 
     if (cli->parser == NULL) {
-        cli->parser = HttpParser::New(HTTP_CLIENT, (http_version)cli->http_version);
+        cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, (http_version)req->http_major));
     }
 
     cli->fd = connfd;
     return 0;
 }
 
-int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res) {
+int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     // connect -> send -> recv -> http_parser
     int err = 0;
     int timeout = cli->timeout;
     int connfd = cli->fd;
-
-    req->ParseUrl();
-    if (cli->host.size() == 0) {
-        cli->host = req->host;
-        cli->port = req->port;
-    }
-    if (cli->https == 0) {
-        cli->https = req->https;
-    }
-    cli->http_version = req->http_major;
 
     time_t start_time = time(NULL);
     time_t cur_time;
     int fail_cnt = 0;
 connect:
     if (connfd <= 0) {
-        int ret = __http_client_connect(cli);
+        int ret = __http_client_connect(cli, req);
         if (ret != 0) {
             return ret;
         }
@@ -408,7 +415,7 @@ send:
             }
         }
     }
-    cli->parser->InitResponse(res);
+    cli->parser->InitResponse(resp);
 recv:
     do {
         if (timeout > 0) {
@@ -439,3 +446,200 @@ const char* http_client_strerror(int errcode) {
     return socket_strerror(errcode);
 }
 #endif
+
+struct HttpContext {
+    HttpRequestPtr  req;
+    HttpResponsePtr resp;
+    HttpParserPtr   parser;
+
+    hio_t*          io;
+    htimer_t*       timer;
+
+    HttpResponseCallback cb;
+    void*                userdata;
+
+    HttpContext() {
+        io = NULL;
+        timer = NULL;
+        cb = NULL;
+        userdata = NULL;
+    }
+
+    ~HttpContext() {
+        killTimer();
+    }
+
+    void closeIO() {
+        if (io) {
+            hio_close(io);
+            io = NULL;
+        }
+    }
+
+    void killTimer() {
+        if (timer) {
+            htimer_del(timer);
+            timer = NULL;
+        }
+    }
+
+    void callback(int state) {
+        if (cb) {
+            cb(state, req, resp, userdata);
+            // NOTE: ensure cb only called once
+            cb = NULL;
+        }
+    }
+
+    void successCallback() {
+        killTimer();
+        callback(0);
+    }
+
+    void errorCallback(int error) {
+        closeIO();
+        callback(error);
+    }
+};
+
+static void on_close(hio_t* io) {
+    HttpContext* ctx = (HttpContext*)hevent_userdata(io);
+    if (ctx) {
+        int error = hio_error(io);
+        ctx->callback(error);
+        delete ctx;
+        hevent_set_userdata(io, NULL);
+    }
+}
+
+static void on_recv(hio_t* io, void* buf, int readbytes) {
+    HttpContext* ctx = (HttpContext*)hevent_userdata(io);
+
+    int nparse = ctx->parser->FeedRecvData((const char*)buf, readbytes);
+    if (nparse != readbytes) {
+        ctx->errorCallback(ERR_PARSE);
+        return;
+    }
+    if (ctx->parser->IsComplete()) {
+        ctx->successCallback();
+        return;
+    }
+}
+
+static void on_connect(hio_t* io) {
+    HttpContext* ctx = (HttpContext*)hevent_userdata(io);
+
+    ctx->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, (http_version)ctx->req->http_major));
+    ctx->parser->InitResponse(ctx->resp.get());
+    ctx->parser->SubmitRequest(ctx->req.get());
+
+    char* data = NULL;
+    size_t len = 0;
+    while (ctx->parser->GetSendData(&data, &len)) {
+        hio_write(io, data, len);
+    }
+
+    hio_setcb_read(io, on_recv);
+    hio_read(io);
+}
+
+static void on_timeout(htimer_t* timer) {
+    HttpContext* ctx = (HttpContext*)hevent_userdata(timer);
+    ctx->errorCallback(ERR_TASK_TIMEOUT);
+}
+
+static HTHREAD_ROUTINE(http_client_loop_thread) {
+    hloop_t* loop = (hloop_t*)userdata;
+    assert(loop != NULL);
+    hloop_run(loop);
+    return 0;
+}
+
+// hloop_new -> htread_create -> hloop_run ->
+// hio_connect -> on_connect -> hio_write -> hio_read -> on_recv ->
+// HttpResponseCallback -> on_close
+static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponsePtr resp,
+        HttpResponseCallback cb, void* userdata) {
+    sockaddr_u peeraddr;
+    memset(&peeraddr, 0, sizeof(peeraddr));
+    req->ParseUrl();
+    int ret = sockaddr_set_ipport(&peeraddr, req->host.c_str(), req->port);
+    if (ret != 0) {
+        return ERR_INVALID_PARAM;
+    }
+    int connfd = socket(peeraddr.sa.sa_family, SOCK_STREAM, 0);
+    if (connfd < 0) {
+        return ERR_SOCKET;
+    }
+
+    cli->mutex_.lock();
+    if (cli->loop_ == NULL) {
+        cli->loop_ = hloop_new(HLOOP_FLAG_AUTO_FREE);
+    }
+    if (cli->thread_ == 0) {
+        cli->thread_ = hthread_create(http_client_loop_thread, cli->loop_);
+    }
+    cli->mutex_.unlock();
+
+    hio_t* connio = hio_get(cli->loop_, connfd);
+    assert(connio != NULL);
+
+    hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
+    hio_setcb_connect(connio, on_connect);
+    hio_setcb_close(connio, on_close);
+
+    // https
+    if (req->https) {
+        hio_enable_ssl(connio);
+    }
+
+    // new HttpContext
+    // delete on_close
+    HttpContext* ctx = new HttpContext;
+    ctx->io = connio;
+    ctx->req = req;
+    ctx->resp = resp;
+    ctx->cb = cb;
+    ctx->userdata = userdata;
+    hevent_set_userdata(connio, ctx);
+
+    // timeout
+    if (req->timeout != 0) {
+        ctx->timer = htimer_add(cli->loop_, on_timeout, req->timeout * 1000, 1);
+        assert(ctx->timer != NULL);
+        hevent_set_userdata(ctx->timer, ctx);
+    }
+
+    return hio_connect(connio);
+}
+
+int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponsePtr resp,
+        HttpResponseCallback cb, void* userdata) {
+    if (!cli || !req || !resp) return ERR_NULL_POINTER;
+
+    if (req->url.empty() || *req->url.c_str() == '/') {
+        req->host = cli->host;
+        req->port = cli->port;
+        req->https = cli->https;
+    }
+
+    if (req->timeout == 0) {
+        req->timeout = cli->timeout;
+    }
+
+    for (auto& pair : cli->headers) {
+        if (req->headers.find(pair.first) == req->headers.end()) {
+            req->headers[pair.first] = pair.second;
+        }
+    }
+
+    return __http_client_send_async(cli, req, resp, cb, userdata);
+}
+
+int http_client_send_async(HttpRequestPtr req, HttpResponsePtr resp,
+        HttpResponseCallback cb, void* userdata) {
+    if (!req || !resp) return ERR_NULL_POINTER;
+
+    static http_client_t s_default_async_client;
+    return __http_client_send_async(&s_default_async_client, req, resp, cb, userdata);
+}

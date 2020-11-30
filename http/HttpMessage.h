@@ -1,6 +1,7 @@
 #ifndef HTTP_MESSAGE_H_
 #define HTTP_MESSAGE_H_
 
+#include <memory>
 #include <string>
 #include <map>
 
@@ -150,7 +151,8 @@ public:
     std::string         path;
     QueryParams         query_params;
     // client_addr
-    HNetAddr            client_addr;
+    HNetAddr            client_addr; // for http server save client addr of request
+    int                 timeout; // for http client timeout
 
     HttpRequest() : HttpMessage() {
         type = HTTP_REQUEST;
@@ -165,6 +167,7 @@ public:
         host = "127.0.0.1";
         port = DEFAULT_HTTP_PORT;
         path = "/";
+        timeout = 0;
     }
 
     virtual void Reset() {
@@ -213,5 +216,10 @@ public:
 
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
 };
+
+typedef std::shared_ptr<HttpRequest>    HttpRequestPtr;
+typedef std::shared_ptr<HttpResponse>   HttpResponsePtr;
+// state: 0 onSucceed other onError
+typedef void (*HttpResponseCallback)(int state, HttpRequestPtr req, HttpResponsePtr resp, void* userdata);
 
 #endif // HTTP_MESSAGE_H_

@@ -46,4 +46,6 @@ public:
     virtual const char* StrError(int error) = 0;
 };
 
+typedef std::shared_ptr<HttpParser> HttpParserPtr;
+
 #endif // HTTP_PARSER_H_

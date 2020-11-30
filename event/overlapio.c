@@ -247,6 +247,7 @@ int hio_accept (hio_t* io) {
     for (int i = 0; i < ACCEPTEX_NUM; ++i) {
         post_acceptex(io, NULL);
     }
+    io->accept = 1;
     return hio_add(io, hio_handle_events, HV_READ);
 }
 
@@ -286,6 +287,7 @@ int hio_connect (hio_t* io) {
             goto error;
         }
     }
+    io->connect = 1;
     return hio_add(io, hio_handle_events, HV_WRITE);
 error:
     hio_close(io);

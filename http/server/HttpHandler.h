@@ -12,15 +12,15 @@ public:
     int                     port;
     // for handle_request
     HttpService*            service;
-    HttpParser*             parser;
     FileCache*              files;
+    file_cache_t*           fc;
+
     HttpRequest             req;
     HttpResponse            res;
-    file_cache_t*           fc;
+    HttpParserPtr           parser;
 
     HttpHandler() {
         service = NULL;
-        parser = NULL;
         files = NULL;
         fc = NULL;
     }

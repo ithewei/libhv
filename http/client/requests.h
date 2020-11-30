@@ -41,9 +41,14 @@ typedef std::shared_ptr<HttpResponse> Response;
 static http_headers DefaultHeaders;
 static http_body    NoBody;
 
+Response request(Request req) {
+    Response resp = Response(new HttpResponse);
+    int ret = http_client_send(req.get(), resp.get());
+    return ret ? NULL : resp;
+}
+
 Response request(http_method method, const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {
     Request req = Request(new HttpRequest);
-    Response resp = Response(new HttpResponse);
     req->method = method;
     req->url = url;
     if (&body != &NoBody) {
@@ -52,11 +57,7 @@ Response request(http_method method, const char* url, const http_body& body = No
     if (&headers != &DefaultHeaders) {
         req->headers = headers;
     }
-    int ret = http_client_send(req.get(), resp.get());
-    if (ret != 0) {
-        return NULL;
-    }
-    return resp;
+    return request(req);
 }
 
 Response get(const char* url, const http_headers& headers = DefaultHeaders) {

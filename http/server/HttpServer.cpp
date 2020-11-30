@@ -4,9 +4,10 @@
 #include "hmain.h"
 #include "hloop.h"
 
-#include "http2def.h"
 #include "FileCache.h"
 #include "HttpHandler.h"
+
+#include "http2def.h"
 #include "Http2Parser.h"
 
 #define MIN_HTTP_REQUEST        "GET / HTTP/1.1\r\n\r\n"
@@ -47,7 +48,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             handler->req.http_major = 2;
             handler->req.http_minor = 0;
         }
-        handler->parser = HttpParser::New(HTTP_SERVER, version);
+        handler->parser = HttpParserPtr(HttpParser::New(HTTP_SERVER, version));
         if (handler->parser == NULL) {
             hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, (int)version);
             hio_close(io);
@@ -56,7 +57,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         handler->parser->InitRequest(&handler->req);
     }
 
-    HttpParser* parser = handler->parser;
+    HttpParser* parser = handler->parser.get();
     HttpRequest* req = &handler->req;
     HttpResponse* res = &handler->res;
 
@@ -100,13 +101,13 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             // h2/h2c
             if (strnicmp(iter_upgrade->second.c_str(), "h2", 2) == 0) {
                 hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
-                SAFE_DELETE(handler->parser);
-                parser = handler->parser = HttpParser::New(HTTP_SERVER, HTTP_V2);
+                parser = HttpParser::New(HTTP_SERVER, HTTP_V2);
                 if (parser == NULL) {
                     hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
                     hio_close(io);
                     return;
                 }
+                handler->parser.reset(parser);
                 HttpRequest http1_req = *req;
                 parser->InitRequest(req);
                 *req = http1_req;
@@ -206,7 +207,6 @@ handle_request:
 static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     if (handler) {
-        SAFE_DELETE(handler->parser);
         delete handler;
         hevent_set_userdata(io, NULL);
     }

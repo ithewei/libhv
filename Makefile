@@ -85,17 +85,17 @@ httpd: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server examples/httpd"
 
 curl: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp"
-	# $(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes DEFINES="CURL_STATICLIB"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client" SRCS="examples/curl.cpp"
+	# $(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes DEFINES="CURL_STATICLIB"
 
 http_server_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server" SRCS="examples/http_server_test.cpp"
 
 http_client_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client" SRCS="examples/http_client_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client" SRCS="examples/http_client_test.cpp"
 
 consul_cli: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="PRINT_DEBUG"
 
 unittest: prepare
 	$(CC)  -g -Wall -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c

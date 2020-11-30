@@ -12,7 +12,7 @@
 int main(int argc, char* argv[]) {
     HttpRequest req;
     req.method = HTTP_GET;
-    req.url = "http://ftp.sjtu.edu.cn/sites/ftp.kernel.org/pub/linux/kernel/";
+    req.url = "http://www.example.com";
     HttpResponse res;
     int ret = http_client_send(&req, &res);
     printf("%s\n", req.Dump(true,true).c_str());
@@ -35,14 +35,26 @@ HV_EXPORT const char* http_client_strerror(int errcode);
 
 HV_EXPORT int http_client_set_timeout(http_client_t* cli, int timeout);
 
+// common headers
 HV_EXPORT int http_client_clear_headers(http_client_t* cli);
 HV_EXPORT int http_client_set_header(http_client_t* cli, const char* key, const char* value);
 HV_EXPORT int http_client_del_header(http_client_t* cli, const char* key);
 HV_EXPORT const char* http_client_get_header(http_client_t* cli, const char* key);
 
-HV_EXPORT int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* res);
+// sync
+HV_EXPORT int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp);
 
+// async
+// Intern will start an event-loop thread when http_client_send_async first called,
+// http_client_del will destroy the thread.
+HV_EXPORT int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponsePtr resp,
+                                    HttpResponseCallback cb = NULL, void* userdata = NULL);
+
+// top-level api
 // http_client_new -> http_client_send -> http_client_del
-HV_EXPORT int http_client_send(HttpRequest* req, HttpResponse* res, int timeout = DEFAULT_HTTP_TIMEOUT);
+HV_EXPORT int http_client_send(HttpRequest* req, HttpResponse* resp);
+// http_client_send_async(&default_async_client, ...)
+HV_EXPORT int http_client_send_async(HttpRequestPtr req, HttpResponsePtr resp,
+                                    HttpResponseCallback cb = NULL, void* userdata = NULL);
 
 #endif  // HTTP_CLIENT_H_
