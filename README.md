@@ -37,7 +37,7 @@ but simpler api and richer protocols.
 
 ### HTTP
 #### http server
-see `examples/http_server_test.cpp`
+see [examples/http_server_test.cpp](examples/http_server_test.cpp)
 ```c++
 #include "HttpServer.h"
 
@@ -62,7 +62,7 @@ int main() {
 }
 ```
 #### http client
-see `examples/http_client_test.cpp`
+see [examples/http_client_test.cpp](examples/http_client_test.cpp)
 ```c++
 #include "requests.h"
 
@@ -75,12 +75,12 @@ int main() {
         printf("%s\n", resp->body.c_str());
     }
 
-    auto resp2 = requests::post("127.0.0.1:8080/echo", "hello,world!");
-    if (resp2 == NULL) {
+    auto resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
+    if (resp == NULL) {
         printf("request failed!\n");
     } else {
-        printf("%d %s\r\n", resp2->status_code, resp2->status_message());
-        printf("%s\n", resp2->body.c_str());
+        printf("%d %s\r\n", resp->status_code, resp->status_message());
+        printf("%s\n", resp->body.c_str());
     }
 
     return 0;
@@ -127,7 +127,7 @@ bin/webbench -c 2 -t 60 localhost:8080
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
 ### EventLoop
-see `examples/tcp.c` `examples/udp.c`
+see [examples/tcp.c](examples/tcp.c) [examples/udp.c](examples/udp.c) [examples/nc.c](examples/nc.c)
 ```c
 // TCP echo server
 #include "hloop.h"
@@ -176,7 +176,7 @@ bin/nc 127.0.0.1 10514
 ```
 
 ## BUILD
-see BUILD.md
+see [BUILD.md](BUILD.md)
 
 ### lib
 - make libhv

@@ -32,6 +32,11 @@ static void test_http_async_client(int* finished) {
 }
 
 static void test_http_sync_client() {
+    // auto resp = requests::get("http://www.example.com");
+    //
+    // make clean && make WITH_OPENSSL=yes
+    // auto resp = requests::get("https://www.baidu.com");
+
     auto resp = requests::get("http://127.0.0.1:8080/ping");
     if (resp == NULL) {
         printf("request failed!\n");
@@ -40,12 +45,12 @@ static void test_http_sync_client() {
         printf("%s\n", resp->body.c_str());
     }
 
-    auto resp2 = requests::post("127.0.0.1:8080/echo", "hello,world!");
-    if (resp2 == NULL) {
+    resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
+    if (resp == NULL) {
         printf("request failed!\n");
     } else {
-        printf("%d %s\r\n", resp2->status_code, resp2->status_message());
-        printf("%s\n", resp2->body.c_str());
+        printf("%d %s\r\n", resp->status_code, resp->status_message());
+        printf("%s\n", resp->body.c_str());
     }
 }
 

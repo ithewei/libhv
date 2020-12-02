@@ -152,6 +152,10 @@ int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
 int http_client_send(HttpRequest* req, HttpResponse* resp) {
     if (!req || !resp) return ERR_NULL_POINTER;
 
+    if (req->timeout == 0) {
+        req->timeout = DEFAULT_HTTP_TIMEOUT;
+    }
+
     http_client_t cli;
     return __http_client_send(&cli, req, resp);
 }
@@ -275,8 +279,8 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, req->body.size());
     }
 
-    if (cli->timeout > 0) {
-        curl_easy_setopt(curl, CURLOPT_TIMEOUT, cli->timeout);
+    if (req->timeout > 0) {
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, req->timeout);
     }
 
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, s_body_cb);
@@ -330,7 +334,7 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
     }
     tcp_nodelay(connfd, 1);
 
-    if (cli->https) {
+    if (req->https) {
         if (hssl_ctx_instance() == NULL) {
             hssl_ctx_init(NULL);
         }
@@ -361,7 +365,7 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
 int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     // connect -> send -> recv -> http_parser
     int err = 0;
-    int timeout = cli->timeout;
+    int timeout = req->timeout;
     int connfd = cli->fd;
 
     time_t start_time = time(NULL);
@@ -393,7 +397,7 @@ send:
                 }
                 so_sndtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
             }
-            if (cli->https) {
+            if (req->https) {
                 nsend = hssl_write(cli->ssl, data+total_nsend, len-total_nsend);
             }
             else {
@@ -425,7 +429,7 @@ recv:
             }
             so_rcvtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
         }
-        if (cli->https) {
+        if (req->https) {
             nrecv = hssl_read(cli->ssl, recvbuf, sizeof(recvbuf));
         }
         else {
@@ -604,7 +608,7 @@ static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, Http
     hevent_set_userdata(connio, ctx);
 
     // timeout
-    if (req->timeout != 0) {
+    if (req->timeout > 0) {
         ctx->timer = htimer_add(cli->loop_, on_timeout, req->timeout * 1000, 1);
         assert(ctx->timer != NULL);
         hevent_set_userdata(ctx->timer, ctx);
@@ -639,6 +643,10 @@ int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseP
 int http_client_send_async(HttpRequestPtr req, HttpResponsePtr resp,
         HttpResponseCallback cb, void* userdata) {
     if (!req || !resp) return ERR_NULL_POINTER;
+
+    if (req->timeout == 0) {
+        req->timeout = DEFAULT_HTTP_TIMEOUT;
+    }
 
     static http_client_t s_default_async_client;
     return __http_client_send_async(&s_default_async_client, req, resp, cb, userdata);
