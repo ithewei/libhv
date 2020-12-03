@@ -456,11 +456,11 @@ struct HttpContext {
     HttpResponsePtr resp;
     HttpParserPtr   parser;
 
-    hio_t*          io;
-    htimer_t*       timer;
-
     HttpResponseCallback cb;
     void*                userdata;
+
+    hio_t*          io;
+    htimer_t*       timer;
 
     HttpContext() {
         io = NULL;
@@ -471,6 +471,8 @@ struct HttpContext {
 
     ~HttpContext() {
         killTimer();
+        // keep-alive
+        // closeIO();
     }
 
     void closeIO() {
@@ -509,10 +511,11 @@ struct HttpContext {
 static void on_close(hio_t* io) {
     HttpContext* ctx = (HttpContext*)hevent_userdata(io);
     if (ctx) {
+        hevent_set_userdata(io, NULL);
+        ctx->io = NULL;
         int error = hio_error(io);
         ctx->callback(error);
         delete ctx;
-        hevent_set_userdata(io, NULL);
     }
 }
 
@@ -549,7 +552,11 @@ static void on_connect(hio_t* io) {
 
 static void on_timeout(htimer_t* timer) {
     HttpContext* ctx = (HttpContext*)hevent_userdata(timer);
-    ctx->errorCallback(ERR_TASK_TIMEOUT);
+    if (ctx) {
+        hevent_set_userdata(timer, NULL);
+        ctx->timer = NULL;
+        ctx->errorCallback(ERR_TASK_TIMEOUT);
+    }
 }
 
 static HTHREAD_ROUTINE(http_client_loop_thread) {
@@ -600,11 +607,11 @@ static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, Http
     // new HttpContext
     // delete on_close
     HttpContext* ctx = new HttpContext;
-    ctx->io = connio;
     ctx->req = req;
     ctx->resp = resp;
     ctx->cb = cb;
     ctx->userdata = userdata;
+    ctx->io = connio;
     hevent_set_userdata(connio, ctx);
 
     // timeout

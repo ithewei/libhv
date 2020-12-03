@@ -84,7 +84,7 @@ Response patch(const char* url, const http_body& body = NoBody, const http_heade
     return request(HTTP_PATCH, url, body, headers);
 }
 
-// delete is c++ keywrod, we have to replace delete with Delete.
+// delete is c++ keyword, we have to replace delete with Delete.
 Response Delete(const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {
     return request(HTTP_DELETE, url, body, headers);
 }
