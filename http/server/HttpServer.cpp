@@ -61,7 +61,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     HttpRequest* req = &handler->req;
     HttpResponse* res = &handler->res;
 
-    int nfeed = parser->FeedRecvData((const char*)buf, readbytes);
+    int nfeed = parser->FeedRecvData(buf, readbytes);
     if (nfeed != readbytes) {
         hloge("[%s:%d] http parse error: %s", handler->ip, handler->port, parser->StrError(parser->GetError()));
         hio_close(io);
@@ -134,7 +134,7 @@ handle_request:
     }
     res->headers["Server"] = s_Server;
     // Connection:
-    bool keepalive = true;
+    bool keepalive = false;
     auto iter_keepalive = req->headers.find("connection");
     if (iter_keepalive != req->headers.end()) {
         if (stricmp(iter_keepalive->second.c_str(), "keep-alive") == 0) {
@@ -193,7 +193,7 @@ handle_request:
         s_pid, tid,
         handler->ip, handler->port,
         http_method_str(req->method), req->path.c_str(),
-        res->status_code, http_status_str(res->status_code));
+        res->status_code, res->status_message());
 
     if (keepalive) {
         handler->Reset();
@@ -207,8 +207,8 @@ handle_request:
 static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     if (handler) {
-        delete handler;
         hevent_set_userdata(io, NULL);
+        delete handler;
     }
 }
 
