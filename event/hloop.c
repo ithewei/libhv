@@ -15,17 +15,6 @@
 #define IO_ARRAY_INIT_SIZE              1024
 #define CUSTOM_EVENT_QUEUE_INIT_SIZE    16
 
-/*
- * hio lifeline:
- * hio_get => HV_ALLOC_SIZEOF(io) => hio_init =>
- * hio_ready => hio_add => hio_del => hio_done =>
- * hio_free => HV_FREE(io)
- */
-static void hio_init(hio_t* io);
-static void hio_ready(hio_t* io);
-static void hio_done(hio_t* io);
-static void hio_free(hio_t* io);
-
 static void __hidle_del(hidle_t* idle);
 static void __htimer_del(htimer_t* timer);
 
@@ -566,6 +555,8 @@ void hio_done(hio_t* io) {
     if (!io->ready) return;
     io->ready = 0;
 
+    hio_del(io, HV_RDWR);
+
     offset_buf_t* pbuf = NULL;
     while (!write_queue_empty(&io->write_queue)) {
         pbuf = write_queue_front(&io->write_queue);
@@ -579,6 +570,7 @@ void hio_free(hio_t* io) {
     if (io == NULL) return;
     // NOTE: call hio_done to cleanup write_queue
     hio_done(io);
+    // NOTE: call hio_close to call hclose_cb
     hio_close(io);
     HV_FREE(io->localaddr);
     HV_FREE(io->peeraddr);
@@ -651,9 +643,6 @@ int hio_del(hio_t* io, int events) {
             // NOTE: not EVENT_DEL, avoid free
             EVENT_INACTIVE(io);
         }
-    }
-    if (!io->active) {
-        hio_done(io);
     }
     return 0;
 }

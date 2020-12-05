@@ -552,7 +552,7 @@ int hio_close (hio_t* io) {
     }
 
     io->closed = 1;
-    hio_del(io, HV_RDWR);
+    hio_done(io);
     __close_cb(io);
     if (io->ssl) {
         hssl_free(io->ssl);

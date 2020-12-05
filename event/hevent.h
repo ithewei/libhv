@@ -131,6 +131,18 @@ struct hio_s {
     void*       hovlp;          // for iocp/overlapio
     void*       ssl;            // for SSL
 };
+/*
+ * hio lifeline:
+ * fd =>
+ * hio_get => HV_ALLOC_SIZEOF(io) => hio_init =>
+ * hio_ready => hio_add => hio_del => hio_done =>
+ * hio_close => hclose_cb =>
+ * hio_free => HV_FREE(io)
+ */
+void hio_init(hio_t* io);
+void hio_ready(hio_t* io);
+void hio_done(hio_t* io);
+void hio_free(hio_t* io);
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)

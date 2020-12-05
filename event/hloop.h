@@ -231,6 +231,8 @@ HV_EXPORT int hio_accept (hio_t* io);
 HV_EXPORT int hio_connect(hio_t* io);
 // hio_add(io, HV_READ) => read => hread_cb
 HV_EXPORT int hio_read   (hio_t* io);
+#define hio_read_start(io) hio_read(io)
+#define hio_read_stop(io)  hio_del(io, HV_READ)
 // hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
 // hio_del(io, HV_RDWR) => close => hclose_cb

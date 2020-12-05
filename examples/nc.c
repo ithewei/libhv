@@ -37,8 +37,33 @@ void on_stdin(hio_t* io, void* buf, int readbytes) {
     //printf("on_stdin fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     //printf("> %s\n", buf);
 
-    // CR|LF => CRLF for test most protocols
     char* str = (char*)buf;
+
+    // test hio_read_start/hio_read_stop/hio_close/hloop_stop
+#if 1
+    if (strncmp(str, "start", 5) == 0) {
+        printf("call hio_read_start\n");
+        hio_read_start(sockio);
+        return;
+    }
+    else if (strncmp(str, "stop", 4) == 0) {
+        printf("call hio_read_stop\n");
+        hio_read_stop(sockio);
+        return;
+    }
+    else if (strncmp(str, "close", 5) == 0) {
+        printf("call hio_close\n");
+        hio_close(sockio);
+        return;
+    }
+    else if (strncmp(str, "quit", 4) == 0) {
+        printf("call hloop_stop\n");
+        hloop_stop(hevent_loop(io));
+        return;
+    }
+#endif
+
+    // CR|LF => CRLF for test most protocols
     char eol = str[readbytes-1];
     if (eol == '\n' || eol == '\r') {
         if (readbytes > 1 && str[readbytes-2] == '\r' && eol == '\n') {
@@ -50,6 +75,7 @@ void on_stdin(hio_t* io, void* buf, int readbytes) {
             str[readbytes - 1] = '\n';
         }
     }
+
     hio_write(sockio, buf, readbytes);
 }
 
@@ -68,7 +94,7 @@ void on_connect(hio_t* io) {
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     }
 
-    hio_read(io);
+    hio_read_start(io);
 }
 
 int main(int argc, char** argv) {
