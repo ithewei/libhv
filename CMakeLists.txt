@@ -9,7 +9,7 @@ option(BUILD_EXAMPLES "build examples" ON)
 option(BUILD_UNITTEST "build unittest" ON)
 
 # see config.mk
-option(WITH_PROTOCOL "compile protocol" ON)
+option(WITH_PROTOCOL "compile protocol" OFF)
 
 option(WITH_HTTP "compile http" ON)
 option(WITH_HTTP_SERVER "compile http/server" ON)

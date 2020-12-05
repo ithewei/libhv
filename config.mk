@@ -1,6 +1,6 @@
 # modules
 # include icmp dns ftp smtp
-WITH_PROTOCOL=yes
+WITH_PROTOCOL=no
 
 WITH_HTTP=yes
 WITH_HTTP_SERVER=yes
