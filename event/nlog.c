@@ -23,19 +23,16 @@ static hmutex_t         s_mutex;
 static void on_close(hio_t* io) {
     printd("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
 
-    hmutex_lock(&s_mutex);
-    struct list_node* next = s_logger.clients.next;
-    nlog_client* client;
-    while (next != &s_logger.clients) {
-        client = list_entry(next, nlog_client, node);
-        next = next->next;
-        if (client->io == io) {
-            list_del(next->prev);
-            HV_FREE(client);
-            break;
-        }
+    nlog_client* client = (nlog_client*)hevent_userdata(io);
+    if (client) {
+        hevent_set_userdata(io, NULL);
+
+        hmutex_lock(&s_mutex);
+        list_del(&client->node);
+        hmutex_unlock(&s_mutex);
+
+        HV_FREE(client);
     }
-    hmutex_unlock(&s_mutex);
 }
 
 static void on_read(hio_t* io, void* buf, int readbytes) {
@@ -62,6 +59,7 @@ static void on_accept(hio_t* io) {
     nlog_client* client;
     HV_ALLOC_SIZEOF(client);
     client->io = io;
+    hevent_set_userdata(io, client);
 
     hmutex_lock(&s_mutex);
     list_add(&client->node, &s_logger.clients);
@@ -81,9 +79,9 @@ void network_logger(int loglevel, const char* buf, int len) {
 }
 
 hio_t* nlog_listen(hloop_t* loop, int port) {
-    list_init(&s_logger.clients);
     s_logger.loop = loop;
     s_logger.listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    list_init(&s_logger.clients);
     hmutex_init(&s_mutex);
     return s_logger.listenio;
 }
