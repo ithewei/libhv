@@ -33,8 +33,13 @@ endif
 default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
-	tcp udp nc nmap httpd curl \
-	http_server_test http_client_test consul_cli
+	nc nmap httpd curl \
+	udp_echo_server \
+	tcp_echo_server \
+	tcp_chat_server \
+	tcp_proxy_server \
+	http_server_test http_client_test \
+	consul_cli
 
 clean:
 	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"
@@ -63,11 +68,17 @@ htimer_test: prepare
 hloop_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/hloop_test.c"
 
-tcp: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp.c"
+udp_echo_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp_echo_server.c"
 
-udp: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp.c"
+tcp_echo_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp_echo_server.c"
+
+tcp_chat_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp_chat_server.c"
+
+tcp_proxy_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp_proxy_server.c"
 
 nc: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nc.c"
@@ -132,4 +143,4 @@ echo-servers:
 	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo     echo-servers/poco_echo.cpp   -lPocoNet -lPocoUtil -lPocoFoundation
 	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo    echo-servers/muduo_echo.cpp  -lmuduo_net -lmuduo_base -lpthread
 
-.PHONY: clean prepare libhv install examples tcp udp nc nmap httpd curl consul_cli unittest webbench echo-servers
+.PHONY: clean prepare libhv install examples nc nmap httpd curl consul_cli unittest webbench echo-servers

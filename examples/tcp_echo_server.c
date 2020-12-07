@@ -1,11 +1,21 @@
+/*
+ * tcp echo server
+ *
+ * @build   make examples
+ * @server  bin/tcp_echo_server 1234
+ * @client  bin/nc 127.0.0.1 1234
+ *          nc     127.0.0.1 1234
+ *          telnet 127.0.0.1 1234
+ */
+
 #include "hloop.h"
 #include "hsocket.h"
 
-void on_close(hio_t* io) {
+static void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
 }
 
-void on_recv(hio_t* io, void* buf, int readbytes) {
+static void on_recv(hio_t* io, void* buf, int readbytes) {
     printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     char localaddrstr[SOCKADDR_STRLEN] = {0};
     char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -18,7 +28,7 @@ void on_recv(hio_t* io, void* buf, int readbytes) {
     hio_write(io, buf, readbytes);
 }
 
-void on_accept(hio_t* io) {
+static void on_accept(hio_t* io) {
     printf("on_accept connfd=%d\n", hio_fd(io));
     char localaddrstr[SOCKADDR_STRLEN] = {0};
     char peeraddrstr[SOCKADDR_STRLEN] = {0};

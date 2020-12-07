@@ -1,3 +1,11 @@
+/*
+ * @build: make examples
+ * @usage: bin/hloop_test
+ *         bin/nc 127.0.0.1 10514
+ *         nc     127.0.0.1 10514
+ *
+ */
+
 #include "hloop.h"
 #include "hbase.h"
 #include "hlog.h"

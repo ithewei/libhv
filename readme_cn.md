@@ -125,7 +125,7 @@ bin/webbench -c 2 -t 60 localhost:8080
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
 ### EventLoop
-见[examples/tcp.c](examples/tcp.c) [examples/udp.c](examples/udp.c) [examples/nc.c](examples/nc.c)
+见[examples/tcp_echo_server.c](examples/tcp_echo_server.c) [examples/udp_echo_server.c](examples/udp_echo_server.c) [examples/nc.c](examples/nc.c)
 ```c++
 // TCP echo server
 #include "hloop.h"
@@ -161,16 +161,22 @@ int main(int argc, char** argv) {
 }
 ```
 ```shell
-make tcp udp nc
-bin/tcp 1111
-bin/nc 127.0.0.1 1111
+make examples
 
-bin/udp 2222
-bin/nc -u 127.0.0.1 2222
+bin/tcp_echo_server 1234
+bin/nc 127.0.0.1 1234
 
-make hloop_test
-bin/hloop_test
-bin/nc 127.0.0.1 10514
+bin/tcp_chat_server 1234
+bin/nc 127.0.0.1 1234
+bin/nc 127.0.0.1 1234
+
+bin/httpd -s restart -d
+bin/tcp_proxy_server 1234 127.0.0.1:8080
+bin/curl -v 127.0.0.1:8080
+bin/curl -v 127.0.0.1:1234
+
+bin/udp_echo_server 1234
+bin/nc -u 127.0.0.1 1234
 ```
 
 ## 构建
@@ -182,12 +188,6 @@ bin/nc 127.0.0.1 10514
 
 ### 示例
 - make examples
-    - make tcp   # tcp server
-    - make udp   # udp server
-    - make nc    # network client
-    - make nmap  # host discovery
-    - make httpd # http server
-    - make curl  # http client
 
 ### 单元测试
 - make unittest
@@ -230,7 +230,7 @@ bin/curl -v localhost:8080 --http2
 ```
 
 #### 更多选项
-见config.mk
+见[config.mk](config.mk)
 
 ### echo-servers
 ```shell

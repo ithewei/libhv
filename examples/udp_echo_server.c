@@ -1,11 +1,21 @@
+/*
+ * udp echo server
+ *
+ * @build   make examples
+ * @server  bin/udp_echo_server 1234
+ * @client  bin/nc -u 127.0.0.1 1234
+ *          nc     -u 127.0.0.1 1234
+ *
+ */
+
 #include "hloop.h"
 #include "hsocket.h"
 
-void on_close(hio_t* io) {
+static void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
 }
 
-void on_recvfrom(hio_t* io, void* buf, int readbytes) {
+static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
     printf("on_recvfrom fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     char localaddrstr[SOCKADDR_STRLEN] = {0};
     char peeraddrstr[SOCKADDR_STRLEN] = {0};

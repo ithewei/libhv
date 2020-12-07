@@ -2,10 +2,12 @@ list(APPEND EXAMPLES
     hmain_test
     hloop_test
     htimer_test
-    tcp
-    udp
     nc
     nmap
+    udp_echo_server
+    tcp_echo_server
+    tcp_chat_server
+    tcp_proxy_server
 )
 
 include_directories(.. ../base ../event ../utils)
@@ -19,18 +21,24 @@ target_link_libraries(hloop_test hv)
 add_executable(htimer_test htimer_test.c)
 target_link_libraries(htimer_test hv)
 
-add_executable(tcp tcp.c)
-target_link_libraries(tcp hv)
-
-add_executable(udp udp.c)
-target_link_libraries(udp hv)
-
 add_executable(nc nc.c)
 target_link_libraries(nc hv)
 
 add_executable(nmap nmap.cpp)
 target_compile_definitions(nmap PRIVATE -DPRINT_DEBUG)
 target_link_libraries(nmap hv)
+
+add_executable(udp_echo_server udp_echo_server.c)
+target_link_libraries(udp_echo_server hv)
+
+add_executable(tcp_echo_server tcp_echo_server.c)
+target_link_libraries(tcp_echo_server hv)
+
+add_executable(tcp_chat_server tcp_chat_server.c)
+target_link_libraries(tcp_chat_server hv)
+
+add_executable(tcp_proxy_server tcp_proxy_server.c)
+target_link_libraries(tcp_proxy_server hv)
 
 if(WITH_HTTP)
     include_directories(../http)

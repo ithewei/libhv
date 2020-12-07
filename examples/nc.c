@@ -1,3 +1,17 @@
+/*
+ * network client
+ *
+ * @build:  make examples
+ * @server  bin/httpd -s restart -d
+ * @usage:  bin/nc 127.0.0.1 8080
+ *          > GET / HTTP/1.1
+ *          > Connection: close
+ *          > [Enter]
+ *          > GET / HTTP/1.1
+ *          > Connection: keep-alive
+ *          > [Enter]
+ */
+
 #include "hloop.h"
 #include "hbase.h"
 #include "hsocket.h"

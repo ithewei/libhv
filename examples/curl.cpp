@@ -1,3 +1,12 @@
+/*
+ * @build: make examples
+ * @server bin/httpd -s restart -d
+ * @usage: bin/curl -v www.baidu.com
+ *         bin/curl -v 127.0.0.1:8080
+ *         bin/curl -v 127.0.0.1:8080/ping
+ *         bin/curl -v 127.0.0.1:8080/echo -d 'hello,world!'
+ */
+
 #include "http_client.h"
 
 #ifdef _MSC_VER
