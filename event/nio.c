@@ -340,7 +340,7 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
         break;
     case HIO_TYPE_UDP:
     case HIO_TYPE_IP:
-        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(sockaddr_u));
+        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
         break;
     default:
         nwrite = write(io->fd, buf, len);
