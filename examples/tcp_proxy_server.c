@@ -56,6 +56,7 @@ static void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
     hio_t* proxyio = (hio_t*)hevent_userdata(io);
     if (proxyio) {
+        hevent_set_userdata(io, NULL);
         hio_close(proxyio);
     }
 }
@@ -82,15 +83,16 @@ static void on_accept(hio_t* io) {
             SOCKADDR_STR(hio_localaddr(io), localaddrstr),
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
 
-    hio_setcb_read(io, on_recv);
-    hio_setcb_close(io, on_close);
-
     hio_t* proxyio = hloop_create_tcp_client(hevent_loop(io), proxy_host, proxy_port, on_proxy_connect);
     if (proxyio == NULL) {
         hio_close(io);
+        return;
     }
-    hevent_set_userdata(proxyio, io);
+
+    hio_setcb_read(io, on_recv);
+    hio_setcb_close(io, on_close);
     hevent_set_userdata(io, proxyio);
+    hevent_set_userdata(proxyio, io);
 }
 
 int main(int argc, char** argv) {
