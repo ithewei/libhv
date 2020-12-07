@@ -134,7 +134,7 @@ handle_request:
     }
     res->headers["Server"] = s_Server;
     // Connection:
-    bool keepalive = false;
+    bool keepalive = true;
     auto iter_keepalive = req->headers.find("connection");
     if (iter_keepalive != req->headers.end()) {
         if (stricmp(iter_keepalive->second.c_str(), "keep-alive") == 0) {
@@ -143,6 +143,9 @@ handle_request:
         else if (stricmp(iter_keepalive->second.c_str(), "close") == 0) {
             keepalive = false;
         }
+    }
+    else if (req->http_major == 1 && req->http_minor == 0) {
+        keepalive = false;
     }
     if (keepalive) {
         res->headers["Connection"] = "keep-alive";
