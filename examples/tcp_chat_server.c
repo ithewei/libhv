@@ -13,6 +13,11 @@
 #include "hbase.h"
 #include "list.h"
 
+// hloop_create_tcp_server
+// on_accept => join
+// on_recv => broadcast
+// on_close => leave
+
 typedef struct chatroom_s {
     hloop_t*            loop;
     hio_t*              listenio;

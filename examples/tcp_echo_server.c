@@ -11,6 +11,8 @@
 #include "hloop.h"
 #include "hsocket.h"
 
+// hloop_create_tcp_server -> on_accept -> hio_read -> on_recv -> hio_write
+
 static void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
 }

@@ -1,7 +1,7 @@
 /*
  * tcp proxy server
  *
- * @test:         make examples
+ * @build:        make examples
  * @http_server:  bin/httpd -d
  * @proxy_server: bin/tcp_proxy_server 1234 127.0.0.1:8080
  *                bin/tcp_proxy_server 1234 www.baidu.com
@@ -18,12 +18,13 @@
 #include "hloop.h"
 #include "hsocket.h"
 
-// hloop_create_tcp_server => on_accept(connio) => proxyio = hloop_create_tcp_client
-// on_proxy_connect => hio_read(connio) hio_read(proxyio)
+// hloop_create_tcp_server
+// on_accept(connio) => proxyio = hloop_create_tcp_client
+// on_proxy_connect(proxyio) => hio_read(connio) hio_read(proxyio)
 // on_recv(connio) => hio_write(proxyio)
 // on_proxy_recv(proxyio) => hio_write(connio)
 // on_close(connio) => hio_close(proxyio)
-// on_proxy(proxyio) => hio_close(connio)
+// on_proxy_close(proxyio) => hio_close(connio)
 
 static char proxy_host[64] = "127.0.0.1";
 static int proxy_port = 80;
