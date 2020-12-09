@@ -10,8 +10,9 @@
 #include "hsocket.h"
 #include "hthread.h"
 
-#define PAUSE_TIME              10          // ms
-#define MAX_BLOCK_TIME          1000        // ms
+#define HLOOP_PAUSE_TIME        10      // ms
+#define HLOOP_MAX_BLOCK_TIME    1000    // ms
+#define HLOOP_STAT_TIMEOUT      60000   // ms
 
 #define IO_ARRAY_INIT_SIZE              1024
 #define CUSTOM_EVENT_QUEUE_INIT_SIZE    16
@@ -122,7 +123,7 @@ static int hloop_process_events(hloop_t* loop) {
     nios = ntimers = nidles = 0;
 
     // calc blocktime
-    int32_t blocktime = MAX_BLOCK_TIME;
+    int32_t blocktime = HLOOP_MAX_BLOCK_TIME;
     if (loop->timers.root) {
         hloop_update_time(loop);
         uint64_t next_min_timeout = TIMER_ENTRY(loop->timers.root)->next_timeout;
@@ -130,7 +131,7 @@ static int hloop_process_events(hloop_t* loop) {
         if (blocktime_us <= 0) goto process_timers;
         blocktime = blocktime_us / 1000;
         ++blocktime;
-        blocktime = MIN(blocktime, MAX_BLOCK_TIME);
+        blocktime = MIN(blocktime, HLOOP_MAX_BLOCK_TIME);
     }
 
     if (loop->nios) {
@@ -153,10 +154,18 @@ process_timers:
         }
     }
     int ncbs = hloop_process_pendings(loop);
-    //printd("blocktime=%d nios=%d/%u ntimers=%d/%u nidles=%d/%u nactives=%d npendings=%d ncbs=%d\n",
-            //blocktime, nios, loop->nios, ntimers, loop->ntimers, nidles, loop->nidles,
-            //loop->nactives, npendings, ncbs);
+    // printd("blocktime=%d nios=%d/%u ntimers=%d/%u nidles=%d/%u nactives=%d npendings=%d ncbs=%d\n",
+    //         blocktime, nios, loop->nios, ntimers, loop->ntimers, nidles, loop->nidles,
+    //         loop->nactives, npendings, ncbs);
     return ncbs;
+}
+
+static void hloop_stat_timer_cb(htimer_t* timer) {
+    hloop_t* loop = timer->loop;
+    // hlog_set_level(LOG_LEVEL_DEBUG);
+    hlogd("[loop] pid=%ld tid=%ld uptime=%lluus cnt=%llu nactives=%u nios=%d ntimers=%d nidles=%u",
+        loop->pid, loop->tid, loop->cur_hrtime - loop->start_hrtime, loop->loop_cnt,
+        loop->nactives, loop->nios, loop->ntimers, loop->nidles);
 }
 
 static void sockpair_read_cb(hio_t* io, void* buf, int readbytes) {
@@ -234,9 +243,6 @@ static void hloop_init(hloop_t* loop) {
     loop->sockpair[0] = loop->sockpair[1] = -1;
     if (Socketpair(AF_INET, SOCK_STREAM, 0, loop->sockpair) != 0) {
         hloge("socketpair create failed!");
-    }
-    if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
-        hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
     }
 
     // NOTE: init start_time here, because htimer_add use it.
@@ -323,16 +329,27 @@ void hloop_free(hloop_t** pp) {
 int hloop_run(hloop_t* loop) {
     loop->pid = hv_getpid();
     loop->tid = hv_gettid();
+
+    // intern events
+    int intern_events = 0;
+    if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
+        hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
+        ++intern_events;
+    }
+#ifdef DEBUG
+    htimer_add(loop, hloop_stat_timer_cb, HLOOP_STAT_TIMEOUT, INFINITE);
+    ++intern_events;
+#endif
+
     loop->status = HLOOP_STATUS_RUNNING;
     while (loop->status != HLOOP_STATUS_STOP) {
         if (loop->status == HLOOP_STATUS_PAUSE) {
-            msleep(PAUSE_TIME);
+            msleep(HLOOP_PAUSE_TIME);
             hloop_update_time(loop);
             continue;
         }
         ++loop->loop_cnt;
-        // NOTE: socketpair have one HV_READ
-        if (loop->nactives < 2 && loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) {
+        if (loop->nactives <= intern_events && loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) {
             break;
         }
         hloop_process_events(loop);
@@ -342,6 +359,7 @@ int hloop_run(hloop_t* loop) {
     }
     loop->status = HLOOP_STATUS_STOP;
     loop->end_hrtime = gethrtime_us();
+
     if (loop->flags & HLOOP_FLAG_AUTO_FREE) {
         hloop_cleanup(loop);
         HV_FREE(loop);
