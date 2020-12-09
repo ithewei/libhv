@@ -45,7 +45,7 @@ void join(chatroom_t* room, connection_t* conn) {
 
     struct list_node* node;
     connection_t* cur;
-    msglen = snprintf(msg, sizeof(msg), "room[%d] clients:\r\n", room->roomid);
+    msglen = snprintf(msg, sizeof(msg), "room[%06d] clients:\r\n", room->roomid);
     hio_write(conn->connio, msg, msglen);
     list_for_each (node, &room->conns) {
         cur = list_entry(node, connection_t, node);
@@ -54,7 +54,7 @@ void join(chatroom_t* room, connection_t* conn) {
     }
     hio_write(conn->connio, "\r\n", 2);
 
-    msglen = snprintf(msg, sizeof(msg), "client[%s] join room[%d]\r\n", conn->addr, room->roomid);
+    msglen = snprintf(msg, sizeof(msg), "client[%s] join room[%06d]\r\n", conn->addr, room->roomid);
     broadcast(room, msg, msglen);
 }
 
@@ -142,7 +142,8 @@ int main(int argc, char** argv) {
 
     s_chatroom.loop = loop;
     s_chatroom.listenio = listenio;
-    s_chatroom.roomid = random() % 1000000;
+    srand(time(NULL));
+    s_chatroom.roomid = rand() % 1000000;
     list_init(&s_chatroom.conns);
 
     hloop_run(loop);
