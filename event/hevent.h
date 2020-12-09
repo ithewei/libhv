@@ -29,6 +29,8 @@ struct hloop_s {
     uint64_t    end_hrtime;
     uint64_t    cur_hrtime;
     uint64_t    loop_cnt;
+    long        pid;
+    long        tid;
     void*       userdata;
 //private:
     // events

@@ -8,12 +8,16 @@
 #include "hmath.h"
 #include "htime.h"
 #include "hsocket.h"
+#include "hthread.h"
 
 #define PAUSE_TIME              10          // ms
 #define MAX_BLOCK_TIME          1000        // ms
 
 #define IO_ARRAY_INIT_SIZE              1024
 #define CUSTOM_EVENT_QUEUE_INIT_SIZE    16
+
+#define SOCKPAIR_WRITE_INDEX    0
+#define SOCKPAIR_READ_INDEX     1
 
 static void __hidle_del(hidle_t* idle);
 static void __htimer_del(htimer_t* timer);
@@ -155,6 +159,56 @@ process_timers:
     return ncbs;
 }
 
+static void sockpair_read_cb(hio_t* io, void* buf, int readbytes) {
+    hloop_t* loop = io->loop;
+    hevent_t* pev = NULL;
+    hevent_t ev;
+    for (int i = 0; i < readbytes; ++i) {
+        hmutex_lock(&loop->custom_events_mutex);
+        if (event_queue_empty(&loop->custom_events)) {
+            goto unlock;
+        }
+        pev = event_queue_front(&loop->custom_events);
+        if (pev == NULL) {
+            goto unlock;
+        }
+        ev = *pev;
+        event_queue_pop_front(&loop->custom_events);
+        // NOTE: unlock before cb, avoid deadlock if hloop_post_event called in cb.
+        hmutex_unlock(&loop->custom_events_mutex);
+        if (ev.cb) {
+            ev.cb(&ev);
+        }
+    }
+    return;
+unlock:
+    hmutex_unlock(&loop->custom_events_mutex);
+}
+
+void hloop_post_event(hloop_t* loop, hevent_t* ev) {
+    char buf = '1';
+
+    if (loop->sockpair[0] == -1 || loop->sockpair[1] == -1) {
+        hlogw("socketpair not created!");
+        return;
+    }
+
+    if (ev->loop == NULL) {
+        ev->loop = loop;
+    }
+    if (ev->event_type == 0) {
+        ev->event_type = HEVENT_TYPE_CUSTOM;
+    }
+
+    hmutex_lock(&loop->custom_events_mutex);
+    if (ev->event_id == 0) {
+        ev->event_id = ++loop->event_counter;
+    }
+    hwrite(loop, loop->sockpair[SOCKPAIR_WRITE_INDEX], &buf, 1, NULL);
+    event_queue_push_back(&loop->custom_events, ev);
+    hmutex_unlock(&loop->custom_events_mutex);
+}
+
 static void hloop_init(hloop_t* loop) {
     loop->status = HLOOP_STATUS_STOP;
 
@@ -164,20 +218,26 @@ static void hloop_init(hloop_t* loop) {
     // timers
     heap_init(&loop->timers, timers_compare);
 
-    // ios: init when hio_get
-    // io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
+    // ios
+    io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
 
-    // readbuf: alloc when hio_set_readbuf
-    // loop->readbuf.len = HLOOP_READ_BUFSIZE;
-    // HV_ALLOC(loop->readbuf.base, loop->readbuf.len);
+    // readbuf
+    loop->readbuf.len = HLOOP_READ_BUFSIZE;
+    HV_ALLOC(loop->readbuf.base, loop->readbuf.len);
 
-    // iowatcher: init when iowatcher_add_event
-    // iowatcher_init(loop);
+    // iowatcher
+    iowatcher_init(loop);
 
-    // custom_events: init when hloop_post_event
-    // event_queue_init(&loop->custom_events, 4);
-    loop->sockpair[0] = loop->sockpair[1] = -1;
+    // custom_events
     hmutex_init(&loop->custom_events_mutex);
+    event_queue_init(&loop->custom_events, CUSTOM_EVENT_QUEUE_INIT_SIZE);
+    loop->sockpair[0] = loop->sockpair[1] = -1;
+    if (Socketpair(AF_INET, SOCK_STREAM, 0, loop->sockpair) != 0) {
+        hloge("socketpair create failed!");
+    }
+    if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
+        hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
+    }
 
     // NOTE: init start_time here, because htimer_add use it.
     loop->start_ms = gettimeofday_ms();
@@ -261,6 +321,8 @@ void hloop_free(hloop_t** pp) {
 }
 
 int hloop_run(hloop_t* loop) {
+    loop->pid = hv_getpid();
+    loop->tid = hv_gettid();
     loop->status = HLOOP_STATUS_RUNNING;
     while (loop->status != HLOOP_STATUS_STOP) {
         if (loop->status == HLOOP_STATUS_PAUSE) {
@@ -269,7 +331,8 @@ int hloop_run(hloop_t* loop) {
             continue;
         }
         ++loop->loop_cnt;
-        if (loop->nactives == 0 && loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) {
+        // NOTE: socketpair have one HV_READ
+        if (loop->nactives < 2 && loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) {
             break;
         }
         hloop_process_events(loop);
@@ -286,8 +349,26 @@ int hloop_run(hloop_t* loop) {
     return 0;
 }
 
+int hloop_wakeup(hloop_t* loop) {
+    hevent_t ev;
+    memset(&ev, 0, sizeof(ev));
+    hloop_post_event(loop, &ev);
+    return 0;
+}
+
+static void hloop_stop_event_cb(hevent_t* ev) {
+    ev->loop->status = HLOOP_STATUS_STOP;
+}
+
 int hloop_stop(hloop_t* loop) {
     loop->status = HLOOP_STATUS_STOP;
+    if (hv_gettid() != loop->tid) {
+        hevent_t ev;
+        memset(&ev, 0, sizeof(ev));
+        ev.priority = HEVENT_HIGHEST_PRIORITY;
+        ev.cb = hloop_stop_event_cb;
+        hloop_post_event(loop, &ev);
+    }
     return 0;
 }
 
@@ -323,6 +404,14 @@ uint64_t hloop_now_ms(hloop_t* loop) {
 
 uint64_t hloop_now_hrtime(hloop_t* loop) {
     return loop->start_ms * 1000 + (loop->cur_hrtime - loop->start_hrtime);
+}
+
+long hloop_pid(hloop_t* loop) {
+    return loop->pid;
+}
+
+long hloop_tid(hloop_t* loop) {
+    return loop->tid;
 }
 
 void  hloop_set_userdata(hloop_t* loop, void* userdata) {
@@ -578,10 +667,6 @@ void hio_free(hio_t* io) {
 }
 
 hio_t* hio_get(hloop_t* loop, int fd) {
-    if (loop->ios.maxsize == 0) {
-        io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
-    }
-
     if (fd >= loop->ios.maxsize) {
         int newsize = ceil2e(fd);
         io_array_resize(&loop->ios, newsize > fd ? newsize : 2*fd);
@@ -793,58 +878,4 @@ hio_t* hloop_create_udp_client(hloop_t* loop, const char* host, int port) {
     assert(io != NULL);
     hio_set_peeraddr(io, &peeraddr.sa, sockaddr_len(&peeraddr));
     return io;
-}
-
-static void sockpair_read_cb(hio_t* io, void* buf, int readbytes) {
-    hloop_t* loop = io->loop;
-    hevent_t* pev = NULL;
-    hevent_t ev;
-    for (int i = 0; i < readbytes; ++i) {
-        hmutex_lock(&loop->custom_events_mutex);
-        if (event_queue_empty(&loop->custom_events)) {
-            goto unlock;
-        }
-        pev = event_queue_front(&loop->custom_events);
-        if (pev == NULL) {
-            goto unlock;
-        }
-        ev = *pev;
-        event_queue_pop_front(&loop->custom_events);
-        // NOTE: unlock before cb, avoid deadlock if hloop_post_event called in cb.
-        hmutex_unlock(&loop->custom_events_mutex);
-        if (ev.cb) {
-            ev.cb(&ev);
-        }
-    }
-    return;
-unlock:
-    hmutex_unlock(&loop->custom_events_mutex);
-}
-
-void hloop_post_event(hloop_t* loop, hevent_t* ev) {
-    char buf = '1';
-    hmutex_lock(&loop->custom_events_mutex);
-    if (loop->sockpair[0] <= 0 && loop->sockpair[1] <= 0) {
-        if (Socketpair(AF_INET, SOCK_STREAM, 0, loop->sockpair) != 0) {
-            hloge("socketpair error");
-            goto unlock;
-        }
-        hread(loop, loop->sockpair[1], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
-    }
-    if (loop->custom_events.maxsize == 0) {
-        event_queue_init(&loop->custom_events, CUSTOM_EVENT_QUEUE_INIT_SIZE);
-    }
-    if (ev->loop == NULL) {
-        ev->loop = loop;
-    }
-    if (ev->event_type == 0) {
-        ev->event_type = HEVENT_TYPE_CUSTOM;
-    }
-    if (ev->event_id == 0) {
-        ev->event_id = ++loop->event_counter;
-    }
-    event_queue_push_back(&loop->custom_events, ev);
-    hwrite(loop, loop->sockpair[0], &buf, 1, NULL);
-unlock:
-    hmutex_unlock(&loop->custom_events_mutex);
 }

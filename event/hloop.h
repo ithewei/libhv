@@ -108,15 +108,23 @@ HV_EXPORT void hloop_free(hloop_t** pp);
 
 // NOTE: when no active events, loop will quit if HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS set.
 HV_EXPORT int hloop_run(hloop_t* loop);
+// NOTE: hloop_stop called in loop-thread just set flag to quit in next loop,
+// if called in other thread, it will wakeup loop-thread from blocking poll system call,
+// then you should join loop thread to safely exit loop thread.
 HV_EXPORT int hloop_stop(hloop_t* loop);
 HV_EXPORT int hloop_pause(hloop_t* loop);
 HV_EXPORT int hloop_resume(hloop_t* loop);
+HV_EXPORT int hloop_wakeup(hloop_t* loop);
 
 HV_EXPORT void     hloop_update_time(hloop_t* loop);
 HV_EXPORT uint64_t hloop_now(hloop_t* loop);          // s
 HV_EXPORT uint64_t hloop_now_ms(hloop_t* loop);       // ms
 HV_EXPORT uint64_t hloop_now_hrtime(hloop_t* loop);   // us
 #define hloop_now_us hloop_now_hrtime
+// @return pid of hloop_run
+HV_EXPORT long hloop_pid(hloop_t* loop);
+// @return tid of hloop_run
+HV_EXPORT long hloop_tid(hloop_t* loop);
 
 // userdata
 HV_EXPORT void  hloop_set_userdata(hloop_t* loop, void* userdata);

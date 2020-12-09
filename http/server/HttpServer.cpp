@@ -17,8 +17,10 @@ static HttpService  s_default_service;
 static FileCache    s_filecache;
 
 struct HttpServerPrivdata {
+    int                     quit;
     std::vector<hloop_t*>   loops;
-    std::mutex              loops_mutex;
+    std::vector<hthread_t>  threads;
+    std::mutex              mutex_;
 };
 
 static void on_recv(hio_t* io, void* _buf, int readbytes) {
@@ -190,10 +192,9 @@ handle_request:
         }
     }
 
-    static long s_pid = hv_getpid();
-    long tid = hv_gettid();
+    hloop_t* loop = hevent_loop(io);
     hlogi("[%ld-%ld][%s:%d][%s %s]=>[%d %s]",
-        s_pid, tid,
+        hloop_pid(loop), hloop_tid(loop),
         handler->ip, handler->port,
         http_method_str(req->method), req->path.c_str(),
         res->status_code, res->status_message());
@@ -280,11 +281,18 @@ static void worker_fn(void* userdata) {
     // timer handle_cached_files
     htimer_t* timer = htimer_add(loop, handle_cached_files, s_filecache.file_cached_time * 1000);
     hevent_set_userdata(timer, &s_filecache);
+
     // for SDK implement http_server_stop
     HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
-    privdata->loops_mutex.lock();
-    privdata->loops.push_back(loop);
-    privdata->loops_mutex.unlock();
+    if (privdata) {
+        std::lock_guard<std::mutex> locker(privdata->mutex_);
+        if (privdata->quit) {
+            hloop_free(&loop);
+            return;
+        }
+        privdata->loops.push_back(loop);
+    }
+
     hloop_run(loop);
     hloop_free(&loop);
 }
@@ -298,27 +306,27 @@ int http_server_run(http_server_t* server, int wait) {
     server->listenfd = Listen(server->port, server->host);
     if (server->listenfd < 0) return server->listenfd;
 
-    // privdata
-    server->privdata = new HttpServerPrivdata;
-
     if (server->worker_processes) {
+        // multi-processes
         return master_workers_run(worker_fn, server, server->worker_processes, server->worker_threads, wait);
     }
     else {
-        // NOTE: master_workers_run use global-vars that may be used by other,
-        // so we implement Multi-Threads directly.
+        // multi-threads
         int worker_threads = server->worker_threads;
         if (worker_threads == 0) worker_threads = 1;
-        if (wait) {
-            for (int i = 1; i < worker_threads; ++i) {
-                hthread_create((hthread_routine)worker_fn, server);
-            }
-            worker_fn(server);
+
+        // for SDK implement http_server_stop
+        HttpServerPrivdata* privdata = new HttpServerPrivdata;
+        privdata->quit = 0;
+        server->privdata = privdata;
+
+        int i = wait ? 1 : 0;
+        for (; i < worker_threads; ++i) {
+            hthread_t thrd = hthread_create((hthread_routine)worker_fn, server);
+            privdata->threads.push_back(thrd);
         }
-        else {
-            for (int i = 0; i < worker_threads; ++i) {
-                hthread_create((hthread_routine)worker_fn, server);
-            }
+        if (wait) {
+            worker_fn(server);
         }
         return 0;
     }
@@ -326,9 +334,20 @@ int http_server_run(http_server_t* server, int wait) {
 
 int http_server_stop(http_server_t* server) {
     HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
-    for (auto& loop : privdata->loops) {
+    if (privdata == NULL) return 0;
+
+    privdata->mutex_.lock();
+    privdata->quit = 1;
+    for (auto loop : privdata->loops) {
         hloop_stop(loop);
     }
-    SAFE_DELETE(privdata);
+    privdata->mutex_.unlock();
+
+    for (auto thrd : privdata->threads) {
+        hthread_join(thrd);
+    }
+
+    delete privdata;
+    server->privdata = NULL;
     return 0;
 }
