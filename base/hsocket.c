@@ -2,6 +2,10 @@
 
 #include "hdef.h"
 
+#ifdef OS_WIN
+static int s_wsa_initialized = 0;
+#endif
+
 static inline int socket_errno_negative() {
     int err = socket_errno();
     return err > 0 ? -err : -1;
@@ -147,7 +151,6 @@ error:
 
 int Bind(int port, const char* host, int type) {
 #ifdef OS_WIN
-    static int s_wsa_initialized = 0;
     if (s_wsa_initialized == 0) {
         s_wsa_initialized = 1;
         WSADATA wsadata;
@@ -170,6 +173,13 @@ int Listen(int port, const char* host) {
 }
 
 int Connect(const char* host, int port, int nonblock) {
+#ifdef OS_WIN
+    if (s_wsa_initialized == 0) {
+        s_wsa_initialized = 1;
+        WSADATA wsadata;
+        WSAStartup(MAKEWORD(2,2), &wsadata);
+    }
+#endif
     sockaddr_u peeraddr;
     memset(&peeraddr, 0, sizeof(peeraddr));
     int ret = sockaddr_set_ipport(&peeraddr, host, port);
