@@ -6,7 +6,7 @@ option(BUILD_SHARED "build shared library" ON)
 option(BUILD_STATIC "build static library" ON)
 
 option(BUILD_EXAMPLES "build examples" ON)
-option(BUILD_UNITTEST "build unittest" ON)
+option(BUILD_UNITTEST "build unittest" OFF)
 
 # see config.mk
 option(WITH_PROTOCOL "compile protocol" OFF)

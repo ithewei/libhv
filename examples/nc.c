@@ -109,6 +109,8 @@ void on_connect(hio_t* io) {
     }
 
     hio_read_start(io);
+    // uncomment to test heartbeat
+    // hio_set_heartbeat(sockio, 3000, send_heartbeat);
 }
 
 int main(int argc, char** argv) {
@@ -165,11 +167,10 @@ Examples: nc 127.0.0.1 80\n\
     if (sockio == NULL) {
         return -20;
     }
-    //printf("sockfd=%d\n", hio_fd(sockio));
+    // printf("sockfd=%d\n", hio_fd(sockio));
     hio_setcb_close(sockio, on_close);
     hio_setcb_read(sockio, on_recv);
     hio_set_readbuf(sockio, recvbuf, RECV_BUFSIZE);
-    // hio_set_heartbeat(sockio, 1000, send_heartbeat);
 
     hloop_run(loop);
     hloop_free(&loop);
