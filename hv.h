@@ -33,8 +33,6 @@
 #ifdef __cplusplus
 #include "hmap.h"       // <map>
 #include "hstring.h"    // <string>
-#include "hvar.h"
-#include "hobj.h"
 #include "hfile.h"
 #include "hdir.h"
 #include "hurl.h"

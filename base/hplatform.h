@@ -255,17 +255,6 @@ typedef unsigned __int64    uint64_t;
 typedef float               float32_t;
 typedef double              float64_t;
 
-// sizeof(var) = 8
-typedef union {
-    bool        b;
-    char        ch;
-    char*       str;
-    long long   num;
-    float       f;
-    double      lf;
-    void*       ptr;
-} var;
-
 typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
 
