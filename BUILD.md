@@ -30,7 +30,7 @@ use cmake
 ```
 mkdir win64
 cd win64
-cmake .. -G "Visual Studio 15 2017 Win64" -DCMAKE_BUILD_TYPE=Release
+cmake .. -G "Visual Studio 15 2017 Win64"
 cmake --build .
 ```
 

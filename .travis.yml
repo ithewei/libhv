@@ -1,26 +1,37 @@
 language: cpp
 
-compiler: gcc
-
 jobs:
   include:
     - os: linux
       dist: xenial
+      compiler: gcc
       env: COVERALLS=no
+      script:
+        - ./configure
+        - make clean
+        - make libhv examples unittest
+
     - os: osx
+      compiler: clang
       env: COVERALLS=no
+      scrit:
+        - ./configure
+        - make clean
+        - make libhv examples unittest
+
+    - os: windows
+      env: COVERALLS=no
+      script:
+        - mkdir win64
+        - cd win64
+        - cmake .. -G "Visual Studio 15 2017 Win64"
+        - cmake --build .
 
 before_script:
   - if [ "$COVERALLS" = "yes" ]; then
       pip install --user cpp-coveralls;
       export CC="$CC --coverage" CXX="$CXX --coverage";
     fi
-
-script:
-  - ./configure
-  - make libhv
-  - make unittest
-  - make examples
 
 after_success:
   - if [ "$COVERALLS" = "yes" ]; then
