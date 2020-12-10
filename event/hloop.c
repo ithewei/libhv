@@ -575,6 +575,9 @@ static void fill_io_type(hio_t* io) {
         default: io->io_type = HIO_TYPE_FILE;   break;
         }
     }
+    else {
+        io->io_type = HIO_TYPE_TCP;
+    }
 }
 
 static void hio_socket_init(hio_t* io) {
