@@ -141,6 +141,10 @@ static int hloop_process_events(hloop_t* loop) {
         msleep(blocktime);
     }
     hloop_update_time(loop);
+    // wakeup by hloop_stop
+    if (loop->status == HLOOP_STATUS_STOP) {
+        return 0;
+    }
 
 process_timers:
     if (loop->ntimers) {

@@ -211,11 +211,11 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
         int arg_len  = strlen(arg);
         // delim
         char* delim = strchr(arg, OPTION_DELIM);
-        if (delim == arg || delim == arg+arg_len-1 || delim-arg > MAX_OPTION) {
-            printf("Invalid option '%s'\n", argv[i]);
-            return -10;
-        }
         if (delim) {
+            if (delim == arg || delim == arg+arg_len-1 || delim-arg > MAX_OPTION) {
+                printf("Invalid option '%s'\n", argv[i]);
+                return -10;
+            }
             memcpy(opt, arg, delim-arg);
             opt[delim-arg] = '\0';
         } else {
