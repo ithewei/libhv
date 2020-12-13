@@ -192,7 +192,7 @@ void hio_free(hio_t* io);
 #define EVENT_RESET(ev) \
     do {\
         ev->destroy = 0;\
-        ev->active  = 1;\
+        EVENT_ACTIVE(ev);\
         ev->pending = 0;\
     } while(0)
 
