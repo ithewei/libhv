@@ -491,13 +491,13 @@ void htimer_reset(htimer_t* timer) {
     }
     hloop_t* loop = timer->loop;
     htimeout_t* timeout = (htimeout_t*)timer;
-    if (timer->pending) {
-        if (timer->repeat == 0) {
-            timer->repeat = 1;
-        }
-    }
-    else {
+    if (timer->destroy) {
+        loop->ntimers++;
+    } else {
         heap_remove(&loop->timers, &timer->node);
+    }
+    if (timer->repeat == 0) {
+        timer->repeat = 1;
     }
     timer->next_timeout = hloop_now_hrtime(loop) + timeout->timeout*1000;
     heap_insert(&loop->timers, &timer->node);
