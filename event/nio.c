@@ -351,13 +351,14 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
 
 static void nio_read(hio_t* io) {
     //printd("nio_read fd=%d\n", io->fd);
+    void* buf;
+    int len, nread;
+read:
     if (io->readbuf.base == NULL || io->readbuf.len == 0) {
         hio_set_readbuf(io, io->loop->readbuf.base, io->loop->readbuf.len);
     }
-    void* buf = io->readbuf.base;
-    int   len = io->readbuf.len;
-    int   nread = 0;
-read:
+    buf = io->readbuf.base;
+    len = io->readbuf.len;
     nread = __nio_read(io, buf, len);
     //printd("read retval=%d\n", nread);
     if (nread < 0) {

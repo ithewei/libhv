@@ -44,6 +44,18 @@ void on_recv(hio_t* io, void* buf, int readbytes) {
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     }
     printf("%.*s", readbytes, (char*)buf);
+
+    // test hio_set_readbuf in hread_cb
+#if 0
+    static int total_readbytes = 0;
+    total_readbytes += readbytes;
+    if (total_readbytes >= RECV_BUFSIZE) {
+        total_readbytes = 0;
+    }
+    hio_set_readbuf(io, recvbuf + total_readbytes, RECV_BUFSIZE - total_readbytes);
+    printf("%.*s", total_readbytes, recvbuf);
+#endif
+
     fflush(stdout);
 }
 
@@ -148,8 +160,8 @@ Examples: nc 127.0.0.1 80\n\
 
     hloop_t* loop = hloop_new(HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS);
 
-    // stdin
-    stdinio = hread(loop, 0, recvbuf, RECV_BUFSIZE, on_stdin);
+    // stdin use default readbuf
+    stdinio = hread(loop, 0, NULL, 0, on_stdin);
     if (stdinio == NULL) {
         return -20;
     }
