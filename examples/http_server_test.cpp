@@ -1,3 +1,9 @@
+/*
+ * sample http server
+ * more detail see examples/httpd
+ *
+ */
+
 #include "HttpServer.h"
 
 int main() {
@@ -17,6 +23,10 @@ int main() {
 
     http_server_t server;
     server.port = 8080;
+    // uncomment to test multi-processes
+    // server.worker_processes = 4;
+    // uncomment to test multi-threads
+    // server.worker_threads = 4;
     server.service = &service;
 
 #if 1
