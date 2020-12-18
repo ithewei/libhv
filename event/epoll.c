@@ -43,7 +43,7 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
     hio_t* io = loop->ios.ptr[fd];
 
     struct epoll_event ee;
-    ee.events = 0;
+    memset(&ee, 0, sizeof(ee));
     ee.data.fd = fd;
     // pre events
     if (io->events & HV_READ) {
@@ -76,7 +76,7 @@ int iowatcher_del_event(hloop_t* loop, int fd, int events) {
     hio_t* io = loop->ios.ptr[fd];
 
     struct epoll_event ee;
-    ee.events = 0;
+    memset(&ee, 0, sizeof(ee));
     ee.data.fd = fd;
     // pre events
     if (io->events & HV_READ) {

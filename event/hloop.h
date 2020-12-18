@@ -28,6 +28,12 @@ typedef void (*hwrite_cb)   (hio_t* io, const void* buf, int writebytes);
 typedef void (*hclose_cb)   (hio_t* io);
 
 typedef enum {
+    HLOOP_STATUS_STOP,
+    HLOOP_STATUS_RUNNING,
+    HLOOP_STATUS_PAUSE
+} hloop_status_e;
+
+typedef enum {
     HEVENT_TYPE_NONE    = 0,
     HEVENT_TYPE_IO      = 0x00000001,
     HEVENT_TYPE_TIMEOUT = 0x00000010,
@@ -115,6 +121,7 @@ HV_EXPORT int hloop_stop(hloop_t* loop);
 HV_EXPORT int hloop_pause(hloop_t* loop);
 HV_EXPORT int hloop_resume(hloop_t* loop);
 HV_EXPORT int hloop_wakeup(hloop_t* loop);
+HV_EXPORT hloop_status_e hloop_status(hloop_t* loop);
 
 HV_EXPORT void     hloop_update_time(hloop_t* loop);
 HV_EXPORT uint64_t hloop_now(hloop_t* loop);          // s

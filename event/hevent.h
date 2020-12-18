@@ -3,6 +3,7 @@
 
 #include "hloop.h"
 #include "hbuf.h"
+#include "hatomic.h"
 #include "hmutex.h"
 
 #include "array.h"
@@ -11,12 +12,6 @@
 #include "queue.h"
 
 #define HLOOP_READ_BUFSIZE  8192
-
-typedef enum {
-    HLOOP_STATUS_STOP,
-    HLOOP_STATUS_RUNNING,
-    HLOOP_STATUS_PAUSE
-} hloop_status_e;
 
 ARRAY_DECL(hio_t*, io_array);
 QUEUE_DECL(hevent_t, event_queue);
@@ -34,7 +29,7 @@ struct hloop_s {
     void*       userdata;
 //private:
     // events
-    uint64_t                    event_counter;
+    hatomic_t                   event_counter;
     uint32_t                    nactives;
     uint32_t                    npendings;
     // pendings: with priority as array.index

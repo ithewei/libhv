@@ -212,11 +212,11 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
     if (ev->event_type == 0) {
         ev->event_type = HEVENT_TYPE_CUSTOM;
     }
-
-    hmutex_lock(&loop->custom_events_mutex);
     if (ev->event_id == 0) {
         ev->event_id = ++loop->event_counter;
     }
+
+    hmutex_lock(&loop->custom_events_mutex);
     hwrite(loop, loop->sockpair[SOCKPAIR_WRITE_INDEX], &buf, 1, NULL);
     event_queue_push_back(&loop->custom_events, ev);
     hmutex_unlock(&loop->custom_events_mutex);
@@ -224,6 +224,8 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
 
 static void hloop_init(hloop_t* loop) {
     loop->status = HLOOP_STATUS_STOP;
+    loop->pid = hv_getpid();
+    loop->tid = hv_gettid();
 
     // idles
     list_init(&loop->idles);
@@ -406,6 +408,10 @@ int hloop_resume(hloop_t* loop) {
         loop->status = HLOOP_STATUS_RUNNING;
     }
     return 0;
+}
+
+hloop_status_e hloop_status(hloop_t* loop) {
+    return loop->status;
 }
 
 void hloop_update_time(hloop_t* loop) {
@@ -640,9 +646,9 @@ void hio_ready(hio_t* io) {
     // callbacks
     io->read_cb = NULL;
     io->write_cb = NULL;
-    io->close_cb = 0;
-    io->accept_cb = 0;
-    io->connect_cb = 0;
+    io->close_cb = NULL;
+    io->accept_cb = NULL;
+    io->connect_cb = NULL;
     // timers
     io->connect_timeout = 0;
     io->connect_timer = NULL;
@@ -718,7 +724,7 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
     printd("hio_add fd=%d events=%d\n", io->fd, events);
 #ifdef OS_WIN
     // Windows iowatcher not work on stdio
-    if (io->fd < 3) return 0;
+    if (io->fd < 3) return -1;
 #endif
     hloop_t* loop = io->loop;
     if (!io->active) {
@@ -743,16 +749,16 @@ int hio_del(hio_t* io, int events) {
     printd("hio_del fd=%d io->events=%d events=%d\n", io->fd, io->events, events);
 #ifdef OS_WIN
     // Windows iowatcher not work on stdio
-    if (io->fd < 3) return 0;
+    if (io->fd < 3) return -1;
 #endif
-    if (io->active) {
-        iowatcher_del_event(io->loop, io->fd, events);
-        io->events &= ~events;
-        if (io->events == 0) {
-            io->loop->nios--;
-            // NOTE: not EVENT_DEL, avoid free
-            EVENT_INACTIVE(io);
-        }
+    if (!io->active) return -1;
+
+    iowatcher_del_event(io->loop, io->fd, events);
+    io->events &= ~events;
+    if (io->events == 0) {
+        io->loop->nios--;
+        // NOTE: not EVENT_DEL, avoid free
+        EVENT_INACTIVE(io);
     }
     return 0;
 }
