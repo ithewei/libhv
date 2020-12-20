@@ -52,7 +52,6 @@ static void __heartbeat_timer_cb(htimer_t* timer) {
 }
 
 static void __accept_cb(hio_t* io) {
-    io->connected = 1;
     /*
     char localaddrstr[SOCKADDR_STRLEN] = {0};
     char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -79,7 +78,6 @@ static void __accept_cb(hio_t* io) {
 }
 
 static void __connect_cb(hio_t* io) {
-    io->connected = 1;
     /*
     char localaddrstr[SOCKADDR_STRLEN] = {0};
     char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -496,7 +494,6 @@ int hio_read (hio_t* io) {
 }
 
 int hio_write (hio_t* io, const void* buf, size_t len) {
-    if (!io->connected) return -1;
     int nwrite = 0;
     if (write_queue_empty(&io->write_queue)) {
 try_write:
@@ -555,7 +552,6 @@ int hio_close (hio_t* io) {
         return 0;
     }
 
-    io->connected = 0;
     io->closed = 1;
     hio_done(io);
     __close_cb(io);

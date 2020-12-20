@@ -111,7 +111,6 @@ static void on_acceptex_complete(hio_t* io) {
     if (io->accept_cb) {
         setsockopt(connfd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (const char*)&listenfd, sizeof(int));
         hio_t* connio = hio_get(io->loop, connfd);
-        connio->connected = 1;
         connio->userdata = io->userdata;
         memcpy(connio->localaddr, io->localaddr, localaddrlen);
         memcpy(connio->peeraddr, io->peeraddr, peeraddrlen);
@@ -138,7 +137,6 @@ static void on_connectex_complete(hio_t* io) {
         hio_close(io);
         return;
     }
-    io->connected = 1;
     if (io->connect_cb) {
         setsockopt(io->fd, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, NULL, 0);
         socklen_t addrlen = sizeof(struct sockaddr_in6);
@@ -302,7 +300,6 @@ int hio_read (hio_t* io) {
 }
 
 int hio_write(hio_t* io, const void* buf, size_t len) {
-    if (!io->connected) return -1;
     int nwrite = 0;
 try_send:
     if (io->io_type == HIO_TYPE_TCP) {
@@ -383,7 +380,6 @@ disconnect:
 
 int hio_close (hio_t* io) {
     if (io->closed) return 0;
-    io->connected = 0;
     io->closed = 1;
     hio_done(io);
     if (io->hovlp) {

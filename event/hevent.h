@@ -88,7 +88,6 @@ struct hio_s {
     HEVENT_FIELDS
     // flags
     unsigned    ready       :1;
-    unsigned    connected   :1;
     unsigned    closed      :1;
     unsigned    accept      :1;
     unsigned    connect     :1;

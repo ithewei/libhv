@@ -639,7 +639,7 @@ void hio_ready(hio_t* io) {
     if (io->ready) return;
     // flags
     io->ready = 1;
-    io->connected = io->closed = 0;
+    io->closed = 0;
     io->accept = io->connect = io->connectex = 0;
     io->recv = io->send = 0;
     io->recvfrom = io->sendto = 0;
