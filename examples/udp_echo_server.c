@@ -30,7 +30,7 @@ static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: udp port\n");
+        printf("Usage: %s port\n", argv[0]);
         return -10;
     }
     int port = atoi(argv[1]);

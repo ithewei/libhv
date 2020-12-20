@@ -223,6 +223,11 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
 }
 
 static void hloop_init(hloop_t* loop) {
+#ifdef SIGPIPE
+    // NOTE: if not ignore SIGPIPE, write twice when peer close will lead to exit process by SIGPIPE.
+    signal(SIGPIPE, SIG_IGN);
+#endif
+
     loop->status = HLOOP_STATUS_STOP;
     loop->pid = hv_getpid();
     loop->tid = hv_gettid();

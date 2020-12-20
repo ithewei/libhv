@@ -531,7 +531,7 @@ enqueue:
         rest.offset = nwrite;
         // NOTE: free in nio_write
         HV_ALLOC(rest.base, rest.len);
-        memcpy(rest.base, (char*)buf, rest.len);
+        memcpy(rest.base, buf, rest.len);
         if (io->write_queue.maxsize == 0) {
             write_queue_init(&io->write_queue, 4);
         }

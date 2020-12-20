@@ -98,7 +98,7 @@ static void on_accept(hio_t* io) {
 
 int main(int argc, char** argv) {
     if (argc < 3) {
-        printf("Usage: tcp port proxy_host:proxy_port\n");
+        printf("Usage: %s port proxy_host:proxy_port\n", argv[0]);
         return -10;
     }
     int port = atoi(argv[1]);
