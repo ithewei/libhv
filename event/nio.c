@@ -490,10 +490,18 @@ int hio_connect(hio_t* io) {
 }
 
 int hio_read (hio_t* io) {
+    if (io->closed) {
+        hloge("hio_read called but fd[%d] already closed!", io->fd);
+        return -1;
+    }
     return hio_add(io, hio_handle_events, HV_READ);
 }
 
 int hio_write (hio_t* io, const void* buf, size_t len) {
+    if (io->closed) {
+        hloge("hio_write called but fd[%d] already closed!", io->fd);
+        return -1;
+    }
     int nwrite = 0;
     if (write_queue_empty(&io->write_queue)) {
 try_write:
