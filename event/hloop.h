@@ -203,9 +203,11 @@ HV_EXPORT int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(HV_READ));
 HV_EXPORT int    hio_del(hio_t* io, int events DEFAULT(HV_RDWR));
 
 // hio_t fields
-HV_EXPORT int hio_fd    (hio_t* io);
-HV_EXPORT int hio_error (hio_t* io);
-HV_EXPORT hio_type_e hio_type(hio_t* io);
+HV_EXPORT int hio_fd      (hio_t* io);
+HV_EXPORT int hio_error   (hio_t* io);
+HV_EXPORT int hio_events  (hio_t* io);
+HV_EXPORT int hio_revents (hio_t* io);
+HV_EXPORT hio_type_e       hio_type     (hio_t* io);
 HV_EXPORT struct sockaddr* hio_localaddr(hio_t* io);
 HV_EXPORT struct sockaddr* hio_peeraddr (hio_t* io);
 

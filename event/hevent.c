@@ -13,6 +13,14 @@ int hio_error(hio_t* io) {
     return io->error;
 }
 
+int hio_events(hio_t* io) {
+    return io->events;
+}
+
+int hio_revents(hio_t* io) {
+    return io->revents;
+}
+
 struct sockaddr* hio_localaddr(hio_t* io) {
     return io->localaddr;
 }
