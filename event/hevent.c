@@ -1,5 +1,11 @@
 #include "hevent.h"
 #include "hsocket.h"
+#include "hatomic.h"
+
+uint64_t hloop_next_event_id() {
+    static hatomic_t s_id = HATOMIC_VAR_INIT(0);
+    return ++s_id;
+}
 
 int hio_fd(hio_t* io) {
     return io->fd;

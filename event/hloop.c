@@ -213,7 +213,7 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
         ev->event_type = HEVENT_TYPE_CUSTOM;
     }
     if (ev->event_id == 0) {
-        ev->event_id = ++loop->event_counter;
+        ev->event_id = hloop_next_event_id();
     }
 
     hmutex_lock(&loop->custom_events_mutex);

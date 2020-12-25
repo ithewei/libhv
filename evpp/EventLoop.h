@@ -9,50 +9,74 @@
 #include "hloop.h"
 #include "hthread.h"
 
+#include "Status.h"
 #include "Event.h"
 
 namespace hv {
 
-class EventLoop {
+class EventLoop : public Status {
 public:
+
     typedef std::function<void()> Functor;
 
-    EventLoop() {
-        loop_ = hloop_new(HLOOP_FLAG_AUTO_FREE);
-        assert(loop_ != NULL);
-        hloop_set_userdata(loop_, this);
+    // New an EventLoop using an existing hloop_t object,
+    // so we can embed an EventLoop object into the old application based on hloop.
+    // NOTE: Be careful to deal with destroy of hloop_t.
+    EventLoop(hloop_t* loop = NULL) {
+        setStatus(kInitializing);
+        if (loop) {
+            loop_ = loop;
+        } else {
+            loop_ = hloop_new(HLOOP_FLAG_AUTO_FREE);
+        }
+        setStatus(kInitialized);
     }
 
     ~EventLoop() {
         stop();
     }
 
-    void start() {
+    hloop_t* loop() {
+        return loop_;
+    }
+
+    // @brief Run loop forever
+    void run() {
         if (loop_ == NULL) return;
+        setStatus(kRunning);
         hloop_run(loop_);
+        setStatus(kStopped);
     }
 
     void stop() {
         if (loop_ == NULL) return;
+        setStatus(kStopping);
         hloop_stop(loop_);
         loop_ = NULL;
     }
 
     void pause() {
         if (loop_ == NULL) return;
-        hloop_pause(loop_);
+        if (isRunning()) {
+            hloop_pause(loop_);
+            setStatus(kPause);
+        }
     }
 
     void resume() {
         if (loop_ == NULL) return;
-        hloop_resume(loop_);
+        if (isPause()) {
+            hloop_resume(loop_);
+            setStatus(kRunning);
+        }
     }
 
+    // Timer interfaces: setTimer, killTimer, resetTimer
     TimerID setTimer(int timeout_ms, TimerCallback cb, int repeat = INFINITE) {
         htimer_t* htimer = htimer_add(loop_, onTimer, timeout_ms, repeat);
 
         Timer timer(htimer, cb, repeat);
-        hevent_set_userdata(htimer, &timer);
+        hevent_set_userdata(htimer, this);
 
         TimerID timerID = hevent_id(htimer);
 
@@ -92,16 +116,21 @@ public:
         }
     }
 
-    bool isInLoop() {
+    long tid() {
+        if (loop_ == NULL) hv_gettid();
+        return hloop_tid(loop_);
+    }
+
+    bool isInLoopThread() {
         return hv_gettid() == hloop_tid(loop_);
     }
 
-    void assertInLoop() {
-        assert(isInLoop());
+    void assertInLoopThread() {
+        assert(isInLoopThread());
     }
 
     void runInLoop(Functor fn) {
-        if (isInLoop()) {
+        if (isInLoopThread()) {
             if (fn) fn();
         } else {
             queueInLoop(fn);
@@ -118,6 +147,7 @@ public:
         if (loop_ == NULL) return;
 
         EventPtr ev(new Event(cb));
+        hevent_set_userdata(&ev->event, this);
         ev->event.cb = onCustomEvent;
 
         mutex_.lock();
@@ -129,8 +159,8 @@ public:
 
 private:
     static void onTimer(htimer_t* htimer) {
+        EventLoop* loop = (EventLoop*)hevent_userdata(htimer);
         hloop_t* hloop = (hloop_t*)hevent_loop(htimer);
-        EventLoop* loop = (EventLoop*)hloop_userdata(hloop);
 
         TimerID timerID = hevent_id(htimer);
         TimerCallback cb = NULL;
@@ -161,8 +191,8 @@ private:
     }
 
     static void onCustomEvent(hevent_t* hev) {
+        EventLoop* loop = (EventLoop*)hevent_userdata(hev);
         hloop_t* hloop = (hloop_t*)hevent_loop(hev);
-        EventLoop* loop = (EventLoop*)hloop_userdata(hloop);
 
         loop->mutex_.lock();
         EventPtr ev = loop->customEvents.front();
@@ -178,6 +208,8 @@ private:
     std::queue<EventPtr>        customEvents;   // GUAREDE_BY(mutex_)
     std::map<TimerID, Timer>    timers;         // GUAREDE_BY(mutex_)
 };
+
+typedef std::shared_ptr<EventLoop> EventLoopPtr;
 
 }
 

@@ -1,15 +1,15 @@
 /*
- * EventLoop_test.cpp
+ * EventLoopThread_test.cpp
  *
  * @build
  * make libhv && sudo make install
- * g++ -std=c++11 EventLoop_test.cpp -o EventLoop_test -I/usr/local/include/hv -lhv
+ * g++ -std=c++11 EventLoopThread_test.cpp -o EventLoopThread_test -I/usr/local/include/hv -lhv -lpthread
  *
  */
 
 #include "hv.h"
 
-#include "EventLoop.h"
+#include "EventLoopThread.h"
 
 using namespace hv;
 
@@ -22,7 +22,8 @@ int main(int argc, char* argv[]) {
 
     printf("main tid=%ld\n", hv_gettid());
 
-    EventLoopPtr loop(new EventLoop);
+    EventLoopThread loop_thread;
+    EventLoopPtr loop = loop_thread.loop();
 
     // runEvery 1s
     loop->setInterval(1000, std::bind(onTimer, std::placeholders::_1, 100));
@@ -32,6 +33,8 @@ int main(int argc, char* argv[]) {
         loop->stop();
     });
 
+    loop_thread.start();
+
     loop->queueInLoop([](){
         printf("queueInLoop tid=%ld\n", hv_gettid());
     });
@@ -40,8 +43,8 @@ int main(int argc, char* argv[]) {
         printf("runInLoop tid=%ld\n", hv_gettid());
     });
 
-    // run until loop stopped
-    loop->run();
+    // wait loop_thread exit
+    loop_thread.join();
 
     return 0;
 }

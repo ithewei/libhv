@@ -3,7 +3,6 @@
 
 #include "hloop.h"
 #include "hbuf.h"
-#include "hatomic.h"
 #include "hmutex.h"
 
 #include "array.h"
@@ -29,7 +28,6 @@ struct hloop_s {
     void*       userdata;
 //private:
     // events
-    hatomic_t                   event_counter;
     uint32_t                    nactives;
     uint32_t                    npendings;
     // pendings: with priority as array.index
@@ -51,6 +49,8 @@ struct hloop_s {
     event_queue                 custom_events;
     hmutex_t                    custom_events_mutex;
 };
+
+uint64_t hloop_next_event_id();
 
 struct hidle_s {
     HEVENT_FIELDS
@@ -171,7 +171,7 @@ void hio_free(hio_t* io);
 #define EVENT_ADD(loop, ev, cb) \
     do {\
         ev->loop = loop;\
-        ev->event_id = ++loop->event_counter;\
+        ev->event_id = hloop_next_event_id();\
         ev->cb = (hevent_cb)cb;\
         EVENT_ACTIVE(ev);\
     } while(0)
