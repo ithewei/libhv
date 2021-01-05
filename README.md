@@ -45,13 +45,21 @@ see [examples/http_server_test.cpp](examples/http_server_test.cpp)
 #include "HttpServer.h"
 
 int main() {
-    HttpService service;
-    service.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
-        resp->body = "pong";
-        return 200;
+    HttpService router;
+    router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
+        return resp->String("pong");
     });
 
-    service.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
+    router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
+        static char data[] = "0123456789";
+        return resp->Data(data, 10);
+    });
+
+    router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
+        return resp->Json(router.Paths());
+    });
+
+    router.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
         resp->content_type = req->content_type;
         resp->body = req->body;
         return 200;
@@ -59,7 +67,7 @@ int main() {
 
     http_server_t server;
     server.port = 8080;
-    server.service = &service;
+    server.service = &router;
     http_server_run(&server);
     return 0;
 }

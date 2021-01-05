@@ -36,7 +36,13 @@ cmd="bin/curl -v localhost:8080" && run_cmd
 cmd="bin/curl -v localhost:8080/downloads/" && run_cmd
 
 # http api service
+cmd="bin/curl -v localhost:8080/paths" && run_cmd
+
 cmd="bin/curl -v localhost:8080/ping" && run_cmd
+
+cmd="bin/curl -v localhost:8080/data" && run_cmd
+
+cmd="bin/curl -v localhost:8080/html/index.html" && run_cmd
 
 cmd="bin/curl -v localhost:8080/echo -d 'hello,world!'" && echo_cmd
 bin/curl -v localhost:8080/echo -d 'hello,world!'

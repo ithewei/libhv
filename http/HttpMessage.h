@@ -6,7 +6,10 @@
 #include <map>
 
 #include "hexport.h"
+#include "hbase.h"
 #include "hstring.h"
+#include "hfile.h"
+
 #include "httpdef.h"
 #include "http_content.h"
 
@@ -64,6 +67,28 @@ public:
         default:
             break;
         }
+    }
+
+    /*
+     * null:    Json(nullptr);
+     * boolean: Json(true);
+     * number:  Json(123);
+     * string:  Json("hello");
+     * object:  Json(std::map<string, ValueType>);
+     *          Json(hv::Json::object({
+                    {"k1", "v1"},
+                    {"k2", "v2"}
+                }));
+     * array:   Json(std::vector<ValueType>);
+                Json(hv::Json::object(
+                    {1, 2, 3}
+                ));
+     */
+    template<typename T>
+    int Json(const T& t) {
+        content_type = APPLICATION_JSON;
+        json = t;
+        return 200;
     }
 #endif
 
@@ -135,6 +160,41 @@ public:
             FillContentType();
         }
         return content_type;
+    }
+
+    int String(const char* str) {
+        content_type = TEXT_PLAIN;
+        body = str;
+        return 200;
+    }
+
+    int String(std::string& str) {
+        content_type = TEXT_PLAIN;
+        body = str;
+        return 200;
+    }
+
+    int Data(void* data, int len) {
+        content_type = APPLICATION_OCTET_STREAM;
+        content = data;
+        content_length = len;
+        return 200;
+    }
+
+    int File(const char* filepath) {
+        HFile file;
+        if (file.open(filepath, "r") != 0) {
+            return HTTP_STATUS_NOT_FOUND;
+        }
+        const char* suffix = hv_suffixname(filepath);
+        if (suffix) {
+            content_type = http_content_type_enum_by_suffix(suffix);
+        }
+        if (content_type == CONTENT_TYPE_NONE || content_type == CONTENT_TYPE_UNDEFINED) {
+            content_type = APPLICATION_OCTET_STREAM;
+        }
+        file.readall(body);
+        return 200;
     }
 };
 
