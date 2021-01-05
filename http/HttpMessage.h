@@ -1,6 +1,31 @@
 #ifndef HTTP_MESSAGE_H_
 #define HTTP_MESSAGE_H_
 
+/*
+ * @class HttpMessage
+ * HttpRequest extends HttpMessage
+ * HttpResponse extends HttpMessage
+ *
+ * @member
+ * request-line: GET / HTTP/1.1\r\n => method path
+ * response-line: 200 OK\r\n => status_code
+ * headers
+ * body
+ *
+ * content, content_length, content_type
+ * json, form, kv
+ *
+ * @function
+ * Content, ContentLength, ContentType
+ * Get, Set
+ * GetHeader, GetParam, GetString, GetBool, GetInt, GetFloat
+ * String, Data, File, Json
+ *
+ * @example
+ * see examples/httpd
+ *
+ */
+
 #include <memory>
 #include <string>
 #include <map>
@@ -123,12 +148,12 @@ public:
     // body.size -> content_length <-> headers Content-Length
     void FillContentLength();
 
-    std::string GetHeader(const char* key) {
+    std::string GetHeader(const char* key, const std::string& defvalue = "") {
         auto iter = headers.find(key);
         if (iter != headers.end()) {
             return iter->second;
         }
-        return "";
+        return defvalue;
     }
 
     // headers -> string
@@ -239,12 +264,12 @@ public:
 
     virtual std::string Dump(bool is_dump_headers, bool is_dump_body);
 
-    std::string GetParam(const char* key) {
+    std::string GetParam(const char* key, const std::string& defvalue = "") {
         auto iter = query_params.find(key);
         if (iter != query_params.end()) {
             return iter->second;
         }
-        return "";
+        return defvalue;
     }
 
     // structed url -> url
