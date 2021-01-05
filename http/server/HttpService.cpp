@@ -1,5 +1,7 @@
 #include "HttpService.h"
 
+#include "hbase.h" // import strendswith
+
 void HttpService::AddApi(const char* path, http_method method, http_api_handler handler) {
     std::shared_ptr<http_method_handlers> method_handlers = NULL;
     auto iter = api_handlers.find(path);
@@ -63,34 +65,48 @@ int HttpService::GetApi(HttpRequest* req, http_api_handler* handler) {
 
     std::string path = std::string(s, e);
     const char *kp, *ks, *vp, *vs;
+    bool match;
     for (auto iter = api_handlers.begin(); iter != api_handlers.end(); ++iter) {
         kp = iter->first.c_str();
         vp = path.c_str();
-
-        // RESTful API
+        match = false;
         std::map<std::string, std::string> params;
-        while (*kp && *vp && *kp == *vp) {
-            if (kp[0] == '/' && kp[1] == ':') {
-                kp += 2;
-                ks = kp;
-                while (*kp && *kp != '/') {++kp;}
-                vp += 1;
-                vs = vp;
-                while (*vp && *vp != '/') {++vp;}
-                params[std::string(ks, kp-ks)] = std::string(vs, vp-vs);
-            }
-            else {
-                ++kp;
-                ++vp;
+
+        while (*kp && *vp) {
+            if (kp[0] == '*') {
+                // wildcard *
+                if (strendswith(vp, kp+1)) {
+                    match = true;
+                }
+                break;
+            } else if (*kp == *vp) {
+                if (kp[0] == '/' && kp[1] == ':') {
+                    // RESTful /:field/
+                    kp += 2;
+                    ks = kp;
+                    while (*kp && *kp != '/') {++kp;}
+                    vp += 1;
+                    vs = vp;
+                    while (*vp && *vp != '/') {++vp;}
+                    params[std::string(ks, kp-ks)] = std::string(vs, vp-vs);
+                } else {
+                    ++kp;
+                    ++vp;
+                }
+            } else {
+                match = false;
+                break;
             }
         }
 
-        if (*kp == '\0' && *vp == '\0') {
+        match = match ? match : (*kp == '\0' && *vp == '\0');
+
+        if (match) {
             auto method_handlers = iter->second;
             for (auto iter = method_handlers->begin(); iter != method_handlers->end(); ++iter) {
                 if (iter->method == req->method) {
                     for (auto& param : params) {
-                        // RESTful /:field/ => req->query_params
+                        // RESTful /:field/ => req->query_params[field]
                         req->query_params[param.first] = param.second;
                     }
                     *handler = iter->handler;

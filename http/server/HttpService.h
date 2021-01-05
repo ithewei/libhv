@@ -5,6 +5,7 @@
 #include <map>
 #include <list>
 #include <memory>
+#include <functional>
 
 #include "hexport.h"
 #include "HttpMessage.h"
@@ -19,7 +20,9 @@
  * @return  0: handle continue
  *          http_status_code: handle done
  */
-typedef int (*http_api_handler)(HttpRequest* req, HttpResponse* res);
+// typedef int (*http_api_handler)(HttpRequest* req, HttpResponse* res);
+// NOTE: use std::function/std::bind is more convenient and more flexible.
+typedef std::function<int(HttpRequest* req, HttpResponse* resp)> http_api_handler;
 
 struct http_method_handler {
     http_method         method;
@@ -61,6 +64,14 @@ struct HV_EXPORT HttpService {
     int GetApi(const char* url, http_method method, http_api_handler* handler);
     // RESTful API /:field/ => req->query_params["field"]
     int GetApi(HttpRequest* req, http_api_handler* handler);
+
+    StringList Paths() {
+        StringList paths;
+        for (auto& pair : api_handlers) {
+            paths.emplace_back(pair.first);
+        }
+        return paths;
+    }
 
     // github.com/gin-gonic/gin
     void Handle(const char* httpMethod, const char* relativePath, http_api_handler handlerFunc) {
