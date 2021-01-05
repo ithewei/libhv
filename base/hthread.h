@@ -105,6 +105,7 @@ public:
     HThread() {
         status = STOP;
         status_changed = false;
+        dotask_cnt = 0;
         sleep_policy = YIELD;
         sleep_ms = 0;
     }
@@ -124,12 +125,11 @@ public:
 
     virtual int start() {
         if (status == STOP) {
-            setStatus(RUNNING);
-            dotask_cnt = 0;
-
             thread = std::thread([this] {
                 if (!doPrepare()) return;
+                setStatus(RUNNING);
                 run();
+                setStatus(STOP);
                 if (!doFinish()) return;
             });
         }
@@ -139,6 +139,8 @@ public:
     virtual int stop() {
         if (status != STOP) {
             setStatus(STOP);
+        }
+        if (thread.joinable()) {
             thread.join();  // wait thread exit
         }
         return 0;

@@ -20,6 +20,7 @@ jobs:
         - make libhv examples unittest
 
     - os: windows
+      compiler: msvc
       env: COVERALLS=no
       script:
         - mkdir win64

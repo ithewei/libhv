@@ -96,7 +96,8 @@ public:
         resp->form["int"] = 123;
         resp->form["float"] = 3.14;
         resp->form["float"] = "hello";
-        // resp->form["file"] = FormData("test.jpg");
+        // resp->form["file"] = FormData(NULL, "test.jpg");
+        // resp->UploadFormFile("file", "test.jpg");
         return 200;
     }
 
@@ -166,10 +167,14 @@ public:
     }
 
     static int upload(HttpRequest* req, HttpResponse* resp) {
+        // return resp->SaveFormFile("file", "html/uploads/test.jpg");
         if (req->content_type != MULTIPART_FORM_DATA) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }
         FormData file = req->form["file"];
+        if (file.content.empty()) {
+            return response_status(resp, HTTP_STATUS_BAD_REQUEST);
+        }
         string filepath("html/uploads/");
         filepath += file.filename;
         FILE* fp = fopen(filepath.c_str(), "w");

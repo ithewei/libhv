@@ -221,6 +221,27 @@ public:
         file.readall(body);
         return 200;
     }
+
+    void UploadFormFile(const char* name, const char* filepath) {
+        content_type = MULTIPART_FORM_DATA;
+        form[name] = FormData(NULL, filepath);
+    }
+
+    int SaveFormFile(const char* name, const char* filepath) {
+        if (content_type != MULTIPART_FORM_DATA) {
+            return HTTP_STATUS_BAD_REQUEST;
+        }
+        FormData formdata = form[name];
+        if (formdata.content.empty()) {
+            return HTTP_STATUS_BAD_REQUEST;
+        }
+        HFile file;
+        if (file.open(filepath, "w") != 0) {
+            return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        }
+        file.write(formdata.content.data(), formdata.content.size());
+        return 200;
+    }
 };
 
 #define DEFAULT_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36"
