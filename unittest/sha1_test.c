@@ -1,5 +1,5 @@
 /*
- * @build: gcc -o bin/md5 unittest/md5_test.c utils/md5.c -I. -Iutils
+ * @build: gcc -o bin/sha1 unittest/sha1_test.c utils/sha1.c -I. -Iutils
  *
  */
 
@@ -8,19 +8,19 @@
 #include <string.h>
 #include <assert.h>
 
-#include "md5.h"
+#include "sha1.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        printf("Usage: md5 file\n");
-        printf("       md5 -s string\n");
+        printf("Usage: sha1 file\n");
+        printf("       sha1 -s string\n");
         return -10;
     }
 
     unsigned char ch = '1';
-    char md5[33];
-    hv_md5_hex(&ch, 1, md5, sizeof(md5));
-    assert(strcmp(md5, "c4ca4238a0b923820dcc509a6f75849b") == 0);
+    char sha1[41];
+    hv_sha1_hex(&ch, 1, sha1, sizeof(sha1));
+    assert(strcmp(sha1, "356a192b7913b04c54574d18c28d46e6395428ab") == 0);
 
     if (argc == 2) {
         const char* filepath = argv[1];
@@ -36,12 +36,12 @@ int main(int argc, char* argv[]) {
         unsigned char* buf = (unsigned char*)malloc(filesize);
         size_t nread = fread(buf, 1, filesize, fp);
         assert(nread == filesize);
-        hv_md5_hex(buf, filesize, md5, sizeof(md5));
+        hv_sha1_hex(buf, filesize, sha1, sizeof(sha1));
     }
     else if (argc == 3) {
         const char* flags = argv[1];
         if (flags[0] == '-' && flags[1] == 's') {
-            hv_md5_hex((unsigned char*)argv[2], strlen(argv[2]), md5, sizeof(md5));
+            hv_sha1_hex((unsigned char*)argv[2], strlen(argv[2]), sha1, sizeof(sha1));
         }
         else {
             printf("Unrecognized flags '%s'\n", flags);
@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    puts(md5);
+    puts(sha1);
 
     return 0;
 }

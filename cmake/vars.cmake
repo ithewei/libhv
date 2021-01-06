@@ -31,6 +31,7 @@ set(BASE_HEADERS
 set(UTILS_HEADERS
     utils/base64.h
     utils/md5.h
+    utils/sha1.h
     utils/json.hpp
     utils/singleton.h
     utils/iniparser.h
