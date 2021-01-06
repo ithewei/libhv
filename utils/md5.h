@@ -1,45 +1,21 @@
-/* MD5.H - header file for MD5C.C
- */
-
-/* Copyright (C) 1991-2, RSA Data Security, Inc. Created 1991. All
-rights reserved.
-
-License to copy and use this software is granted provided that it
-is identified as the "RSA Data Security, Inc. MD5 Message-Digest
-Algorithm" in all material mentioning or referencing this software
-or this function.
-
-License is also granted to make and use derivative works provided
-that such works are identified as "derived from the RSA Data
-Security, Inc. MD5 Message-Digest Algorithm" in all material
-mentioning or referencing the derived work.
-
-RSA Data Security, Inc. makes no representations concerning either
-the merchantability of this software or the suitability of this
-software for any particular purpose. It is provided "as is"
-without express or implied warranty of any kind.
-These notices must be retained in any copies of any part of this
-documentation and/or software.
- */
-
-#ifndef __MD5_H__
-#define __MD5_H__
+#ifndef HV_MD5_H_
+#define HV_MD5_H_
 
 #include "hexport.h"
 
-/* MD5 context. */
 typedef struct {
-  unsigned long int state[4];   /* state (ABCD) */
-  unsigned long int count[2];   /* number of bits, modulo 2^64 (lsb first) */
-  unsigned char     buffer[64]; /* input buffer */
+    unsigned int    count[2];
+    unsigned int    state[4];
+    unsigned char   buffer[64];
 } MD5_CTX;
 
-BEGIN_EXTERN_C
+void MD5Init(MD5_CTX *ctx);
+void MD5Update(MD5_CTX *ctx, unsigned char *input, unsigned int inputlen);
+void MD5Final(MD5_CTX *ctx, unsigned char digest[16]);
 
-HV_EXPORT void MD5Init(MD5_CTX *);
-HV_EXPORT void MD5Update(MD5_CTX *, unsigned char *, unsigned int);
-HV_EXPORT void MD5Final(unsigned char [16], MD5_CTX *);
+HV_EXPORT void hv_md5(unsigned char* input, unsigned int inputlen, unsigned char digest[16]);
 
-END_EXTERN_C
+// NOTE: if outputlen > 32: output[32] = '\0'
+HV_EXPORT void hv_md5_hex(unsigned char* input, unsigned int inputlen, char* output, unsigned int outputlen);
 
-#endif // __MD5_H__
+#endif // HV_MD5_H_
