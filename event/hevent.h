@@ -107,6 +107,7 @@ struct hio_s {
     struct sockaddr*    peeraddr;
     hbuf_t              readbuf;        // for hread
     struct write_queue  write_queue;    // for hwrite
+    hrecursive_mutex_t  write_mutex;    // lock write and write_queue
     // callbacks
     hread_cb    read_cb;
     hwrite_cb   write_cb;

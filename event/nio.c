@@ -388,8 +388,10 @@ disconnect:
 static void nio_write(hio_t* io) {
     //printd("nio_write fd=%d\n", io->fd);
     int nwrite = 0;
+    hrecursive_mutex_lock(&io->write_mutex);
 write:
     if (write_queue_empty(&io->write_queue)) {
+        hrecursive_mutex_unlock(&io->write_mutex);
         if (io->close) {
             io->close = 0;
             hio_close(io);
@@ -404,6 +406,7 @@ write:
     if (nwrite < 0) {
         if (socket_errno() == EAGAIN) {
             //goto write_done;
+            hrecursive_mutex_unlock(&io->write_mutex);
             return;
         }
         else {
@@ -423,9 +426,11 @@ write:
         // write next
         goto write;
     }
+    hrecursive_mutex_unlock(&io->write_mutex);
     return;
 write_error:
 disconnect:
+    hrecursive_mutex_unlock(&io->write_mutex);
     hio_close(io);
 }
 
@@ -441,10 +446,12 @@ static void hio_handle_events(hio_t* io) {
 
     if ((io->events & HV_WRITE) && (io->revents & HV_WRITE)) {
         // NOTE: del HV_WRITE, if write_queue empty
+        hrecursive_mutex_lock(&io->write_mutex);
         if (write_queue_empty(&io->write_queue)) {
             iowatcher_del_event(io->loop, io->fd, HV_WRITE);
             io->events &= ~HV_WRITE;
         }
+        hrecursive_mutex_unlock(&io->write_mutex);
         if (io->connect) {
             // NOTE: connect just do once
             // ONESHOT
@@ -503,6 +510,7 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
         return -1;
     }
     int nwrite = 0;
+    hrecursive_mutex_lock(&io->write_mutex);
     if (write_queue_empty(&io->write_queue)) {
 try_write:
         nwrite = __nio_write(io, buf, len);
@@ -525,6 +533,7 @@ try_write:
         __write_cb(io, buf, nwrite);
         if (nwrite == len) {
             //goto write_done;
+            hrecursive_mutex_unlock(&io->write_mutex);
             return nwrite;
         }
 enqueue:
@@ -542,16 +551,20 @@ enqueue:
         }
         write_queue_push_back(&io->write_queue, &rest);
     }
+    hrecursive_mutex_unlock(&io->write_mutex);
     return nwrite;
 write_error:
 disconnect:
+    hrecursive_mutex_unlock(&io->write_mutex);
     hio_close(io);
     return nwrite;
 }
 
 int hio_close (hio_t* io) {
     if (io->closed) return 0;
+    hrecursive_mutex_lock(&io->write_mutex);
     if (!write_queue_empty(&io->write_queue) && io->error == 0 && io->close == 0) {
+        hrecursive_mutex_unlock(&io->write_mutex);
         io->close = 1;
         hlogw("write_queue not empty, close later.");
         int timeout_ms = io->close_timeout ? io->close_timeout : HIO_DEFAULT_CLOSE_TIMEOUT;
@@ -559,6 +572,7 @@ int hio_close (hio_t* io) {
         io->close_timer->privdata = io;
         return 0;
     }
+    hrecursive_mutex_unlock(&io->write_mutex);
 
     io->closed = 1;
     hio_done(io);

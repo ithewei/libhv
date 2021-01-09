@@ -633,6 +633,8 @@ void hio_init(hio_t* io) {
 
     // write_queue init when hwrite try_write failed
     // write_queue_init(&io->write_queue, 4);
+
+    hrecursive_mutex_init(&io->write_mutex);
 }
 
 void hio_ready(hio_t* io) {
@@ -683,12 +685,14 @@ void hio_done(hio_t* io) {
     hio_del(io, HV_RDWR);
 
     offset_buf_t* pbuf = NULL;
+    hrecursive_mutex_lock(&io->write_mutex);
     while (!write_queue_empty(&io->write_queue)) {
         pbuf = write_queue_front(&io->write_queue);
         HV_FREE(pbuf->base);
         write_queue_pop_front(&io->write_queue);
     }
     write_queue_cleanup(&io->write_queue);
+    hrecursive_mutex_unlock(&io->write_mutex);
 }
 
 void hio_free(hio_t* io) {
@@ -697,6 +701,7 @@ void hio_free(hio_t* io) {
     hio_done(io);
     // NOTE: call hio_close to call hclose_cb
     hio_close(io);
+    hrecursive_mutex_destroy(&io->write_mutex);
     HV_FREE(io->localaddr);
     HV_FREE(io->peeraddr);
     HV_FREE(io);
