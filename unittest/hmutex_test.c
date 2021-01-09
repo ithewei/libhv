@@ -25,6 +25,18 @@ HTHREAD_ROUTINE(test_mutex) {
     return 0;
 }
 
+HTHREAD_ROUTINE(test_recursive_mutex) {
+    hrecursive_mutex_t mutex;
+    hrecursive_mutex_init(&mutex);
+    hrecursive_mutex_lock(&mutex);
+    hrecursive_mutex_lock(&mutex);
+    hrecursive_mutex_unlock(&mutex);
+    hrecursive_mutex_unlock(&mutex);
+    hrecursive_mutex_destroy(&mutex);
+    printf("hrecursive_mutex test OK!\n");
+    return 0;
+}
+
 HTHREAD_ROUTINE(test_spinlock) {
     hspinlock_t spin;
     hspinlock_init(&spin);
@@ -102,6 +114,7 @@ HTHREAD_ROUTINE(test_sem) {
 int main(int argc, char* argv[]) {
     hthread_t thread_once = hthread_create(test_once, NULL);
     hthread_t thread_mutex = hthread_create(test_mutex, NULL);
+    hthread_t thread_recursive_mutex = hthread_create(test_recursive_mutex, NULL);
     hthread_t thread_spinlock = hthread_create(test_spinlock, NULL);
     hthread_t thread_rwlock = hthread_create(test_rwlock, NULL);
     hthread_t thread_timed_mutex = hthread_create(test_timed_mutex, NULL);
@@ -110,6 +123,7 @@ int main(int argc, char* argv[]) {
 
     hthread_join(thread_once);
     hthread_join(thread_mutex);
+    hthread_join(thread_recursive_mutex);
     hthread_join(thread_spinlock);
     hthread_join(thread_rwlock);
     hthread_join(thread_timed_mutex);

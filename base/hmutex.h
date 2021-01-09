@@ -14,6 +14,12 @@ BEGIN_EXTERN_C
 #define hmutex_lock             EnterCriticalSection
 #define hmutex_unlock           LeaveCriticalSection
 
+#define hrecursive_mutex_t          CRITICAL_SECTION
+#define hrecursive_mutex_init       InitializeCriticalSection
+#define hrecursive_mutex_destroy    DeleteCriticalSection
+#define hrecursive_mutex_lock       EnterCriticalSection
+#define hrecursive_mutex_unlock     LeaveCriticalSection
+
 #define HSPINLOCK_COUNT         -1
 #define hspinlock_t             CRITICAL_SECTION
 #define hspinlock_init(pspin)   InitializeCriticalSectionAndSpinCount(pspin, HSPINLOCK_COUNT)
@@ -74,6 +80,18 @@ static inline void honce(honce_t* once, honce_fn fn) {
 #define hmutex_destroy          pthread_mutex_destroy
 #define hmutex_lock             pthread_mutex_lock
 #define hmutex_unlock           pthread_mutex_unlock
+
+#define hrecursive_mutex_t          pthread_mutex_t
+#define hrecursive_mutex_init(pmutex) \
+    do {\
+        pthread_mutexattr_t attr;\
+        pthread_mutexattr_init(&attr);\
+        pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);\
+        pthread_mutex_init(pmutex, &attr);\
+    } while(0)
+#define hrecursive_mutex_destroy    pthread_mutex_destroy
+#define hrecursive_mutex_lock       pthread_mutex_lock
+#define hrecursive_mutex_unlock     pthread_mutex_unlock
 
 #if HAVE_PTHREAD_SPIN_LOCK
 #define hspinlock_t             pthread_spinlock_t
