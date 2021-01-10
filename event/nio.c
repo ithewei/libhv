@@ -4,6 +4,7 @@
 #include "hsocket.h"
 #include "hssl.h"
 #include "hlog.h"
+#include "hthread.h"
 
 static void __connect_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
@@ -560,8 +561,25 @@ disconnect:
     return nwrite;
 }
 
+static void hio_close_event_cb(hevent_t* ev) {
+    hio_t* io = (hio_t*)ev->userdata;
+    uint32_t id = (uintptr_t)ev->privdata;
+    if (io->id == id) {
+        hio_close((hio_t*)ev->userdata);
+    }
+}
+
 int hio_close (hio_t* io) {
     if (io->closed) return 0;
+    if (hv_gettid() != io->loop->tid) {
+        hevent_t ev;
+        memset(&ev, 0, sizeof(ev));
+        ev.cb = hio_close_event_cb;
+        ev.userdata = io;
+        ev.privdata = (void*)(uintptr_t)io->id;
+        hloop_post_event(io->loop, &ev);
+        return 0;
+    }
     hrecursive_mutex_lock(&io->write_mutex);
     if (!write_queue_empty(&io->write_queue) && io->error == 0 && io->close == 0) {
         hrecursive_mutex_unlock(&io->write_mutex);

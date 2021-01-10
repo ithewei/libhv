@@ -98,6 +98,7 @@ struct hio_s {
     unsigned    sendto      :1;
     unsigned    close       :1;
 // public:
+    uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
     int         fd;
     hio_type_e  io_type;
     int         error;
@@ -141,6 +142,7 @@ void hio_init(hio_t* io);
 void hio_ready(hio_t* io);
 void hio_done(hio_t* io);
 void hio_free(hio_t* io);
+uint32_t hio_next_id();
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)

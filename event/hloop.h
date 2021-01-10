@@ -203,6 +203,8 @@ HV_EXPORT int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(HV_READ));
 HV_EXPORT int    hio_del(hio_t* io, int events DEFAULT(HV_RDWR));
 
 // hio_t fields
+// NOTE: fd cannot be used as unique identifier, so we provide an id.
+HV_EXPORT uint32_t hio_id (hio_t* io);
 HV_EXPORT int hio_fd      (hio_t* io);
 HV_EXPORT int hio_error   (hio_t* io);
 HV_EXPORT int hio_events  (hio_t* io);
@@ -210,6 +212,8 @@ HV_EXPORT int hio_revents (hio_t* io);
 HV_EXPORT hio_type_e       hio_type     (hio_t* io);
 HV_EXPORT struct sockaddr* hio_localaddr(hio_t* io);
 HV_EXPORT struct sockaddr* hio_peeraddr (hio_t* io);
+HV_EXPORT bool hio_is_opened(hio_t* io);
+HV_EXPORT bool hio_is_closed(hio_t* io);
 
 // set callbacks
 HV_EXPORT void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
@@ -253,6 +257,7 @@ HV_EXPORT int hio_read   (hio_t* io);
 // NOTE: hio_write is thread-safe, locked by recursive_mutex, allow to be called by other threads.
 // hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
+// NOTE: hio_close is thread-safe, if called by other thread, hloop_post_event(hio_close_event).
 // hio_del(io, HV_RDWR) => close => hclose_cb
 HV_EXPORT int hio_close  (hio_t* io);
 

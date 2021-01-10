@@ -647,6 +647,7 @@ void hio_ready(hio_t* io) {
     io->recvfrom = io->sendto = 0;
     io->close = 0;
     // public:
+    io->id = hio_next_id();
     io->io_type = HIO_TYPE_UNKNOWN;
     io->error = 0;
     io->events = io->revents = 0;
@@ -705,6 +706,16 @@ void hio_free(hio_t* io) {
     HV_FREE(io->localaddr);
     HV_FREE(io->peeraddr);
     HV_FREE(io);
+}
+
+bool hio_is_opened(hio_t* io) {
+    if (io == NULL) return false;
+    return io->ready == 1 && io->closed == 0;
+}
+
+bool hio_is_closed(hio_t* io) {
+    if (io == NULL) return true;
+    return io->ready == 0 && io->closed == 1;
 }
 
 hio_t* hio_get(hloop_t* loop, int fd) {
