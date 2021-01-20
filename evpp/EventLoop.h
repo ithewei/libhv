@@ -160,7 +160,6 @@ public:
 private:
     static void onTimer(htimer_t* htimer) {
         EventLoop* loop = (EventLoop*)hevent_userdata(htimer);
-        hloop_t* hloop = (hloop_t*)hevent_loop(htimer);
 
         TimerID timerID = hevent_id(htimer);
         TimerCallback cb = NULL;
@@ -192,7 +191,6 @@ private:
 
     static void onCustomEvent(hevent_t* hev) {
         EventLoop* loop = (EventLoop*)hevent_userdata(hev);
-        hloop_t* hloop = (hloop_t*)hevent_loop(hev);
 
         loop->mutex_.lock();
         EventPtr ev = loop->customEvents.front();
