@@ -9,19 +9,21 @@
 #include "nghttp2/nghttp2.h"
 
 enum http2_session_state {
-    HSS_SEND_MAGIC,
-    HSS_SEND_SETTINGS,
-    HSS_SEND_PING,
-    HSS_SEND_HEADERS,
-    HSS_SEND_DATA_FRAME_HD,
-    HSS_SEND_DATA,
-    HSS_SEND_DONE,
+    H2_SEND_MAGIC,
+    H2_SEND_SETTINGS,
+    H2_SEND_PING,
+    H2_SEND_HEADERS,
+    H2_SEND_DATA_FRAME_HD,
+    H2_SEND_DATA,
+    H2_SEND_DONE,
 
-    HSS_WANT_RECV,
-    HSS_RECV_SETTINGS,
-    HSS_RECV_PING,
-    HSS_RECV_HEADERS,
-    HSS_RECV_DATA,
+    H2_WANT_SEND,
+    H2_WANT_RECV,
+
+    H2_RECV_SETTINGS,
+    H2_RECV_PING,
+    H2_RECV_HEADERS,
+    H2_RECV_DATA,
 };
 
 class Http2Parser : public HttpParser {
@@ -50,11 +52,11 @@ public:
     }
 
     virtual bool WantRecv() {
-        return state == HSS_WANT_RECV;
+        return state == H2_WANT_RECV;
     }
 
     virtual bool WantSend() {
-        return state != HSS_WANT_RECV;
+        return state <= H2_WANT_SEND;
     }
 
     virtual bool IsComplete() {

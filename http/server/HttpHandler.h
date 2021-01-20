@@ -7,6 +7,13 @@
 
 class HttpHandler {
 public:
+    enum ProtoType {
+        UNKNOWN,
+        HTTP_V1,
+        HTTP_V2,
+        WEBSOCKET,
+    } proto;
+
     // peeraddr
     char                    ip[64];
     int                     port;
@@ -20,6 +27,7 @@ public:
     HttpParserPtr           parser;
 
     HttpHandler() {
+        proto = UNKNOWN;
         service = NULL;
         files = NULL;
         fc = NULL;
@@ -30,7 +38,10 @@ public:
 
     // @workflow: preprocessor -> api -> web -> postprocessor
     // @result: HttpRequest -> HttpResponse/file_cache_t
-    int HandleRequest();
+    int HandleHttpRequest();
+
+    // TODO
+    // int HandleWebsocketMessage(void* buf, int len);
 
     void Reset() {
         req.Reset();

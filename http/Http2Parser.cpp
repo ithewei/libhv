@@ -52,11 +52,11 @@ Http2Parser::Http2Parser(http_session_type type) {
     }
     if (type == HTTP_CLIENT) {
         nghttp2_session_client_new(&session, cbs, this);
-        state = HSS_SEND_MAGIC;
+        state = H2_SEND_MAGIC;
     }
     else if (type == HTTP_SERVER) {
         nghttp2_session_server_new(&session, cbs, this);
-        state = HSS_WANT_RECV;
+        state = H2_WANT_RECV;
     }
     //nghttp2_session_set_user_data(session, this);
     submited = NULL;
@@ -68,10 +68,10 @@ Http2Parser::Http2Parser(http_session_type type) {
         {NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, 100}
     };
     nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, settings, ARRAY_SIZE(settings));
-    state = HSS_SEND_SETTINGS;
+    state = H2_SEND_SETTINGS;
 
     //nghttp2_submit_ping(session, NGHTTP2_FLAG_NONE, NULL);
-    //state = HSS_SEND_PING;
+    //state = H2_SEND_PING;
 }
 
 Http2Parser::~Http2Parser() {
@@ -89,11 +89,11 @@ int Http2Parser::GetSendData(char** data, size_t* len) {
 
     if (submited == NULL) return 0;
     // HTTP2_DATA
-    if (state == HSS_SEND_HEADERS) {
+    if (state == H2_SEND_HEADERS) {
         void* content = submited->Content();
         int content_length = submited->ContentLength();
         // HTTP2 DATA framehd
-        state = HSS_SEND_DATA_FRAME_HD;
+        state = H2_SEND_DATA_FRAME_HD;
         http2_frame_hd  framehd;
         framehd.length = content_length;
         framehd.type = HTTP2_DATA;
@@ -137,7 +137,7 @@ int Http2Parser::GetSendData(char** data, size_t* len) {
         }
         http2_frame_hd_pack(&framehd, frame_hdbuf);
     }
-    else if (state == HSS_SEND_DATA_FRAME_HD) {
+    else if (state == H2_SEND_DATA_FRAME_HD) {
         // HTTP2 DATA
         void* content = submited->Content();
         int content_length = submited->ContentLength();
@@ -147,14 +147,14 @@ int Http2Parser::GetSendData(char** data, size_t* len) {
         }
         else {
             printd("HTTP2 SEND_DATA... content_length=%d\n", content_length);
-            state = HSS_SEND_DATA;
+            state = H2_SEND_DATA;
             *data = (char*)content;
             *len = content_length;
         }
     }
-    else if (state == HSS_SEND_DATA) {
+    else if (state == H2_SEND_DATA) {
 send_done:
-        state = HSS_SEND_DONE;
+        state = H2_SEND_DONE;
         if (submited->ContentType() == APPLICATION_GRPC) {
             if (type == HTTP_SERVER && stream_closed) {
                 // grpc HEADERS grpc-status
@@ -173,7 +173,7 @@ send_done:
 
 int Http2Parser::FeedRecvData(const char* data, size_t len) {
     printd("nghttp2_session_mem_recv %d\n", len);
-    state = HSS_WANT_RECV;
+    state = H2_WANT_RECV;
     size_t ret = nghttp2_session_mem_recv(session, (const uint8_t*)data, len);
     if (ret != len) {
         error = ret;
@@ -232,7 +232,7 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
     // nghttp2_data_provider data_prd;
     // data_prd.read_callback = data_source_read_callback;
     //stream_id = nghttp2_submit_request(session, NULL, &nvs[0], nvs.size(), &data_prd, NULL);
-    state = HSS_SEND_HEADERS;
+    state = H2_SEND_HEADERS;
     return 0;
 }
 
@@ -284,7 +284,7 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
     // avoid DATA_SOURCE_COPY, we do not use nghttp2_submit_data
     // data_prd.read_callback = data_source_read_callback;
     //nghttp2_submit_response(session, stream_id, &nvs[0], nvs.size(), &data_prd);
-    state = HSS_SEND_HEADERS;
+    state = H2_SEND_HEADERS;
     return 0;
 }
 
@@ -380,16 +380,16 @@ int on_frame_recv_callback(nghttp2_session *session,
     Http2Parser* hp = (Http2Parser*)userdata;
     switch (frame->hd.type) {
     case NGHTTP2_DATA:
-        hp->state = HSS_RECV_DATA;
+        hp->state = H2_RECV_DATA;
         break;
     case NGHTTP2_HEADERS:
-        hp->state = HSS_RECV_HEADERS;
+        hp->state = H2_RECV_HEADERS;
         break;
     case NGHTTP2_SETTINGS:
-        hp->state = HSS_RECV_SETTINGS;
+        hp->state = H2_RECV_SETTINGS;
         break;
     case NGHTTP2_PING:
-        hp->state = HSS_RECV_PING;
+        hp->state = H2_RECV_PING;
         break;
     case NGHTTP2_RST_STREAM:
     case NGHTTP2_WINDOW_UPDATE:

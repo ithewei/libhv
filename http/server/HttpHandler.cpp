@@ -3,7 +3,7 @@
 #include "hbase.h"
 #include "http_page.h"
 
-int HttpHandler::HandleRequest() {
+int HttpHandler::HandleHttpRequest() {
     // preprocessor -> api -> web -> postprocessor
 
     int ret = 0;

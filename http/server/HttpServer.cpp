@@ -4,11 +4,11 @@
 #include "hmain.h"
 #include "hloop.h"
 
-#include "FileCache.h"
-#include "HttpHandler.h"
-
+#include "httpdef.h"
 #include "http2def.h"
-#include "Http2Parser.h"
+#include "wsdef.h"
+
+#include "HttpHandler.h"
 
 #define MIN_HTTP_REQUEST        "GET / HTTP/1.1\r\n\r\n"
 #define MIN_HTTP_REQUEST_LEN    14 // exclude CRLF
@@ -27,9 +27,16 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     // printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     const char* buf = (const char*)_buf;
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
+
+    if (handler->proto == HttpHandler::WEBSOCKET) {
+        // TODO: HandleWebsocketMessage
+        return;
+    }
+
     // HTTP1 / HTTP2 -> HttpParser -> InitRequest
     // recv -> FeedRecvData -> !WantRecv -> HttpRequest ->
     // HandleRequest -> HttpResponse -> SubmitResponse -> while (GetSendData) -> send
+
     if (handler->parser == NULL) {
         // check request-line
         if (readbytes < MIN_HTTP_REQUEST_LEN) {
@@ -45,8 +52,10 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             }
         }
         http_version version = HTTP_V1;
+        handler->proto = HttpHandler::HTTP_V1;
         if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
             version = HTTP_V2;
+            handler->proto = HttpHandler::HTTP_V2;
             handler->req.http_major = 2;
             handler->req.http_minor = 0;
         }
@@ -74,76 +83,26 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         return;
     }
 
-#ifdef WITH_NGHTTP2
-    if (parser->version == HTTP_V2) {
-        // HTTP2 extra processing steps
-        Http2Parser* h2p = (Http2Parser*)parser;
-        if (h2p->state == HSS_RECV_PING) {
-            char* data = NULL;
-            size_t len = 0;
-            while (parser->GetSendData(&data, &len)) {
-                hio_write(io, data, len);
-            }
-            return;
-        }
-        else if ((h2p->state == HSS_RECV_HEADERS && req->method != HTTP_POST) || h2p->state == HSS_RECV_DATA) {
-            goto handle_request;
-        }
-        else {
-            // ignore other http2 frame
-            return;
-        }
-    }
-
-    // Upgrade: h2
-    {
-        auto iter_upgrade = req->headers.find("upgrade");
-        if (iter_upgrade != req->headers.end()) {
-            hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, iter_upgrade->second.c_str());
-            // h2/h2c
-            if (strnicmp(iter_upgrade->second.c_str(), "h2", 2) == 0) {
-                hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
-                parser = HttpParser::New(HTTP_SERVER, HTTP_V2);
-                if (parser == NULL) {
-                    hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
-                    hio_close(io);
-                    return;
-                }
-                handler->parser.reset(parser);
-                HttpRequest http1_req = *req;
-                parser->InitRequest(req);
-                *req = http1_req;
-                req->http_major = 2;
-                req->http_minor = 0;
-                // HTTP2_Settings: ignore
-                // parser->FeedRecvData(HTTP2_Settings, );
-            }
-            else {
-                hio_close(io);
-                return;
-            }
-        }
-    }
-#endif
-
-handle_request:
-    handler->HandleRequest();
-    // prepare headers body
     // Server:
     static char s_Server[64] = {'\0'};
     if (s_Server[0] == '\0') {
         snprintf(s_Server, sizeof(s_Server), "httpd/%s", hv_compile_version());
     }
     res->headers["Server"] = s_Server;
+
     // Connection:
     bool keepalive = true;
     auto iter_keepalive = req->headers.find("connection");
     if (iter_keepalive != req->headers.end()) {
-        if (stricmp(iter_keepalive->second.c_str(), "keep-alive") == 0) {
+        const char* keepalive_value = iter_keepalive->second.c_str();
+        if (stricmp(keepalive_value, "keep-alive") == 0) {
             keepalive = true;
         }
-        else if (stricmp(iter_keepalive->second.c_str(), "close") == 0) {
+        else if (stricmp(keepalive_value, "close") == 0) {
             keepalive = false;
+        }
+        else if (stricmp(keepalive_value, "upgrade") == 0) {
+            keepalive = true;
         }
     }
     else if (req->http_major == 1 && req->http_minor == 0) {
@@ -151,9 +110,62 @@ handle_request:
     }
     if (keepalive) {
         res->headers["Connection"] = "keep-alive";
-    }
-    else {
+    } else {
         res->headers["Connection"] = "close";
+    }
+
+    // Upgrade:
+    bool upgrade = false;
+    auto iter_upgrade = req->headers.find("upgrade");
+    if (iter_upgrade != req->headers.end()) {
+        upgrade = true;
+        const char* upgrade_proto = iter_upgrade->second.c_str();
+        hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, upgrade_proto);
+        // websocket
+        if (stricmp(upgrade_proto, "websocket") == 0) {
+            /*
+            HTTP/1.1 101 Switching Protocols
+            Connection: Upgrade
+            Upgrade: websocket
+            Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
+            */
+            res->status_code = HTTP_STATUS_SWITCHING_PROTOCOLS;
+            res->headers["Connection"] = "Upgrade";
+            res->headers["Upgrade"] = "websocket";
+            auto iter_key = req->headers.find(SEC_WEBSOCKET_KEY);
+            if (iter_key != req->headers.end()) {
+                char ws_accept[32] = {0};
+                ws_encode_key(iter_key->second.c_str(), ws_accept);
+                res->headers[SEC_WEBSOCKET_ACCEPT] = ws_accept;
+            }
+            handler->proto = HttpHandler::WEBSOCKET;
+        }
+        // h2/h2c
+        else if (strnicmp(upgrade_proto, "h2", 2) == 0) {
+            /*
+            HTTP/1.1 101 Switching Protocols
+            Connection: Upgrade
+            Upgrade: h2c
+            */
+            hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
+            parser = HttpParser::New(HTTP_SERVER, HTTP_V2);
+            if (parser == NULL) {
+                hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
+                hio_close(io);
+                return;
+            }
+            handler->parser.reset(parser);
+            parser->InitRequest(req);
+        }
+        else {
+            hio_close(io);
+            return;
+        }
+    }
+
+    if (parser->IsComplete() && !upgrade) {
+        handler->HandleHttpRequest();
+        parser->SubmitResponse(res);
     }
 
     if (req->http_major == 1) {
@@ -184,7 +196,6 @@ handle_request:
         }
     }
     else if (req->http_major == 2) {
-        parser->SubmitResponse(res);
         char* data = NULL;
         size_t len = 0;
         while (parser->GetSendData(&data, &len)) {
@@ -202,8 +213,7 @@ handle_request:
     if (keepalive) {
         handler->Reset();
         parser->InitRequest(req);
-    }
-    else {
+    } else {
         hio_close(io);
     }
 }
