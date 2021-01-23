@@ -11,6 +11,7 @@
 
 #include "Status.h"
 #include "Event.h"
+#include "ThreadLocalStorage.h"
 
 namespace hv {
 
@@ -43,6 +44,7 @@ public:
     // @brief Run loop forever
     void run() {
         if (loop_ == NULL) return;
+        ThreadLocalStorage::set(ThreadLocalStorage::EVENT_LOOP, this);
         setStatus(kRunning);
         hloop_run(loop_);
         setStatus(kStopped);
@@ -208,6 +210,37 @@ private:
 };
 
 typedef std::shared_ptr<EventLoop> EventLoopPtr;
+
+// ThreadLocalStorage
+static inline EventLoop* tlsEventLoop() {
+    return (EventLoop*)ThreadLocalStorage::get(ThreadLocalStorage::EVENT_LOOP);
+}
+
+static inline TimerID setTimer(int timeout_ms, TimerCallback cb, int repeat = INFINITE) {
+    EventLoop* loop = tlsEventLoop();
+    if (loop == NULL) return (TimerID)-1;
+    return loop->setTimer(timeout_ms, cb, repeat);
+}
+
+static inline void killTimer(TimerID timerID) {
+    EventLoop* loop = tlsEventLoop();
+    if (loop == NULL) return;
+    loop->killTimer(timerID);
+}
+
+static inline void resetTimer(TimerID timerID) {
+    EventLoop* loop = tlsEventLoop();
+    if (loop == NULL) return;
+    loop->resetTimer(timerID);
+}
+
+static inline TimerID setTimeout(int timeout_ms, TimerCallback cb) {
+    return setTimer(timeout_ms, cb, 1);
+}
+
+static inline TimerID setInterval(int interval_ms, TimerCallback cb) {
+    return setTimer(interval_ms, cb, INFINITE);
+}
 
 }
 

@@ -3,6 +3,8 @@
 
 #include <thread>
 
+#include "hlog.h"
+
 #include "EventLoop.h"
 
 namespace hv {
@@ -82,6 +84,7 @@ public:
 
 private:
     void loop_thread(const Functor& pre, const Functor& post) {
+        hlogi("EventLoopThread started, tid=%ld", hv_gettid());
         setStatus(kStarted);
 
         if (pre) {
@@ -100,6 +103,7 @@ private:
         }
 
         setStatus(kStopped);
+        hlogi("EventLoopThread stopped, tid=%ld", hv_gettid());
     }
 
 private:

@@ -44,6 +44,14 @@ struct sockaddr* hio_peeraddr(hio_t* io) {
     return io->peeraddr;
 }
 
+void hio_set_context(hio_t* io, void* ctx) {
+    io->ctx = ctx;
+}
+
+void* hio_context(hio_t* io) {
+    return io->ctx;
+}
+
 void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb) {
     io->accept_cb = accept_cb;
 }

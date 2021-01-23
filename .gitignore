@@ -51,6 +51,7 @@ bin
 tmp
 dist
 test
+*_test
 build
 hconfig.h
 html/uploads

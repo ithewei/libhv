@@ -10,7 +10,8 @@ hloop.h中的c接口被封装成了c++的类，参考了muduo和evpp。
 
 ```
 .
-├── Channel.h               IO管道类，封装了hio_t
+├── Buffer.h                缓存类
+├── Channel.h               通道类，封装了hio_t
 ├── Event.h                 事件类，封装了hevent_t、htimer_t
 ├── EventLoop.h             事件循环类，封装了hloop_t
 ├── EventLoopThread.h       事件循环线程类，组合了EventLoop和thread

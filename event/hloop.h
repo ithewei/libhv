@@ -212,6 +212,8 @@ HV_EXPORT int hio_revents (hio_t* io);
 HV_EXPORT hio_type_e       hio_type     (hio_t* io);
 HV_EXPORT struct sockaddr* hio_localaddr(hio_t* io);
 HV_EXPORT struct sockaddr* hio_peeraddr (hio_t* io);
+HV_EXPORT void hio_set_context(hio_t* io, void* ctx);
+HV_EXPORT void* hio_context(hio_t* io);
 HV_EXPORT bool hio_is_opened(hio_t* io);
 HV_EXPORT bool hio_is_closed(hio_t* io);
 

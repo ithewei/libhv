@@ -26,6 +26,7 @@ set(BASE_HEADERS
     base/hthreadpool.h
     base/hobjectpool.h
     base/ifconfig.h
+    base/ThreadLocalStorage.h
 )
 
 set(UTILS_HEADERS

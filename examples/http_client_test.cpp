@@ -45,7 +45,11 @@ static void test_http_sync_client() {
         printf("%s\n", resp->body.c_str());
     }
 
-    resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
+    hv::Json jroot;
+    jroot["user"] = "admin";
+    http_headers headers;
+    headers["Content-Type"] = "application/json";
+    resp = requests::post("127.0.0.1:8080/echo", jroot.dump(), headers);
     if (resp == NULL) {
         printf("request failed!\n");
     } else {

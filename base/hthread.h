@@ -1,7 +1,6 @@
 #ifndef HV_THREAD_H_
 #define HV_THREAD_H_
 
-#include "hexport.h"
 #include "hplatform.h"
 
 #ifdef OS_WIN
@@ -61,14 +60,8 @@ static inline int hthread_join(hthread_t th) {
     return 0;
 }
 
-#define hthread_key_t               DWORD
-#define INVALID_HTHREAD_KEY         0xFFFFFFFF
-#define hthread_key_create(pkey)    *pkey = TlsAlloc()
-#define hthread_key_delete          TlsFree
-#define hthread_get_value           TlsGetValue
-#define hthread_set_value           TlsSetValue
-
 #else
+
 typedef pthread_t   hthread_t;
 typedef void* (*hthread_routine)(void*);
 #define HTHREAD_RETTYPE void*
@@ -83,19 +76,7 @@ static inline int hthread_join(hthread_t th) {
     return pthread_join(th, NULL);
 }
 
-#define hthread_key_t               pthread_key_t
-#define INVALID_HTHREAD_KEY         0xFFFFFFFF
-#define hthread_key_create(pkey)    pthread_key_create(pkey, NULL)
-#define hthread_key_delete          pthread_key_delete
-#define hthread_get_value           pthread_getspecific
-#define hthread_set_value           pthread_setspecific
-
 #endif
-
-BEGIN_EXTERN_C
-HV_EXPORT void hthread_setname(const char* name);
-HV_EXPORT const char* hthread_getname();
-END_EXTERN_C
 
 #ifdef __cplusplus
 /************************************************

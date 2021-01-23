@@ -129,6 +129,7 @@ struct hio_s {
     int         event_index[2]; // for poll,kqueue
     void*       hovlp;          // for iocp/overlapio
     void*       ssl;            // for SSL
+    void*       ctx;
 };
 /*
  * hio lifeline:
