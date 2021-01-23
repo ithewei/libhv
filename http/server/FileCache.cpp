@@ -28,7 +28,11 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
         }
     }
     if (fc == NULL || modified) {
-        int fd = open(filepath, O_RDONLY);
+        int flags = O_RDONLY;
+#ifdef O_BINARY
+        flags |= O_BINARY;
+#endif
+        int fd = open(filepath, flags);
         if (fd < 0) {
             return NULL;
         }
