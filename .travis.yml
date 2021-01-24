@@ -9,7 +9,7 @@ jobs:
       script:
         - ./configure
         - make clean
-        - make libhv examples unittest
+        - make libhv examples unittest evpp
 
     - os: osx
       compiler: clang
@@ -17,7 +17,7 @@ jobs:
       scrit:
         - ./configure
         - make clean
-        - make libhv examples unittest
+        - make libhv examples unittest evpp
 
     - os: windows
       compiler: msvc
