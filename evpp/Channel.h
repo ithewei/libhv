@@ -1,6 +1,7 @@
 #ifndef HV_CHANNEL_HPP_
 #define HV_CHANNEL_HPP_
 
+#include <string>
 #include <functional>
 #include <memory>
 
