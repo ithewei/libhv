@@ -223,6 +223,14 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
 }
 
 static void hloop_init(hloop_t* loop) {
+#ifdef OS_WIN
+    static int s_wsa_initialized = 0;
+    if (s_wsa_initialized == 0) {
+        s_wsa_initialized = 1;
+        WSADATA wsadata;
+        WSAStartup(MAKEWORD(2,2), &wsadata);
+    }
+#endif
 #ifdef SIGPIPE
     // NOTE: if not ignore SIGPIPE, write twice when peer close will lead to exit process by SIGPIPE.
     signal(SIGPIPE, SIG_IGN);
