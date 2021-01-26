@@ -115,6 +115,27 @@ public:
         json = t;
         return 200;
     }
+
+    void UploadFormFile(const char* name, const char* filepath) {
+        content_type = MULTIPART_FORM_DATA;
+        form[name] = FormData(NULL, filepath);
+    }
+
+    int SaveFormFile(const char* name, const char* filepath) {
+        if (content_type != MULTIPART_FORM_DATA) {
+            return HTTP_STATUS_BAD_REQUEST;
+        }
+        FormData formdata = form[name];
+        if (formdata.content.empty()) {
+            return HTTP_STATUS_BAD_REQUEST;
+        }
+        HFile file;
+        if (file.open(filepath, "wb") != 0) {
+            return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        }
+        file.write(formdata.content.data(), formdata.content.size());
+        return 200;
+    }
 #endif
 
     HttpMessage() {
@@ -187,13 +208,7 @@ public:
         return content_type;
     }
 
-    int String(const char* str) {
-        content_type = TEXT_PLAIN;
-        body = str;
-        return 200;
-    }
-
-    int String(std::string& str) {
+    int String(const std::string& str) {
         content_type = TEXT_PLAIN;
         body = str;
         return 200;
@@ -219,27 +234,6 @@ public:
             content_type = APPLICATION_OCTET_STREAM;
         }
         file.readall(body);
-        return 200;
-    }
-
-    void UploadFormFile(const char* name, const char* filepath) {
-        content_type = MULTIPART_FORM_DATA;
-        form[name] = FormData(NULL, filepath);
-    }
-
-    int SaveFormFile(const char* name, const char* filepath) {
-        if (content_type != MULTIPART_FORM_DATA) {
-            return HTTP_STATUS_BAD_REQUEST;
-        }
-        FormData formdata = form[name];
-        if (formdata.content.empty()) {
-            return HTTP_STATUS_BAD_REQUEST;
-        }
-        HFile file;
-        if (file.open(filepath, "wb") != 0) {
-            return HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        }
-        file.write(formdata.content.data(), formdata.content.size());
         return 200;
     }
 };
