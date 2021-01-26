@@ -79,7 +79,7 @@ std::string dump_multipart(MultiPart& mp, const char* boundary) {
         if (form.filename.size() != 0) {
             if (form.content.size() == 0) {
                 HFile file;
-                if (file.open(form.filename.c_str(), "r") == 0) {
+                if (file.open(form.filename.c_str(), "rb") == 0) {
                     file.readall(form.content);
                 }
             }

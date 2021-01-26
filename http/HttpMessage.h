@@ -208,7 +208,7 @@ public:
 
     int File(const char* filepath) {
         HFile file;
-        if (file.open(filepath, "r") != 0) {
+        if (file.open(filepath, "rb") != 0) {
             return HTTP_STATUS_NOT_FOUND;
         }
         const char* suffix = hv_suffixname(filepath);
@@ -236,7 +236,7 @@ public:
             return HTTP_STATUS_BAD_REQUEST;
         }
         HFile file;
-        if (file.open(filepath, "w") != 0) {
+        if (file.open(filepath, "wb") != 0) {
             return HTTP_STATUS_INTERNAL_SERVER_ERROR;
         }
         file.write(formdata.content.data(), formdata.content.size());

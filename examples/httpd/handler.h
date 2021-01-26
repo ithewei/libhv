@@ -177,7 +177,7 @@ public:
         }
         string filepath("html/uploads/");
         filepath += file.filename;
-        FILE* fp = fopen(filepath.c_str(), "w");
+        FILE* fp = fopen(filepath.c_str(), "wb");
         if (fp) {
             fwrite(file.content.data(), 1, file.content.size(), fp);
             fclose(fp);

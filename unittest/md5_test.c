@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
 
     if (argc == 2) {
         const char* filepath = argv[1];
-        FILE* fp = fopen(filepath, "r");
+        FILE* fp = fopen(filepath, "rb");
         if (fp == NULL) {
             printf("Open file '%s' failed!\n", filepath);
             return -20;
