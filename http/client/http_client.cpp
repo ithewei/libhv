@@ -13,8 +13,8 @@
 #include "HttpParser.h"
 
 // for async
-#include "hthread.h"
-#include "hloop.h"
+#include "AsyncHttpClient.h"
+
 struct http_client_s {
     std::string  host;
     int          port;
@@ -25,14 +25,13 @@ struct http_client_s {
 #ifdef WITH_CURL
     CURL* curl;
 #endif
-    int fd;
     // for sync
+    int             fd;
     hssl_t          ssl;
     HttpParserPtr   parser;
     // for async
-    std::mutex  mutex_;
-    hthread_t   thread_;
-    hloop_t*    loop_;
+    std::mutex                              mutex_;
+    std::shared_ptr<hv::AsyncHttpClient>    async_client_;
 
     http_client_s() {
         host = LOCALHOST;
@@ -44,9 +43,6 @@ struct http_client_s {
 #endif
         fd = -1;
         ssl = NULL;
-
-        thread_ = 0;
-        loop_ = NULL;
     }
 
     ~http_client_s() {
@@ -54,14 +50,6 @@ struct http_client_s {
     }
 
     void Close() {
-        if (loop_) {
-            hloop_stop(loop_);
-            loop_ = NULL;
-        }
-        if (thread_) {
-            hthread_join(thread_);
-            thread_ = 0;
-        }
 #ifdef WITH_CURL
         if (curl) {
             curl_easy_cleanup(curl);
@@ -451,182 +439,18 @@ const char* http_client_strerror(int errcode) {
 }
 #endif
 
-struct HttpContext {
-    HttpRequestPtr  req;
-    HttpResponsePtr resp;
-    HttpParserPtr   parser;
-
-    HttpResponseCallback cb;
-    void*                userdata;
-
-    hio_t*          io;
-    htimer_t*       timer;
-
-    HttpContext() {
-        io = NULL;
-        timer = NULL;
-        cb = NULL;
-        userdata = NULL;
-    }
-
-    ~HttpContext() {
-        killTimer();
-        // keep-alive
-        // closeIO();
-    }
-
-    void closeIO() {
-        if (io) {
-            hio_close(io);
-            io = NULL;
-        }
-    }
-
-    void killTimer() {
-        if (timer) {
-            htimer_del(timer);
-            timer = NULL;
-        }
-    }
-
-    void callback(int state) {
-        if (cb) {
-            cb(state, req, resp, userdata);
-            // NOTE: ensure cb only called once
-            cb = NULL;
-        }
-    }
-
-    void successCallback() {
-        killTimer();
-        callback(0);
-    }
-
-    void errorCallback(int error) {
-        closeIO();
-        callback(error);
-    }
-};
-
-static void on_close(hio_t* io) {
-    HttpContext* ctx = (HttpContext*)hevent_userdata(io);
-    if (ctx) {
-        hevent_set_userdata(io, NULL);
-        ctx->io = NULL;
-        int error = hio_error(io);
-        ctx->callback(error);
-        delete ctx;
-    }
-}
-
-static void on_recv(hio_t* io, void* buf, int readbytes) {
-    HttpContext* ctx = (HttpContext*)hevent_userdata(io);
-
-    int nparse = ctx->parser->FeedRecvData((const char*)buf, readbytes);
-    if (nparse != readbytes) {
-        ctx->errorCallback(ERR_PARSE);
-        return;
-    }
-    if (ctx->parser->IsComplete()) {
-        ctx->successCallback();
-        return;
-    }
-}
-
-static void on_connect(hio_t* io) {
-    HttpContext* ctx = (HttpContext*)hevent_userdata(io);
-
-    ctx->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, (http_version)ctx->req->http_major));
-    ctx->parser->InitResponse(ctx->resp.get());
-    ctx->parser->SubmitRequest(ctx->req.get());
-
-    char* data = NULL;
-    size_t len = 0;
-    while (ctx->parser->GetSendData(&data, &len)) {
-        hio_write(io, data, len);
-    }
-
-    hio_setcb_read(io, on_recv);
-    hio_read(io);
-}
-
-static void on_timeout(htimer_t* timer) {
-    HttpContext* ctx = (HttpContext*)hevent_userdata(timer);
-    if (ctx) {
-        hevent_set_userdata(timer, NULL);
-        ctx->timer = NULL;
-        ctx->errorCallback(ERR_TASK_TIMEOUT);
-    }
-}
-
-static HTHREAD_ROUTINE(http_client_loop_thread) {
-    hloop_t* loop = (hloop_t*)userdata;
-    assert(loop != NULL);
-    hloop_run(loop);
-    return 0;
-}
-
-// hloop_new -> htread_create -> hloop_run ->
-// hio_connect -> on_connect -> hio_write -> hio_read -> on_recv ->
-// HttpResponseCallback -> on_close
-static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponsePtr resp,
-        HttpResponseCallback cb, void* userdata) {
-    sockaddr_u peeraddr;
-    memset(&peeraddr, 0, sizeof(peeraddr));
-    req->ParseUrl();
-    int ret = sockaddr_set_ipport(&peeraddr, req->host.c_str(), req->port);
-    if (ret != 0) {
-        return ERR_INVALID_PARAM;
-    }
-    int connfd = socket(peeraddr.sa.sa_family, SOCK_STREAM, 0);
-    if (connfd < 0) {
-        return ERR_SOCKET;
-    }
-
+static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
     cli->mutex_.lock();
-    if (cli->loop_ == NULL) {
-        cli->loop_ = hloop_new(HLOOP_FLAG_AUTO_FREE);
-    }
-    if (cli->thread_ == 0) {
-        cli->thread_ = hthread_create(http_client_loop_thread, cli->loop_);
+    if (cli->async_client_ == NULL) {
+        cli->async_client_.reset(new hv::AsyncHttpClient);
     }
     cli->mutex_.unlock();
 
-    hio_t* connio = hio_get(cli->loop_, connfd);
-    assert(connio != NULL);
-
-    hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
-    hio_setcb_connect(connio, on_connect);
-    hio_setcb_close(connio, on_close);
-
-    // https
-    if (req->https) {
-        hio_enable_ssl(connio);
-    }
-
-    // new HttpContext
-    // delete on_close
-    HttpContext* ctx = new HttpContext;
-    ctx->req = req;
-    ctx->resp = resp;
-    ctx->cb = cb;
-    ctx->userdata = userdata;
-    ctx->io = connio;
-    hevent_set_userdata(connio, ctx);
-
-    // timeout
-    if (req->timeout > 0) {
-        ctx->timer = htimer_add(cli->loop_, on_timeout, req->timeout * 1000, 1);
-        assert(ctx->timer != NULL);
-        hevent_set_userdata(ctx->timer, ctx);
-    }
-
-    return hio_connect(connio);
+    return cli->async_client_->send(req, resp_cb);
 }
 
-int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponsePtr resp,
-        HttpResponseCallback cb, void* userdata) {
-    if (!cli || !req || !resp) return ERR_NULL_POINTER;
+int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
+    if (!cli || !req) return ERR_NULL_POINTER;
 
     if (req->url.empty() || *req->url.c_str() == '/') {
         req->host = cli->host;
@@ -644,17 +468,16 @@ int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseP
         }
     }
 
-    return __http_client_send_async(cli, req, resp, cb, userdata);
+    return __http_client_send_async(cli, req, resp_cb);
 }
 
-int http_client_send_async(HttpRequestPtr req, HttpResponsePtr resp,
-        HttpResponseCallback cb, void* userdata) {
-    if (!req || !resp) return ERR_NULL_POINTER;
+int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
+    if (req == NULL) return ERR_NULL_POINTER;
 
     if (req->timeout == 0) {
         req->timeout = DEFAULT_HTTP_TIMEOUT;
     }
 
     static http_client_t s_default_async_client;
-    return __http_client_send_async(&s_default_async_client, req, resp, cb, userdata);
+    return __http_client_send_async(&s_default_async_client, req, resp_cb);
 }

@@ -4,7 +4,7 @@ include Makefile.vars
 MAKEF=$(MAKE) -f Makefile.in
 ALL_SRCDIRS=. base utils event protocol http http/client http/server consul examples
 
-LIBHV_SRCDIRS = . base utils event
+LIBHV_SRCDIRS = . base utils event evpp
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
 LIBHV_HEADERS += $(BASE_HEADERS) $(UTILS_HEADERS) $(EVENT_HEADERS)
 

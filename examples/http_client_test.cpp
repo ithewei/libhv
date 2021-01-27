@@ -2,29 +2,24 @@
 
 #include "hthread.h" // import hv_gettid
 
-static void onResponse(int state, HttpRequestPtr req, HttpResponsePtr resp, void* userdata) {
-    printf("test_http_async_client response thread tid=%ld\n", hv_gettid());
-    if (state != 0) {
-        printf("onError: %s:%d\n", http_client_strerror(state), state);
-    } else {
-        printf("onSuccess\n");
-        printf("%d %s\r\n", resp->status_code, resp->status_message());
-        printf("%s\n", resp->body.c_str());
-    }
-
-    int* finished = (int*)userdata;
-    *finished = 1;
-}
-
 static void test_http_async_client(int* finished) {
     printf("test_http_async_client request thread tid=%ld\n", hv_gettid());
     HttpRequestPtr req = HttpRequestPtr(new HttpRequest);
-    HttpResponsePtr resp = HttpResponsePtr(new HttpResponse);
     req->method = HTTP_POST;
     req->url = "127.0.0.1:8080/echo";
+    req->headers["Connection"] = "keep-alive";
     req->body = "this is an async request.";
     req->timeout = 10;
-    int ret = http_client_send_async(req, resp, onResponse, (void*)finished);
+    int ret = http_client_send_async(req, [finished](const HttpResponsePtr& resp) {
+        printf("test_http_async_client response thread tid=%ld\n", hv_gettid());
+        if (resp == NULL) {
+            printf("request failed!\n");
+        } else {
+            printf("%d %s\r\n", resp->status_code, resp->status_message());
+            printf("%s\n", resp->body.c_str());
+        }
+        *finished = 1;
+    });
     if (ret != 0) {
         printf("http_client_send_async error: %s:%d\n", http_client_strerror(ret), ret);
         *finished = 1;
@@ -60,9 +55,15 @@ static void test_http_sync_client() {
 
 int main() {
     int finished = 0;
-    test_http_async_client(&finished);
 
-    test_http_sync_client();
+    int cnt = 1;
+    for (int i = 0; i < cnt; ++i) {
+        test_http_async_client(&finished);
+
+        test_http_sync_client();
+
+        sleep(1);
+    }
 
     // demo wait async ResponseCallback
     while (!finished) {

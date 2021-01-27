@@ -29,6 +29,7 @@
 #include <memory>
 #include <string>
 #include <map>
+#include <functional>
 
 #include "hexport.h"
 #include "hbase.h"
@@ -319,7 +320,6 @@ public:
 
 typedef std::shared_ptr<HttpRequest>    HttpRequestPtr;
 typedef std::shared_ptr<HttpResponse>   HttpResponsePtr;
-// state: 0 onSucceed other onError
-typedef void (*HttpResponseCallback)(int state, HttpRequestPtr req, HttpResponsePtr resp, void* userdata);
+typedef std::function<void(const HttpResponsePtr&)> HttpResponseCallback;
 
 #endif // HTTP_MESSAGE_H_
