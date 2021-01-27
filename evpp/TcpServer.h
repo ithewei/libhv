@@ -67,7 +67,7 @@ public:
         std::lock_guard<std::mutex> locker(mutex_);
         SocketChannelPtr channel(new SocketChannel(io));
         int fd = channel->fd();
-        if (channels.size() < fd) {
+        if (fd >= channels.capacity()) {
             channels.resize(2 * fd);
         }
         channels[fd] = channel;
@@ -77,7 +77,7 @@ public:
     void removeChannel(ChannelPtr channel) {
         std::lock_guard<std::mutex> locker(mutex_);
         int fd = channel->fd();
-        if (fd < channels.size()) {
+        if (fd < channels.capacity()) {
             channels[fd] = NULL;
         }
     }
