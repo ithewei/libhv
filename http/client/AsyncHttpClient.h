@@ -49,6 +49,15 @@ private:
     std::list<Conn>  conns_;
 };
 
+struct HttpClientTask {
+    HttpRequestPtr          req;
+    HttpResponseCallback    cb;
+
+    uint64_t  start_time;
+    int       retry_cnt;
+};
+typedef std::shared_ptr<HttpClientTask> HttpClientTaskPtr;
+
 struct HttpClientContext {
     HttpRequestPtr          req;
     HttpResponseCallback    cb;
@@ -98,21 +107,30 @@ public:
 
     // thread-safe
     int send(const HttpRequestPtr& req, HttpResponseCallback resp_cb) {
-        uint64_t start_hrtime = hloop_now_hrtime(loop_thread.hloop());
-        loop_thread.loop()->queueInLoop(std::bind(&AsyncHttpClient::sendInLoop, this, req, resp_cb, start_hrtime));
+        HttpClientTaskPtr task(new HttpClientTask);
+        task->req = req;
+        task->cb = resp_cb;
+        task->start_time = hloop_now_hrtime(loop_thread.hloop());
+        task->retry_cnt = 3;
+        return send(task);
+    }
+
+    int send(const HttpClientTaskPtr& task) {
+        loop_thread.loop()->queueInLoop(std::bind(&AsyncHttpClient::sendInLoop, this, task));
+        return 0;
     }
 
 protected:
-    void sendInLoop(const HttpRequestPtr& req, HttpResponseCallback resp_cb, uint64_t start_hrtime) {
-        int err = sendInLoopImpl(req, resp_cb, start_hrtime);
-        if (err != 0 && resp_cb) {
-            resp_cb(NULL);
+    void sendInLoop(const HttpClientTaskPtr& task) {
+        int err = doTask(task);
+        if (err != 0 && task->cb) {
+            task->cb(NULL);
         }
     }
     // createsocket => startConnect =>
     // onconnect => sendRequest => startRead =>
     // onread => HttpParser => resp_cb
-    int sendInLoopImpl(const HttpRequestPtr& req, HttpResponseCallback resp_cb, uint64_t start_hrtime);
+    int doTask(const HttpClientTaskPtr& task);
 
     // InitResponse => SubmitRequest => while(GetSendData) write => startRead
     static void onconnect(hio_t* io);
