@@ -34,8 +34,6 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         if (iter->second.get(connfd)) {
             // hlogd("get from conn_pools");
             ctx = getContext(connfd);
-            ctx->req = req;
-            ctx->cb = task->cb;
         }
     }
 
@@ -58,44 +56,45 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     if (ctx == NULL) {
         // new HttpClientContext
         ctx.reset(new HttpClientContext);
-        ctx->req = req;
-        ctx->cb = task->cb;
         ctx->channel.reset(new SocketChannel(connio));
-        ctx->channel->onread = [this, ctx](Buffer* buf) {
-            const char* data = (const char*)buf->data();
-            int len = buf->size();
-            int nparse = ctx->parser->FeedRecvData(data, len);
-            if (nparse != len) {
-                ctx->errorCallback();
-                ctx->channel->close();
-                return;
-            }
-            if (ctx->parser->IsComplete()) {
-                std::string req_connection = ctx->req->GetHeader("Connection");
-                std::string resp_connection = ctx->resp->GetHeader("Connection");
-                ctx->successCallback();
-                if (stricmp(req_connection.c_str(), "keep-alive") == 0 &&
-                    stricmp(resp_connection.c_str(), "keep-alive") == 0) {
-                    // add into conn_pools to reuse
-                    // hlogd("add into conn_pools");
-                    conn_pools[ctx->channel->peeraddr()].add(ctx->channel->fd());
-                } else {
-                    ctx->channel->close();
-                }
-            }
-        };
-        ctx->channel->onclose = [this, ctx, task]() {
-            ctx->channel->status = SocketChannel::CLOSED;
-            removeContext(ctx);
-            if (task->retry_cnt-- > 0) {
-                // try again
-                send(task);
-            } else {
-                ctx->errorCallback();
-            }
-        };
         addContext(ctx);
     }
+
+    ctx->req = req;
+    ctx->cb = task->cb;
+    ctx->channel->onread = [this, ctx](Buffer* buf) {
+        const char* data = (const char*)buf->data();
+        int len = buf->size();
+        int nparse = ctx->parser->FeedRecvData(data, len);
+        if (nparse != len) {
+            ctx->errorCallback();
+            ctx->channel->close();
+            return;
+        }
+        if (ctx->parser->IsComplete()) {
+            std::string req_connection = ctx->req->GetHeader("Connection");
+            std::string resp_connection = ctx->resp->GetHeader("Connection");
+            ctx->successCallback();
+            if (stricmp(req_connection.c_str(), "keep-alive") == 0 &&
+                stricmp(resp_connection.c_str(), "keep-alive") == 0) {
+                // add into conn_pools to reuse
+                // hlogd("add into conn_pools");
+                conn_pools[ctx->channel->peeraddr()].add(ctx->channel->fd());
+            } else {
+                ctx->channel->close();
+            }
+        }
+    };
+    ctx->channel->onclose = [this, ctx, task]() {
+        ctx->channel->status = SocketChannel::CLOSED;
+        removeContext(ctx);
+        if (task->retry_cnt-- > 0) {
+            // try again
+            send(task);
+        } else {
+            ctx->errorCallback();
+        }
+    };
 
     // timer
     if (timeout_ms > 0) {
