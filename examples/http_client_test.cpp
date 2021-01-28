@@ -58,7 +58,7 @@ int main() {
 
         test_http_sync_client();
 
-        sleep(1);
+        hv_delay(1000);
     }
 
     // demo wait async ResponseCallback

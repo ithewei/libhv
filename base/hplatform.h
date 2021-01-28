@@ -108,7 +108,9 @@
 
 #pragma warning (disable: 4018) // signed/unsigned comparison
 #pragma warning (disable: 4100) // unused param
+#pragma warning (disable: 4244) // conversion loss of data
 #pragma warning (disable: 4251) // STL dll
+#pragma warning (disable: 4267) // size_t => int
 #pragma warning (disable: 4819) // Unicode
 #pragma warning (disable: 4996) // _CRT_SECURE_NO_WARNINGS
 
