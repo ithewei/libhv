@@ -484,8 +484,8 @@ static void __hidle_del(hidle_t* idle) {
 
 void hidle_del(hidle_t* idle) {
     if (!idle->active) return;
-    EVENT_DEL(idle);
     __hidle_del(idle);
+    EVENT_DEL(idle);
 }
 
 htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat) {
