@@ -49,6 +49,7 @@ public:
     template<class T>
     T* newContext() {
         ctx_ = new T;
+        return (T*)ctx_;
     }
     template<class T>
     T* getContext() {

@@ -2,7 +2,7 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base utils event protocol http http/client http/server consul examples
+ALL_SRCDIRS=. base utils event protocol http http/client http/server consul
 
 LIBHV_SRCDIRS = . base utils event evpp
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
@@ -43,6 +43,7 @@ examples: hmain_test htimer_test hloop_test \
 
 clean:
 	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"
+	$(RM) examples/*.o
 	$(RM) include/hv
 
 prepare:
