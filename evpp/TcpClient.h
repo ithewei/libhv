@@ -81,6 +81,18 @@ public:
 
     int startConnect() {
         assert(channel != NULL);
+        if (tls) {
+            channel->enableSSL();
+        }
+        if (connect_timeout) {
+            channel->setConnectTimeout(connect_timeout);
+        }
+        channel->onconnect = [this]() {
+            channel->startRead();
+            if (onConnection) {
+                onConnection(channel);
+            }
+        };
         channel->onread = [this](Buffer* buf) {
             if (onMessage) {
                 onMessage(channel, buf);
@@ -92,7 +104,6 @@ public:
             }
         };
         channel->onclose = [this]() {
-            channel->status = SocketChannel::CLOSED;
             if (onConnection) {
                 onConnection(channel);
             }
@@ -102,16 +113,7 @@ public:
                 startReconnect();
             }
         };
-
-        hio_t* connio = channel->io();
-        hevent_set_userdata(connio, this);
-        if (tls) {
-            hio_enable_ssl(connio);
-        }
-        hio_set_connect_timeout(connio, connect_timeout);
-        hio_setcb_connect(connio, onConnect);
-        hio_connect(connio);
-        return 0;
+        return channel->startConnect();
     }
 
     int startReconnect() {
@@ -160,17 +162,6 @@ public:
     void setReconnect(ReconnectInfo* info) {
         enable_reconnect = true;
         reconnect_info = *info;
-    }
-
-private:
-    static void onConnect(hio_t* io) {
-        TcpClient* client = (TcpClient*)hevent_userdata(io);
-        SocketChannelPtr channel = client->channel;
-        channel->status = SocketChannel::CONNECTED;
-        channel->startRead();
-        if (client->onConnection) {
-            client->onConnection(channel);
-        }
     }
 
 public:

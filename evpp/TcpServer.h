@@ -74,7 +74,7 @@ public:
         return channel;
     }
 
-    void removeChannel(ChannelPtr channel) {
+    void removeChannel(const SocketChannelPtr& channel) {
         std::lock_guard<std::mutex> locker(mutex_);
         int fd = channel->fd();
         if (fd < channels.capacity()) {
@@ -94,17 +94,17 @@ private:
         channel->status = SocketChannel::CONNECTED;
         ++server->connection_num;
 
-        channel->onread = [server, channel](Buffer* buf) {
+        channel->onread = [server, &channel](Buffer* buf) {
             if (server->onMessage) {
                 server->onMessage(channel, buf);
             }
         };
-        channel->onwrite = [server, channel](Buffer* buf) {
+        channel->onwrite = [server, &channel](Buffer* buf) {
             if (server->onWriteComplete) {
                 server->onWriteComplete(channel, buf);
             }
         };
-        channel->onclose = [server, channel]() {
+        channel->onclose = [server, &channel]() {
             channel->status = SocketChannel::CLOSED;
             if (server->onConnection) {
                 server->onConnection(channel);

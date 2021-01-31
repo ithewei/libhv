@@ -2,6 +2,9 @@
 
 namespace hv {
 
+// createsocket => startConnect =>
+// onconnect => sendRequest => startRead =>
+// onread => HttpParser => resp_cb
 int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     const HttpRequestPtr& req = task->req;
     // queueInLoop timeout?
@@ -23,18 +26,13 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     }
 
     int connfd = -1;
-    hio_t* connio = NULL;
-    HttpClientContextPtr ctx = NULL;
-
     // first get from conn_pools
     char strAddr[SOCKADDR_STRLEN] = {0};
     SOCKADDR_STR(&peeraddr, strAddr);
     auto iter = conn_pools.find(strAddr);
     if (iter != conn_pools.end()) {
-        if (iter->second.get(connfd)) {
-            // hlogd("get from conn_pools");
-            ctx = getContext(connfd);
-        }
+        // hlogd("get from conn_pools");
+        iter->second.get(connfd);
     }
 
     if (connfd < 0) {
@@ -44,104 +42,102 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             perror("socket");
             return -30;
         }
-        connio = hio_get(loop_thread.hloop(), connfd);
+        hio_t* connio = hio_get(loop_thread.hloop(), connfd);
         assert(connio != NULL);
         hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
+        addChannel(connio);
         // https
         if (req->https) {
             hio_enable_ssl(connio);
         }
     }
 
-    if (ctx == NULL) {
-        // new HttpClientContext
-        ctx.reset(new HttpClientContext);
-        ctx->channel.reset(new SocketChannel(connio));
-        addContext(ctx);
-    }
-
-    ctx->req = req;
-    ctx->cb = task->cb;
-    ctx->channel->onread = [this, ctx](Buffer* buf) {
+    const SocketChannelPtr& channel = getChannel(connfd);
+    assert(channel != NULL);
+    HttpClientContext* ctx = channel->getContext<HttpClientContext>();
+    ctx->task = task;
+    channel->onconnect = [this, &channel]() {
+        sendRequest(channel);
+    };
+    channel->onread = [this, &channel](Buffer* buf) {
+        HttpClientContext* ctx = channel->getContext<HttpClientContext>();
+        if (ctx->task == NULL) return;
         const char* data = (const char*)buf->data();
         int len = buf->size();
         int nparse = ctx->parser->FeedRecvData(data, len);
         if (nparse != len) {
             ctx->errorCallback();
-            ctx->channel->close();
+            channel->close();
             return;
         }
         if (ctx->parser->IsComplete()) {
-            std::string req_connection = ctx->req->GetHeader("Connection");
+            std::string req_connection = ctx->task->req->GetHeader("Connection");
             std::string resp_connection = ctx->resp->GetHeader("Connection");
             ctx->successCallback();
             if (stricmp(req_connection.c_str(), "keep-alive") == 0 &&
                 stricmp(resp_connection.c_str(), "keep-alive") == 0) {
-                // add into conn_pools to reuse
+                // NOTE: add into conn_pools to reuse
                 // hlogd("add into conn_pools");
-                conn_pools[ctx->channel->peeraddr()].add(ctx->channel->fd());
+                conn_pools[channel->peeraddr()].add(channel->fd());
             } else {
-                ctx->channel->close();
+                channel->close();
             }
         }
     };
-    ctx->channel->onclose = [this, ctx, task]() {
-        ctx->channel->status = SocketChannel::CLOSED;
-        removeContext(ctx);
-        if (task->retry_cnt-- > 0) {
+    channel->onclose = [this, &channel]() {
+        HttpClientContext* ctx = channel->getContext<HttpClientContext>();
+        // NOTE: remove from conn_pools
+        // hlogd("remove from conn_pools");
+        auto iter = conn_pools.find(channel->peeraddr());
+        if (iter != conn_pools.end()) {
+            iter->second.remove(channel->fd());
+        }
+        if (ctx->task && ctx->task->retry_cnt-- > 0) {
             // try again
-            send(task);
+            send(ctx->task);
         } else {
             ctx->errorCallback();
         }
+        removeChannel(channel);
     };
 
     // timer
     if (timeout_ms > 0) {
-        ctx->timerID = setTimeout(timeout_ms - elapsed_ms, [ctx](TimerID timerID){
-            hlogw("%s timeout!", ctx->req->url.c_str());
-            if (ctx->channel) {
-                ctx->channel->close();
+        ctx->timerID = setTimeout(timeout_ms - elapsed_ms, [&channel](TimerID timerID){
+            HttpClientContext* ctx = channel->getContext<HttpClientContext>();
+            assert(ctx->task != NULL);
+            hlogw("%s timeout!", ctx->task->req->url.c_str());
+            if (channel) {
+                channel->close();
             }
         });
     }
 
-    if (ctx->channel->isConnected()) {
+    if (channel->isConnected()) {
         // sendRequest
-        sendRequest(ctx);
+        sendRequest(channel);
     } else {
         // startConnect
-        hevent_set_userdata(connio, this);
-        hio_setcb_connect(connio, onconnect);
-        hio_connect(connio);
+        channel->startConnect();
     }
 
     return 0;
 }
 
-void AsyncHttpClient::onconnect(hio_t* io) {
-    AsyncHttpClient* client = (AsyncHttpClient*)hevent_userdata(io);
-    HttpClientContextPtr ctx = client->getContext(hio_fd(io));
-    assert(ctx != NULL && ctx->req != NULL && ctx->channel != NULL);
-
-    ctx->channel->status = SocketChannel::CONNECTED;
-    client->sendRequest(ctx);
-    ctx->channel->startRead();
-}
-
-int AsyncHttpClient::sendRequest(const HttpClientContextPtr ctx) {
-    assert(ctx != NULL && ctx->req != NULL && ctx->channel != NULL);
-    SocketChannelPtr channel = ctx->channel;
+// InitResponse => SubmitRequest => while(GetSendData) write => startRead
+int AsyncHttpClient::sendRequest(const SocketChannelPtr& channel) {
+    HttpClientContext* ctx = (HttpClientContext*)channel->context();
+    assert(ctx != NULL && ctx->task != NULL);
 
     if (ctx->parser == NULL) {
-        ctx->parser.reset(HttpParser::New(HTTP_CLIENT, (http_version)ctx->req->http_major));
+        ctx->parser.reset(HttpParser::New(HTTP_CLIENT, (http_version)ctx->task->req->http_major));
     }
     if (ctx->resp == NULL) {
         ctx->resp.reset(new HttpResponse);
     }
 
     ctx->parser->InitResponse(ctx->resp.get());
-    ctx->parser->SubmitRequest(ctx->req.get());
+    ctx->parser->SubmitRequest(ctx->task->req.get());
 
     char* data = NULL;
     size_t len = 0;
@@ -149,6 +145,7 @@ int AsyncHttpClient::sendRequest(const HttpClientContextPtr ctx) {
         Buffer buf(data, len);
         channel->write(&buf);
     }
+    channel->startRead();
 
     return 0;
 }

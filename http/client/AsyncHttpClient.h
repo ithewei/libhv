@@ -59,13 +59,10 @@ struct HttpClientTask {
 typedef std::shared_ptr<HttpClientTask> HttpClientTaskPtr;
 
 struct HttpClientContext {
-    HttpRequestPtr          req;
-    HttpResponseCallback    cb;
+    HttpClientTaskPtr   task;
 
-    SocketChannelPtr    channel;
     HttpResponsePtr     resp;
     HttpParserPtr       parser;
-
     TimerID             timerID;
 
     HttpClientContext() {
@@ -77,11 +74,11 @@ struct HttpClientContext {
             killTimer(timerID);
             timerID = INVALID_TIMER_ID;
         }
-        if (cb) {
-            cb(resp);
-            // NOTE: ensure cb just call once
-            cb = NULL;
+        if (task && task->cb) {
+            task->cb(resp);
         }
+        // NOTE: task done
+        task = NULL;
     }
 
     void successCallback() {
@@ -94,7 +91,6 @@ struct HttpClientContext {
         callback();
     }
 };
-typedef std::shared_ptr<HttpClientContext>  HttpClientContextPtr;
 
 class AsyncHttpClient {
 public:
@@ -121,44 +117,38 @@ public:
     }
 
 protected:
-    void sendInLoop(const HttpClientTaskPtr& task) {
+    void sendInLoop(HttpClientTaskPtr task) {
         int err = doTask(task);
         if (err != 0 && task->cb) {
             task->cb(NULL);
         }
     }
-    // createsocket => startConnect =>
-    // onconnect => sendRequest => startRead =>
-    // onread => HttpParser => resp_cb
     int doTask(const HttpClientTaskPtr& task);
 
-    // InitResponse => SubmitRequest => while(GetSendData) write => startRead
-    static void onconnect(hio_t* io);
-    static int sendRequest(const HttpClientContextPtr ctx);
+    static int sendRequest(const SocketChannelPtr& channel);
 
-    HttpClientContextPtr getContext(int fd) {
-        return fd < client_ctxs.capacity() ? client_ctxs[fd] : NULL;
+    // channel
+    const SocketChannelPtr& getChannel(int fd) {
+        return channels[fd];
+        // return fd < channels.capacity() ? channels[fd] : NULL;
     }
 
-    void addContext(const HttpClientContextPtr& ctx) {
-        int fd = ctx->channel->fd();
-        if (fd >= client_ctxs.capacity()) {
-            client_ctxs.resize(2 * fd);
+    const SocketChannelPtr& addChannel(hio_t* io) {
+        SocketChannelPtr channel(new SocketChannel(io));
+        channel->newContext<HttpClientContext>();
+        int fd = channel->fd();
+        if (fd >= channels.capacity()) {
+            channels.resize(2 * fd);
         }
-        client_ctxs[fd] = ctx;
-        // NOTE: add into conn_pools after recv response completed
-        // conn_pools[ctx->channel->peeraddr()].add(fd);
+        channels[fd] = channel;
+        return channels[fd];
     }
 
-    void removeContext(const HttpClientContextPtr& ctx) {
-        int fd = ctx->channel->fd();
-        // NOTE: remove from conn_pools
-        auto iter = conn_pools.find(ctx->channel->peeraddr());
-        if (iter != conn_pools.end()) {
-            iter->second.remove(fd);
-        }
-        if (fd < client_ctxs.capacity()) {
-            client_ctxs[fd] = NULL;
+    void removeChannel(const SocketChannelPtr& channel) {
+        channel->deleteContext<HttpClientContext>();
+        int fd = channel->fd();
+        if (fd < channels.capacity()) {
+            channels[fd] = NULL;
         }
     }
 
@@ -166,7 +156,7 @@ private:
     EventLoopThread                         loop_thread;
     // NOTE: just one loop thread, no need mutex.
     // with fd as index
-    std::vector<HttpClientContextPtr>       client_ctxs;
+    std::vector<SocketChannelPtr>           channels;
     // peeraddr => ConnPool
     std::map<std::string, ConnPool<int>>    conn_pools;
 };

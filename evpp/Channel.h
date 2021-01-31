@@ -27,6 +27,7 @@ public:
             hio_setcb_write(io_, on_write);
             hio_setcb_close(io_, on_close);
         }
+        status = isOpened() ? OPENED : CLOSED;
     }
 
     virtual ~Channel() {
@@ -38,11 +39,27 @@ public:
     int id() { return id_; }
     int error() { return hio_error(io_); }
 
+    // context
+    void* context() {
+        return ctx_;
+    }
     void setContext(void* ctx) {
         ctx_ = ctx;
     }
-    void* context() {
-        return ctx_;
+    template<class T>
+    T* newContext() {
+        ctx_ = new T;
+    }
+    template<class T>
+    T* getContext() {
+        return (T*)ctx_;
+    }
+    template<class T>
+    void deleteContext() {
+        if (ctx_) {
+            delete (T*)ctx_;
+            ctx_ = NULL;
+        }
     }
 
     bool isOpened() {
@@ -83,6 +100,15 @@ public:
     int         fd_;
     uint32_t    id_;
     void*       ctx_;
+    enum Status {
+        // Channel::Status
+        OPENED,
+        CLOSED,
+        // SocketChannel::Status
+        CONNECTING,
+        CONNECTED,
+        DISCONNECTED,
+    } status;
     std::function<void(Buffer*)> onread;
     std::function<void(Buffer*)> onwrite;
     std::function<void()>        onclose;
@@ -106,26 +132,53 @@ private:
 
     static void on_close(hio_t* io) {
         Channel* channel = (Channel*)hio_context(io);
-        if (channel && channel->onclose) {
-            channel->onclose();
+        if (channel) {
+            channel->status = CLOSED;
+            if (channel->onclose) {
+                channel->onclose();
+            }
         }
     }
 };
 
 class SocketChannel : public Channel {
 public:
-    enum Status {
-        OPENED,
-        CONNECTING,
-        CONNECTED,
-        DISCONNECTED,
-        CLOSED,
-    } status;
+    // for TcpClient
+    std::function<void()>   onconnect;
 
     SocketChannel(hio_t* io) : Channel(io) {
-        status = isOpened() ? OPENED : CLOSED;
     }
     virtual ~SocketChannel() {}
+
+    int enableSSL() {
+        return hio_enable_ssl(io_);
+    }
+
+    void setConnectTimeout(int timeout_ms) {
+        hio_set_connect_timeout(io_, timeout_ms);
+    }
+
+    int startConnect(int port, const char* host = "127.0.0.1") {
+        sockaddr_u peeraddr;
+        memset(&peeraddr, 0, sizeof(peeraddr));
+        int ret = sockaddr_set_ipport(&peeraddr, host, port);
+        if (ret != 0) {
+            // hloge("unknown host %s", host);
+            return ret;
+        }
+        return startConnect(&peeraddr.sa);
+    }
+
+    int startConnect(struct sockaddr* peeraddr) {
+        hio_set_peeraddr(io_, peeraddr, SOCKADDR_LEN(peeraddr));
+        return startConnect();
+    }
+
+    int startConnect() {
+        status = CONNECTING;
+        hio_setcb_connect(io_, on_connect);
+        return hio_connect(io_);
+    }
 
     bool isConnected() {
         return isOpened() && status == CONNECTED;
@@ -145,6 +198,17 @@ public:
 
     int send(const std::string& str) {
         return write(str);
+    }
+
+private:
+    static void on_connect(hio_t* io) {
+        SocketChannel* channel = (SocketChannel*)hio_context(io);
+        if (channel) {
+            channel->status = CONNECTED;
+            if (channel->onconnect) {
+                channel->onconnect();
+            }
+        }
     }
 };
 
