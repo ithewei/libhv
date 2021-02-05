@@ -1,5 +1,5 @@
-#ifndef __BASE64_H__
-#define __BASE64_H__
+#ifndef HV_BASE64_H_
+#define HV_BASE64_H_
 
 #include "hexport.h"
 
@@ -15,4 +15,4 @@ HV_EXPORT int base64_decode(const char *in, unsigned int inlen, unsigned char *o
 
 END_EXTERN_C
 
-#endif // __BASE64_H__
+#endif // HV_BASE64_H_

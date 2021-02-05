@@ -65,4 +65,7 @@
 #define HAVE_SEM_TIMEDWAIT @HAVE_SEM_TIMEDWAIT@
 #endif
 
+#cmakedefine ENABLE_UDS     1
+#cmakedefine USE_MULTIMAP   1
+
 #endif // HV_CONFIG_H_

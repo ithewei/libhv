@@ -1,6 +1,8 @@
 #ifndef HV_MAP_H_
 #define HV_MAP_H_
 
+#include "hconfig.h"
+
 #include <map>
 #include <string>
 

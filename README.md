@@ -98,6 +98,7 @@ int main() {
 }
 ```
 
+#### httpd/curl
 ```shell
 git clone https://github.com/ithewei/libhv.git
 cd libhv
@@ -128,10 +129,20 @@ bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":t
 bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
 # RESTful API: /group/:group_name/user/:user_id
 bin/curl -v -X DELETE localhost:8080/group/test/user/123
+```
 
+#### benchmark
+```shell
 # webbench (linux only)
 make webbench
-bin/webbench -c 2 -t 60 localhost:8080
+bin/webbench -c 2 -t 10 http://127.0.0.1:8080/
+bin/webbench -k -c 2 -t 10 http://127.0.0.1:8080/
+
+# sudo apt install apache2-utils
+ab -c 100 -n 100000 http://127.0.0.1:8080/
+
+# sudo apt install wrk
+wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 ```
 
 **libhv(port:8080) vs nginx(port:80)**

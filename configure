@@ -85,6 +85,20 @@ macro=HAVE_$(echo $function | tr a-z A-Z)
 write_define
 }
 
+check_option() {
+value=$(eval echo \$$option)
+echo "checking for $option=$value"
+if [ "$value" == "yes" ]; then
+cat << END >> $confile
+#define $option 1
+END
+else
+cat << END >> $confile
+/* #undef $option */
+END
+fi
+}
+
 # Checks for os
 echo "checking for os..."
 HOST_OS=`uname -s`
@@ -129,8 +143,14 @@ function=pthread_spin_lock && header=pthread.h && check_function
 function=pthread_mutex_timedlock && header=pthread.h && check_function
 function=sem_timedwait && header=semaphore.h && check_function
 
+# Checks for options
+source config.mk
+option=ENABLE_UDS && check_option
+option=USE_MULTIMAP && check_option
+
 # end confile
 cat << END >> $confile
+
 #endif // HV_CONFIG_H_
 END
 

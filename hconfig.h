@@ -65,4 +65,7 @@
 #define HAVE_SEM_TIMEDWAIT 0
 #endif
 
+/* #undef ENABLE_UDS */
+/* #undef USE_MULTIMAP */
+
 #endif // HV_CONFIG_H_

@@ -46,6 +46,21 @@ set(EVENT_HEADERS
     event/nmap.h
 )
 
+set(EVPP_HEADERS
+    evpp/Buffer.h
+    evpp/Callback.h
+    evpp/Channel.h
+    evpp/Event.h
+    evpp/EventLoop.h
+    evpp/EventLoopThread.h
+    evpp/EventLoopThreadPool.h
+    evpp/Status.h
+    evpp/TcpClient.h
+    evpp/TcpServer.h
+    evpp/UdpClient.h
+    evpp/UdpServer.h
+)
+
 set(PROTOCOL_HEADERS
     protocol/icmp.h
     protocol/dns.h

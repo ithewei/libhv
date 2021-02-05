@@ -6,7 +6,7 @@ ALL_SRCDIRS=. base utils event protocol http http/client http/server consul
 
 LIBHV_SRCDIRS = . base utils event evpp
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
-LIBHV_HEADERS += $(BASE_HEADERS) $(UTILS_HEADERS) $(EVENT_HEADERS)
+LIBHV_HEADERS += $(BASE_HEADERS) $(UTILS_HEADERS) $(EVENT_HEADERS) $(EVPP_HEADERS)
 
 ifeq ($(WITH_PROTOCOL), yes)
 LIBHV_HEADERS += $(PROTOCOL_HEADERS)
