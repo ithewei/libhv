@@ -462,6 +462,7 @@
 - http_client_new
 - http_client_del
 - http_client_send
+- http_client_send_async
 - http_client_strerror
 - http_client_set_timeout
 - http_client_set_header
@@ -474,8 +475,7 @@
 - http_server_stop
 
 ## other
-- HVar
-- HObject
 - HThread
 - HThreadPool
 - HObjectPool
+- ThreadLocalStorage

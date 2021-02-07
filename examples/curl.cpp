@@ -195,7 +195,7 @@ int main(int argc, char* argv[]) {
                 ++p;
             }
             if (key_len && value_len) {
-                printf("key=%.*s value=%.*s\n", key_len, key, value_len, value);
+                // printf("key=%.*s value=%.*s\n", key_len, key, value_len, value);
                 FormData data;
                 if (*value == '@') {
                     data.filename = std::string(value+1, value_len-1);

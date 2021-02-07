@@ -4,7 +4,7 @@
 
 static void test_http_async_client(int* finished) {
     printf("test_http_async_client request thread tid=%ld\n", hv_gettid());
-    HttpRequestPtr req = HttpRequestPtr(new HttpRequest);
+    HttpRequestPtr req(new HttpRequest);
     req->method = HTTP_POST;
     req->url = "127.0.0.1:8080/echo";
     req->headers["Connection"] = "keep-alive";
