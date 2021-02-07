@@ -29,6 +29,9 @@ public:
         return listenfd;
     }
 
+    void setMaxConnectionNum(uint32_t num) {
+        max_connections = num;
+    }
     void setThreadNum(int num) {
         loop_threads.setThreadNum(num);
     }
