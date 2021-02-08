@@ -32,26 +32,6 @@ static void __close_timeout_cb(htimer_t* timer) {
     }
 }
 
-static void __keepalive_timeout_cb(htimer_t* timer) {
-    hio_t* io = (hio_t*)timer->privdata;
-    if (io) {
-        char localaddrstr[SOCKADDR_STRLEN] = {0};
-        char peeraddrstr[SOCKADDR_STRLEN] = {0};
-        hlogw("keepalive timeout [%s] <=> [%s]",
-                SOCKADDR_STR(io->localaddr, localaddrstr),
-                SOCKADDR_STR(io->peeraddr, peeraddrstr));
-        io->error = ETIMEDOUT;
-        hio_close(io);
-    }
-}
-
-static void __heartbeat_timer_cb(htimer_t* timer) {
-    hio_t* io = (hio_t*)timer->privdata;
-    if (io && io->heartbeat_fn) {
-        io->heartbeat_fn(io);
-    }
-}
-
 static void __accept_cb(hio_t* io) {
     /*
     char localaddrstr[SOCKADDR_STRLEN] = {0};
@@ -65,16 +45,6 @@ static void __accept_cb(hio_t* io) {
         // printd("accept_cb------\n");
         io->accept_cb(io);
         // printd("accept_cb======\n");
-    }
-
-    if (io->keepalive_timeout > 0) {
-        io->keepalive_timer = htimer_add(io->loop, __keepalive_timeout_cb, io->keepalive_timeout, 1);
-        io->keepalive_timer->privdata = io;
-    }
-
-    if (io->heartbeat_interval > 0) {
-        io->heartbeat_timer = htimer_add(io->loop, __heartbeat_timer_cb, io->heartbeat_interval, INFINITE);
-        io->heartbeat_timer->privdata = io;
     }
 }
 
@@ -96,16 +66,6 @@ static void __connect_cb(hio_t* io) {
         // printd("connect_cb------\n");
         io->connect_cb(io);
         // printd("connect_cb======\n");
-    }
-
-    if (io->keepalive_timeout > 0) {
-        io->keepalive_timer = htimer_add(io->loop, __keepalive_timeout_cb, io->keepalive_timeout, 1);
-        io->keepalive_timer->privdata = io;
-    }
-
-    if (io->heartbeat_interval > 0) {
-        io->heartbeat_timer = htimer_add(io->loop, __heartbeat_timer_cb, io->heartbeat_interval, INFINITE);
-        io->heartbeat_timer->privdata = io;
     }
 }
 
