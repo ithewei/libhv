@@ -1,6 +1,7 @@
 #ifndef HV_WEBSOCKET_PARSER_H_
 #define HV_WEBSOCKET_PARSER_H_
 
+#include <string>
 #include <memory>
 #include <functional>
 

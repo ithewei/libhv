@@ -1,0 +1,53 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+<meta charset="utf-8">
+<title>WebSocket客户端</title>
+
+<script type="text/javascript">
+function WebSocketTest(url)
+{
+  if ("WebSocket" in window)
+  {
+    // 打开一个 web socket
+    var ws = new WebSocket(url);
+
+    ws.onopen = function()
+    {
+      alert("连接已建立");
+      ws.send("hello");
+    };
+
+    ws.onmessage = function(ev)
+    {
+      var received_msg = ev.data;
+      console.log("received websocket message: " + received_msg);
+      var li=document.createElement("li");
+      li.innerHTML=received_msg;
+      document.getElementById("msg_list").appendChild(li);
+    };
+
+    ws.onclose = function()
+    {
+      alert("连接已关闭");
+    };
+  }
+  else
+  {
+    alert("您的浏览器不支持 WebSocket!");
+  }
+}
+</script>
+</head>
+
+<body>
+  URL: <input type="text" id="url" value="ws://127.0.0.1:8888/test" style="width:300px;">
+  <button onclick="WebSocketTest(document.getElementById('url').value)">运行 WebSocket</button>
+  <div>
+    <ul id="msg_list" style="height:500px;overflow-y:scroll;">
+    </ul>
+  <div>
+</body>
+
+</html>
