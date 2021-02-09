@@ -10,7 +10,7 @@ list(APPEND EXAMPLES
     tcp_proxy_server
 )
 
-include_directories(.. ../base ../event ../utils)
+include_directories(.. ../base ../utils ../event ../evpp)
 
 add_executable(hmain_test hmain_test.cpp)
 target_link_libraries(hmain_test hv)
@@ -54,7 +54,11 @@ if(WITH_HTTP_SERVER)
     add_executable(http_server_test http_server_test.cpp)
     target_link_libraries(http_server_test hv)
 
-    list(APPEND EXAMPLES httpd http_server_test)
+    # websocket_server_test
+    add_executable(websocket_server_test websocket_server_test.cpp)
+    target_link_libraries(websocket_server_test hv)
+
+    list(APPEND EXAMPLES httpd http_server_test websocket_server_test)
 endif()
 
 if(WITH_HTTP_CLIENT)
@@ -75,7 +79,11 @@ if(WITH_HTTP_CLIENT)
     add_executable(http_client_test http_client_test.cpp)
     target_link_libraries(http_client_test hv)
 
-    list(APPEND EXAMPLES ${CURL_TARGET_NAME} http_client_test)
+    # websocket_client_test
+    add_executable(websocket_client_test websocket_client_test.cpp)
+    target_link_libraries(websocket_client_test hv)
+
+    list(APPEND EXAMPLES ${CURL_TARGET_NAME} http_client_test websocket_client_test)
 endif()
 
 if(WITH_CONSUL)

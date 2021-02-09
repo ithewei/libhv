@@ -72,11 +72,19 @@ set(HTTP_HEADERS
     http/httpdef.h
     http/http2def.h
     http/grpcdef.h
+    http/wsdef.h
     http/http_content.h
     http/HttpMessage.h
     http/HttpParser.h
+    http/WebSocketParser.h
+    http/WebSocketChannel.h
 )
 
 set(HTTP_CLIENT_HEADERS http/client/http_client.h http/client/requests.h)
-set(HTTP_SERVER_HEADERS http/server/HttpService.h http/server/HttpServer.h)
+set(HTTP_SERVER_HEADERS
+    http/server/HttpService.h
+    http/server/HttpServer.h
+    http/server/WebSocketServer.h
+)
+
 set(CONSUL_HEADERS consul/consul.h)

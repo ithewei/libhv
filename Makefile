@@ -2,7 +2,7 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base utils event protocol http http/client http/server consul
+ALL_SRCDIRS=. base utils event evpp protocol http http/client http/server consul
 
 LIBHV_SRCDIRS = . base utils event evpp
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
@@ -39,6 +39,8 @@ examples: hmain_test htimer_test hloop_test \
 	tcp_chat_server \
 	tcp_proxy_server \
 	http_server_test http_client_test \
+	websocket_server_test \
+	websocket_client_test \
 	consul_cli
 
 clean:
@@ -94,20 +96,26 @@ endif
 
 httpd: prepare
 	$(RM) examples/httpd/*.o
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server examples/httpd"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/server examples/httpd"
 
 curl: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client" SRCS="examples/curl.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/client" SRCS="examples/curl.cpp"
 	# $(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes DEFINES="CURL_STATICLIB"
 
 http_server_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/server" SRCS="examples/http_server_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/server" SRCS="examples/http_server_test.cpp"
 
 http_client_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client" SRCS="examples/http_client_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/client" SRCS="examples/http_client_test.cpp"
+
+websocket_server_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/server" SRCS="examples/websocket_server_test.cpp"
+
+websocket_client_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/client" SRCS="examples/websocket_client_test.cpp"
 
 consul_cli: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="PRINT_DEBUG"
 
 unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c

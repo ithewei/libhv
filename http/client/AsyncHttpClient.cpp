@@ -56,7 +56,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     assert(channel != NULL);
     HttpClientContext* ctx = channel->getContext<HttpClientContext>();
     ctx->task = task;
-    channel->onconnect = [this, &channel]() {
+    channel->onconnect = [&channel]() {
         sendRequest(channel);
     };
     channel->onread = [this, &channel](Buffer* buf) {

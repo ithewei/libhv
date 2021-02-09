@@ -4,14 +4,16 @@
 #include "hexport.h"
 #include "HttpService.h"
 
+struct WebSocketServerCallbacks;
 typedef struct http_server_s {
     char host[64];
     int port;
     int ssl;
     int http_version;
-    HttpService* service;
     int worker_processes;
     int worker_threads;
+    HttpService* service;
+    WebSocketServerCallbacks* ws;
     void* userdata;
 //private:
     int listenfd;
@@ -23,9 +25,10 @@ typedef struct http_server_s {
         port = DEFAULT_HTTP_PORT;
         ssl = 0;
         http_version = 1;
-        service = NULL;
         worker_processes = 0;
         worker_threads = 0;
+        service = NULL;
+        ws = NULL;
         listenfd = -1;
         userdata = NULL;
         privdata = NULL;
@@ -54,7 +57,7 @@ int main() {
 */
 HV_EXPORT int http_server_run(http_server_t* server, int wait = 1);
 
-// just for worker_processes = 0
+// NOTE: stop all loops and join all threads
 HV_EXPORT int http_server_stop(http_server_t* server);
 
 #endif

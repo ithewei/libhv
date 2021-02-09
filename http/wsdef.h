@@ -10,6 +10,23 @@
 #define SEC_WEBSOCKET_KEY       "Sec-WebSocket-Key"
 #define SEC_WEBSOCKET_ACCEPT    "Sec-WebSocket-Accept"
 
+#define WS_SERVER_MIN_FRAME_SIZE    2
+// 1000 1001 0000 0000
+#define WS_SERVER_PING_FRAME        "\211\0"
+// 1000 1010 0000 0000
+#define WS_SERVER_PONG_FRAME        "\212\0"
+
+#define WS_CLIENT_MIN_FRAME_SIZE    6
+// 1000 1001 1000 0000
+#define WS_CLIENT_PING_FRAME        "\211\200WSWS"
+// 1000 1010 1000 0000
+#define WS_CLIENT_PONG_FRAME        "\212\200WSWS"
+
+enum ws_session_type {
+    WS_CLIENT,
+    WS_SERVER,
+};
+
 enum ws_opcode {
     WS_OPCODE_CONTINUE = 0x0,
     WS_OPCODE_TEXT     = 0x1,
