@@ -62,12 +62,12 @@ int WebSocketClient::open(const char* _url) {
         if (channel->isConnected()) {
             state = CONNECTED;
             // websocket_handshake
-            http_req.reset(new HttpRequest);
-            http_req->method = HTTP_GET;
+            http_req_.reset(new HttpRequest);
+            http_req_->method = HTTP_GET;
             // ws => http
-            http_req->url = "http" + url.substr(2, -1);
-            http_req->headers["Connection"] = "Upgrade";
-            http_req->headers["Upgrade"] = "websocket";
+            http_req_->url = "http" + url.substr(2, -1);
+            http_req_->headers["Connection"] = "Upgrade";
+            http_req_->headers["Upgrade"] = "websocket";
             // generate SEC_WEBSOCKET_KEY
             unsigned char rand_key[16] = {0};
             int *p = (int*)rand_key;
@@ -76,17 +76,17 @@ int WebSocketClient::open(const char* _url) {
             }
             char ws_key[32] = {0};
             base64_encode(rand_key, 16, ws_key);
-            http_req->headers[SEC_WEBSOCKET_KEY] = ws_key;
-            http_req->headers[SEC_WEBSOCKET_VERSION] = "13";
-            std::string http_msg = http_req->Dump(true, true);
+            http_req_->headers[SEC_WEBSOCKET_KEY] = ws_key;
+            http_req_->headers[SEC_WEBSOCKET_VERSION] = "13";
+            std::string http_msg = http_req_->Dump(true, true);
             // printf("%s", http_msg.c_str());
             // NOTE: not use WebSocketChannel::send
             channel->write(http_msg);
             state = WS_UPGRADING;
             // prepare HttpParser
-            http_parser.reset(HttpParser::New(HTTP_CLIENT, HTTP_V1));
-            http_resp.reset(new HttpResponse);
-            http_parser->InitResponse(http_resp.get());
+            http_parser_.reset(HttpParser::New(HTTP_CLIENT, HTTP_V1));
+            http_resp_.reset(new HttpResponse);
+            http_parser_->InitResponse(http_resp_.get());
         } else {
             state = WS_CLOSED;
             if (onclose) onclose();
@@ -94,30 +94,30 @@ int WebSocketClient::open(const char* _url) {
     };
     onMessage = [this](const WebSocketChannelPtr& channel, Buffer* buf) {
         if (state == WS_UPGRADING) {
-            int nparse = http_parser->FeedRecvData((const char*)buf->data(), buf->size());
+            int nparse = http_parser_->FeedRecvData((const char*)buf->data(), buf->size());
             if (nparse != buf->size()) {
                 hloge("http parse error!");
                 channel->close();
                 return;
             }
-            if (http_parser->IsComplete()) {
-                if (http_resp->status_code != HTTP_STATUS_SWITCHING_PROTOCOLS) {
+            if (http_parser_->IsComplete()) {
+                if (http_resp_->status_code != HTTP_STATUS_SWITCHING_PROTOCOLS) {
                     hloge("server side not support websockt!");
                     channel->close();
                     return;
                 }
-                std::string ws_key = http_req->GetHeader(SEC_WEBSOCKET_KEY);
+                std::string ws_key = http_req_->GetHeader(SEC_WEBSOCKET_KEY);
                 char ws_accept[32] = {0};
                 ws_encode_key(ws_key.c_str(), ws_accept);
-                std::string ws_accept2 = http_resp->GetHeader(SEC_WEBSOCKET_ACCEPT);
+                std::string ws_accept2 = http_resp_->GetHeader(SEC_WEBSOCKET_ACCEPT);
                 if (strcmp(ws_accept, ws_accept2.c_str()) != 0) {
                     hloge("Sec-WebSocket-Accept not match!");
                     channel->close();
                     return;
                 }
-                ws_parser.reset(new WebSocketParser);
+                ws_parser_.reset(new WebSocketParser);
                 // websocket_onmessage
-                ws_parser->onMessage = [this, &channel](int opcode, const std::string& msg) {
+                ws_parser_->onMessage = [this, &channel](int opcode, const std::string& msg) {
                     switch (opcode) {
                     case WS_OPCODE_CLOSE:
                         channel->close();
@@ -144,7 +144,7 @@ int WebSocketClient::open(const char* _url) {
                 if (onopen) onopen();
             }
         } else {
-            int nparse = ws_parser->FeedRecvData((const char*)buf->data(), buf->size());
+            int nparse = ws_parser_->FeedRecvData((const char*)buf->data(), buf->size());
             if (nparse != buf->size()) {
                 hloge("websocket parse error!");
                 channel->close();

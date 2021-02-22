@@ -38,10 +38,10 @@ private:
         WS_OPENED,
         WS_CLOSED,
     } state;
-    HttpParserPtr       http_parser;
-    HttpRequestPtr      http_req;
-    HttpResponsePtr     http_resp;
-    WebSocketParserPtr  ws_parser;
+    HttpParserPtr       http_parser_;
+    HttpRequestPtr      http_req_;
+    HttpResponsePtr     http_resp_;
+    WebSocketParserPtr  ws_parser_;
 };
 
 }
