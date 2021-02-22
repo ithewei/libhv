@@ -17,7 +17,7 @@ public:
     {}
     ~WebSocketChannel() {}
 
-    // IsConnected, send, close
+    // isConnected, send, close
 
     int send(const std::string& msg) {
         bool has_mask = false;

@@ -1,6 +1,10 @@
 #ifndef HV_WEBSOCKET_SERVER_H_
 #define HV_WEBSOCKET_SERVER_H_
 
+/*
+ * @demo examples/websocket_server_test.cpp
+ */
+
 #include "HttpServer.h"
 #include "WebSocketChannel.h"
 

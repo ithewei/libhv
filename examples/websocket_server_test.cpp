@@ -1,10 +1,26 @@
+/*
+ * websocket server
+ *
+ * @build   make examples
+ * @server  bin/websocket_server_test 8888
+ * @client  bin/websocket_client_test ws://127.0.0.1:8888/
+ * @js      html/websocket_client.html
+ *
+ */
+
 #include "WebSocketServer.h"
 #include "EventLoop.h"
 #include "htime.h"
 
 using namespace hv;
 
-int main() {
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        printf("Usage: %s port\n", argv[0]);
+        return -10;
+    }
+    int port = atoi(argv[1]);
+
     WebSocketServerCallbacks ws;
     ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
         printf("onopen: GET %s\n", url.c_str());
@@ -28,7 +44,7 @@ int main() {
     };
 
     websocket_server_t server;
-    server.port = 8888;
+    server.port = port;
     server.ws = &ws;
     websocket_server_run(&server);
     return 0;

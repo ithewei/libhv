@@ -1,6 +1,8 @@
 #ifndef HV_WEBSOCKET_PARSER_H_
 #define HV_WEBSOCKET_PARSER_H_
 
+#include "hexport.h"
+
 #include <string>
 #include <memory>
 #include <functional>
@@ -14,7 +16,7 @@ enum websocket_parser_state {
 
 struct websocket_parser_settings;
 struct websocket_parser;
-class WebSocketParser {
+class HV_EXPORT WebSocketParser {
 public:
     static websocket_parser_settings*   cbs;
     websocket_parser*                   parser;

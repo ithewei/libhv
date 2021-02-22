@@ -16,6 +16,7 @@
 - WITH_OPENSSL or WITH_MBEDTLS
 - http client/server (include https http1/x http2 grpc)
 - http web service, indexof service, api service (support RESTful API)
+- websocket client/server
 - protocols
     - dns
     - ftp
