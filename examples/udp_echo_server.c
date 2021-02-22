@@ -11,10 +11,6 @@
 #include "hloop.h"
 #include "hsocket.h"
 
-static void on_close(hio_t* io) {
-    printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
-}
-
 static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
     printf("on_recvfrom fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     char localaddrstr[SOCKADDR_STRLEN] = {0};
@@ -40,7 +36,6 @@ int main(int argc, char** argv) {
     if (io == NULL) {
         return -20;
     }
-    hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recvfrom);
     hio_read(io);
     hloop_run(loop);

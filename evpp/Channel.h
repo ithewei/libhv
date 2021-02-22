@@ -81,14 +81,17 @@ public:
         return hio_read_stop(io_);
     }
 
-    int write(Buffer* buf) {
+    int write(const void* data, int size) {
         if (!isOpened()) return 0;
-        return hio_write(io_, buf->data(), buf->size());
+        return hio_write(io_, data, size);
+    }
+
+    int write(Buffer* buf) {
+        return write(buf->data(), buf->size());
     }
 
     int write(const std::string& str) {
-        if (!isOpened()) return 0;
-        return hio_write(io_, str.data(), str.size());
+        return write(str.data(), str.size());
     }
 
     int close() {

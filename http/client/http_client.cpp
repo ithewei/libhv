@@ -323,9 +323,6 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
     tcp_nodelay(connfd, 1);
 
     if (req->https) {
-        if (hssl_ctx_instance() == NULL) {
-            hssl_ctx_init(NULL);
-        }
         hssl_ctx_t ssl_ctx = hssl_ctx_instance();
         if (ssl_ctx == NULL) {
             closesocket(connfd);

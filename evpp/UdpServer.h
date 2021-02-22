@@ -14,7 +14,7 @@ public:
     UdpServer() {
     }
 
-    ~UdpServer() {
+    virtual ~UdpServer() {
     }
 
     EventLoopPtr loop() {

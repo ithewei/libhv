@@ -39,15 +39,18 @@ struct ReconnectInfo {
     }
 };
 
-class TcpClient {
+template<class TSocketChannel = SocketChannel>
+class TcpClientTmpl {
 public:
-    TcpClient() {
+    typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
+
+    TcpClientTmpl() {
         tls = false;
         connect_timeout = 5000;
         enable_reconnect = false;
     }
 
-    ~TcpClient() {
+    virtual ~TcpClientTmpl() {
     }
 
     EventLoopPtr loop() {
@@ -75,7 +78,7 @@ public:
         hio_t* io = hio_get(loop_thread.hloop(), connfd);
         assert(io != NULL);
         hio_set_peeraddr(io, peeraddr, SOCKADDR_LEN(peeraddr));
-        channel.reset(new SocketChannel(io));
+        channel.reset(new TSocketChannel(io));
         return connfd;
     }
 
@@ -140,7 +143,7 @@ public:
     }
 
     void start(bool wait_threads_started = true) {
-        loop_thread.start(wait_threads_started, std::bind(&TcpClient::startConnect, this));
+        loop_thread.start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
     }
     void stop(bool wait_threads_stopped = true) {
         loop_thread.stop(wait_threads_stopped);
@@ -148,11 +151,15 @@ public:
 
     int withTLS(const char* cert_file = NULL, const char* key_file = NULL) {
         tls = true;
-        hssl_ctx_init_param_t param;
-        memset(&param, 0, sizeof(param));
-        param.crt_file = cert_file;
-        param.key_file = key_file;
-        return hssl_ctx_init(&param) == NULL ? -1 : 0;
+        if (cert_file) {
+            hssl_ctx_init_param_t param;
+            memset(&param, 0, sizeof(param));
+            param.crt_file = cert_file;
+            param.key_file = key_file;
+            param.endpoint = 1;
+            return hssl_ctx_init(&param) == NULL ? -1 : 0;
+        }
+        return 0;
     }
 
     void setConnectTimeout(int ms) {
@@ -165,7 +172,7 @@ public:
     }
 
 public:
-    SocketChannelPtr        channel;
+    TSocketChannelPtr       channel;
 
     sockaddr_u              peeraddr;
     bool                    tls;
@@ -174,12 +181,14 @@ public:
     ReconnectInfo           reconnect_info;
 
     // Callback
-    ConnectionCallback      onConnection;
-    MessageCallback         onMessage;
-    WriteCompleteCallback   onWriteComplete;
+    std::function<void(const TSocketChannelPtr&)>           onConnection;
+    std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
+    std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 private:
     EventLoopThread         loop_thread;
 };
+
+typedef TcpClientTmpl<SocketChannel> TcpClient;
 
 }
 

@@ -20,7 +20,7 @@ public:
         connection_num = 0;
     }
 
-    ~TcpServer() {
+    virtual ~TcpServer() {
     }
 
     //@retval >=0 listenfd, <0 error
@@ -58,11 +58,15 @@ public:
 
     int withTLS(const char* cert_file, const char* key_file) {
         tls = true;
-        hssl_ctx_init_param_t param;
-        memset(&param, 0, sizeof(param));
-        param.crt_file = cert_file;
-        param.key_file = key_file;
-        return hssl_ctx_init(&param) == NULL ? -1 : 0;
+        if (cert_file) {
+            hssl_ctx_init_param_t param;
+            memset(&param, 0, sizeof(param));
+            param.crt_file = cert_file;
+            param.key_file = key_file;
+            param.endpoint = 0;
+            return hssl_ctx_init(&param) == NULL ? -1 : 0;
+        }
+        return 0;
     }
 
     // channel

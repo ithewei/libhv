@@ -2,9 +2,12 @@
 
 #include "hplatform.h"
 
-static hssl_ctx_t s_ssl_ctx = 0;
+static hssl_ctx_t s_ssl_ctx = NULL;
 
 hssl_ctx_t hssl_ctx_instance() {
+    if (s_ssl_ctx == NULL) {
+        s_ssl_ctx = hssl_ctx_init(NULL);
+    }
     return s_ssl_ctx;
 }
 
