@@ -87,7 +87,7 @@ int main() {
         printf("%s\n", resp->body.c_str());
     }
 
-    auto resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
+    resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
     if (resp == NULL) {
         printf("request failed!\n");
     } else {

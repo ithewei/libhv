@@ -218,7 +218,7 @@ static inline EventLoop* tlsEventLoop() {
 
 static inline TimerID setTimer(int timeout_ms, TimerCallback cb, int repeat = INFINITE) {
     EventLoop* loop = tlsEventLoop();
-    if (loop == NULL) return (TimerID)-1;
+    if (loop == NULL) return INVALID_TIMER_ID;
     return loop->setTimer(timeout_ms, cb, repeat);
 }
 
