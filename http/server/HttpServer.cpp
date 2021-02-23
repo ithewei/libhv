@@ -30,9 +30,9 @@ static FileCache* default_filecache() {
 }
 
 struct HttpServerPrivdata {
-    std::vector<hloop_t*>   loops;
-    std::vector<hthread_t>  threads;
-    std::mutex              mutex_;
+    std::vector<EventLoopPtr>   loops;
+    std::vector<hthread_t>      threads;
+    std::mutex                  mutex_;
 };
 
 static void websocket_heartbeat(hio_t* io) {
@@ -373,7 +373,7 @@ static void loop_thread(void* userdata) {
     HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
     if (privdata) {
         privdata->mutex_.lock();
-        privdata->loops.push_back(hloop);
+        privdata->loops.push_back(loop);
         privdata->mutex_.unlock();
     }
 
@@ -434,7 +434,7 @@ int http_server_stop(http_server_t* server) {
         }
         // wait for all loops running
         for (auto& loop : privdata->loops) {
-            if (hloop_status(loop) == HLOOP_STATUS_STOP) {
+            if (loop->status() < hv::Status::kRunning) {
                 continue;
             }
         }
@@ -442,11 +442,9 @@ int http_server_stop(http_server_t* server) {
     }
 
     // stop all loops
-    privdata->mutex_.lock();
     for (auto& loop : privdata->loops) {
-        hloop_stop(loop);
+        loop->stop();
     }
-    privdata->mutex_.unlock();
 
     // join all threads
     for (auto& thrd : privdata->threads) {
