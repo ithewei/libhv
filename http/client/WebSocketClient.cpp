@@ -57,6 +57,9 @@ int WebSocketClient::open(const char* _url) {
     if (connfd < 0) {
         return connfd;
     }
+    if (wss) {
+        withTLS();
+    }
 
     onConnection = [this](const WebSocketChannelPtr& channel) {
         if (channel->isConnected()) {

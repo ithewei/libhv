@@ -11,6 +11,7 @@
 #include "WebSocketServer.h"
 #include "EventLoop.h"
 #include "htime.h"
+#include "hssl.h"
 
 using namespace hv;
 
@@ -45,6 +46,17 @@ int main(int argc, char** argv) {
 
     websocket_server_t server;
     server.port = port;
+#if 0
+    server.ssl = 1;
+    hssl_ctx_init_param_t param;
+    memset(&param, 0, sizeof(param));
+    param.crt_file = "cert/server.crt";
+    param.key_file = "cert/server.key";
+    if (hssl_ctx_init(&param) == NULL) {
+        fprintf(stderr, "SSL certificate verify failed!\n");
+        return -20;
+    }
+#endif
     server.ws = &ws;
     websocket_server_run(&server);
     return 0;
