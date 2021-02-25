@@ -70,15 +70,14 @@ public:
     }
 
     // channel
-    SocketChannelPtr addChannel(hio_t* io) {
+    const SocketChannelPtr& addChannel(hio_t* io) {
         std::lock_guard<std::mutex> locker(mutex_);
-        SocketChannelPtr channel(new SocketChannel(io));
-        int fd = channel->fd();
+        int fd = hio_fd(io);
         if (fd >= channels.capacity()) {
             channels.resize(2 * fd);
         }
-        channels[fd] = channel;
-        return channel;
+        channels[fd].reset(new SocketChannel(io));
+        return channels[fd];
     }
 
     void removeChannel(const SocketChannelPtr& channel) {
@@ -97,7 +96,7 @@ private:
             hio_close(connio);
             return;
         }
-        SocketChannelPtr channel = server->addChannel(connio);
+        const SocketChannelPtr& channel = server->addChannel(connio);
         channel->status = SocketChannel::CONNECTED;
         ++server->connection_num;
 
