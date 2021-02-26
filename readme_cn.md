@@ -9,95 +9,18 @@
 
 ## 特征
 
-- cross-platform (Linux, Windows, Mac)
-- event-loop (IO, timer, idle)
-- ENABLE_IPV6
-- ENABLE_UDS (Unix Domain Socket)
-- WITH_OPENSSL or WITH_MBEDTLS
-- http client/server (include https http1/x http2 grpc)
-- http web service, indexof service, api service (support RESTful API)
-- websocket client/server
-- protocols
-    - dns
-    - ftp
-    - smtp
-- apps
-    - ifconfig
-    - ping
-    - nc
-    - nmap
-    - nslookup
-    - ftp
-    - sendmail
-    - httpd
-    - curl
+- 跨平台（Linux, Windows, Mac, Solaris）
+- 事件循环（IO, timer, idle）
+- TCP/UDP服务端/客户端
+- SSL/TLS加密通信（WITH_OPENSSL or WITH_MBEDTLS）
+- HTTP服务端/客户端（https http1/x http2 grpc）
+- HTTP文件服务、目录服务、API服务（支持RESTful）
+- WebSocket服务端/客户端
 
-## 入门
-```
-./getting_started.sh
-```
+## 入门与体验
 
-### HTTP
-#### http server
-见[examples/http_server_test.cpp](examples/http_server_test.cpp)
-```c++
-#include "HttpServer.h"
+运行`./getting_started.sh`:
 
-int main() {
-    HttpService router;
-    router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
-        return resp->String("pong");
-    });
-
-    router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
-        static char data[] = "0123456789";
-        return resp->Data(data, 10);
-    });
-
-    router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
-        return resp->Json(router.Paths());
-    });
-
-    router.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
-        resp->content_type = req->content_type;
-        resp->body = req->body;
-        return 200;
-    });
-
-    http_server_t server;
-    server.port = 8080;
-    server.service = &router;
-    http_server_run(&server);
-    return 0;
-}
-```
-#### http client
-见[examples/http_client_test.cpp](examples/http_client_test.cpp)
-```c++
-#include "requests.h"
-
-int main() {
-    auto resp = requests::get("http://www.example.com");
-    if (resp == NULL) {
-        printf("request failed!\n");
-    } else {
-        printf("%d %s\r\n", resp->status_code, resp->status_message());
-        printf("%s\n", resp->body.c_str());
-    }
-
-    resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
-    if (resp == NULL) {
-        printf("request failed!\n");
-    } else {
-        printf("%d %s\r\n", resp->status_code, resp->status_message());
-        printf("%s\n", resp->body.c_str());
-    }
-
-    return 0;
-}
-```
-
-#### httpd/curl
 ```shell
 git clone https://github.com/ithewei/libhv.git
 cd libhv
@@ -130,7 +53,67 @@ bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
 bin/curl -v -X DELETE localhost:8080/group/test/user/123
 ```
 
-#### benchmark
+### HTTP
+#### HTTP服务端
+见[examples/http_server_test.cpp](examples/http_server_test.cpp)
+```c++
+#include "HttpServer.h"
+
+int main() {
+    HttpService router;
+    router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
+        return resp->String("pong");
+    });
+
+    router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
+        static char data[] = "0123456789";
+        return resp->Data(data, 10);
+    });
+
+    router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
+        return resp->Json(router.Paths());
+    });
+
+    router.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
+        resp->content_type = req->content_type;
+        resp->body = req->body;
+        return 200;
+    });
+
+    http_server_t server;
+    server.port = 8080;
+    server.service = &router;
+    http_server_run(&server);
+    return 0;
+}
+```
+#### HTTP客户端
+见[examples/http_client_test.cpp](examples/http_client_test.cpp)
+```c++
+#include "requests.h"
+
+int main() {
+    auto resp = requests::get("http://www.example.com");
+    if (resp == NULL) {
+        printf("request failed!\n");
+    } else {
+        printf("%d %s\r\n", resp->status_code, resp->status_message());
+        printf("%s\n", resp->body.c_str());
+    }
+
+    resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
+    if (resp == NULL) {
+        printf("request failed!\n");
+    } else {
+        printf("%d %s\r\n", resp->status_code, resp->status_message());
+        printf("%s\n", resp->body.c_str());
+    }
+
+    return 0;
+}
+```
+
+#### 压力测试
 ```shell
 # webbench (linux only)
 make webbench
@@ -147,62 +130,31 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
-### EventLoop
-见[examples/tcp_echo_server.c](examples/tcp_echo_server.c) [examples/udp_echo_server.c](examples/udp_echo_server.c) [examples/nc.c](examples/nc.c)
-```c++
-// TCP echo server
-#include "hloop.h"
+### 更多入门示例
 
-void on_close(hio_t* io) {
-}
+#### c版本
+- 事件循环: [examples/hloop_test.c](examples/hloop_test.c)
+- TCP回显服务:  [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
+- TCP聊天服务:  [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
+- TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
+- UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
+- TCP/UDP客户端: [examples/nc.c](examples/nc.c)
 
-void on_recv(hio_t* io, void* buf, int readbytes) {
-    hio_write(io, buf, readbytes);
-}
-
-void on_accept(hio_t* io) {
-    hio_setcb_close(io, on_close);
-    hio_setcb_read(io, on_recv);
-    hio_read(io);
-}
-
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        printf("Usage: cmd port\n");
-        return -10;
-    }
-    int port = atoi(argv[1]);
-
-    hloop_t* loop = hloop_new(0);
-    hio_t* listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
-    if (listenio == NULL) {
-        return -20;
-    }
-    hloop_run(loop);
-    hloop_free(&loop);
-    return 0;
-}
-```
-```shell
-make examples
-
-bin/tcp_echo_server 1234
-bin/nc 127.0.0.1 1234
-
-bin/tcp_chat_server 1234
-bin/nc 127.0.0.1 1234
-bin/nc 127.0.0.1 1234
-
-bin/httpd -s restart -d
-bin/tcp_proxy_server 1234 127.0.0.1:8080
-bin/curl -v 127.0.0.1:8080
-bin/curl -v 127.0.0.1:1234
-
-bin/udp_echo_server 1234
-bin/nc -u 127.0.0.1 1234
-```
+#### c++版本
+- 事件循环: [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
+- 事件循环线程: [evpp/EventLoopThread_test.cpp](evpp/EventLoopThread_test.cpp)
+- 事件循环线程池: [evpp/EventLoopThreadPool_test.cpp](evpp/EventLoopThreadPool_test.cpp)
+- TCP服务端: [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
+- TCP客户端: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
+- UDP服务端: [evpp/UdpServer_test.cpp](evpp/UdpServer_test.cpp)
+- UDP客户端: [evpp/UdpClient_test.cpp](evpp/UdpClient_test.cpp)
+- HTTP服务端: [examples/http_server_test.cpp](examples/http_server_test.cpp)
+- HTTP客户端: [examples/http_client_test.cpp](examples/http_client_test.cpp)
+- WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
+- WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 
 ## 构建
+
 见[BUILD.md](BUILD.md)
 
 ### 库
@@ -265,73 +217,7 @@ cd echo-servers
 **echo-servers/benchmark**<br>
 ![echo-servers](html/downloads/echo-servers.png)
 
-### 数据结构
-- array.h:       动态数组
-- list.h:        链表
-- queue.h:       队列
-- heap.h:        堆
-
-### base
-- hv.h：         总头文件
-- hexport.h:     导出宏
-- hplatform.h:   平台相关宏
-- hdef.h:        常用宏定义
-- hatomic.h:     原子操作
-- herr.h:        错误码
-- htime.h:       时间日期
-- hmath.h:       数学函数
-- hbase.h:       基本接口
-- hversion.h:    版本
-- hsysinfo.h:    系统信息
-- hproc.h:       进程
-- hthread.h：    线程
-- hmutex.h：     互斥锁
-- hsocket.h:     套接字
-- hssl.h:        SSL/TLS加密通信
-- hlog.h:        日志
-- hbuf.h:        缓存
-- hstring.h:     字符串
-- hfile.h:       文件类
-- hdir.h:        ls实现
-- hurl.h:        URL相关
-- hscope.h:      作用域
-- hthreadpool.h: 线程池
-- hobjectpool.h: 对象池
-- ifconfig.h:    ifconfig实现
-
-### utils
-- hmain.h:       命令行解析
-- hendian.h:     大小端
-- iniparser.h:   ini解析
-- singleton.h:   单例模式
-- md5.h:         MD5数字摘要
-- base64.h:      base64编码
-- json.hpp:      json解析
-
-### event
-- hloop.h:       事件循环
-- nlog.h:        网络日志
-- nmap.h:        nmap实现
-
-#### iowatcher
-- EVENT_SELECT
-- EVENT_POLL
-- EVENT_EPOLL   (linux only)
-- EVENT_KQUEUE  (mac/bsd)
-- EVENT_PORT    (solaris)
-- EVENT_IOCP    (windows only)
-
-### http
-- http_client.h: http客户端
-- HttpServer.h:  http服务端
-
-### protocol
-- dns.h:         DNS域名查询
-- icmp.h:        ping实现
-- ftp.h:         FTP文件传输协议
-- smtp.h:        SMTP邮件传输协议
-
 ## 学习资料
 
-- libhv 博客专栏: <https://hewei.blog.csdn.net/category_9866493.html>
+- libhv 教程: <https://hewei.blog.csdn.net/article/details/113733758>
 - libhv QQ群`739352073`，欢迎加群讨论

@@ -11,32 +11,47 @@ but simpler api and richer protocols.
 
 ## Features
 
-- cross-platform (Linux, Windows, Mac, Solaris)
-- event-loop (IO, timer, idle)
-- ENABLE_IPV6
-- ENABLE_UDS (Unix Domain Socket)
-- WITH_OPENSSL or WITH_MBEDTLS
-- http client/server (include https http1/x http2 grpc)
-- http web service, indexof service, api service (support RESTful API)
-- websocket client/server
-- protocols
-    - dns
-    - ftp
-    - smtp
-- apps
-    - ifconfig
-    - ping
-    - nc
-    - nmap
-    - nslookup
-    - ftp
-    - sendmail
-    - httpd
-    - curl
+- Cross-platform (Linux, Windows, Mac, Solaris)
+- EventLoop (IO, timer, idle)
+- TCP/UDP client/server
+- SSL/TLS support: WITH_OPENSSL or WITH_MBEDTLS
+- HTTP client/server (include https http1/x http2 grpc)
+- HTTP file service, indexof service, api service (support RESTful)
+- WebSocket client/server
 
 ## Getting Started
-```
-./getting_started.sh
+
+run `./getting_started.sh`:
+```shell
+git clone https://github.com/ithewei/libhv.git
+cd libhv
+make httpd curl
+
+bin/httpd -h
+bin/httpd -d
+#bin/httpd -c etc/httpd.conf -s restart -d
+ps aux | grep httpd
+
+# http web service
+bin/curl -v localhost:8080
+
+# http indexof service
+bin/curl -v localhost:8080/downloads/
+
+# http api service
+bin/curl -v localhost:8080/ping
+bin/curl -v localhost:8080/echo -d "hello,world!"
+bin/curl -v localhost:8080/query?page_no=1\&page_size=10
+bin/curl -v localhost:8080/kv   -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
+bin/curl -v localhost:8080/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
+bin/curl -v localhost:8080/form -F "user=admin pswd=123456"
+bin/curl -v localhost:8080/upload -F "file=@LICENSE"
+
+bin/curl -v localhost:8080/test -H "Content-Type:application/x-www-form-urlencoded" -d 'bool=1&int=123&float=3.14&string=hello'
+bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
+bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
+# RESTful API: /group/:group_name/user/:user_id
+bin/curl -v -X DELETE localhost:8080/group/test/user/123
 ```
 
 ### HTTP
@@ -99,39 +114,6 @@ int main() {
 }
 ```
 
-#### httpd/curl
-```shell
-git clone https://github.com/ithewei/libhv.git
-cd libhv
-make httpd curl
-
-bin/httpd -h
-bin/httpd -d
-#bin/httpd -c etc/httpd.conf -s restart -d
-ps aux | grep httpd
-
-# http web service
-bin/curl -v localhost:8080
-
-# http indexof service
-bin/curl -v localhost:8080/downloads/
-
-# http api service
-bin/curl -v localhost:8080/ping
-bin/curl -v localhost:8080/echo -d "hello,world!"
-bin/curl -v localhost:8080/query?page_no=1\&page_size=10
-bin/curl -v localhost:8080/kv   -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
-bin/curl -v localhost:8080/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
-bin/curl -v localhost:8080/form -F "user=admin pswd=123456"
-bin/curl -v localhost:8080/upload -F "file=@LICENSE"
-
-bin/curl -v localhost:8080/test -H "Content-Type:application/x-www-form-urlencoded" -d 'bool=1&int=123&float=3.14&string=hello'
-bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
-bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
-# RESTful API: /group/:group_name/user/:user_id
-bin/curl -v -X DELETE localhost:8080/group/test/user/123
-```
-
 #### benchmark
 ```shell
 # webbench (linux only)
@@ -149,60 +131,27 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
-### EventLoop
-see [examples/tcp_echo_server.c](examples/tcp_echo_server.c) [examples/udp_echo_server.c](examples/udp_echo_server.c) [examples/nc.c](examples/nc.c)
-```c
-// TCP echo server
-#include "hloop.h"
+### More examples
+#### c version
+- [examples/hloop_test.c](examples/hloop_test.c)
+- [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
+- [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
+- [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
+- [examples/udp_echo_server.c](examples/udp_echo_server.c)
+- [examples/nc.c](examples/nc.c)
 
-void on_close(hio_t* io) {
-}
-
-void on_recv(hio_t* io, void* buf, int readbytes) {
-    hio_write(io, buf, readbytes);
-}
-
-void on_accept(hio_t* io) {
-    hio_setcb_close(io, on_close);
-    hio_setcb_read(io, on_recv);
-    hio_read(io);
-}
-
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        printf("Usage: cmd port\n");
-        return -10;
-    }
-    int port = atoi(argv[1]);
-
-    hloop_t* loop = hloop_new(0);
-    hio_t* listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
-    if (listenio == NULL) {
-        return -20;
-    }
-    hloop_run(loop);
-    hloop_free(&loop);
-    return 0;
-}
-```
-```shell
-make examples
-
-bin/tcp_echo_server 1234
-bin/nc 127.0.0.1 1234
-
-bin/tcp_chat_server 1234
-bin/nc 127.0.0.1 1234
-bin/nc 127.0.0.1 1234
-
-bin/httpd -s restart -d
-bin/tcp_proxy_server 1234 127.0.0.1:8080
-bin/curl -v 127.0.0.1:8080
-bin/curl -v 127.0.0.1:1234
-
-bin/udp_echo_server 1234
-bin/nc -u 127.0.0.1 1234
-```
+#### c++ version
+- [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
+- [evpp/EventLoopThread_test.cpp](evpp/EventLoopThread_test.cpp)
+- [evpp/EventLoopThreadPool_test.cpp](evpp/EventLoopThreadPool_test.cpp)
+- [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
+- [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
+- [evpp/UdpServer_test.cpp](evpp/UdpServer_test.cpp)
+- [evpp/UdpClient_test.cpp](evpp/UdpClient_test.cpp)
+- [examples/http_server_test.cpp](examples/http_server_test.cpp)
+- [examples/http_client_test.cpp](examples/http_client_test.cpp)
+- [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
+- [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 
 ## BUILD
 see [BUILD.md](BUILD.md)
