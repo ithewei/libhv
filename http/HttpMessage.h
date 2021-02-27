@@ -246,7 +246,7 @@ public:
     // scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
     std::string         url;
     // structured url
-    bool                https;
+    std::string         scheme;
     std::string         host;
     int                 port;
     std::string         path;
@@ -264,7 +264,7 @@ public:
         headers["User-Agent"] = DEFAULT_USER_AGENT;
         headers["Accept"] = "*/*";
         method = HTTP_GET;
-        https = 0;
+        scheme = "http";
         host = "127.0.0.1";
         port = DEFAULT_HTTP_PORT;
         path = "/";

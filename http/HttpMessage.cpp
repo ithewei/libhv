@@ -315,14 +315,13 @@ std::string HttpMessage::Dump(bool is_dump_headers, bool is_dump_body) {
 }
 
 void HttpRequest::DumpUrl() {
-    if (url.size() != 0 && strncmp(url.c_str(), "http", 4) == 0) {
+    if (url.size() != 0 && strstr(url.c_str(), "://") != NULL) {
         // have been complete url
         return;
     }
     std::string str;
     // scheme://
-    str += "http";
-    if (https) str += 's';
+    str = scheme;
     str += "://";
     // host:port
     char c_str[256] = {0};
@@ -367,13 +366,13 @@ void HttpRequest::ParseUrl() {
     http_parser_url_init(&parser);
     http_parser_parse_url(url.c_str(), url.size(), 0, &parser);
     // scheme
-    https = !strncmp(url.c_str(), "https", 5);
+    scheme = url.substr(parser.field_data[UF_SCHEMA].off, parser.field_data[UF_SCHEMA].len);
     // host
     if (parser.field_set & (1<<UF_HOST)) {
         host = url.substr(parser.field_data[UF_HOST].off, parser.field_data[UF_HOST].len);
     }
     // port
-    port = parser.port ? parser.port : https ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT;
+    port = parser.port ? parser.port : strcmp(scheme.c_str(), "https") ? DEFAULT_HTTP_PORT : DEFAULT_HTTPS_PORT;
     // path
     if (parser.field_set & (1<<UF_PATH)) {
         path = url.c_str() + parser.field_data[UF_PATH].off;

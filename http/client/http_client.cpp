@@ -119,9 +119,9 @@ int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     if (!cli || !req || !resp) return ERR_NULL_POINTER;
 
     if (req->url.empty() || *req->url.c_str() == '/') {
+        req->scheme = cli->https ? "https" : "http";
         req->host = cli->host;
         req->port = cli->port;
-        req->https = cli->https;
     }
 
     if (req->timeout == 0) {
@@ -322,7 +322,7 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
     }
     tcp_nodelay(connfd, 1);
 
-    if (req->https) {
+    if (strcmp(req->scheme.c_str(), "https") == 0) {
         hssl_ctx_t ssl_ctx = hssl_ctx_instance();
         if (ssl_ctx == NULL) {
             closesocket(connfd);
@@ -372,6 +372,7 @@ connect:
 send:
     char* data = NULL;
     size_t len  = 0;
+    bool https = strcmp(req->scheme.c_str(), "https") == 0;
     while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
         while (1) {
@@ -382,7 +383,7 @@ send:
                 }
                 so_sndtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
             }
-            if (req->https) {
+            if (https) {
                 nsend = hssl_write(cli->ssl, data+total_nsend, len-total_nsend);
             }
             else {
@@ -414,7 +415,7 @@ recv:
             }
             so_rcvtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
         }
-        if (req->https) {
+        if (https) {
             nrecv = hssl_read(cli->ssl, recvbuf, sizeof(recvbuf));
         }
         else {
@@ -450,9 +451,9 @@ int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseC
     if (!cli || !req) return ERR_NULL_POINTER;
 
     if (req->url.empty() || *req->url.c_str() == '/') {
+        req->scheme = cli->https ? "https" : "http";
         req->host = cli->host;
         req->port = cli->port;
-        req->https = cli->https;
     }
 
     if (req->timeout == 0) {

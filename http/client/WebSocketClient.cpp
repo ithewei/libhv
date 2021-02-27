@@ -1,6 +1,5 @@
 #include "WebSocketClient.h"
 
-#include "http_parser.h" // for http_parser_url
 #include "base64.h"
 #include "hlog.h"
 
@@ -35,28 +34,18 @@ int WebSocketClient::open(const char* _url) {
         }
     }
     hlogi("%s", url.c_str());
-    http_parser_url parser;
-    http_parser_url_init(&parser);
-    http_parser_parse_url(url.c_str(), url.size(), 0, &parser);
-    // scheme
-    bool wss = !strncmp(url.c_str(), "wss", 3);
-    // host
-    std::string host = "127.0.0.1";
-    if (parser.field_set & (1<<UF_HOST)) {
-        host = url.substr(parser.field_data[UF_HOST].off, parser.field_data[UF_HOST].len);
-    }
-    // port
-    int port = parser.port ? parser.port : wss ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT;
-    // path
-    std::string path = "/";
-    if (parser.field_set & (1<<UF_PATH)) {
-        path = url.c_str() + parser.field_data[UF_PATH].off;
-    }
+    http_req_.reset(new HttpRequest);
+    // ws => http
+    http_req_->url = "http" + url.substr(2, -1);
+    http_req_->ParseUrl();
 
-    int connfd = createsocket(port, host.c_str());
+    int connfd = createsocket(http_req_->port, http_req_->host.c_str());
     if (connfd < 0) {
         return connfd;
     }
+
+    // wss
+    bool wss = strncmp(url.c_str(), "wss", 3) == 0;
     if (wss) {
         withTLS();
     }
@@ -65,10 +54,6 @@ int WebSocketClient::open(const char* _url) {
         if (channel->isConnected()) {
             state = CONNECTED;
             // websocket_handshake
-            http_req_.reset(new HttpRequest);
-            http_req_->method = HTTP_GET;
-            // ws => http
-            http_req_->url = "http" + url.substr(2, -1);
             http_req_->headers["Connection"] = "Upgrade";
             http_req_->headers["Upgrade"] = "websocket";
             // generate SEC_WEBSOCKET_KEY
@@ -105,7 +90,7 @@ int WebSocketClient::open(const char* _url) {
             }
             if (http_parser_->IsComplete()) {
                 if (http_resp_->status_code != HTTP_STATUS_SWITCHING_PROTOCOLS) {
-                    hloge("server side not support websockt!");
+                    hloge("server side not support websocket!");
                     channel->close();
                     return;
                 }
