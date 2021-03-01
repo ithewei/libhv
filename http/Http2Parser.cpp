@@ -199,7 +199,7 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
     req->ParseUrl();
     nvs.push_back(make_nv(":method", http_method_str(req->method)));
     nvs.push_back(make_nv(":path", req->path.c_str()));
-    nvs.push_back(make_nv(":scheme", req->https ? "https" : "http"));
+    nvs.push_back(make_nv(":scheme", req->scheme.c_str()));
     if (req->port == 0 ||
         req->port == DEFAULT_HTTP_PORT ||
         req->port == DEFAULT_HTTPS_PORT) {
