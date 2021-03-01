@@ -130,7 +130,33 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
-### 更多入门示例
+## 构建
+
+见[BUILD.md](BUILD.md)
+
+libhv提供了三种构建方式:
+
+1、通过Makefile:
+```shell
+./configure
+make
+sudo make install
+```
+
+2、通过cmake:
+```shell
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
+3、通过vcpkg:
+```shell
+vcpkg install libhv
+```
+
+## 示例
 
 #### c版本
 - 事件循环: [examples/hloop_test.c](examples/hloop_test.c)
@@ -153,61 +179,7 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 
-## 构建
-
-见[BUILD.md](BUILD.md)
-
-### 库
-- make libhv
-- sudo make install
-
-### 示例
-- make examples
-
-### 单元测试
-- make unittest
-
-### 编译选项
-
-#### 编译WITH_OPENSSL
-在libhv中开启SSL非常简单，仅需要两个API接口：
-```
-// init ssl_ctx, see base/hssl.h
-hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
-
-// enable ssl, see event/hloop.h
-int hio_enable_ssl(hio_t* io);
-```
-
-https就是做好的例子:
-```
-sudo apt install openssl libssl-dev # ubuntu
-make clean
-make WITH_OPENSSL=yes
-# editor etc/httpd.conf => ssl = on
-bin/httpd -s restart -d
-bin/curl -v https://localhost:8080
-curl -v https://localhost:8080 --insecure
-```
-
-#### 编译WITH_CURL
-```
-make WITH_CURL=yes DEFINES="CURL_STATICLIB"
-```
-
-#### 编译WITH_NGHTTP2
-```
-sudo apt install libnghttp2-dev # ubuntu
-make clean
-make WITH_NGHTTP2=yes
-bin/httpd -d
-bin/curl -v localhost:8080 --http2
-```
-
-#### 更多选项
-见[config.mk](config.mk)
-
-### echo-servers
+## 网络库比对
 ```shell
 cd echo-servers
 ./build.sh

@@ -22,6 +22,7 @@ but simpler api and richer protocols.
 ## Getting Started
 
 run `./getting_started.sh`:
+
 ```shell
 git clone https://github.com/ithewei/libhv.git
 cd libhv
@@ -131,8 +132,32 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
-### More examples
-#### c version
+## BUILD
+
+see [BUILD.md](BUILD.md)
+
+Makefile:
+```shell
+./configure
+make
+sudo make install
+```
+
+or cmake:
+```shell
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
+or vcpkg:
+```shell
+vcpkg install libhv
+```
+
+## Examples
+### c version
 - [examples/hloop_test.c](examples/hloop_test.c)
 - [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
 - [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
@@ -140,7 +165,7 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - [examples/nc.c](examples/nc.c)
 
-#### c++ version
+### c++ version
 - [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
 - [evpp/EventLoopThread_test.cpp](evpp/EventLoopThread_test.cpp)
 - [evpp/EventLoopThreadPool_test.cpp](evpp/EventLoopThreadPool_test.cpp)
@@ -153,60 +178,7 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 
-## BUILD
-see [BUILD.md](BUILD.md)
-
-### lib
-- make libhv
-- sudo make install
-
-### examples
-- make examples
-
-### unittest
-- make unittest
-
-### compile options
-
-#### compile WITH_OPENSSL
-Enable SSL in libhv is so easy, just only two apis:
-```
-// init ssl_ctx, see base/hssl.h
-hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
-
-// enable ssl, see event/hloop.h
-int hio_enable_ssl(hio_t* io);
-```
-
-https is the best example.
-```
-sudo apt install openssl libssl-dev # ubuntu
-make clean
-make WITH_OPENSSL=yes
-# editor etc/httpd.conf => ssl = on
-bin/httpd -s restart -d
-bin/curl -v https://localhost:8080
-curl -v https://localhost:8080 --insecure
-```
-
-#### compile WITH_CURL
-```
-make WITH_CURL=yes DEFINES="CURL_STATICLIB"
-```
-
-#### compile WITH_NGHTTP2
-```
-sudo apt install libnghttp2-dev # ubuntu
-make clean
-make WITH_NGHTTP2=yes
-bin/httpd -d
-bin/curl -v localhost:8080 --http2
-```
-
-#### other options
-see [config.mk](config.mk)
-
-### echo-servers
+## echo-servers
 ```shell
 cd echo-servers
 ./build.sh
@@ -215,4 +187,3 @@ cd echo-servers
 
 **echo-servers/benchmark**<br>
 ![echo-servers](html/downloads/echo-servers.png)
-

@@ -1,4 +1,4 @@
-## Required
+## Prequired
 
 - c99
 - c++11
@@ -6,7 +6,7 @@
 gcc4.8+, msvc2015 or later
 
 ## Makefile
-options modify config.mk
+options modify [config.mk](config.mk)
 ```
 ./configure
 make
@@ -14,7 +14,7 @@ sudo make install
 ```
 
 ## cmake
-options modify CMakeLists.txt
+options modify [CMakeLists.txt](CMakeLists.txt)
 ```
 mkdir build
 cd build
@@ -75,4 +75,52 @@ export CROSS_COMPILE=aarch64-linux-android-
 ./configure
 make clean
 make libhv
+```
+
+## targets
+
+### lib
+- make libhv
+
+### examples
+- make examples
+
+### unittest
+- make unittest
+
+## options
+
+### compile WITH_OPENSSL
+Enable SSL in libhv is so easy, just only two apis:
+```
+// init ssl_ctx, see base/hssl.h
+hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
+
+// enable ssl, see event/hloop.h
+int hio_enable_ssl(hio_t* io);
+```
+
+https is the best example.
+```
+sudo apt install openssl libssl-dev # ubuntu
+make clean
+make WITH_OPENSSL=yes
+# editor etc/httpd.conf => ssl = on
+bin/httpd -s restart -d
+bin/curl -v https://localhost:8080
+curl -v https://localhost:8080 --insecure
+```
+
+### compile WITH_CURL
+```
+make WITH_CURL=yes DEFINES="CURL_STATICLIB"
+```
+
+### compile WITH_NGHTTP2
+```
+sudo apt install libnghttp2-dev # ubuntu
+make clean
+make WITH_NGHTTP2=yes
+bin/httpd -d
+bin/curl -v localhost:8080 --http2
 ```
