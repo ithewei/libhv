@@ -26,6 +26,7 @@ Http1Parser::Http1Parser(http_session_type type) {
     }
     http_parser_init(&parser, HTTP_BOTH);
     parser.data = this;
+    flags = 0;
     state = HP_START_REQ_OR_RES;
     submited = NULL;
     parsed = NULL;
@@ -85,18 +86,8 @@ int on_headers_complete(http_parser* parser) {
     printd("on_headers_complete\n");
     Http1Parser* hp = (Http1Parser*)parser->data;
     hp->handle_header();
-    auto iter = hp->parsed->headers.find("content-type");
-    if (iter != hp->parsed->headers.end()) {
-        hp->parsed->content_type = http_content_type_enum(iter->second.c_str());
-    }
-    iter = hp->parsed->headers.find("content-length");
-    if (iter != hp->parsed->headers.end()) {
-        int content_length = atoi(iter->second.c_str());
-        hp->parsed->content_length = content_length;
-        if (content_length > hp->parsed->body.capacity()) {
-            hp->parsed->body.reserve(content_length);
-        }
-    }
+
+    bool skip_body = false;
     hp->parsed->http_major = parser->http_major;
     hp->parsed->http_minor = parser->http_minor;
     if (hp->parsed->type == HTTP_REQUEST) {
@@ -107,9 +98,26 @@ int on_headers_complete(http_parser* parser) {
     else if (hp->parsed->type == HTTP_RESPONSE) {
         HttpResponse* res = (HttpResponse*)hp->parsed;
         res->status_code = (http_status)parser->status_code;
+        // response to HEAD
+        if (res->status_code == 200 && hp->flags & F_SKIPBODY) {
+            skip_body = true;
+        }
+    }
+
+    auto iter = hp->parsed->headers.find("content-type");
+    if (iter != hp->parsed->headers.end()) {
+        hp->parsed->content_type = http_content_type_enum(iter->second.c_str());
+    }
+    iter = hp->parsed->headers.find("content-length");
+    if (iter != hp->parsed->headers.end()) {
+        int content_length = atoi(iter->second.c_str());
+        hp->parsed->content_length = content_length;
+        if ((!skip_body) && content_length > hp->parsed->body.capacity()) {
+            hp->parsed->body.reserve(content_length);
+        }
     }
     hp->state = HP_HEADERS_COMPLETE;
-    return 0;
+    return skip_body ? 1 : 0;
 }
 
 int on_message_complete(http_parser* parser) {
@@ -118,4 +126,3 @@ int on_message_complete(http_parser* parser) {
     hp->state = HP_MESSAGE_COMPLETE;
     return 0;
 }
-

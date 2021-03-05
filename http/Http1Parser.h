@@ -20,6 +20,7 @@ class Http1Parser : public HttpParser {
 public:
     static http_parser_settings*    cbs;
     http_parser                     parser;
+    int                             flags;
     http_parser_state               state;
     HttpMessage*                    submited;
     HttpMessage*                    parsed;
@@ -85,6 +86,13 @@ public:
     // SubmitRequest -> while(GetSendData) {send} -> InitResponse -> do {recv -> FeedRecvData} while(WantRecv)
     virtual int SubmitRequest(HttpRequest* req) {
         submited = req;
+        if (req) {
+            if (req->method == HTTP_HEAD) {
+                flags |= F_SKIPBODY;
+            } else {
+                flags &= ~F_SKIPBODY;
+            }
+        }
         return 0;
     }
 
