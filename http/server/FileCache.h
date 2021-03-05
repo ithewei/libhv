@@ -1,6 +1,7 @@
 #ifndef HV_FILE_CACHE_H_
 #define HV_FILE_CACHE_H_
 
+#include <memory>
 #include <map>
 #include <string>
 #include <mutex>
@@ -8,7 +9,8 @@
 #include "hbuf.h"
 #include "hstring.h"
 
-#define HTTP_HEADER_MAX_LENGTH      1024 // 1k
+#define HTTP_HEADER_MAX_LENGTH      1024        // 1K
+#define FILE_CACHE_MAX_SIZE         (1 << 30)   // 1G
 
 typedef struct file_cache_s {
     //std::string filepath;
@@ -28,6 +30,15 @@ typedef struct file_cache_s {
         content_type = NULL;
     }
 
+    bool if_modified(const char* filepath) {
+        time_t mtime = st.st_mtime;
+        stat(filepath, &st);
+        if (mtime == st.st_mtime) {
+            return false;
+        }
+        return true;
+    }
+
     void resize_buf(int filesize) {
         buf.resize(HTTP_HEADER_MAX_LENGTH + filesize);
         filebuf.base = buf.base + HTTP_HEADER_MAX_LENGTH;
@@ -42,34 +53,31 @@ typedef struct file_cache_s {
     }
 } file_cache_t;
 
-// filepath => file_cache_t
-typedef std::map<std::string, file_cache_t*> FileCacheMap;
+typedef std::shared_ptr<file_cache_t>           file_cache_ptr;
+// filepath => file_cache_ptr
+typedef std::map<std::string, file_cache_ptr>   FileCacheMap;
 
-#define DEFAULT_FILE_STAT_INTERVAL  10 // s
-#define DEFAULT_FILE_CACHED_TIME    60 // s
+#define DEFAULT_FILE_STAT_INTERVAL      10 // s
+#define DEFAULT_FILE_EXPIRED_TIME       60 // s
 class FileCache {
 public:
     int file_stat_interval;
-    int file_cached_time;
-    FileCacheMap cached_files;
-    std::mutex mutex_;
+    int file_expired_time;
+    FileCacheMap    cached_files;
+    std::mutex      mutex_;
 
     FileCache() {
-        file_stat_interval  = DEFAULT_FILE_STAT_INTERVAL;
-        file_cached_time    = DEFAULT_FILE_CACHED_TIME;
+        file_stat_interval = DEFAULT_FILE_STAT_INTERVAL;
+        file_expired_time  = DEFAULT_FILE_EXPIRED_TIME;
     }
 
-    ~FileCache() {
-        for (auto& pair : cached_files) {
-            delete pair.second;
-        }
-        cached_files.clear();
-    }
+    file_cache_ptr Open(const char* filepath, bool need_read = true, void* ctx = NULL);
+    bool Close(const char* filepath);
+    bool Close(const file_cache_ptr& fc);
+    void RemoveExpiredFileCache();
 
-    file_cache_t* Open(const char* filepath, void* ctx = NULL);
-    int Close(const char* filepath);
 protected:
-    file_cache_t* Get(const char* filepath);
+    file_cache_ptr Get(const char* filepath);
 };
 
 #endif // HV_FILE_CACHE_H_

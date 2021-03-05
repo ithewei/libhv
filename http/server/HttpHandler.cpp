@@ -32,7 +32,8 @@ preprocessor:
             goto make_http_status_page;
         }
     }
-    else if (service->document_root.size() != 0 && req.method == HTTP_GET) {
+    else if (service->document_root.size() != 0 &&
+            (req.method == HTTP_GET || req.method == HTTP_HEAD)) {
         // web service
         // path safe check
         const char* req_path = req.path.c_str();
@@ -51,7 +52,8 @@ preprocessor:
             is_index_of = true;
         }
         if (!is_dir || is_index_of) {
-            fc = files->Open(filepath.c_str(), (void*)req_path);
+            bool need_read = req.method == HTTP_HEAD ? false : true;
+            fc = files->Open(filepath.c_str(), need_read, (void*)req_path);
         }
         if (fc == NULL) {
             // Not Found
@@ -90,7 +92,7 @@ make_http_status_page:
             std::string filepath = service->document_root;
             filepath += '/';
             filepath += service->error_page;
-            fc = files->Open(filepath.c_str(), NULL);
+            fc = files->Open(filepath.c_str(), true, NULL);
         }
         // status page
         if (fc == NULL && res.body.size() == 0) {
@@ -100,18 +102,19 @@ make_http_status_page:
     }
 
     if (fc) {
-        // link file cache
-        res.content = (unsigned char*)fc->filebuf.base;
         res.content_length = fc->filebuf.len;
         if (fc->content_type && *fc->content_type != '\0') {
             res.headers["Content-Type"] = fc->content_type;
-            res.FillContentType();
         }
-        char sz[64];
-        snprintf(sz, sizeof(sz), "%d", res.content_length);
-        res.headers["Content-Length"] = sz;
         res.headers["Last-Modified"] = fc->last_modified;
         res.headers["Etag"] = fc->etag;
+        if (req.method == HTTP_HEAD) {
+            res.headers["Accept-Ranges"] = "bytes";
+            res.content = NULL;
+            fc = NULL;
+        } else {
+            res.content = fc->filebuf.base;
+        }
     }
 
 postprocessor:

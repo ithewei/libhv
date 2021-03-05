@@ -225,21 +225,25 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     }
 
     if (req->http_major == 1) {
-        std::string header = res->Dump(true, false);
         hbuf_t sendbuf;
         bool send_in_one_packet = true;
+        std::string header = res->Dump(true, false);
         int content_length = res->ContentLength();
+        const char* content = (const char*)res->Content();
         if (handler->fc) {
-            // no copy filebuf, more efficient
+            // NOTE: no copy filebuf, more efficient
             handler->fc->prepend_header(header.c_str(), header.size());
             sendbuf = handler->fc->httpbuf;
         }
         else {
-            if (content_length > (1 << 20)) {
-                send_in_one_packet = false;
-            }
-            else if (content_length != 0) {
-                header.insert(header.size(), (const char*)res->Content(), content_length);
+            if (content) {
+                // NOTE: send header+body in one package if < 1M
+                if (content_length > (1 << 20)) {
+                    send_in_one_packet = false;
+                }
+                else if (content_length != 0) {
+                    header.append(content);
+                }
             }
             sendbuf.base = (char*)header.c_str();
             sendbuf.len = header.size();
@@ -248,7 +252,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         hio_write(io, sendbuf.base, sendbuf.len);
         if (send_in_one_packet == false) {
             // send body
-            hio_write(io, res->Content(), content_length);
+            hio_write(io, content, content_length);
         }
     }
     else if (req->http_major == 2) {
@@ -259,6 +263,13 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         }
     }
 
+    // NOTE: remove file cache if > 16M
+    if (handler->fc && handler->fc->filebuf.len > (1 << 24)) {
+        handler->files->Close(handler->fc);
+        handler->fc = NULL;
+    }
+
+    // LOG
     hloop_t* loop = hevent_loop(io);
     hlogi("[%ld-%ld][%s:%d][%s %s]=>[%d %s]",
         hloop_pid(loop), hloop_tid(loop),
@@ -282,6 +293,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         return;
     }
 
+    // keep-alive
     if (keepalive) {
         handler->Reset();
         parser->InitRequest(req);
@@ -332,23 +344,6 @@ static void on_accept(hio_t* io) {
     hevent_set_userdata(io, handler);
 }
 
-static void handle_cached_files(htimer_t* timer) {
-    FileCache* pfc = (FileCache*)hevent_userdata(timer);
-    file_cache_t* fc = NULL;
-    time_t tt = time(NULL);
-    std::lock_guard<std::mutex> locker(pfc->mutex_);
-    auto iter = pfc->cached_files.begin();
-    while (iter != pfc->cached_files.end()) {
-        fc = iter->second;
-        if (tt - fc->stat_time > pfc->file_cached_time) {
-            delete fc;
-            iter = pfc->cached_files.erase(iter);
-            continue;
-        }
-        ++iter;
-    }
-}
-
 static void loop_thread(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
     int listenfd = server->listenfd;
@@ -360,22 +355,23 @@ static void loop_thread(void* userdata) {
     if (server->ssl) {
         hio_enable_ssl(listenio);
     }
-    // fsync logfile when idle
-    hlog_disable_fsync();
-    hidle_add(hloop, [](hidle_t*) {
-        hlog_fsync();
-    }, INFINITE);
-    // timer handle_cached_files
-    FileCache* filecache = default_filecache();
-    htimer_t* timer = htimer_add(hloop, handle_cached_files, filecache->file_cached_time * 1000);
-    hevent_set_userdata(timer, filecache);
 
     HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
-    if (privdata) {
-        privdata->mutex_.lock();
-        privdata->loops.push_back(loop);
-        privdata->mutex_.unlock();
+    privdata->mutex_.lock();
+    if (privdata->loops.size() == 0) {
+        // NOTE: fsync logfile when idle
+        hlog_disable_fsync();
+        hidle_add(hloop, [](hidle_t*) {
+            hlog_fsync();
+        }, INFINITE);
+        // NOTE: add timer to remove expired file cache
+        htimer_add(hloop, [](htimer_t*) {
+            FileCache* filecache = default_filecache();
+            filecache->RemoveExpiredFileCache();
+        }, DEFAULT_FILE_EXPIRED_TIME * 1000);
     }
+    privdata->loops.push_back(loop);
+    privdata->mutex_.unlock();
 
     loop->run();
 }
@@ -389,6 +385,9 @@ int http_server_run(http_server_t* server, int wait) {
         server->service = default_http_service();
     }
 
+    HttpServerPrivdata* privdata = new HttpServerPrivdata;
+    server->privdata = privdata;
+
     if (server->worker_processes) {
         // multi-processes
         return master_workers_run(loop_thread, server, server->worker_processes, server->worker_threads, wait);
@@ -396,13 +395,7 @@ int http_server_run(http_server_t* server, int wait) {
     else {
         // multi-threads
         if (server->worker_threads == 0) server->worker_threads = 1;
-
-        // for SDK implement http_server_stop
-        HttpServerPrivdata* privdata = new HttpServerPrivdata;
-        server->privdata = privdata;
-
-        int i = wait ? 1 : 0;
-        for (; i < server->worker_threads; ++i) {
+        for (int i = wait ? 1 : 0; i < server->worker_threads; ++i) {
             hthread_t thrd = hthread_create((hthread_routine)loop_thread, server);
             privdata->threads.push_back(thrd);
         }

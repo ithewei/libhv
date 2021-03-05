@@ -9,25 +9,24 @@
 
 #define ETAG_FMT    "\"%zx-%zx\""
 
-file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
+file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) {
     std::lock_guard<std::mutex> locker(mutex_);
-    file_cache_t* fc = Get(filepath);
+    file_cache_ptr fc = Get(filepath);
     bool modified = false;
     if (fc) {
-        time_t tt;
-        time(&tt);
-        if (tt - fc->stat_time > file_stat_interval) {
-            time_t mtime = fc->st.st_mtime;
-            stat(filepath, &fc->st);
-            fc->stat_time = tt;
+        time_t now = time(NULL);
+        if (now - fc->stat_time > file_stat_interval) {
+            modified = fc->if_modified(filepath);
+            fc->stat_time = now;
             fc->stat_cnt++;
-            if (mtime != fc->st.st_mtime) {
-                modified = true;
-                fc->stat_cnt = 1;
+        }
+        if (need_read) {
+            if ((!modified) && fc->filebuf.len == fc->st.st_size) {
+                need_read = false;
             }
         }
     }
-    if (fc == NULL || modified) {
+    if (fc == NULL || modified || need_read) {
         int flags = O_RDONLY;
 #ifdef O_BINARY
         flags |= O_BINARY;
@@ -43,7 +42,7 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
             if (S_ISREG(st.st_mode) ||
                 (S_ISDIR(st.st_mode) &&
                  filepath[strlen(filepath)-1] == '/')) {
-                fc = new file_cache_t;
+                fc.reset(new file_cache_t);
                 //fc->filepath = filepath;
                 fc->st = st;
                 time(&fc->open_time);
@@ -57,11 +56,17 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
         }
         if (S_ISREG(fc->st.st_mode)) {
             // FILE
-            fc->resize_buf(fc->st.st_size);
-            int nread = read(fd, fc->filebuf.base, fc->filebuf.len);
-            if (nread != fc->filebuf.len) {
-                hloge("Too large file: %s", filepath);
-                return NULL;
+            if (need_read) {
+                if (fc->st.st_size > FILE_CACHE_MAX_SIZE) {
+                    hlogw("Too large file: %s", filepath);
+                    return NULL;
+                }
+                fc->resize_buf(fc->st.st_size);
+                int nread = read(fd, fc->filebuf.base, fc->filebuf.len);
+                if (nread != fc->filebuf.len) {
+                    hloge("Failed to read file: %s", filepath);
+                    return NULL;
+                }
             }
             const char* suffix = strrchr(filepath, '.');
             if (suffix) {
@@ -82,21 +87,47 @@ file_cache_t* FileCache::Open(const char* filepath, void* ctx) {
     return fc;
 }
 
-int FileCache::Close(const char* filepath) {
+bool FileCache::Close(const char* filepath) {
     std::lock_guard<std::mutex> locker(mutex_);
     auto iter = cached_files.find(filepath);
     if (iter != cached_files.end()) {
-        delete iter->second;
         iter = cached_files.erase(iter);
-        return 0;
+        return true;
     }
-    return -1;
+    return false;
 }
 
-file_cache_t* FileCache::Get(const char* filepath) {
+bool FileCache::Close(const file_cache_ptr& fc) {
+    std::lock_guard<std::mutex> locker(mutex_);
+    auto iter = cached_files.begin();
+    while (iter != cached_files.end()) {
+        if (iter->second == fc) {
+            iter = cached_files.erase(iter);
+            return true;
+        } else {
+            ++iter;
+        }
+    }
+    return false;
+}
+
+file_cache_ptr FileCache::Get(const char* filepath) {
     auto iter = cached_files.find(filepath);
     if (iter != cached_files.end()) {
         return iter->second;
     }
     return NULL;
+}
+
+void FileCache::RemoveExpiredFileCache() {
+    std::lock_guard<std::mutex> locker(mutex_);
+    time_t now = time(NULL);
+    auto iter = cached_files.begin();
+    while (iter != cached_files.end()) {
+        if (now - iter->second->stat_time > file_expired_time) {
+            iter = cached_files.erase(iter);
+        } else {
+            ++iter;
+        }
+    }
 }

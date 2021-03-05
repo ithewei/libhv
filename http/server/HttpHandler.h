@@ -61,7 +61,7 @@ public:
     // for http
     HttpService             *service;
     FileCache               *files;
-    file_cache_t            *fc;
+    file_cache_ptr          fc;
 
     HttpRequest             req;
     HttpResponse            res;
@@ -75,7 +75,6 @@ public:
         protocol = UNKNOWN;
         service = NULL;
         files = NULL;
-        fc = NULL;
         ws_cbs = NULL;
     }
 
