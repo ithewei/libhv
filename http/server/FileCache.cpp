@@ -4,8 +4,8 @@
 #include "htime.h"
 #include "hlog.h"
 
-#include "httpdef.h" // for http_content_type_str_by_suffix
-#include "http_page.h" //make_index_of_page
+#include "httpdef.h"    // import http_content_type_str_by_suffix
+#include "http_page.h"  // import make_index_of_page
 
 #define ETAG_FMT    "\"%zx-%zx\""
 
@@ -16,12 +16,12 @@ file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) 
     if (fc) {
         time_t now = time(NULL);
         if (now - fc->stat_time > file_stat_interval) {
-            modified = fc->if_modified(filepath);
+            modified = fc->is_modified();
             fc->stat_time = now;
             fc->stat_cnt++;
         }
         if (need_read) {
-            if ((!modified) && fc->filebuf.len == fc->st.st_size) {
+            if (!modified && fc->is_complete()) {
                 need_read = false;
             }
         }
@@ -43,7 +43,7 @@ file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) 
                 (S_ISDIR(st.st_mode) &&
                  filepath[strlen(filepath)-1] == '/')) {
                 fc.reset(new file_cache_t);
-                //fc->filepath = filepath;
+                fc->filepath = filepath;
                 fc->st = st;
                 time(&fc->open_time);
                 fc->stat_time = fc->open_time;

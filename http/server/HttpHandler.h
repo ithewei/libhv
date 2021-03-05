@@ -53,6 +53,13 @@ public:
         HTTP_V2,
         WEBSOCKET,
     } protocol;
+    enum State {
+        WANT_RECV,
+        WANT_SEND,
+        SEND_HEADER,
+        SEND_BODY,
+        SEND_DONE,
+    } state;
 
     // peeraddr
     char                    ip[64];
@@ -61,11 +68,15 @@ public:
     // for http
     HttpService             *service;
     FileCache               *files;
-    file_cache_ptr          fc;
 
     HttpRequest             req;
     HttpResponse            res;
     HttpParserPtr           parser;
+
+    // for GetSendData
+    file_cache_ptr          fc;
+    std::string             header;
+    std::string             body;
 
     // for websocket
     WebSocketHandlerPtr         ws;
@@ -73,20 +84,22 @@ public:
 
     HttpHandler() {
         protocol = UNKNOWN;
+        state = WANT_RECV;
         service = NULL;
         files = NULL;
         ws_cbs = NULL;
     }
 
     void Reset() {
+        state = WANT_RECV;
         req.Reset();
         res.Reset();
-        fc = NULL;
     }
 
     // @workflow: preprocessor -> api -> web -> postprocessor
     // @result: HttpRequest -> HttpResponse/file_cache_t
     int HandleHttpRequest();
+    int GetSendData(char** data, size_t* len);
 
     // websocket
     WebSocketHandler* SwitchWebSocket() {

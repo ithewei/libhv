@@ -80,6 +80,15 @@ public:
         return str.length() != 0;
     }
 
+    int readrange(std::string& str, size_t from = 0, size_t to = 0) {
+        size_t filesize = size();
+        if (to == 0 || to >= filesize) to = filesize - 1;
+        size_t readbytes = to - from + 1;
+        str.resize(readbytes);
+        fseek(fp, from, SEEK_SET);
+        return fread((void*)str.data(), 1, readbytes, fp);
+    }
+
 public:
     char  filepath[MAX_PATH];
     FILE* fp;

@@ -224,49 +224,12 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         parser->SubmitResponse(res);
     }
 
-    if (req->http_major == 1) {
-        hbuf_t sendbuf;
-        bool send_in_one_packet = true;
-        std::string header = res->Dump(true, false);
-        int content_length = res->ContentLength();
-        const char* content = (const char*)res->Content();
-        if (handler->fc) {
-            // NOTE: no copy filebuf, more efficient
-            handler->fc->prepend_header(header.c_str(), header.size());
-            sendbuf = handler->fc->httpbuf;
-        }
-        else {
-            if (content) {
-                // NOTE: send header+body in one package if < 1M
-                if (content_length > (1 << 20)) {
-                    send_in_one_packet = false;
-                }
-                else if (content_length != 0) {
-                    header.append(content);
-                }
-            }
-            sendbuf.base = (char*)header.c_str();
-            sendbuf.len = header.size();
-        }
-        // send header/body
-        hio_write(io, sendbuf.base, sendbuf.len);
-        if (send_in_one_packet == false) {
-            // send body
-            hio_write(io, content, content_length);
-        }
-    }
-    else if (req->http_major == 2) {
-        char* data = NULL;
-        size_t len = 0;
-        while (parser->GetSendData(&data, &len)) {
+    char* data = NULL;
+    size_t len = 0;
+    while (handler->GetSendData(&data, &len)) {
+        if (data && len) {
             hio_write(io, data, len);
         }
-    }
-
-    // NOTE: remove file cache if > 16M
-    if (handler->fc && handler->fc->filebuf.len > (1 << 24)) {
-        handler->files->Close(handler->fc);
-        handler->fc = NULL;
     }
 
     // LOG

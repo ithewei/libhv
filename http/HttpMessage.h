@@ -293,6 +293,20 @@ public:
     void DumpUrl();
     // url -> structed url
     void ParseUrl();
+
+    // Range: bytes=0-4095
+    void SetRange(long from = 0, long to = -1) {
+        headers["Range"] = asprintf("bytes=%ld-%ld", from, to);
+    }
+    bool GetRange(long& from, long& to) {
+        auto iter = headers.find("Range");
+        if (iter != headers.end()) {
+            sscanf(iter->second.c_str(), "bytes=%ld-%ld", &from, &to);
+            return true;
+        }
+        from = to = 0;
+        return false;
+    }
 };
 
 class HV_EXPORT HttpResponse : public HttpMessage {
@@ -317,6 +331,19 @@ public:
     }
 
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
+
+    // Content-Range: bytes 0-4095/10240000
+    void SetRange(long from, long to, long total) {
+        headers["Content-Range"] = asprintf("bytes %ld-%ld/%ld", from, to, total);
+    }
+    bool GetRange(long& from, long& to, long& total) {
+        auto iter = headers.find("Content-Range");
+        if (iter != headers.end()) {
+            sscanf(iter->second.c_str(), "bytes %ld-%ld/%ld", &from, &to, &total);
+        }
+        from = to = total = 0;
+        return false;
+    }
 };
 
 typedef std::shared_ptr<HttpRequest>    HttpRequestPtr;

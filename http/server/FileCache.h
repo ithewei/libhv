@@ -13,7 +13,7 @@
 #define FILE_CACHE_MAX_SIZE         (1 << 30)   // 1G
 
 typedef struct file_cache_s {
-    //std::string filepath;
+    std::string filepath;
     struct stat st;
     time_t      open_time;
     time_t      stat_time;
@@ -30,13 +30,17 @@ typedef struct file_cache_s {
         content_type = NULL;
     }
 
-    bool if_modified(const char* filepath) {
+    bool is_modified() {
         time_t mtime = st.st_mtime;
-        stat(filepath, &st);
+        stat(filepath.c_str(), &st);
         if (mtime == st.st_mtime) {
             return false;
         }
         return true;
+    }
+
+    bool is_complete() {
+        return filebuf.len == st.st_size;
     }
 
     void resize_buf(int filesize) {
