@@ -182,6 +182,7 @@ public:
     void DumpHeaders(std::string& str);
     // structured content -> body
     void DumpBody();
+    void DumpBody(std::string& str);
     // body -> structured content
     // @retval 0:succeed
     int  ParseBody();

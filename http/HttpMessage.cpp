@@ -258,6 +258,15 @@ void HttpMessage::DumpBody() {
 #endif
 }
 
+void HttpMessage::DumpBody(std::string& str) {
+    DumpBody();
+    const char* content = (const char*)Content();
+    int content_length = ContentLength();
+    if (content && content_length) {
+        str.append(content, content_length);
+    }
+}
+
 int HttpMessage::ParseBody() {
     if (body.size() == 0) {
         return -1;
@@ -306,10 +315,7 @@ std::string HttpMessage::Dump(bool is_dump_headers, bool is_dump_body) {
     }
     str += "\r\n";
     if (is_dump_body) {
-        DumpBody();
-        if (ContentLength() != 0) {
-            str.insert(str.size(), (const char*)Content(), ContentLength());
-        }
+        DumpBody(str);
     }
     return str;
 }
@@ -408,10 +414,7 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     }
     str += "\r\n";
     if (is_dump_body) {
-        DumpBody();
-        if (ContentLength() != 0) {
-            str.insert(str.size(), (const char*)Content(), ContentLength());
-        }
+        DumpBody(str);
     }
     return str;
 }
@@ -428,10 +431,7 @@ std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
     }
     str += "\r\n";
     if (is_dump_body) {
-        DumpBody();
-        if (ContentLength() != 0) {
-            str.insert(str.size(), (const char*)Content(), ContentLength());
-        }
+        DumpBody(str);
     }
     return str;
 }
