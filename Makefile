@@ -33,7 +33,7 @@ endif
 default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
-	nc nmap httpd curl \
+	nc nmap httpd curl wget \
 	udp_echo_server \
 	tcp_echo_server \
 	tcp_chat_server \
@@ -102,6 +102,9 @@ curl: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/client" SRCS="examples/curl.cpp"
 	# $(MAKEF) TARGET=$@ SRCDIRS=". base utils event http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes DEFINES="CURL_STATICLIB"
 
+wget: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/client" SRCS="examples/wget.cpp"
+
 http_server_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base utils event evpp http http/server" SRCS="examples/http_server_test.cpp"
 
@@ -161,4 +164,4 @@ echo-servers:
 	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo     echo-servers/poco_echo.cpp   -lPocoNet -lPocoUtil -lPocoFoundation
 	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo    echo-servers/muduo_echo.cpp  -lmuduo_net -lmuduo_base -lpthread
 
-.PHONY: clean prepare libhv install examples nc nmap httpd curl consul_cli unittest evpp webbench echo-servers
+.PHONY: clean prepare libhv install examples nc nmap httpd curl wget consul_cli unittest evpp webbench echo-servers

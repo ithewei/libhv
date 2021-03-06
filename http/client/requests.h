@@ -42,13 +42,13 @@ static http_headers DefaultHeaders;
 static http_body    NoBody;
 
 Response request(Request req) {
-    Response resp = Response(new HttpResponse);
+    Response resp(new HttpResponse);
     int ret = http_client_send(req.get(), resp.get());
     return ret ? NULL : resp;
 }
 
 Response request(http_method method, const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {
-    Request req = Request(new HttpRequest);
+    Request req(new HttpRequest);
     req->method = method;
     req->url = url;
     if (&body != &NoBody) {

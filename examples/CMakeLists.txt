@@ -75,6 +75,10 @@ if(WITH_HTTP_CLIENT)
     endif()
     target_link_libraries(${CURL_TARGET_NAME} hv)
 
+    # wget
+    add_executable(wget wget.cpp)
+    target_link_libraries(wget hv)
+
     # http_client_test
     add_executable(http_client_test http_client_test.cpp)
     target_link_libraries(http_client_test hv)
@@ -83,7 +87,7 @@ if(WITH_HTTP_CLIENT)
     add_executable(websocket_client_test websocket_client_test.cpp)
     target_link_libraries(websocket_client_test hv)
 
-    list(APPEND EXAMPLES ${CURL_TARGET_NAME} http_client_test websocket_client_test)
+    list(APPEND EXAMPLES ${CURL_TARGET_NAME} wget http_client_test websocket_client_test)
 endif()
 
 if(WITH_CONSUL)

@@ -15,23 +15,25 @@
 #include <getopt.h>
 #endif
 
-static int  http_version = 1;
-static int  grpc         = 0;
-static bool verbose = false;
-static const char* url = NULL;
-static const char* method = NULL;
-static const char* headers = NULL;
-static const char* data = NULL;
-static const char* form = NULL;
-static int  send_count   = 1;
+static int  http_version    = 1;
+static int  grpc            = 0;
+static bool verbose         = false;
+static const char* url      = NULL;
+static const char* method   = NULL;
+static const char* headers  = NULL;
+static const char* range    = NULL;
+static const char* data     = NULL;
+static const char* form     = NULL;
+static int send_count       = 1;
 
-static const char* options = "hVvX:H:d:F:n:";
+static const char* options = "hVvX:H:r:d:F:n:";
 static const struct option long_options[] = {
     {"help",    no_argument,        NULL,   'h'},
     {"verion",  no_argument,        NULL,   'V'},
     {"verbose", no_argument,        NULL,   'v'},
     {"method",  required_argument,  NULL,   'X'},
     {"header",  required_argument,  NULL,   'H'},
+    {"range",   required_argument,  NULL,   'r'},
     {"data",    required_argument,  NULL,   'd'},
     {"form",    required_argument,  NULL,   'F'},
     {"http2",   no_argument,        &http_version, 2},
@@ -45,6 +47,7 @@ static const char* help = R"(Options:
     -v|--verbose        Show verbose infomation.
     -X|--method         Set http method.
     -H|--header         Add http headers, -H "Content-Type:application/json Accept:*/*"
+    -r|--range          Add http header Range: bytes=0-1023
     -d|--data           Set http body.
     -F|--form           Set http form, -F "name1=content;name2=@filename"
     -n|--count          Send request count, used for test keep-alive
@@ -52,12 +55,14 @@ static const char* help = R"(Options:
        --grpc           Use grpc over http2
 Examples:
     curl -v localhost:8080
-    curl -v localhost:8080/v1/api/hello
-    curl -v localhost:8080/v1/api/query?page_no=1&page_size=10
-    curl -v localhost:8080/v1/api/echo  -d 'hello,world!'
-    curl -v localhost:8080/v1/api/kv    -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
-    curl -v localhost:8080/v1/api/json  -H "Content-Type:application/json"                  -d '{"user":"admin","pswd":"123456"}'
-    curl -v localhost:8080/v1/api/form  -F 'file=@filename'
+    curl -v localhost:8080 -X HEAD
+    curl -v localhost:8080 -r 0-9
+    curl -v localhost:8080/ping
+    curl -v localhost:8080/query?page_no=1&page_size=10
+    curl -v localhost:8080/echo  -d 'hello,world!'
+    curl -v localhost:8080/kv    -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
+    curl -v localhost:8080/json  -H "Content-Type:application/json"                  -d '{"user":"admin","pswd":"123456"}'
+    curl -v localhost:8080/form  -F 'file=@filename'
 )";
 
 void print_usage() {
@@ -77,13 +82,14 @@ int parse_cmdline(int argc, char* argv[]) {
     int opt_idx;
     while ((opt = getopt_long(argc, argv, options, long_options, &opt_idx)) != EOF) {
         switch(opt) {
-        case 'h': print_help(); exit(0);
-        case 'V': print_version(); exit(0);
-        case 'v': verbose = true; break;
-        case 'X': method = optarg; break;
+        case 'h': print_help();     exit(0);
+        case 'V': print_version();  exit(0);
+        case 'v': verbose = true;   break;
+        case 'X': method = optarg;  break;
         case 'H': headers = optarg; break;
-        case 'd': data = optarg; break;
-        case 'F': form = optarg; break;
+        case 'r': range = optarg;   break;
+        case 'd': data = optarg;    break;
+        case 'F': form = optarg;    break;
         case 'n': send_count = atoi(optarg); break;
         default: break;
         }
@@ -154,6 +160,9 @@ int main(int argc, char* argv[]) {
             req.headers[std::string(key,key_len)] = std::string(value,value_len);
             key_len = value_len = 0;
         }
+    }
+    if (range) {
+        req.headers["Range"] = std::string("bytes=").append(range);
     }
     if (data || form) {
         if (method == NULL) {

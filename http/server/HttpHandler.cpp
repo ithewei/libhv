@@ -137,6 +137,9 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
                 if (fc) {
                     res.headers["Accept-Ranges"] = "bytes";
                     res.headers["Content-Length"] = hv::to_string(fc->st.st_size);
+                } else {
+                    res.headers["Content-Type"] = "text/html";
+                    res.headers["Content-Length"] = "0";
                 }
                 state = SEND_DONE;
                 goto return_nobody;
