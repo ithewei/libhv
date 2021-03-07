@@ -1,9 +1,7 @@
 [![Build Status](https://travis-ci.org/ithewei/libhv.svg?branch=master)](https://travis-ci.org/ithewei/libhv)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20Mac-blue)](.travis.yml)
 
-[English version](README.md)
-
-## 简介
+## 简介 [English version](README.md)
 
 `libhv`是一个类似于`libevent、libev、libuv`的跨平台网络库，提供了更简单的接口和更丰富的协议。
 
@@ -17,6 +15,37 @@
 - HTTP文件服务、目录服务、API服务（支持RESTful）
 - WebSocket服务端/客户端
 
+## 构建
+
+见[BUILD.md](BUILD.md)
+
+libhv提供了以下构建方式:
+
+1、通过Makefile:
+```shell
+./configure
+make
+sudo make install
+```
+
+2、通过cmake:
+```shell
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
+3、通过vcpkg:
+```shell
+vcpkg install libhv
+```
+
+4、通过xmake:
+```shell
+xrepo install libhv
+```
+
 ## 入门与体验
 
 运行`./getting_started.sh`:
@@ -24,14 +53,14 @@
 ```shell
 git clone https://github.com/ithewei/libhv.git
 cd libhv
-make httpd curl
+make
 
 bin/httpd -h
 bin/httpd -d
 #bin/httpd -c etc/httpd.conf -s restart -d
 ps aux | grep httpd
 
-# http web service
+# http file service
 bin/curl -v localhost:8080
 
 # http indexof service
@@ -129,32 +158,6 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
-
-## 构建
-
-见[BUILD.md](BUILD.md)
-
-libhv提供了三种构建方式:
-
-1、通过Makefile:
-```shell
-./configure
-make
-sudo make install
-```
-
-2、通过cmake:
-```shell
-mkdir build
-cd build
-cmake ..
-cmake --build .
-```
-
-3、通过vcpkg:
-```shell
-vcpkg install libhv
-```
 
 ## 示例
 

@@ -1,9 +1,7 @@
 [![Build Status](https://travis-ci.org/ithewei/libhv.svg?branch=master)](https://travis-ci.org/ithewei/libhv)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20Mac-blue)](.travis.yml)
 
-[中文版](readme_cn.md)
-
-## Intro
+## Intro [中文版](readme_cn.md)
 
 Like `libevent, libev, and libuv`,
 `libhv` provides event-loop with non-blocking IO and timer,
@@ -19,6 +17,35 @@ but simpler api and richer protocols.
 - HTTP file service, indexof service, api service (support RESTful)
 - WebSocket client/server
 
+## Build
+
+see [BUILD.md](BUILD.md)
+
+Makefile:
+```shell
+./configure
+make
+sudo make install
+```
+
+or cmake:
+```shell
+mkdir build
+cd build
+cmake ..
+cmake --build .
+```
+
+or vcpkg:
+```shell
+vcpkg install libhv
+```
+
+or xmake:
+```shell
+xrepo install libhv
+```
+
 ## Getting Started
 
 run `./getting_started.sh`:
@@ -26,14 +53,14 @@ run `./getting_started.sh`:
 ```shell
 git clone https://github.com/ithewei/libhv.git
 cd libhv
-make httpd curl
+make
 
 bin/httpd -h
 bin/httpd -d
 #bin/httpd -c etc/httpd.conf -s restart -d
 ps aux | grep httpd
 
-# http web service
+# http file service
 bin/curl -v localhost:8080
 
 # http indexof service
@@ -131,30 +158,6 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
-
-## BUILD
-
-see [BUILD.md](BUILD.md)
-
-Makefile:
-```shell
-./configure
-make
-sudo make install
-```
-
-or cmake:
-```shell
-mkdir build
-cd build
-cmake ..
-cmake --build .
-```
-
-or vcpkg:
-```shell
-vcpkg install libhv
-```
 
 ## Examples
 ### c version

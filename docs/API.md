@@ -181,10 +181,10 @@
 - honce_t
 - HONCE_INIT
 - honce
-- `hv::MutexLock`
-- `hv::SpinLock`
-- `hv::RWLock`
-- `hv::LockGuard`
+- class `hv::MutexLock`
+- class `hv::SpinLock`
+- class `hv::RWLock`
+- class `hv::LockGuard`
 - synchronized
 
 ### hsocket.h
@@ -244,14 +244,9 @@
 ### hbuf.h
 - hbuf_t
 - offset_buf_t
-- HBuf
-- HVLBuf
-- HRingBuf
-
-### hgui.h
-- HPoint
-- HSize
-- HRect
+- class HBuf
+- class HVLBuf
+- class HRingBuf
 
 ### hstring.h
 - asprintf
@@ -281,12 +276,12 @@
 
 ### hscope.h
 - defer
-- ScopeCleanup
-- ScopeFree
-- ScopeDelete
-- ScopeDeleteArray
-- ScopeRelease
-- ScopeLock
+- template ScopeCleanup
+- template ScopeFree
+- template ScopeDelete
+- template ScopeDeleteArray
+- template ScopeRelease
+- template ScopeLock
 
 ### ifconfig.h
 - ifconfig
@@ -397,6 +392,18 @@
 - segment_discover
 - host_discover
 
+## evpp
+- class Buffer
+- class Channel
+- class Event
+- class EventLoop
+- class EventLoopThread
+- class EventLoopThreadPool
+- class TcpClient
+- class TcpServer
+- class UdpClient
+- class UdpServer
+
 ## protocol
 
 ### dns.h
@@ -431,11 +438,11 @@
 - ping
 
 ## http
-- HttpMessage
-- HttpRequest
-- HttpResponse
-- HttpParser
-- HttpService
+- class HttpMessage
+- class HttpRequest
+- class HttpResponse
+- class HttpParser
+- class HttpService
 
 ### httpdef.h
 - http_content_type_enum
@@ -474,8 +481,14 @@
 - http_server_run
 - http_server_stop
 
+### WebSocketClient.h
+- class WebSocketClient
+
+### WebSocketServer.h
+- websocket_server_run
+- websocket_server_stop
+
 ## other
-- HThread
-- HThreadPool
-- HObjectPool
-- ThreadLocalStorage
+- class HThreadPool
+- class HObjectPool
+- class ThreadLocalStorage
