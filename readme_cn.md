@@ -8,7 +8,7 @@
 ## 特征
 
 - 跨平台（Linux, Windows, Mac, Solaris）
-- 事件循环（IO, timer, idle）
+- 高性能事件循环（网络IO事件、定时器事件、空闲事件）
 - TCP/UDP服务端/客户端
 - SSL/TLS加密通信（WITH_OPENSSL or WITH_MBEDTLS）
 - HTTP服务端/客户端（https http1/x http2 grpc）
@@ -48,25 +48,27 @@ xrepo install libhv
 
 ## 入门与体验
 
-运行`./getting_started.sh`:
+运行脚本`./getting_started.sh`:
 
 ```shell
+# 下载编译
 git clone https://github.com/ithewei/libhv.git
 cd libhv
 make
 
+# 运行httpd服务
 bin/httpd -h
 bin/httpd -d
 #bin/httpd -c etc/httpd.conf -s restart -d
 ps aux | grep httpd
 
-# http file service
+# 文件服务
 bin/curl -v localhost:8080
 
-# http indexof service
+# 目录服务
 bin/curl -v localhost:8080/downloads/
 
-# http api service
+# API服务
 bin/curl -v localhost:8080/ping
 bin/curl -v localhost:8080/echo -d "hello,world!"
 bin/curl -v localhost:8080/query?page_no=1\&page_size=10
@@ -161,7 +163,7 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 
 ## 示例
 
-#### c版本
+### c版本
 - 事件循环: [examples/hloop_test.c](examples/hloop_test.c)
 - TCP回显服务:  [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
 - TCP聊天服务:  [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
@@ -169,7 +171,7 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - TCP/UDP客户端: [examples/nc.c](examples/nc.c)
 
-#### c++版本
+### c++版本
 - 事件循环: [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
 - 事件循环线程: [evpp/EventLoopThread_test.cpp](evpp/EventLoopThread_test.cpp)
 - 事件循环线程池: [evpp/EventLoopThreadPool_test.cpp](evpp/EventLoopThreadPool_test.cpp)
