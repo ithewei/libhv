@@ -67,14 +67,15 @@ int main(int argc, char** argv) {
     // [from, to]
     long from, to;
     from = 0;
+    http_client_t* cli = http_client_new();
     while (from < content_length) {
         to = from + range_bytes - 1;
         if (to >= content_length) to = content_length - 1;
         // Range: bytes=from-to
         req->SetRange(from, to);
         printf("%s\n", req->Dump(true, true).c_str());
-        resp = requests::request(req);
-        if (resp == NULL) {
+        int ret = http_client_send(cli, req.get(), resp.get());
+        if (ret != 0) {
             fprintf(stderr, "request failed!\n");
             return -1;
         }
@@ -82,6 +83,7 @@ int main(int argc, char** argv) {
         file.write(resp->body.data(), resp->body.size());
         from = to + 1;
     }
+    http_client_del(cli);
 
     return 0;
 }
