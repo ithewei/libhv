@@ -34,9 +34,9 @@ public:
         close();
     }
 
-    hio_t* io() { return io_; }
-    int fd() { return fd_; }
-    int id() { return id_; }
+    hio_t*      io() { return io_; }
+    int         fd() { return fd_; }
+    uint32_t    id() { return id_; }
     int error() { return hio_error(io_); }
 
     // context

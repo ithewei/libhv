@@ -17,7 +17,6 @@ public:
         listenfd = -1;
         tls = false;
         max_connections = 0xFFFFFFFF;
-        connection_num = 0;
     }
 
     virtual ~TcpServer() {
@@ -73,32 +72,31 @@ public:
     const SocketChannelPtr& addChannel(hio_t* io) {
         std::lock_guard<std::mutex> locker(mutex_);
         int fd = hio_fd(io);
-        if (fd >= channels.capacity()) {
-            channels.resize(2 * fd);
-        }
-        channels[fd].reset(new SocketChannel(io));
+        channels[fd] = SocketChannelPtr(new SocketChannel(io));
         return channels[fd];
     }
 
     void removeChannel(const SocketChannelPtr& channel) {
         std::lock_guard<std::mutex> locker(mutex_);
         int fd = channel->fd();
-        if (fd < channels.capacity()) {
-            channels[fd] = NULL;
-        }
+        channels.erase(fd);
+    }
+
+    size_t connectionNum() {
+        std::lock_guard<std::mutex> locker(mutex_);
+        return channels.size();
     }
 
 private:
     static void onAccept(hio_t* connio) {
         TcpServer* server = (TcpServer*)hevent_userdata(connio);
-        if (server->connection_num >= server->max_connections) {
+        if (server->connectionNum() >= server->max_connections) {
             hlogw("over max_connections");
             hio_close(connio);
             return;
         }
         const SocketChannelPtr& channel = server->addChannel(connio);
         channel->status = SocketChannel::CONNECTED;
-        ++server->connection_num;
 
         channel->onread = [server, &channel](Buffer* buf) {
             if (server->onMessage) {
@@ -116,7 +114,8 @@ private:
                 server->onConnection(channel);
             }
             server->removeChannel(channel);
-            --server->connection_num;
+            // NOTE: After removeChannel, channel may be destroyed,
+            // so in this lambda function, no code should be added below.
         };
 
         channel->startRead();
@@ -134,12 +133,11 @@ public:
     WriteCompleteCallback   onWriteComplete;
 
     uint32_t                max_connections;
-    std::atomic<uint32_t>   connection_num;
 
 private:
     EventLoopThreadPool     loop_threads;
-    // with fd as index
-    std::vector<SocketChannelPtr>   channels; // GUAREDE_BY(mutex_)
+    // fd => SocketChannelPtr
+    std::map<int, SocketChannelPtr> channels; // GUAREDE_BY(mutex_)
     std::mutex                      mutex_;
 };
 

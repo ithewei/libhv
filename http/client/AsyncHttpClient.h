@@ -137,9 +137,6 @@ protected:
         SocketChannelPtr channel(new SocketChannel(io));
         channel->newContext<HttpClientContext>();
         int fd = channel->fd();
-        if (fd >= channels.capacity()) {
-            channels.resize(2 * fd);
-        }
         channels[fd] = channel;
         return channels[fd];
     }
@@ -147,16 +144,14 @@ protected:
     void removeChannel(const SocketChannelPtr& channel) {
         channel->deleteContext<HttpClientContext>();
         int fd = channel->fd();
-        if (fd < channels.capacity()) {
-            channels[fd] = NULL;
-        }
+        channels.erase(fd);
     }
 
 private:
     EventLoopThread                         loop_thread;
     // NOTE: just one loop thread, no need mutex.
-    // with fd as index
-    std::vector<SocketChannelPtr>           channels;
+    // fd => SocketChannelPtr
+    std::map<int, SocketChannelPtr>         channels;
     // peeraddr => ConnPool
     std::map<std::string, ConnPool<int>>    conn_pools;
 };
