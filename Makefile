@@ -156,12 +156,13 @@ webbench: prepare
 	$(CC) -o bin/webbench unittest/webbench.c
 
 echo-servers:
-	$(CC)  -g -Wall -std=c99   -o bin/libevent_echo echo-servers/libevent_echo.c -levent
-	$(CC)  -g -Wall -std=c99   -o bin/libev_echo    echo-servers/libev_echo.c    -lev
-	$(CC)  -g -Wall -std=c99   -o bin/libuv_echo    echo-servers/libuv_echo.c    -luv
-	$(CC)  -g -Wall -std=c99   -o bin/libhv_echo    echo-servers/libhv_echo.c    -lhv
-	$(CXX) -g -Wall -std=c++11 -o bin/asio_echo     echo-servers/asio_echo.cpp   -lboost_system -pthread
-	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo     echo-servers/poco_echo.cpp   -lPocoNet -lPocoUtil -lPocoFoundation
-	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo    echo-servers/muduo_echo.cpp  -lmuduo_net -lmuduo_base -lpthread
+	$(CXX) -g -Wall -std=c++11 -o bin/pingpong_client echo-servers/pingpong_client.cpp -lhv -lpthread
+	$(CC)  -g -Wall -std=c99   -o bin/libevent_echo   echo-servers/libevent_echo.c     -levent
+	$(CC)  -g -Wall -std=c99   -o bin/libev_echo      echo-servers/libev_echo.c        -lev
+	$(CC)  -g -Wall -std=c99   -o bin/libuv_echo      echo-servers/libuv_echo.c        -luv
+	$(CC)  -g -Wall -std=c99   -o bin/libhv_echo      echo-servers/libhv_echo.c        -lhv
+	$(CXX) -g -Wall -std=c++11 -o bin/asio_echo       echo-servers/asio_echo.cpp       -lboost_system -lpthread
+	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo       echo-servers/poco_echo.cpp       -lPocoNet -lPocoUtil -lPocoFoundation
+#	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo      echo-servers/muduo_echo.cpp      -lmuduo_net -lmuduo_base -lpthread
 
 .PHONY: clean prepare libhv install examples nc nmap httpd curl wget consul_cli unittest evpp webbench echo-servers

@@ -2,7 +2,6 @@
 
 host=127.0.0.1
 port=2000
-# client: fork numbers
 client=2
 time=10
 
@@ -79,7 +78,8 @@ sleep 1
 
 for ((p=$sport+1; p<=$port; ++p)); do
     echo -e "\n==============$p====================================="
-    bin/webbench -q -c $client -t $time $host:$p
+    # bin/webbench -q -c $client -t $time $host:$p
+    bin/pingpong_client -H $host -p $p
     sleep 1
 done
 
