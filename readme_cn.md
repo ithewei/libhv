@@ -191,8 +191,45 @@ cd echo-servers
 ./benchmark.sh
 ```
 
-**echo-servers/benchmark**<br>
-![echo-servers](html/downloads/echo-servers.png)
+吞吐量:
+```shell
+libevent running on port 2001
+libev running on port 2002
+libuv running on port 2003
+libhv running on port 2004
+asio running on port 2005
+poco running on port 2006
+
+==============2001=====================================
+[127.0.0.1:2001] 4 threads 1000 connections run 10s
+total readcount=1616761 readbytes=1655563264
+throughput = 157 MB/s
+
+==============2002=====================================
+[127.0.0.1:2002] 4 threads 1000 connections run 10s
+total readcount=2153171 readbytes=2204847104
+throughput = 210 MB/s
+
+==============2003=====================================
+[127.0.0.1:2003] 4 threads 1000 connections run 10s
+total readcount=1599727 readbytes=1638120448
+throughput = 156 MB/s
+
+==============2004=====================================
+[127.0.0.1:2004] 4 threads 1000 connections run 10s
+total readcount=2202271 readbytes=2255125504
+throughput = 215 MB/s
+
+==============2005=====================================
+[127.0.0.1:2005] 4 threads 1000 connections run 10s
+total readcount=1354230 readbytes=1386731520
+throughput = 132 MB/s
+
+==============2006=====================================
+[127.0.0.1:2006] 4 threads 1000 connections run 10s
+total readcount=1699652 readbytes=1740443648
+throughput = 165 MB/s
+```
 
 ## 学习资料
 

@@ -14,7 +14,7 @@ static const char detail_options[] = R"(
   -t <threads>      default 4
   -c <connections>  default 1000
   -s <seconds>      default 10
-  -b <bytes>        send buffer size, default 8192
+  -b <bytes>        send buffer size, default 1024
 )";
 
 static const char* host = "127.0.0.1";
