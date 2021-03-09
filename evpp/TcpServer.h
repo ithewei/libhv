@@ -108,9 +108,9 @@ private:
                 server->onWriteComplete(channel, buf);
             }
         };
-        channel->onclose = [server, &channel]() {
+        channel->onclose = [server, &channel](Channel::Status last_status) {
             channel->status = SocketChannel::CLOSED;
-            if (server->onConnection) {
+            if (last_status==SocketChannel::CONNECTED && server->onConnection) {
                 server->onConnection(channel);
             }
             server->removeChannel(channel);

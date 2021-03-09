@@ -115,7 +115,7 @@ public:
     } status;
     std::function<void(Buffer*)> onread;
     std::function<void(Buffer*)> onwrite;
-    std::function<void()>        onclose;
+    std::function<void(Status status)> onclose;
 
 private:
     static void on_read(hio_t* io, void* data, int readbytes) {
@@ -137,9 +137,10 @@ private:
     static void on_close(hio_t* io) {
         Channel* channel = (Channel*)hio_context(io);
         if (channel) {
+            Status status = channel->status;
             channel->status = CLOSED;
             if (channel->onclose) {
-                channel->onclose();
+                channel->onclose(status);
             }
         }
     }

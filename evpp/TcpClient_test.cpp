@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
         return -20;
     }
     printf("client connect to port %d, connfd=%d ...\n", port, connfd);
-    cli.onConnection = [](const SocketChannelPtr& channel) {
+    cli.onConnection = [](const SocketChannelPtr& channel, Channel::Status last_status) {
         std::string peeraddr = channel->peeraddr();
         if (channel->isConnected()) {
             printf("connected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
@@ -40,8 +40,10 @@ int main(int argc, char* argv[]) {
                     killTimer(timerID);
                 }
             });
-        } else {
+        } else if ( Channel::CONNECTED == last_status) {
             printf("disconnected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
+        } else {
+            printf("reconnect to %s failed! connfd=%d\n", peeraddr.c_str(), channel->fd());
         }
     };
     cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {

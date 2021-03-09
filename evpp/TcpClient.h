@@ -93,7 +93,7 @@ public:
         channel->onconnect = [this]() {
             channel->startRead();
             if (onConnection) {
-                onConnection(channel);
+                onConnection(channel, Channel::CONNECTING);
             }
         };
         channel->onread = [this](Buffer* buf) {
@@ -106,11 +106,11 @@ public:
                 onWriteComplete(channel, buf);
             }
         };
-        channel->onclose = [this]() {
+        channel->onclose = [this](Channel::Status last_status) {
             if (onConnection) {
-                onConnection(channel);
+                onConnection(channel, last_status);
             }
-            channel = NULL;
+            // channel = NULL;  // 对channel的清空操作，会导致enable_reconnect失效
             // reconnect
             if (enable_reconnect) {
                 startReconnect();
@@ -181,9 +181,9 @@ public:
     ReconnectInfo           reconnect_info;
 
     // Callback
-    std::function<void(const TSocketChannelPtr&)>           onConnection;
-    std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
-    std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
+    std::function<void(const TSocketChannelPtr&, Channel::Status)> onConnection;
+    std::function<void(const TSocketChannelPtr&, Buffer*)>         onMessage;
+    std::function<void(const TSocketChannelPtr&, Buffer*)>         onWriteComplete;
 private:
     EventLoopThread         loop_thread;
 };
