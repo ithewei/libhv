@@ -172,6 +172,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
     // Upgrade:
     bool upgrade = false;
+    HttpHandler::ProtocolType upgrade_protocol = HttpHandler::UNKNOWN;
     auto iter_upgrade = req->headers.find("upgrade");
     if (iter_upgrade != req->headers.end()) {
         upgrade = true;
@@ -194,7 +195,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
                 ws_encode_key(iter_key->second.c_str(), ws_accept);
                 res->headers[SEC_WEBSOCKET_ACCEPT] = ws_accept;
             }
-            handler->protocol = HttpHandler::WEBSOCKET;
+            upgrade_protocol = HttpHandler::WEBSOCKET;
         }
         // h2/h2c
         else if (strnicmp(upgrade_proto, "h2", 2) == 0) {
@@ -227,6 +228,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     char* data = NULL;
     size_t len = 0;
     while (handler->GetSendData(&data, &len)) {
+        // printf("%.*s\n", (int)len, data);
         if (data && len) {
             hio_write(io, data, len);
         }
@@ -241,8 +243,9 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         res->status_code, res->status_message());
 
     // switch protocol to websocket
-    if (upgrade && handler->protocol == HttpHandler::WEBSOCKET) {
+    if (upgrade && upgrade_protocol == HttpHandler::WEBSOCKET) {
         WebSocketHandler* ws = handler->SwitchWebSocket();
+        handler->protocol = HttpHandler::WEBSOCKET;
         ws->channel.reset(new WebSocketChannel(io, WS_SERVER));
         ws->parser->onMessage = std::bind(websocket_onmessage, std::placeholders::_1, std::placeholders::_2, io);
         // NOTE: need to reset callbacks

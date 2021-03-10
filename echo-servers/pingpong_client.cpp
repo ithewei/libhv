@@ -5,7 +5,7 @@
 #include "hv/EventLoopThreadPool.h"
 using namespace hv;
 
-static const char options[] = "hH:p:c:t:s:";
+static const char options[] = "hH:p:t:c:s:b:";
 
 static const char detail_options[] = R"(
   -h                Print help

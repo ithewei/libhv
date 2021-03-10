@@ -110,10 +110,13 @@ public:
             if (onConnection) {
                 onConnection(channel);
             }
-            channel = NULL;
             // reconnect
             if (enable_reconnect) {
                 startReconnect();
+            } else {
+                channel = NULL;
+                // NOTE: channel should be destroyed,
+                // so in this lambda function, no code should be added below.
             }
         };
         return channel->startConnect();
