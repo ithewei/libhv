@@ -19,7 +19,7 @@ public:
 
     // isConnected, send, close
 
-    int send(const std::string& msg) {
+    int send(const std::string& msg, enum ws_opcode opcode DEFAULT(WS_OPCODE_TEXT)) {
         bool has_mask = false;
         char mask[4] = {0};
         if (type == WS_CLIENT) {
@@ -30,7 +30,7 @@ public:
         if (sendbuf.len < frame_size) {
             sendbuf.resize(ceil2e(frame_size));
         }
-        ws_build_frame(sendbuf.base, msg.c_str(), msg.size(), mask, has_mask);
+        ws_build_frame(sendbuf.base, msg.c_str(), msg.size(), mask, has_mask, opcode);
         Buffer buf(sendbuf.base, frame_size);
         return write(&buf);
     }
