@@ -2,8 +2,8 @@
  * websocket server
  *
  * @build   make examples
- * @server  bin/websocket_server_test 8888
- * @client  bin/websocket_client_test ws://127.0.0.1:8888/
+ * @server  bin/websocket_server_test 9999
+ * @client  bin/websocket_client_test ws://127.0.0.1:9999/
  * @js      html/websocket_client.html
  *
  */
