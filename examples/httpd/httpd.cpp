@@ -100,7 +100,7 @@ int parse_confile(const char* confile) {
     int worker_threads = ini.Get<int>("worker_threads");
     g_http_server.worker_threads = LIMIT(0, worker_threads, 16);
 
-    // port
+    // http_port
     int port = 0;
     const char* szPort = get_arg("p");
     if (szPort) {
@@ -110,12 +110,16 @@ int parse_confile(const char* confile) {
         port = ini.Get<int>("port");
     }
     if (port == 0) {
+        port = ini.Get<int>("http_port");
+    }
+    g_http_server.port = port;
+    // https_port
+    g_http_server.https_port = ini.Get<int>("https_port");
+    if (g_http_server.port == 0 && g_http_server.https_port == 0) {
         printf("Please config listen port!\n");
         exit(-10);
     }
-    g_http_server.port = port;
 
-    // http server
     // base_url
     str = ini.GetValue("base_url");
     if (str.size() != 0) {
@@ -142,9 +146,7 @@ int parse_confile(const char* confile) {
         g_http_service.index_of = str;
     }
     // ssl
-    str = ini.GetValue("ssl");
-    if (getboolean(str.c_str())) {
-        g_http_server.ssl = 1;
+    if (g_http_server.https_port > 0 && HV_WITH_SSL) {
         std::string crt_file = ini.GetValue("ssl_certificate");
         std::string key_file = ini.GetValue("ssl_privatekey");
         std::string ca_file = ini.GetValue("ssl_ca_certificate");

@@ -7,8 +7,8 @@
 struct WebSocketServerCallbacks;
 typedef struct http_server_s {
     char host[64];
-    int port;
-    int ssl;
+    int port; // http_port
+    int https_port;
     int http_version;
     int worker_processes;
     int worker_threads;
@@ -16,20 +16,22 @@ typedef struct http_server_s {
     WebSocketServerCallbacks* ws;
     void* userdata;
 //private:
-    int listenfd;
+    int listenfd[2]; // 0: http, 1: https
     void* privdata;
 
 #ifdef __cplusplus
     http_server_s() {
         strcpy(host, "0.0.0.0");
-        port = DEFAULT_HTTP_PORT;
-        ssl = 0;
+        // port = DEFAULT_HTTP_PORT;
+        // https_port = DEFAULT_HTTPS_PORT;
+        port = 8080;
+        https_port = 8443;
         http_version = 1;
         worker_processes = 0;
         worker_threads = 0;
         service = NULL;
         ws = NULL;
-        listenfd = -1;
+        listenfd[0] = listenfd[1] = -1;
         userdata = NULL;
         privdata = NULL;
     }

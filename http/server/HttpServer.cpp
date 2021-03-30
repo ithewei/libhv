@@ -312,13 +312,18 @@ static void on_accept(hio_t* io) {
 
 static void loop_thread(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
-    int listenfd = server->listenfd;
 
     EventLoopPtr loop(new EventLoop);
     hloop_t* hloop = loop->loop();
-    hio_t* listenio = haccept(hloop, listenfd, on_accept);
-    hevent_set_userdata(listenio, server);
-    if (server->ssl) {
+    // http
+    if (server->listenfd[0] >= 0) {
+        hio_t* listenio = haccept(hloop, server->listenfd[0], on_accept);
+        hevent_set_userdata(listenio, server);
+    }
+    // https
+    if (server->listenfd[1] >= 0) {
+        hio_t* listenio = haccept(hloop, server->listenfd[1], on_accept);
+        hevent_set_userdata(listenio, server);
         hio_enable_ssl(listenio);
     }
 
@@ -343,9 +348,16 @@ static void loop_thread(void* userdata) {
 }
 
 int http_server_run(http_server_t* server, int wait) {
-    // port
-    server->listenfd = Listen(server->port, server->host);
-    if (server->listenfd < 0) return server->listenfd;
+    // http_port
+    if (server->port > 0) {
+        server->listenfd[0] = Listen(server->port, server->host);
+        if (server->listenfd[0] < 0) return server->listenfd[0];
+    }
+    // https_port
+    if (server->https_port > 0 && hssl_ctx_instance() != NULL) {
+        server->listenfd[1] = Listen(server->https_port, server->host);
+        if (server->listenfd[1] < 0) return server->listenfd[1];
+    }
     // service
     if (server->service == NULL) {
         server->service = default_http_service();

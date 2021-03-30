@@ -4,6 +4,16 @@
 
 static hssl_ctx_t s_ssl_ctx = NULL;
 
+const char* hssl_backend() {
+#ifdef WITH_OPENSSL
+    return "openssl";
+#elif defined(WITH_MBEDTLS)
+    return "mbedtls";
+#else
+    return "null";
+#endif
+}
+
 hssl_ctx_t hssl_ctx_instance() {
     if (s_ssl_ctx == NULL) {
         s_ssl_ctx = hssl_ctx_init(NULL);

@@ -105,10 +105,9 @@ https is the best example.
 sudo apt install openssl libssl-dev # ubuntu
 make clean
 make WITH_OPENSSL=yes
-# editor etc/httpd.conf => ssl = on
 bin/httpd -s restart -d
-bin/curl -v https://localhost:8080
-curl -v https://localhost:8080 --insecure
+bin/curl -v https://localhost:8443
+curl -v https://localhost:8443 --insecure
 ```
 
 ### compile WITH_CURL

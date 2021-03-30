@@ -35,6 +35,16 @@ public:
 
     void handle_header() {
         if (header_field.size() != 0 && header_value.size() != 0) {
+#if 0
+            if (stricmp(header_field.c_str(), "Set-CooKie") == 0) {
+                // combine multiple Set-Cookie
+                std::string cookie = parsed->GetHeader("Set-Cookie");
+                if (!cookie.empty()) {
+                    header_value += "; ";
+                    header_value += cookie;
+                }
+            }
+#endif
             parsed->headers[header_field] = header_value;
             header_field.clear();
             header_value.clear();

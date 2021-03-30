@@ -22,6 +22,20 @@ typedef struct {
 
 BEGIN_EXTERN_C
 
+/*
+const char* hssl_backend() {
+#ifdef WITH_OPENSSL
+    return "openssl";
+#elif defined(WITH_MBEDTLS)
+    return "mbedtls";
+#else
+    return "null";
+#endif
+}
+*/
+HV_EXPORT const char* hssl_backend();
+#define HV_WITH_SSL (strcmp(hssl_backend(), "null") != 0)
+
 HV_EXPORT hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
 HV_EXPORT void hssl_ctx_cleanup(hssl_ctx_t ssl_ctx);
 HV_EXPORT hssl_ctx_t hssl_ctx_instance();
