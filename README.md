@@ -11,7 +11,7 @@ but simpler api and richer protocols.
 
 - Cross-platform (Linux, Windows, Mac, Solaris)
 - EventLoop (IO, timer, idle)
-- TCP/UDP client/server
+- TCP/UDP client/server/proxy
 - SSL/TLS support: WITH_OPENSSL or WITH_MBEDTLS
 - HTTP client/server (include https http1/x http2 grpc)
 - HTTP file service, indexof service, api service (support RESTful)
@@ -166,6 +166,7 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
 - [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - [examples/udp_echo_server.c](examples/udp_echo_server.c)
+- [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
 - [examples/nc.c](examples/nc.c)
 
 ### c++ version

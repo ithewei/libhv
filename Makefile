@@ -34,10 +34,11 @@ default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
 	nc nmap httpd curl wget \
-	udp_echo_server \
 	tcp_echo_server \
 	tcp_chat_server \
 	tcp_proxy_server \
+	udp_echo_server \
+	udp_proxy_server \
 	http_server_test http_client_test \
 	websocket_server_test \
 	websocket_client_test \
@@ -71,9 +72,6 @@ htimer_test: prepare
 hloop_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/hloop_test.c"
 
-udp_echo_server: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp_echo_server.c"
-
 tcp_echo_server: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp_echo_server.c"
 
@@ -82,6 +80,12 @@ tcp_chat_server: prepare
 
 tcp_proxy_server: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp_proxy_server.c"
+
+udp_echo_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp_echo_server.c"
+
+udp_proxy_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp_proxy_server.c"
 
 nc: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nc.c"

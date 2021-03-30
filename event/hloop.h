@@ -291,20 +291,51 @@ HV_EXPORT hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hr
 // hio_get -> hio_setcb_write -> hio_write
 HV_EXPORT hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 
-//----------------- top-level apis---------------------------------------------
+//-----------------top-level apis---------------------------------------------
+// Resolver -> socket -> hio_get
+HV_EXPORT hio_t* hio_create(hloop_t* loop, const char* host, int port, int type DEFAULT(SOCK_STREAM));
 // @tcp_server: socket -> bind -> listen -> haccept
-// @see examples/tcp.c
+// @see examples/tcp_echo_server.c
 HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
-// @tcp_client: resolver -> socket -> hio_get -> hio_set_peeraddr -> hconnect
+// @tcp_client: hio_create(loop, host, port, SOCK_STREAM) -> hconnect
 // @see examples/nc.c
 HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 
 // @udp_server: socket -> bind -> hio_get
-// @see examples/udp.c
+// @see examples/udp_echo_server.c
 HV_EXPORT hio_t* hloop_create_udp_server (hloop_t* loop, const char* host, int port);
-// @udp_client: resolver -> socket -> hio_get -> hio_set_peeraddr
+// @udp_client: hio_create(loop, host, port, SOCK_DGRAM)
 // @see examples/nc.c
 HV_EXPORT hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int port);
+
+//-----------------upstream---------------------------------------------
+// hio_read(io)
+// hio_read(io->upstream_io)
+HV_EXPORT void   hio_read_upstream(hio_t* io);
+// hio_write(io->upstream_io, buf, bytes)
+HV_EXPORT void   hio_write_upstream(hio_t* io, void* buf, int bytes);
+// hio_close(io->upstream_io)
+HV_EXPORT void   hio_close_upstream(hio_t* io);
+
+// io1->upstream_io = io2;
+// io2->upstream_io = io1;
+// hio_setcb_read(io1, hio_write_upstream);
+// hio_setcb_read(io2, hio_write_upstream);
+HV_EXPORT void   hio_setup_upstream(hio_t* io1, hio_t* io2);
+
+// @return io->upstream_io
+HV_EXPORT hio_t* hio_get_upstream(hio_t* io);
+
+// @tcp_upstream: hio_create -> hio_setup_upstream -> hio_setcb_close(hio_close_upstream) -> hconnect -> on_connect -> hio_read_upstream
+// @return upstream_io
+// @see examples/tcp_proxy_server
+HV_EXPORT hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, int ssl DEFAULT(0));
+#define hio_setup_ssl_upstream(io, host, port) hio_setup_tcp_upstream(io, host, port, 1)
+
+// @udp_upstream: hio_create -> hio_setup_upstream -> hio_read_upstream
+// @return upstream_io
+// @see examples/udp_proxy_server
+HV_EXPORT hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port);
 
 END_EXTERN_C
 

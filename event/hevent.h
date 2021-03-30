@@ -125,6 +125,8 @@ struct hio_s {
     int         heartbeat_interval; // ms
     hio_send_heartbeat_fn heartbeat_fn;
     htimer_t*   heartbeat_timer;
+    // upstream
+    struct hio_s*   upstream_io;
 // private:
     int         event_index[2]; // for poll,kqueue
     void*       hovlp;          // for iocp/overlapio

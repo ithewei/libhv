@@ -4,10 +4,11 @@ list(APPEND EXAMPLES
     htimer_test
     nc
     nmap
-    udp_echo_server
     tcp_echo_server
     tcp_chat_server
     tcp_proxy_server
+    udp_echo_server
+    udp_proxy_server
 )
 
 include_directories(.. ../base ../utils ../event ../evpp)
@@ -28,9 +29,6 @@ add_executable(nmap nmap.cpp)
 target_compile_definitions(nmap PRIVATE -DPRINT_DEBUG)
 target_link_libraries(nmap hv)
 
-add_executable(udp_echo_server udp_echo_server.c)
-target_link_libraries(udp_echo_server hv)
-
 add_executable(tcp_echo_server tcp_echo_server.c)
 target_link_libraries(tcp_echo_server hv)
 
@@ -39,6 +37,12 @@ target_link_libraries(tcp_chat_server hv)
 
 add_executable(tcp_proxy_server tcp_proxy_server.c)
 target_link_libraries(tcp_proxy_server hv)
+
+add_executable(udp_echo_server udp_echo_server.c)
+target_link_libraries(udp_echo_server hv)
+
+add_executable(udp_proxy_server udp_proxy_server.c)
+target_link_libraries(udp_proxy_server hv)
 
 if(WITH_HTTP)
     include_directories(../http)
