@@ -38,6 +38,8 @@ static int hloop_process_idles(hloop_t* loop) {
             --idle->repeat;
         }
         if (idle->repeat == 0) {
+            // NOTE: Just mark it as destroy and remove from list.
+            // Real deletion occurs after hloop_process_pendings.
             __hidle_del(idle);
         }
         EVENT_PENDING(idle);
@@ -51,6 +53,7 @@ static int hloop_process_timers(hloop_t* loop) {
     htimer_t* timer = NULL;
     uint64_t now_hrtime = hloop_now_hrtime(loop);
     while (loop->timers.root) {
+        // NOTE: root of minheap has min timeout.
         timer = TIMER_ENTRY(loop->timers.root);
         if (timer->next_timeout > now_hrtime) {
             break;
@@ -59,9 +62,12 @@ static int hloop_process_timers(hloop_t* loop) {
             --timer->repeat;
         }
         if (timer->repeat == 0) {
+            // NOTE: Just mark it as destroy and remove from heap.
+            // Real deletion occurs after hloop_process_pendings.
             __htimer_del(timer);
         }
         else {
+            // NOTE: calc next timeout, then re-insert heap.
             heap_dequeue(&loop->timers);
             if (timer->event_type == HEVENT_TYPE_TIMEOUT) {
                 while (timer->next_timeout <= now_hrtime) {
@@ -82,6 +88,7 @@ static int hloop_process_timers(hloop_t* loop) {
 }
 
 static int hloop_process_ios(hloop_t* loop, int timeout) {
+    // That is to call IO multiplexing function such as select, poll, epoll, etc.
     int nevents = iowatcher_poll_events(loop, timeout);
     if (nevents < 0) {
         hloge("poll_events error=%d", -nevents);
@@ -95,6 +102,7 @@ static int hloop_process_pendings(hloop_t* loop) {
     hevent_t* cur = NULL;
     hevent_t* next = NULL;
     int ncbs = 0;
+    // NOTE: invoke event callback from high to low sorted by priority.
     for (int i = HEVENT_PRIORITY_SIZE-1; i >= 0; --i) {
         cur = loop->pendings[i];
         while (cur) {
@@ -105,6 +113,7 @@ static int hloop_process_pendings(hloop_t* loop) {
                     ++ncbs;
                 }
                 cur->pending = 0;
+                // NOTE: Now we can safely delete event marked as destroy.
                 if (cur->destroy) {
                     EVENT_DEL(cur);
                 }
@@ -117,6 +126,7 @@ static int hloop_process_pendings(hloop_t* loop) {
     return ncbs;
 }
 
+// hloop_process_ios -> hloop_process_timers -> hloop_process_idles -> hloop_process_pendings
 static int hloop_process_events(hloop_t* loop) {
     // ios -> timers -> idles
     int nios, ntimers, nidles;
@@ -345,6 +355,7 @@ void hloop_free(hloop_t** pp) {
     }
 }
 
+// while(loop->status) { hloop_process_events(loop); }
 int hloop_run(hloop_t* loop) {
     loop->pid = hv_getpid();
     loop->tid = hv_gettid();
