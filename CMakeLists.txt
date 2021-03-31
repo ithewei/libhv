@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(hv VERSION 1.0.1)
+project(hv VERSION 1.1.0)
 
 option(BUILD_SHARED "build shared library" ON)
 option(BUILD_STATIC "build static library" ON)
