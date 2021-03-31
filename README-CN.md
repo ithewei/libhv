@@ -1,11 +1,14 @@
+[English](README.md) | 中文
+
+# libhv
+
+[![Latest Version](https://img.shields.io/github/release/ithewei/libhv.svg)](https://github.com/ithewei/libhv/releases)
 [![Build Status](https://travis-ci.org/ithewei/libhv.svg?branch=master)](https://travis-ci.org/ithewei/libhv)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20Mac-blue)](.travis.yml)
 
-## 简介 [English version](README.md)
-
 `libhv`是一个类似于`libevent、libev、libuv`的跨平台网络库，提供了更简单的接口和更丰富的协议。
 
-## 特征
+## ✨ 特征
 
 - 跨平台（Linux, Windows, Mac, Solaris）
 - 高性能事件循环（网络IO事件、定时器事件、空闲事件）
@@ -15,7 +18,7 @@
 - HTTP文件服务、目录服务、API服务（支持RESTful）
 - WebSocket服务端/客户端
 
-## 构建
+## ⌛️ 构建
 
 见[BUILD.md](BUILD.md)
 
@@ -46,7 +49,7 @@ vcpkg install libhv
 xrepo install libhv
 ```
 
-## 入门与体验
+## ⚡️ 入门与体验
 
 运行脚本`./getting_started.sh`:
 
@@ -144,7 +147,7 @@ int main() {
 }
 ```
 
-#### 压力测试
+#### HTTP压测
 ```shell
 # webbench (linux only)
 make webbench
@@ -161,7 +164,7 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
-## 示例
+## 🍭 示例
 
 ### c版本
 - 事件循环: [examples/hloop_test.c](examples/hloop_test.c)
@@ -185,14 +188,14 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 
-## 网络库比对
+## 🥇 性能测试
 ```shell
 cd echo-servers
 ./build.sh
 ./benchmark.sh
 ```
 
-吞吐量:
+**吞吐量**:
 ```shell
 libevent running on port 2001
 libev running on port 2002
@@ -232,7 +235,7 @@ total readcount=1699652 readbytes=1740443648
 throughput = 165 MB/s
 ```
 
-## 学习资料
+## 📚 中文资料
 
-- libhv 教程: <https://hewei.blog.csdn.net/article/details/113733758>
-- libhv QQ群`739352073`，欢迎加群讨论
+- **libhv 教程**: <https://hewei.blog.csdn.net/article/details/113733758>
+- **libhv QQ群**: `739352073`，欢迎加群交流

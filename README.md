@@ -1,13 +1,16 @@
+English | [中文](README-CN.md)
+
+# libhv
+
+[![Latest Version](https://img.shields.io/github/release/ithewei/libhv.svg)](https://github.com/ithewei/libhv/releases)
 [![Build Status](https://travis-ci.org/ithewei/libhv.svg?branch=master)](https://travis-ci.org/ithewei/libhv)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20Mac-blue)](.travis.yml)
-
-## Intro [中文版](readme_cn.md)
 
 Like `libevent, libev, and libuv`,
 `libhv` provides event-loop with non-blocking IO and timer,
 but simpler api and richer protocols.
 
-## Features
+## ✨ Features
 
 - Cross-platform (Linux, Windows, Mac, Solaris)
 - EventLoop (IO, timer, idle)
@@ -17,7 +20,7 @@ but simpler api and richer protocols.
 - HTTP file service, indexof service, api service (support RESTful)
 - WebSocket client/server
 
-## Build
+## ⌛️ Build
 
 see [BUILD.md](BUILD.md)
 
@@ -46,7 +49,7 @@ or xmake:
 xrepo install libhv
 ```
 
-## Getting Started
+## ⚡️ Getting Started
 
 run `./getting_started.sh`:
 
@@ -142,7 +145,7 @@ int main() {
 }
 ```
 
-#### benchmark
+#### http benchmark
 ```shell
 # webbench (linux only)
 make webbench
@@ -159,7 +162,7 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 **libhv(port:8080) vs nginx(port:80)**
 ![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
 
-## Examples
+## 🍭 Examples
 ### c version
 - [examples/hloop_test.c](examples/hloop_test.c)
 - [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
@@ -182,14 +185,14 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 
-## echo-servers
+## 🥇 Benchmark
 ```shell
 cd echo-servers
 ./build.sh
 ./benchmark.sh
 ```
 
-throughput:
+**throughput**:
 ```shell
 libevent running on port 2001
 libev running on port 2002

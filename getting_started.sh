@@ -3,7 +3,6 @@
 echo "Welcome to libhv!"
 echo "Press any key to run ..."
 
-# run curl
 echo_cmd() {
     echo -e "\n\033[36m$cmd\033[0m"
     read -n1
@@ -29,7 +28,7 @@ if [ $processes -lt 1 ]; then
 fi
 ps aux | grep -v grep | grep httpd
 
-# http web service
+# http file service
 cmd="bin/curl -v localhost:8080" && run_cmd
 
 # http indexof service
@@ -74,4 +73,6 @@ cmd="bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
 cmd="bin/curl -v -X DELETE localhost:8080/group/test/user/123" && run_cmd
 
 # show log
-cmd="tail -n 100 logs/httpd*.log" && run_cmd
+cmd="tail -n 50 logs/httpd*.log" && run_cmd
+
+echo -e "\nEnjoy libhv!\n"
