@@ -8,7 +8,7 @@
 
 typedef struct consul_node_s {
     // node
-    char ip[32];
+    char ip[64];
     int  port;
 
     consul_node_s() {
@@ -20,7 +20,7 @@ typedef struct consul_node_s {
 typedef struct consul_service_s {
     // service
     char name[64];
-    char ip[32];
+    char ip[64];
     int  port;
 
     consul_service_s() {

@@ -138,17 +138,30 @@ int discover_services(consul_node_t* node, const char* service_name, std::vector
         if (!jname.is_string()) {
             continue;
         }
-        auto jip = jservice["ServiceAddress"];
-        if (!jip.is_string()) {
-            continue;
-        }
         auto jport = jservice["ServicePort"];
         if (!jport.is_number_integer()) {
             continue;
         }
 
+        string ip;
+        auto jip = jservice["Address"];
+        if (jip.is_string()) {
+            ip = jip;
+        }
+        if (ip.empty()) {
+            jip = jservice["ServiceAddress"];
+            if (jip.is_string()) {
+                ip = jip;
+            }
+        }
+        if (ip.empty()) {
+            jip = jservice["ServiceAddress6"];
+            if (jip.is_string()) {
+                ip = jip;
+            }
+        }
+
         string name = jname;
-        string ip = jip;
         int    port = jport;
 
         strncpy(service.name, name.c_str(), sizeof(service.name));
