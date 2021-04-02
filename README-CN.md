@@ -239,3 +239,13 @@ throughput = 165 MB/s
 
 - **libhv 教程**: <https://hewei.blog.csdn.net/article/details/113733758>
 - **libhv QQ群**: `739352073`，欢迎加群交流
+
+## 💎 用户案例
+
+如果您在使用`libhv`，欢迎通过PR将信息提交至此列表，让更多的用户了解`libhv`的实际使用场景，以建立更好的网络生态。
+
+| 用户 (公司名/项目名/个人联系方式) | 案例 (项目简介/业务场景) |
+| :--- | :--- |
+| [阅面科技](https://www.readsense.cn) | [猎户AIoT平台](https://orionweb.readsense.cn)设备管理、人脸检测HTTP服务、人脸搜索HTTP服务 |
+| [socks5-libhv](https://gitee.com/billykang/socks5-libhv) | socks5代理 |
+
