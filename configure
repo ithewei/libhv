@@ -35,7 +35,6 @@ END
 }
 
 mkdir tmp 2>/dev/null
-cp config.ini tmp/config.mk
 while [ -n "$1" ]
 do
     opt="$1"
@@ -68,6 +67,9 @@ do
 
     if [ -n $KEY ]; then
         FEATURE=$(echo "$KEY" | tr "a-z-" "A-Z_")
+        if [ ! -f tmp/config.mk ]; then
+            cp config.ini tmp/config.mk
+        fi
         shini_write "tmp/config.mk" "" "$FEATURE" "$VAL"
     fi
 
