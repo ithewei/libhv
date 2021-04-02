@@ -6,19 +6,19 @@
 gcc4.8+, msvc2015 or later
 
 ## Makefile
-options modify [config.ini](config.ini)
+options see [config.ini](config.ini)
 ```
-./configure
+./configure --with-openssl
 make
 sudo make install
 ```
 
 ## cmake
-options modify [CMakeLists.txt](CMakeLists.txt)
+options see [CMakeLists.txt](CMakeLists.txt)
 ```
 mkdir build
 cd build
-cmake ..
+cmake .. -DWITH_OPENSSL=ON
 cmake --build .
 ```
 
