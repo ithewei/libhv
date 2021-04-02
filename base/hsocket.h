@@ -65,51 +65,13 @@ typedef union {
 // @retval 0:succeed
 HV_EXPORT int Resolver(const char* host, sockaddr_u* addr);
 
-static inline const char* sockaddr_ip(sockaddr_u* addr, char *ip, int len) {
-    if (addr->sa.sa_family == AF_INET) {
-        return inet_ntop(AF_INET, &addr->sin.sin_addr, ip, len);
-    }
-    else if (addr->sa.sa_family == AF_INET6) {
-        return inet_ntop(AF_INET6, &addr->sin6.sin6_addr, ip, len);
-    }
-    return ip;
-}
-
-static inline uint16_t sockaddr_port(sockaddr_u* addr) {
-    uint16_t port = 0;
-    if (addr->sa.sa_family == AF_INET) {
-        port = htons(addr->sin.sin_port);
-    }
-    else if (addr->sa.sa_family == AF_INET6) {
-        port = htons(addr->sin6.sin6_port);
-    }
-    return port;
-}
-
-static inline int sockaddr_set_ip(sockaddr_u* addr, const char* host) {
-    if (!host || *host == '\0') {
-        addr->sin.sin_family = AF_INET;
-        addr->sin.sin_addr.s_addr = htonl(INADDR_ANY);
-        return 0;
-    }
-    return Resolver(host, addr);
-}
-
-static inline void sockaddr_set_port(sockaddr_u* addr, int port) {
-    if (addr->sa.sa_family == AF_INET) {
-        addr->sin.sin_port = ntohs(port);
-    }
-    else if (addr->sa.sa_family == AF_INET6) {
-        addr->sin6.sin6_port = ntohs(port);
-    }
-}
-
-static inline int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port) {
-    int ret = sockaddr_set_ip(addr, host);
-    if (ret != 0) return ret;
-    sockaddr_set_port(addr, port);
-    return 0;
-}
+HV_EXPORT const char* sockaddr_ip(sockaddr_u* addr, char *ip, int len);
+HV_EXPORT uint16_t sockaddr_port(sockaddr_u* addr);
+HV_EXPORT int sockaddr_set_ip(sockaddr_u* addr, const char* host);
+HV_EXPORT void sockaddr_set_port(sockaddr_u* addr, int port);
+HV_EXPORT int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port);
+HV_EXPORT socklen_t sockaddr_len(sockaddr_u* addr);
+HV_EXPORT const char* sockaddr_str(sockaddr_u* addr, char* buf, int len);
 
 //#define INET_ADDRSTRLEN   16
 //#define INET6_ADDRSTRLEN  46
@@ -122,42 +84,6 @@ static inline void sockaddr_set_path(sockaddr_u* addr, const char* path) {
 #else
 #define SOCKADDR_STRLEN     64 // ipv4:port | [ipv6]:port
 #endif
-
-static inline socklen_t sockaddr_len(sockaddr_u* addr) {
-    if (addr->sa.sa_family == AF_INET) {
-        return sizeof(struct sockaddr_in);
-    }
-    else if (addr->sa.sa_family == AF_INET6) {
-        return sizeof(struct sockaddr_in6);
-    }
-#ifdef ENABLE_UDS
-    else if (addr->sa.sa_family == AF_UNIX) {
-        return sizeof(struct sockaddr_un);
-    }
-#endif
-    return sizeof(sockaddr_u);
-}
-
-static inline const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
-    char ip[SOCKADDR_STRLEN] = {0};
-    uint16_t port = 0;
-    if (addr->sa.sa_family == AF_INET) {
-        inet_ntop(AF_INET, &addr->sin.sin_addr, ip, len);
-        port = htons(addr->sin.sin_port);
-        snprintf(buf, len, "%s:%d", ip, port);
-    }
-    else if (addr->sa.sa_family == AF_INET6) {
-        inet_ntop(AF_INET6, &addr->sin6.sin6_addr, ip, len);
-        port = htons(addr->sin6.sin6_port);
-        snprintf(buf, len, "[%s]:%d", ip, port);
-    }
-#ifdef ENABLE_UDS
-    else if (addr->sa.sa_family == AF_UNIX) {
-        snprintf(buf, len, "%s", addr->sun.sun_path);
-    }
-#endif
-    return buf;
-}
 
 static inline void sockaddr_print(sockaddr_u* addr) {
     char buf[SOCKADDR_STRLEN] = {0};
