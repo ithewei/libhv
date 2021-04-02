@@ -53,6 +53,7 @@ dist
 test
 *_test
 build
+config.mk
 hconfig.h
 html/uploads
 

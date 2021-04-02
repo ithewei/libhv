@@ -1,15 +1,90 @@
 #!/bin/bash
 
-confile=hconfig.h
-# start confile
-cat << END > $confile
-#ifndef HV_CONFIG_H_
-#define HV_CONFIG_H_
+. "$(dirname "$0")/scripts/shini.sh"
+
+print_help() {
+    shini_parse "config.ini"
+    cat << END
+Usage: ./configure [--option] ...
+
+options:
+  --with-MODULE
+  --without-MODULE
+  --enable-FEATURE
+  --disable-FEATURE
+
+modules:
+  --with-protocol       compile protocol module?        (DEFAULT: $WITH_PROTOCOL)
+  --with-http           compile http module?            (DEFAULT: $WITH_HTTP)
+  --with-http-client    compile http client module?     (DEFAULT: $WITH_HTTP_CLIENT)
+  --with-http-server    compile http server module?     (DEFAULT: $WITH_HTTP_SERVER)
+  --with-consul         compile consul module? default: (DEFAULT: $WITH_CONSUL)
+
+features:
+  --enable-ipv6         enable IPv6?                    (DEFAULT: $ENABLE_IPV6)
+  --enable-uds          enable Unix Domain Socket?      (DEFAULT: $ENABLE_UDS)
+  --enable-windump      enable Windows coredump?        (DEFAULT: $ENABLE_WINDUMP)
+
+dependencies:
+  --with-curl           compile with curl?              (DEFAULT: $WITH_CURL)
+  --with-nghttp2        compile with nghttp2?           (DEFAULT: $WITH_NGHTTP2)
+  --with-openssl        compile with openssl?           (DEFAULT: $WITH_OPENSSL)
+  --with-mbedtls        compile with mbedtls?           (DEFAULT: $WITH_MBEDTLS)
 
 END
+}
+
+mkdir tmp 2>/dev/null
+cp config.ini tmp/config.mk
+while [ -n "$1" ]
+do
+    opt="$1"
+    KEY=""
+    VAL=yes
+    case $opt in
+        --help)
+            print_help
+            exit 0
+            ;;
+        --with-*)
+            KEY="WITH_${opt:7}"
+            ;;
+        --without-*)
+            KEY="WITH_${opt:10}"
+            VAL=no
+            ;;
+        --enable-*)
+            KEY="ENABLE_${opt:9}"
+            ;;
+        --disable-*)
+            KEY="ENABLE_${opt:10}"
+            VAL=no
+            ;;
+        *)
+            print_help
+            exit 255
+            ;;
+    esac
+
+    if [ -n $KEY ]; then
+        FEATURE=$(echo "$KEY" | tr "a-z-" "A-Z_")
+        shini_write "tmp/config.mk" "" "$FEATURE" "$VAL"
+    fi
+
+    shift 1
+done
+
+# config.mk
+echo "[config.mk]"
+if [ -f tmp/config.mk ]; then
+    mv tmp/config.mk config.mk
+    shini_write "config.mk" "" "CONFIG_DATE" "$(date +%Y%m%d)"
+fi
+cat config.mk
+echo ""
 
 # Checks for compiler
-echo "checking for compiler..."
+echo -e "\nchecking for compiler..."
 if [ $CROSS_COMPILE ]; then
     CC=${CROSS_COMPILE}gcc
     CXX=${CROSS_COMPILE}g++
@@ -25,7 +100,34 @@ echo "CC  = $CC"
 echo "CXX = $CXX"
 echo "$CC_VERSION"
 
-# shell functions
+# Checks for os
+echo -e "\nchecking for os..."
+HOST_OS=`uname -s`
+HOST_ARCH=`uname -m`
+TARGET_PLATFORM=`$CC -v 2>&1 | grep Target | sed 's/Target: //'`
+TARGET_ARCH=`echo $TARGET_PLATFORM | awk -F'-' '{print $1}'`
+
+case $TARGET_PLATFORM in
+    *mingw*) TARGET_OS=Windows ;;
+    *android*) TARGET_OS=Android ;;
+    *darwin*) TARGET_OS=Darwin ;;
+    *) TARGET_OS=Linux ;;
+esac
+
+echo "HOST_OS         = $HOST_OS"
+echo "HOST_ARCH       = $HOST_ARCH"
+echo "TARGET_PLATFORM = $TARGET_PLATFORM"
+echo "TARGET_OS       = $TARGET_OS"
+echo "TARGET_ARCH     = $TARGET_ARCH"
+
+# hconfig.h
+echo -e "\n>> hconfig.h"
+confile=hconfig.h
+cat << END > $confile
+#ifndef HV_CONFIG_H_
+#define HV_CONFIG_H_
+
+END
 
 write_define() {
 cat << END >> hconfig.h
@@ -36,7 +138,6 @@ cat << END >> hconfig.h
 END
 }
 
-mkdir tmp 2>/dev/null
 check_header() {
 echo -n "checking for $header... "
 rm tmp/check 2>/dev/null
@@ -98,26 +199,6 @@ cat << END >> $confile
 END
 fi
 }
-
-# Checks for os
-echo "checking for os..."
-HOST_OS=`uname -s`
-HOST_ARCH=`uname -m`
-TARGET_PLATFORM=`$CC -v 2>&1 | grep Target | sed 's/Target: //'`
-TARGET_ARCH=`echo $TARGET_PLATFORM | awk -F'-' '{print $1}'`
-
-case $TARGET_PLATFORM in
-    *mingw*) TARGET_OS=Windows ;;
-    *android*) TARGET_OS=Android ;;
-    *darwin*) TARGET_OS=Darwin ;;
-    *) TARGET_OS=Linux ;;
-esac
-
-echo "HOST_OS         = $HOST_OS"
-echo "HOST_ARCH       = $HOST_ARCH"
-echo "TARGET_PLATFORM = $TARGET_PLATFORM"
-echo "TARGET_OS       = $TARGET_OS"
-echo "TARGET_ARCH     = $TARGET_ARCH"
 
 # Checks for programs
 

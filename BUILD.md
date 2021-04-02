@@ -6,7 +6,7 @@
 gcc4.8+, msvc2015 or later
 
 ## Makefile
-options modify [config.mk](config.mk)
+options modify [config.ini](config.ini)
 ```
 ./configure
 make
@@ -103,23 +103,26 @@ int hio_enable_ssl(hio_t* io);
 https is the best example.
 ```
 sudo apt install openssl libssl-dev # ubuntu
-make clean
-make WITH_OPENSSL=yes
+./configure --with-openssl
+make clean && make
 bin/httpd -s restart -d
+bin/curl -v http://localhost:8080
 bin/curl -v https://localhost:8443
-curl -v https://localhost:8443 --insecure
 ```
 
 ### compile WITH_CURL
 ```
-make WITH_CURL=yes DEFINES="CURL_STATICLIB"
+./configure --with-curl
+make clean && make
+bin/httpd -s restart -d
+bin/curl -v http://localhost:8080
 ```
 
 ### compile WITH_NGHTTP2
 ```
 sudo apt install libnghttp2-dev # ubuntu
-make clean
-make WITH_NGHTTP2=yes
-bin/httpd -d
-bin/curl -v localhost:8080 --http2
+./configure --with-nghttp2
+make clean && make
+bin/httpd -s restart -d
+bin/curl -v http://localhost:8080 --http2
 ```
