@@ -248,4 +248,5 @@ throughput = 165 MB/s
 | :--- | :--- |
 | [阅面科技](https://www.readsense.cn) | [猎户AIoT平台](https://orionweb.readsense.cn)设备管理、人脸检测HTTP服务、人脸搜索HTTP服务 |
 | [socks5-libhv](https://gitee.com/billykang/socks5-libhv) | socks5代理 |
+| [hvloop](https://github.com/xiispace/hvloop) | 类似[uvloop](https://github.com/MagicStack/uvloop)的python异步IO事件循环 |
 
