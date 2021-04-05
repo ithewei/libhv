@@ -155,7 +155,7 @@ HV_EXPORT void     hidle_del(hidle_t* idle);
 
 // timer
 // @param timeout: unit(ms)
-HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat DEFAULT(INFINITE));
+HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t repeat DEFAULT(INFINITE));
 /*
  * minute   hour    day     week    month       cb
  * 0~59     0~23    1~31    0~6     1~12
