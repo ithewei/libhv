@@ -76,7 +76,7 @@ static int hloop_process_timers(hloop_t* loop) {
             }
             else if (timer->event_type == HEVENT_TYPE_PERIOD) {
                 hperiod_t* period = (hperiod_t*)timer;
-                timer->next_timeout = cron_next_timeout(period->minute, period->hour, period->day,
+                timer->next_timeout = (uint64_t)cron_next_timeout(period->minute, period->hour, period->day,
                         period->week, period->month) * 1000000;
             }
             heap_insert(&loop->timers, &timer->node);
