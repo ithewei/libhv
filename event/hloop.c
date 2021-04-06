@@ -71,12 +71,12 @@ static int hloop_process_timers(hloop_t* loop) {
             heap_dequeue(&loop->timers);
             if (timer->event_type == HEVENT_TYPE_TIMEOUT) {
                 while (timer->next_timeout <= now_hrtime) {
-                    timer->next_timeout += ((htimeout_t*)timer)->timeout * 1000;
+                    timer->next_timeout += (uint64_t)((htimeout_t*)timer)->timeout * 1000;
                 }
             }
             else if (timer->event_type == HEVENT_TYPE_PERIOD) {
                 hperiod_t* period = (hperiod_t*)timer;
-                timer->next_timeout = cron_next_timeout(period->minute, period->hour, period->day,
+                timer->next_timeout = (uint64_t)cron_next_timeout(period->minute, period->hour, period->day,
                         period->week, period->month) * 1000000;
             }
             heap_insert(&loop->timers, &timer->node);
@@ -499,7 +499,7 @@ void hidle_del(hidle_t* idle) {
     EVENT_DEL(idle);
 }
 
-htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat) {
+htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t repeat) {
     if (timeout == 0)   return NULL;
     htimeout_t* timer;
     HV_ALLOC_SIZEOF(timer);
@@ -550,7 +550,7 @@ htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
     timer->day    = day;
     timer->month  = month;
     timer->week   = week;
-    timer->next_timeout = cron_next_timeout(minute, hour, day, week, month) * 1000000;
+    timer->next_timeout = (uint64_t)cron_next_timeout(minute, hour, day, week, month) * 1000000;
     heap_insert(&loop->timers, &timer->node);
     EVENT_ADD(loop, timer, cb);
     loop->ntimers++;
