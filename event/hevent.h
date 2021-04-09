@@ -71,7 +71,7 @@ struct htimer_s {
 
 struct htimeout_s {
     HTIMER_FIELDS
-    uint64_t    timeout;                \
+    uint32_t    timeout;                \
 };
 
 struct hperiod_s {

@@ -499,7 +499,7 @@ void hidle_del(hidle_t* idle) {
     EVENT_DEL(idle);
 }
 
-htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint64_t timeout, uint32_t repeat) {
+htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat) {
     if (timeout == 0)   return NULL;
     htimeout_t* timer;
     HV_ALLOC_SIZEOF(timer);
