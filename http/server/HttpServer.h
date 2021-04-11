@@ -24,8 +24,9 @@ typedef struct http_server_s {
         strcpy(host, "0.0.0.0");
         // port = DEFAULT_HTTP_PORT;
         // https_port = DEFAULT_HTTPS_PORT;
-        port = 8080;
-        https_port = 8443;
+        // port = 8080;
+        // https_port = 8443;
+        port = https_port = 0;
         http_version = 1;
         worker_processes = 0;
         worker_threads = 0;

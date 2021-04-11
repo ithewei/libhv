@@ -24,7 +24,7 @@ public:
         });
 
         // curl -v http://ip:port/html/index.html
-        router.GET("/html/index.html", [&router](HttpRequest* req, HttpResponse* resp) {
+        router.GET("/html/index.html", [](HttpRequest* req, HttpResponse* resp) {
             return resp->File("html/index.html");
         });
 
