@@ -45,9 +45,10 @@ int main(int argc, char** argv) {
     };
 
     websocket_server_t server;
+#if 1
     server.port = port;
-#if 0
-    server.ssl = 1;
+#else
+    server.https_port = port;
     hssl_ctx_init_param_t param;
     memset(&param, 0, sizeof(param));
     param.crt_file = "cert/server.crt";

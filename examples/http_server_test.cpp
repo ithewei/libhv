@@ -5,6 +5,7 @@
  */
 
 #include "HttpServer.h"
+#include "hssl.h"
 
 int main() {
     HV_MEMCHECK;
@@ -30,12 +31,24 @@ int main() {
     });
 
     http_server_t server;
+    server.service = &router;
     server.port = 8080;
+#if 0
+    server.https_port = 8443;
+    hssl_ctx_init_param_t param;
+    memset(&param, 0, sizeof(param));
+    param.crt_file = "cert/server.crt";
+    param.key_file = "cert/server.key";
+    if (hssl_ctx_init(&param) == NULL) {
+        fprintf(stderr, "SSL certificate verify failed!\n");
+        return -20;
+    }
+#endif
+
     // uncomment to test multi-processes
     // server.worker_processes = 4;
     // uncomment to test multi-threads
     // server.worker_threads = 4;
-    server.service = &router;
 
 #if 1
     http_server_run(&server);

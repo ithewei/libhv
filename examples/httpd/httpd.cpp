@@ -114,7 +114,9 @@ int parse_confile(const char* confile) {
     }
     g_http_server.port = port;
     // https_port
-    g_http_server.https_port = ini.Get<int>("https_port");
+    if (HV_WITH_SSL) {
+        g_http_server.https_port = ini.Get<int>("https_port");
+    }
     if (g_http_server.port == 0 && g_http_server.https_port == 0) {
         printf("Please config listen port!\n");
         exit(-10);
@@ -146,7 +148,7 @@ int parse_confile(const char* confile) {
         g_http_service.index_of = str;
     }
     // ssl
-    if (g_http_server.https_port > 0 && HV_WITH_SSL) {
+    if (g_http_server.https_port > 0) {
         std::string crt_file = ini.GetValue("ssl_certificate");
         std::string key_file = ini.GetValue("ssl_privatekey");
         std::string ca_file = ini.GetValue("ssl_ca_certificate");

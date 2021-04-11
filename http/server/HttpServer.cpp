@@ -352,11 +352,13 @@ int http_server_run(http_server_t* server, int wait) {
     if (server->port > 0) {
         server->listenfd[0] = Listen(server->port, server->host);
         if (server->listenfd[0] < 0) return server->listenfd[0];
+        hlogi("http server listening on %s:%d", server->host, server->port);
     }
     // https_port
     if (server->https_port > 0 && hssl_ctx_instance() != NULL) {
         server->listenfd[1] = Listen(server->https_port, server->host);
         if (server->listenfd[1] < 0) return server->listenfd[1];
+        hlogi("https server listening on %s:%d", server->host, server->https_port);
     }
     // service
     if (server->service == NULL) {
