@@ -13,10 +13,11 @@
 # make all \
 # TARGET=libxx \
 # TARGET_TYPE=SHARED \
+# BUILD_TYPE=DEBUG \
 # CROSS_COMPILE=arm-linux-androideabi- \
 # SRCDIRS="src/base src/event" \
-# INCDIRS="src/utils" \
-# SRCS="src/utils/hmain.cpp src/utils/iniparser.cpp" \
+# INCDIRS="src/util" \
+# SRCS="src/util/hmain.cpp src/util/iniparser.cpp" \
 # DEFINES=USE_OPENCV \
 # LIBS="opencv_core opencv_highgui"
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

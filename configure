@@ -15,6 +15,7 @@ options:
 
 modules:
   --with-protocol       compile protocol module?        (DEFAULT: $WITH_PROTOCOL)
+  --with-evpp           compile evpp module?            (DEFAULT: $WITH_EVPP)
   --with-http           compile http module?            (DEFAULT: $WITH_HTTP)
   --with-http-client    compile http client module?     (DEFAULT: $WITH_HTTP_CLIENT)
   --with-http-server    compile http server module?     (DEFAULT: $WITH_HTTP_SERVER)

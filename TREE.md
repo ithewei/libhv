@@ -2,12 +2,13 @@
 
 ```
 .
-├── base        libhv c/c++基础设施模块，如常用宏定义、数据结构、字符串操作、日期时间、文件、目录、线程、进程、日志、套接字
+├── base        libhv基础设施，如常用宏定义、数据结构、日期时间、线程、进程、日志、套接字
 ├── bin         可执行文件安装目录
 ├── build       cmake默认构建目录
 ├── cert        SSL证书存放目录
 ├── cmake       cmake脚本存放目录
 ├── consul      consul服务注册与发现，使用http客户端实现
+├── cpputil     libhv工具类，如命令行解析、json解析、ini解析
 ├── docs        文档存放目录
 ├── echo-servers 包含libevent、libev、libuv、libhv、asio、poco、muduo等多个网络库的tcp echo server写法，并做压力测试
 ├── etc         应用程序配置目录
@@ -29,6 +30,6 @@
 ├── protocol    包含icmp、dns、ftp、smtp等协议的实现
 ├── scripts     shell脚本存放目录
 ├── unittest    单元测试代码
-└── utils       libhv utils模块，如base64、md5、json解析、ini解析
+└── util        libhv工具函数，如base64、md5、sha1
 
 ```

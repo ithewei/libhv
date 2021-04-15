@@ -1,9 +1,7 @@
 list(APPEND EXAMPLES
-    hmain_test
     hloop_test
     htimer_test
     nc
-    nmap
     tcp_echo_server
     tcp_chat_server
     tcp_proxy_server
@@ -11,10 +9,7 @@ list(APPEND EXAMPLES
     udp_proxy_server
 )
 
-include_directories(.. ../base ../utils ../event ../evpp)
-
-add_executable(hmain_test hmain_test.cpp)
-target_link_libraries(hmain_test hv)
+include_directories(.. ../base ../util ../event)
 
 add_executable(hloop_test hloop_test.c)
 target_link_libraries(hloop_test hv)
@@ -24,10 +19,6 @@ target_link_libraries(htimer_test hv)
 
 add_executable(nc nc.c)
 target_link_libraries(nc hv)
-
-add_executable(nmap nmap.cpp)
-target_compile_definitions(nmap PRIVATE -DPRINT_DEBUG)
-target_link_libraries(nmap hv)
 
 add_executable(tcp_echo_server tcp_echo_server.c)
 target_link_libraries(tcp_echo_server hv)
@@ -44,6 +35,17 @@ target_link_libraries(udp_echo_server hv)
 add_executable(udp_proxy_server udp_proxy_server.c)
 target_link_libraries(udp_proxy_server hv)
 
+if(WITH_EVPP)
+    include_directories(../cpputil ../evpp)
+    add_executable(hmain_test hmain_test.cpp)
+    target_link_libraries(hmain_test hv)
+
+    aux_source_directory(nmap NMAP_SRCS)
+    add_executable(nmap ${NMAP_SRCS})
+    target_compile_definitions(nmap PRIVATE -DPRINT_DEBUG)
+    target_link_libraries(nmap hv)
+
+    list(APPEND EXAMPLES hmain_test nmap)
 if(WITH_HTTP)
     include_directories(../http)
 if(WITH_HTTP_SERVER)
@@ -102,6 +104,7 @@ if(WITH_CONSUL)
     target_link_libraries(consul_cli hv)
 
     list(APPEND EXAMPLES consul_cli)
+endif()
 endif()
 endif()
 

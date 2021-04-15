@@ -1,35 +1,37 @@
 #include "nmap.h"
 #include "hloop.h"
-#include "hevent.h"
 #include "hstring.h"
+#include "hsocket.h"
 #include "netinet.h"
 
 #define MAX_RECVFROM_TIMEOUT    5000 // ms
 #define MAX_SENDTO_PERSOCKET    1024
 
-typedef struct nmap_udata_s {
+typedef struct nmap_ctx_s {
     Nmap*   nmap;
     int     send_cnt;
     int     recv_cnt;
     int     up_cnt;
     int     idle_cnt;
-} nmap_udata_t;
+} nmap_ctx_t;
 
 static void on_idle(hidle_t* idle) {
-    nmap_udata_t* udata = (nmap_udata_t*)idle->loop->userdata;
-    udata->idle_cnt++;
-    if (udata->idle_cnt == 1) {
+    hloop_t* loop = hevent_loop(idle);
+    nmap_ctx_t* ctx = (nmap_ctx_t*)hloop_userdata(loop);
+    ctx->idle_cnt++;
+    if (ctx->idle_cnt == 1) {
         // try again?
     }
-    hloop_stop(idle->loop);
+    hloop_stop(loop);
 }
 
 static void on_timer(htimer_t* timer) {
-    hloop_stop(timer->loop);
+    hloop_t* loop = hevent_loop(timer);
+    hloop_stop(loop);
 }
 
 static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
-    //printd("on_recv fd=%d readbytes=%d\n", io->fd, readbytes);
+    //printd("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     /*
     char localaddrstr[SOCKADDR_STRLEN] = {0};
     char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -37,18 +39,19 @@ static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
             SOCKADDR_STR(hio_localaddr(io), localaddrstr),
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
-    nmap_udata_t* udata = (nmap_udata_t*)io->loop->userdata;
-    if (++udata->recv_cnt == udata->send_cnt) {
-        //hloop_stop(io->loop);
+    hloop_t* loop = hevent_loop(io);
+    nmap_ctx_t* ctx = (nmap_ctx_t*)hloop_userdata(loop);
+    if (++ctx->recv_cnt == ctx->send_cnt) {
+        //hloop_stop(loop);
     }
-    Nmap* nmap = udata->nmap;
-    struct sockaddr_in* peeraddr = (struct sockaddr_in*)io->peeraddr;
+    Nmap* nmap = ctx->nmap;
+    struct sockaddr_in* peeraddr = (struct sockaddr_in*)hio_peeraddr(io);
     auto iter = nmap->find(peeraddr->sin_addr.s_addr);
     if (iter != nmap->end()) {
         if (iter->second == 0) {
             iter->second = 1;
-            if (++udata->up_cnt == nmap->size()) {
-                hloop_stop(io->loop);
+            if (++ctx->up_cnt == nmap->size()) {
+                hloop_stop(loop);
             }
         }
     }
@@ -58,13 +61,13 @@ int nmap_discover(Nmap* nmap) {
     hloop_t* loop = hloop_new(0);
     uint64_t start_hrtime = hloop_now_hrtime(loop);
 
-    nmap_udata_t udata;
-    udata.nmap = nmap;
-    udata.send_cnt = 0;
-    udata.recv_cnt = 0;
-    udata.up_cnt = 0;
-    udata.idle_cnt = 0;
-    loop->userdata = &udata;
+    nmap_ctx_t ctx;
+    ctx.nmap = nmap;
+    ctx.send_cnt = 0;
+    ctx.recv_cnt = 0;
+    ctx.up_cnt = 0;
+    ctx.idle_cnt = 0;
+    hloop_set_userdata(loop, &ctx);
 
     char recvbuf[128];
     // icmp
@@ -80,7 +83,7 @@ int nmap_discover(Nmap* nmap) {
     hio_t* io = NULL;
     for (auto iter = nmap->begin(); iter != nmap->end(); ++iter) {
         if (iter->second == 1) continue;
-        if (udata.send_cnt % MAX_SENDTO_PERSOCKET == 0) {
+        if (ctx.send_cnt % MAX_SENDTO_PERSOCKET == 0) {
             // socket
             int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
             if (sockfd < 0) {
@@ -97,7 +100,7 @@ int nmap_discover(Nmap* nmap) {
 
             io = hio_get(loop, sockfd);
             if (io == NULL) return -1;
-            io->io_type = HIO_TYPE_IP;
+            hio_set_type(io, HIO_TYPE_IP);
             struct sockaddr_in localaddr;
             socklen_t addrlen = sizeof(localaddr);
             memset(&localaddr, 0, addrlen);
@@ -113,8 +116,8 @@ int nmap_discover(Nmap* nmap) {
         peeraddr.sin_family = AF_INET;
         peeraddr.sin_addr.s_addr = iter->first;
         hio_set_peeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
-        hsendto(io->loop, io->fd, sendbuf, sizeof(sendbuf), NULL);
-        ++udata.send_cnt;
+        hsendto(loop, hio_fd(io), sendbuf, sizeof(sendbuf), NULL);
+        ++ctx.send_cnt;
     }
 
     htimer_add(loop, on_timer, MAX_RECVFROM_TIMEOUT, 1);
@@ -133,9 +136,9 @@ int nmap_discover(Nmap* nmap) {
         ++iter;
     }
     printd("Nmap done: %lu IP addresses (%d hosts up) scanned in %.2f seconds\n",
-            nmap->size(), udata.up_cnt, (end_hrtime-start_hrtime)/1000000.0f);
+            nmap->size(), ctx.up_cnt, (end_hrtime-start_hrtime)/1000000.0f);
 
-    return udata.up_cnt;
+    return ctx.up_cnt;
 }
 
 int segment_discover(const char* segment16, Nmap* nmap) {

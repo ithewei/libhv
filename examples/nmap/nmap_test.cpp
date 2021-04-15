@@ -4,6 +4,7 @@
 #include <string>
 
 #include "nmap.h"
+#include "hsocket.h"
 #include "hthreadpool.h"
 
 int host_discover_task(std::string segment, void* nmap) {

@@ -1,5 +1,5 @@
 /*
- * @build: gcc -o bin/sha1 unittest/sha1_test.c utils/sha1.c -I. -Iutils
+ * @build: gcc -o bin/sha1 unittest/sha1_test.c util/sha1.c -I. -Iutil
  *
  */
 

@@ -1,5 +1,5 @@
 /*
- * @build: gcc -o bin/md5 unittest/md5_test.c utils/md5.c -I. -Iutils
+ * @build: gcc -o bin/md5 unittest/md5_test.c util/md5.c -I. -Iutil
  *
  */
 

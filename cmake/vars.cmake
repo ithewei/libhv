@@ -17,33 +17,35 @@ set(BASE_HEADERS
     base/hssl.h
     base/hlog.h
     base/hbuf.h
-    base/hmap.h
-    base/hstring.h
-    base/hfile.h
-    base/hdir.h
-    base/hurl.h
-    base/hscope.h
-    base/hthreadpool.h
-    base/hobjectpool.h
-    base/ifconfig.h
-    base/ThreadLocalStorage.h
+    base/hendian.h
 )
 
-set(UTILS_HEADERS
-    utils/base64.h
-    utils/md5.h
-    utils/sha1.h
-    utils/json.hpp
-    utils/singleton.h
-    utils/iniparser.h
-    utils/hendian.h
-    utils/hmain.h
+set(UTIL_HEADERS
+    util/base64.h
+    util/md5.h
+    util/sha1.h
 )
 
 set(EVENT_HEADERS
     event/hloop.h
     event/nlog.h
-    event/nmap.h
+)
+
+set(CPPUTIL_HEADERS
+    cpputil/hmap.h
+    cpputil/hstring.h
+    cpputil/hfile.h
+    cpputil/hdir.h
+    cpputil/hurl.h
+    cpputil/hmain.h
+    cpputil/hscope.h
+    cpputil/hthreadpool.h
+    cpputil/hobjectpool.h
+    cpputil/ifconfig.h
+    cpputil/iniparser.h
+    cpputil/json.hpp
+    cpputil/singleton.h
+    cpputil/ThreadLocalStorage.h
 )
 
 set(EVPP_HEADERS
