@@ -32,7 +32,7 @@ int main_ctx_init(int argc, char** argv) {
     //printf("program_name=%s\n", g_main_ctx.program_name);
     char logdir[MAX_PATH] = {0};
     snprintf(logdir, sizeof(logdir), "%s/logs", g_main_ctx.run_dir);
-    hv_mkdir(logdir);;
+    hv_mkdir(logdir);
     snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_dir, g_main_ctx.program_name);
     snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_dir, g_main_ctx.program_name);
     snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.confile), "%s/logs/%s.log", g_main_ctx.run_dir, g_main_ctx.program_name);
@@ -616,5 +616,5 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
             while (1) sleep (1);
         }
     }
-    return 0;;
+    return 0;
 }
