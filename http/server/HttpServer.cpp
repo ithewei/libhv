@@ -340,6 +340,10 @@ static void loop_thread(void* userdata) {
             FileCache* filecache = default_filecache();
             filecache->RemoveExpiredFileCache();
         }, DEFAULT_FILE_EXPIRED_TIME * 1000);
+        // NOTE: add timer to update date every 1s
+        htimer_add(hloop, [](htimer_t* timer) {
+            gmtime_fmt(hloop_now(hevent_loop(timer)), HttpMessage::s_date);
+        }, 1000);
     }
     privdata->loops.push_back(loop);
     privdata->mutex_.unlock();

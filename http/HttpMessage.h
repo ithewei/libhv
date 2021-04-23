@@ -53,6 +53,7 @@ struct HNetAddr {
 
 class HV_EXPORT HttpMessage {
 public:
+    static char         s_date[32];
     int                 type;
     unsigned short      http_major;
     unsigned short      http_minor;

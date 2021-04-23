@@ -6,6 +6,8 @@
 #include "hlog.h"
 #include "http_parser.h" // for http_parser_url
 
+char HttpMessage::s_date[32] = {0};
+
 #ifndef WITHOUT_HTTP_CONTENT
 // NOTE: json ignore number/string, 123/"123"
 
@@ -426,7 +428,11 @@ std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
     snprintf(c_str, sizeof(c_str), "HTTP/%d.%d %d %s\r\n", http_major, http_minor, status_code, http_status_str(status_code));
     str += c_str;
     if (is_dump_headers) {
-        headers["Date"] = gmtime_fmt(time(NULL), c_str);
+        if (*s_date) {
+            headers["Date"] = s_date;
+        } else {
+            headers["Date"] = gmtime_fmt(time(NULL), c_str);
+        }
         DumpHeaders(str);
     }
     str += "\r\n";
