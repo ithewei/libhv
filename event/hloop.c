@@ -932,6 +932,21 @@ hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconn
     return io;
 }
 
+hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb) {
+    hio_t* io = hloop_create_tcp_server(loop, host, port, accept_cb);
+    if (io == NULL) return NULL;
+    hio_enable_ssl(io);
+    return io;
+}
+
+hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
+    hio_t* io = hio_create(loop, host, port, SOCK_STREAM);
+    if (io == NULL) return NULL;
+    hio_enable_ssl(io);
+    hconnect(loop, io->fd, connect_cb);
+    return io;
+}
+
 hio_t* hloop_create_udp_server(hloop_t* loop, const char* host, int port) {
     int bindfd = Bind(port, host, SOCK_DGRAM);
     if (bindfd < 0) {

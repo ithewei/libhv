@@ -447,7 +447,7 @@ int hio_connect(hio_t* io) {
     }
     if (ret == 0) {
         // connect ok
-        __connect_cb(io);
+        nio_connect(io);
         return 0;
     }
     int timeout = io->connect_timeout ? io->connect_timeout : HIO_DEFAULT_CONNECT_TIMEOUT;

@@ -294,12 +294,20 @@ HV_EXPORT hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t l
 //-----------------top-level apis---------------------------------------------
 // Resolver -> socket -> hio_get
 HV_EXPORT hio_t* hio_create(hloop_t* loop, const char* host, int port, int type DEFAULT(SOCK_STREAM));
+
 // @tcp_server: socket -> bind -> listen -> haccept
 // @see examples/tcp_echo_server.c
 HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 // @tcp_client: hio_create(loop, host, port, SOCK_STREAM) -> hconnect
 // @see examples/nc.c
 HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+
+// @ssl_server: hloop_create_tcp_server -> hio_enable_ssl
+// @see examples/tcp_echo_server.c => #define TEST_SSL 1
+HV_EXPORT hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
+// @ssl_client: hio_create(loop, host, port, SOCK_STREAM) -> hio_enable_ssl -> hconnect
+// @see examples/nc.c => #define TEST_SSL 1
+HV_EXPORT hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 
 // @udp_server: socket -> bind -> hio_get
 // @see examples/udp_echo_server.c
