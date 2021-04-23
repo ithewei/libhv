@@ -10,6 +10,16 @@
 
 #include "hloop.h"
 #include "hsocket.h"
+#include "hssl.h"
+
+/*
+ * @test    ssl_server
+ * #define  TEST_SSL 1
+ *
+ * @build   ./configure --with-openssl && make clean && make
+ *
+ */
+#define TEST_SSL 0
 
 // hloop_create_tcp_server -> on_accept -> hio_read -> on_recv -> hio_write
 
@@ -50,8 +60,25 @@ int main(int argc, char** argv) {
     }
     int port = atoi(argv[1]);
 
+#if TEST_SSL
+    {
+        hssl_ctx_init_param_t param;
+        memset(&param, 0, sizeof(param));
+        param.crt_file = "cert/server.crt";
+        param.key_file = "cert/server.key";
+        if (hssl_ctx_init(&param) == NULL) {
+            fprintf(stderr, "SSL certificate verify failed!\n");
+            return -30;
+        }
+    }
+#endif
+
     hloop_t* loop = hloop_new(0);
+#if TEST_SSL
+    hio_t* listenio = hloop_create_ssl_server(loop, "0.0.0.0", port, on_accept);
+#else
     hio_t* listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
+#endif
     if (listenio == NULL) {
         return -20;
     }

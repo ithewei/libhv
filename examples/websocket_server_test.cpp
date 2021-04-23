@@ -13,6 +13,19 @@
 #include "htime.h"
 #include "hssl.h"
 
+/*
+ * #define TEST_WSS 1
+ *
+ * @build   ./configure --with-openssl && make clean && make
+ *
+ * @server  bin/websocket_server_test 9999
+ *
+ * @client  bin/websocket_client_test ws://127.0.0.1:9999/
+ *          bin/websocket_client_test wss://127.0.0.1:10000/
+ *
+ */
+#define TEST_WSS 0
+
 using namespace hv;
 
 int main(int argc, char** argv) {
@@ -45,10 +58,9 @@ int main(int argc, char** argv) {
     };
 
     websocket_server_t server;
-#if 1
     server.port = port;
-#else
-    server.https_port = port;
+#if TEST_WSS
+    server.https_port = port + 1;
     hssl_ctx_init_param_t param;
     memset(&param, 0, sizeof(param));
     param.crt_file = "cert/server.crt";

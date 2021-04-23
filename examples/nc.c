@@ -15,6 +15,16 @@
 #include "hloop.h"
 #include "hbase.h"
 #include "hsocket.h"
+#include "hssl.h"
+
+/*
+ * @test    ssl_client
+ * #define  TEST_SSL 1
+ *
+ * @build   ./configure --with-openssl && make clean && make
+ *
+ */
+#define TEST_SSL 0
 
 #define RECV_BUFSIZE    8192
 static char recvbuf[RECV_BUFSIZE];
@@ -168,8 +178,13 @@ Examples: nc 127.0.0.1 80\n\
 
     // socket
     if (protocol == 1) {
+#if TEST_SSL
+        // ssl
+        sockio = hloop_create_ssl_client(loop, host, port, on_connect);
+#else
         // tcp
         sockio = hloop_create_tcp_client(loop, host, port, on_connect);
+#endif
     }
     else if (protocol == 2) {
         // udp

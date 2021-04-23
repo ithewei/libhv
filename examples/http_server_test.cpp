@@ -7,6 +7,21 @@
 #include "HttpServer.h"
 #include "hssl.h"
 
+/*
+ * #define TEST_HTTPS 1
+ *
+ * @build   ./configure --with-openssl && make clean && make
+ *
+ * @server  bin/http_server_test
+ *
+ * @client  curl -v http://127.0.0.1:8080/ping
+ *          curl -v https://127.0.0.1:8443/ping --insecure
+ *          bin/curl -v http://127.0.0.1:8080/ping
+ *          bin/curl -v https://127.0.0.1:8443/ping
+ *
+ */
+#define TEST_HTTPS 0
+
 int main() {
     HV_MEMCHECK;
 
@@ -33,7 +48,7 @@ int main() {
     http_server_t server;
     server.service = &router;
     server.port = 8080;
-#if 0
+#if TEST_HTTPS
     server.https_port = 8443;
     hssl_ctx_init_param_t param;
     memset(&param, 0, sizeof(param));
