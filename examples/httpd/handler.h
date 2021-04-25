@@ -2,6 +2,7 @@
 #define HV_HTTPD_HANDLER_H
 
 #include "HttpMessage.h"
+#include "htime.h"
 
 class Handler {
 public:
@@ -38,17 +39,17 @@ public:
     }
 
     static int sleep(HttpRequest* req, HttpResponse* resp) {
-        time_t start_time = time(NULL);
+        unsigned long long start_ms = gettimeofday_ms();
         std::string strTime = req->GetParam("t");
         if (!strTime.empty()) {
-            int sec = atoi(strTime.c_str());
-            if (sec > 0) {
-                hv_delay(sec*1000);
+            int ms = atoi(strTime.c_str());
+            if (ms > 0) {
+                hv_delay(ms);
             }
         }
-        time_t end_time = time(NULL);
-        resp->Set("start_time", start_time);
-        resp->Set("end_time", end_time);
+        unsigned long long end_ms = gettimeofday_ms();
+        resp->Set("start_ms", start_ms);
+        resp->Set("end_ms", end_ms);
         response_status(resp, 0, "OK");
         return 200;
     }
@@ -95,7 +96,7 @@ public:
         resp->form = req->form;
         resp->form["int"] = 123;
         resp->form["float"] = 3.14;
-        resp->form["float"] = "hello";
+        resp->form["string"] = "hello";
         // resp->form["file"] = FormData(NULL, "test.jpg");
         // resp->UploadFormFile("file", "test.jpg");
         return 200;

@@ -119,7 +119,7 @@ public:
     }
 
     long tid() {
-        if (loop_ == NULL) hv_gettid();
+        if (loop_ == NULL) return hv_gettid();
         return hloop_tid(loop_);
     }
 

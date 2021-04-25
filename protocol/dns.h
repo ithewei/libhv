@@ -95,7 +95,7 @@ HV_EXPORT int dns_unpack(char* buf, int len, dns_t* dns);
 HV_EXPORT void dns_free(dns_t* dns);
 
 // dns_pack -> sendto -> recvfrom -> dns_unpack
-HV_EXPORT int dns_query(dns_t* query, dns_t* response, const char* nameserver DEFAULT("127.0.1,1"));
+HV_EXPORT int dns_query(dns_t* query, dns_t* response, const char* nameserver DEFAULT("127.0.1.1"));
 
 // domain -> dns_t query; -> dns_query -> dns_t response; -> addrs
 HV_EXPORT int nslookup(const char* domain, uint32_t* addrs, int naddr, const char* nameserver DEFAULT("127.0.1.1"));
