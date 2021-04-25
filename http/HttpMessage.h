@@ -51,6 +51,26 @@ struct HNetAddr {
     }
 };
 
+// Cookie: sessionid=1; domain=.example.com; path=/; max-age=86400; secure; httponly
+struct HttpCookie {
+    std::string name;
+    std::string value;
+    std::string domain;
+    std::string path;
+    int         max_age;
+    bool        secure;
+    bool        httponly;
+
+    HttpCookie() {
+        max_age = 0;
+        secure = false;
+        httponly = false;
+    }
+
+    bool parse(const std::string& str);
+    std::string dump() const;
+};
+
 class HV_EXPORT HttpMessage {
 public:
     static char         s_date[32];
@@ -308,6 +328,16 @@ public:
         from = to = 0;
         return false;
     }
+
+    // Cookie
+    void SetCookie(const HttpCookie& cookie) {
+        headers["Cookie"] = cookie.dump();
+    }
+    bool GetCookie(HttpCookie& cookie) {
+        std::string str = GetHeader("Cookie");
+        if (str.empty()) return false;
+        return cookie.parse(str);
+    }
 };
 
 class HV_EXPORT HttpResponse : public HttpMessage {
@@ -344,6 +374,16 @@ public:
         }
         from = to = total = 0;
         return false;
+    }
+
+    // Set-Cookie
+    void SetCookie(const HttpCookie& cookie) {
+        headers["Set-Cookie"] = cookie.dump();
+    }
+    bool GetCookie(HttpCookie& cookie) {
+        std::string str = GetHeader("Set-Cookie");
+        if (str.empty()) return false;
+        return cookie.parse(str);
     }
 };
 

@@ -8,6 +8,82 @@
 
 char HttpMessage::s_date[32] = {0};
 
+bool HttpCookie::parse(const std::string& str) {
+    std::stringstream ss;
+    ss << str;
+    std::string kv;
+    std::string::size_type pos;
+    std::string key;
+    std::string val;
+    while (std::getline(ss, kv, ';')) {
+        pos = kv.find_first_of('=');
+        if (pos != std::string::npos) {
+            key = trim(kv.substr(0, pos));
+            val = trim(kv.substr(pos+1));
+        } else {
+            key = trim(kv);
+        }
+
+        const char* pkey = key.c_str();
+        if (stricmp(pkey, "domain") == 0) {
+            domain = val;
+        }
+        else if (stricmp(pkey, "path") == 0) {
+            path = val;
+        }
+        else if (stricmp(pkey, "max-age") == 0) {
+            max_age = atoi(val.c_str());
+        }
+        else if (stricmp(pkey, "secure") == 0) {
+            secure = true;
+        }
+        else if (stricmp(pkey, "httponly") == 0) {
+            httponly = true;
+        }
+        else if (val.size() > 0) {
+            name = key;
+            value = val;
+        }
+        else {
+            hlogw("Unrecognized key '%s'", key.c_str());
+        }
+    }
+    return !name.empty() && !value.empty();
+}
+
+std::string HttpCookie::dump() const {
+    assert(!name.empty() && !value.empty());
+    std::string res;
+    res = name;
+    res += "=";
+    res += value;
+
+    if (!domain.empty()) {
+        res += "; domain=";
+        res += domain;
+    }
+
+    if (!path.empty()) {
+        res += "; path=";
+        res += path;
+    }
+
+    if (max_age > 0) {
+        res += "; max-age=";
+        res += hv::to_string(max_age);
+    }
+
+    if (secure) {
+        res += "; secure";
+    }
+
+    if (httponly) {
+        res += "; httponly";
+    }
+
+    return res;
+}
+
 #ifndef WITHOUT_HTTP_CONTENT
 // NOTE: json ignore number/string, 123/"123"
 
