@@ -36,7 +36,11 @@ preprocessor:
             (req.method == HTTP_GET || req.method == HTTP_HEAD)) {
         // web service
         // path safe check
-        const char* req_path = req.path.c_str();
+        const char* s = req.path.c_str();
+        const char* e = s;
+        while (*e && *e != '?' && *e != '#') ++e;
+        std::string path = std::string(s, e);
+        const char* req_path = path.c_str();
         if (*req_path != '/' || strstr(req_path, "/../")) {
             res.status_code = HTTP_STATUS_BAD_REQUEST;
             goto make_http_status_page;
