@@ -11,7 +11,7 @@
 #include "hthread.h"
 
 #define HLOOP_PAUSE_TIME        10      // ms
-#define HLOOP_MAX_BLOCK_TIME    1000    // ms
+#define HLOOP_MAX_BLOCK_TIME    900     // ms
 #define HLOOP_STAT_TIMEOUT      60000   // ms
 
 #define IO_ARRAY_INIT_SIZE              1024
