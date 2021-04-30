@@ -35,26 +35,27 @@ int main(int argc, char** argv) {
     }
     int port = atoi(argv[1]);
 
+    TimerID timerID = INVALID_TIMER_ID;
     WebSocketServerCallbacks ws;
-    ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
+    ws.onopen = [&timerID](const WebSocketChannelPtr& channel, const std::string& url) {
         printf("onopen: GET %s\n", url.c_str());
         // send(time) every 1s
-        setInterval(1000, [channel](TimerID id) {
-            if (channel->isConnected()) {
-                char str[DATETIME_FMT_BUFLEN] = {0};
-                datetime_t dt = datetime_now();
-                datetime_fmt(&dt, str);
-                channel->send(str);
-            } else {
-                killTimer(id);
-            }
+        timerID = setInterval(1000, [channel](TimerID id) {
+            char str[DATETIME_FMT_BUFLEN] = {0};
+            datetime_t dt = datetime_now();
+            datetime_fmt(&dt, str);
+            channel->send(str);
         });
     };
     ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
         printf("onmessage: %s\n", msg.c_str());
     };
-    ws.onclose = [](const WebSocketChannelPtr& channel) {
+    ws.onclose = [&timerID](const WebSocketChannelPtr& channel) {
         printf("onclose\n");
+        if (timerID != INVALID_TIMER_ID) {
+            killTimer(timerID);
+            timerID = INVALID_TIMER_ID;
+        }
     };
 
     websocket_server_t server;

@@ -244,7 +244,7 @@ function=pthread_mutex_timedlock && header=pthread.h && check_function
 function=sem_timedwait && header=semaphore.h && check_function
 
 # Checks for options
-source config.mk
+source config.mk 2>/dev/null
 option=ENABLE_UDS && check_option
 option=USE_MULTIMAP && check_option
 
