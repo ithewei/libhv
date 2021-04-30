@@ -8,6 +8,10 @@ print_help() {
 Usage: ./configure [--option] ...
 
 options:
+  --prefix=PREFIX           (DEFAULT: $PREFIX)
+  --incdir=INSTALL_INCDIR   (DEFAULT: $PREFIX/include/hv)
+  --libdir=INSTALL_LIBDIR   (DEFAULT: $PREFIX/lib)
+
   --with-MODULE
   --without-MODULE
   --enable-FEATURE
@@ -45,6 +49,18 @@ do
         --help)
             print_help
             exit 0
+            ;;
+        --prefix=*)
+            KEY="PREFIX"
+            VAL=${opt:9}
+            ;;
+        --incdir=*)
+            KEY="INSTALL_INCDIR"
+            VAL=${opt:9}
+            ;;
+        --libdir=*)
+            KEY="INSTALL_LIBDIR"
+            VAL=${opt:9}
             ;;
         --with-*)
             KEY="WITH_${opt:7}"

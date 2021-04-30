@@ -64,6 +64,7 @@ libhv:
 
 install:
 	$(MKDIR) $(INSTALL_INCDIR)
+	$(MKDIR) $(INSTALL_LIBDIR)
 	$(CP) include/hv/* $(INSTALL_INCDIR)
 	$(CP) lib/libhv.*  $(INSTALL_LIBDIR)
 
