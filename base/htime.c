@@ -9,7 +9,7 @@ static const uint8_t s_days[] = \
 //   1       3       5       7   8       10      12
     {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-unsigned int gettick() {
+unsigned int gettick_ms() {
 #ifdef OS_WIN
     return GetTickCount();
 #elif HAVE_CLOCK_GETTIME

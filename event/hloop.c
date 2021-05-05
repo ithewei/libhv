@@ -146,9 +146,8 @@ static int hloop_process_events(hloop_t* loop) {
 
     if (loop->nios) {
         nios = hloop_process_ios(loop, blocktime);
-    }
-    else {
-        msleep(blocktime);
+    } else {
+        hv_msleep(blocktime);
     }
     hloop_update_time(loop);
     // wakeup by hloop_stop
@@ -374,7 +373,7 @@ int hloop_run(hloop_t* loop) {
     loop->status = HLOOP_STATUS_RUNNING;
     while (loop->status != HLOOP_STATUS_STOP) {
         if (loop->status == HLOOP_STATUS_PAUSE) {
-            msleep(HLOOP_PAUSE_TIME);
+            hv_msleep(HLOOP_PAUSE_TIME);
             hloop_update_time(loop);
             continue;
         }

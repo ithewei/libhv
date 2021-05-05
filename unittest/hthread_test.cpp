@@ -5,7 +5,7 @@ HTHREAD_ROUTINE(test_thread1) {
     int cnt = 10;
     while (cnt-- > 0) {
         printf("tid=%ld time=%llums\n", hv_gettid(), gettimeofday_ms());
-        hv_delay(100);
+        hv_msleep(100);
     }
     return 0;
 }
@@ -16,7 +16,7 @@ protected:
         int cnt = 10;
         while (cnt-- > 0) {
             printf("tid=%ld time=%llums\n", hv_gettid(), gettimeofday_ms());
-            hv_delay(100);
+            hv_msleep(100);
         }
     }
 };
@@ -52,7 +52,7 @@ int main() {
     TestThread3 thread3;
     thread3.setSleepPolicy(HThread::SLEEP_UNTIL, 100);
     thread3.start();
-    sleep(1);
+    hv_sleep(1);
     thread3.stop();
 
     return 0;

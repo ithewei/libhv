@@ -146,7 +146,10 @@
     #include <direct.h>     // for mkdir,rmdir,chdir,getcwd
     #include <io.h>         // for open,close,read,write,lseek,tell
 
-    #define hv_delay(ms)    Sleep(ms)
+    #define hv_sleep(s)     Sleep((s) * 1000)
+    #define hv_msleep(ms)   Sleep(ms)
+    #define hv_usleep(us)   Sleep((us) / 1000)
+    #define hv_delay(ms)    hv_msleep(ms)
     #define hv_mkdir(dir)   mkdir(dir)
 
     #ifndef S_ISREG
@@ -168,7 +171,10 @@
     #include <netinet/udp.h>
     #include <netdb.h>  // for gethostbyname
 
-    #define hv_delay(ms)    usleep((ms)*1000)
+    #define hv_sleep(s)     sleep(s)
+    #define hv_msleep(ms)   usleep((ms) * 1000)
+    #define hv_usleep(us)   usleep(us)
+    #define hv_delay(ms)    hv_msleep(ms)
     #define hv_mkdir(dir)   mkdir(dir, 0777)
 #endif
 

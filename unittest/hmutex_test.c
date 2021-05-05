@@ -63,9 +63,9 @@ HTHREAD_ROUTINE(test_timed_mutex) {
     htimed_mutex_t mutex;
     htimed_mutex_init(&mutex);
     htimed_mutex_lock(&mutex);
-    time_t start_time = gettick();
+    time_t start_time = gettick_ms();
     htimed_mutex_lock_for(&mutex, 3000);
-    time_t end_time = gettick();
+    time_t end_time = gettick_ms();
     printf("htimed_mutex_lock_for %zdms\n", end_time - start_time);
     htimed_mutex_unlock(&mutex);
     htimed_mutex_destroy(&mutex);
@@ -82,9 +82,9 @@ HTHREAD_ROUTINE(test_condvar) {
     hmutex_lock(&mutex);
     hcondvar_signal(&cv);
     hcondvar_broadcast(&cv);
-    time_t start_time = gettick();
+    time_t start_time = gettick_ms();
     hcondvar_wait_for(&cv, &mutex, 3000);
-    time_t end_time = gettick();
+    time_t end_time = gettick_ms();
     printf("hcondvar_wait_for %zdms\n", end_time - start_time);
     hmutex_unlock(&mutex);
 
@@ -102,9 +102,9 @@ HTHREAD_ROUTINE(test_sem) {
     }
     hsem_post(&sem);
     hsem_wait(&sem);
-    time_t start_time = gettick();
+    time_t start_time = gettick_ms();
     hsem_wait_for(&sem, 3000);
-    time_t end_time = gettick();
+    time_t end_time = gettick_ms();
     printf("hsem_wait_for %zdms\n", end_time - start_time);
     hsem_destroy(&sem);
     printf("hsem test OK!\n");

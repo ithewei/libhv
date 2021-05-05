@@ -63,7 +63,7 @@ int ping(const char* host, int cnt) {
     for (int i = 0; i < sendbytes - sizeof(icmphdr_t); ++i) {
         icmp_req->icmp_data[i] = i;
     }
-    start_tick = gettick();
+    start_tick = gettick_ms();
     while (cnt-- > 0) {
         // NOTE: checksum
         icmp_req->icmp_seq = ++seq;
@@ -108,9 +108,9 @@ int ping(const char* host, int cnt) {
         printd("%d bytes from %s: icmp_seq=%u ttl=%u time=%.1f ms\n", icmp_len, ip, seq, ipheader->ttl, rtt);
         fflush(stdout);
         ++ok_cnt;
-        if (cnt > 0) sleep(1); // sleep a while, then agian
+        if (cnt > 0) hv_sleep(1); // sleep a while, then agian
     }
-    end_tick = gettick();
+    end_tick = gettick_ms();
     printd("--- %s ping statistics ---\n", host);
     printd("%d packets transmitted, %d received, %d%% packet loss, time %d ms\n",
         send_cnt, recv_cnt, (send_cnt-recv_cnt)*100/(send_cnt==0?1:send_cnt), end_tick-start_tick);

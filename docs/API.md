@@ -10,7 +10,7 @@
 - stdbool.h: bool, true, false
 - stdint.h: int8_t, int16_t, int32_t, int64_t
 - var
-- hv_delay
+- hv_sleep, hv_msleep, hv_usleep, hv_delay
 - hv_mkdir
 - stricmp, strcasecmp
 
@@ -69,10 +69,10 @@
 ### htime.h
 - IS_LEAP_YEAR
 - datetime_t
-- sleep, msleep, usleep
-- gettick
+- gettick_ms
 - gettimeofday
 - gettimeofday_ms
+- gettimeofday_us
 - gethrtime_us
 - datetime_now
 - datetime_mktime

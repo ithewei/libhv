@@ -139,12 +139,12 @@ static inline int htimed_mutex_lock_for(htimed_mutex_t* mutex, unsigned int ms) 
     return pthread_mutex_timedlock(mutex, &ts) != ETIMEDOUT;
 #else
     int ret = 0;
-    unsigned int end = gettick() + ms;
+    unsigned int end = gettick_ms() + ms;
     while ((ret = pthread_mutex_trylock(mutex)) != 0) {
-        if (gettick() >= end) {
+        if (gettick_ms() >= end) {
             break;
         }
-        msleep(1);
+        hv_msleep(1);
     }
     return ret == 0;
 #endif
@@ -183,12 +183,12 @@ static inline int hsem_wait_for(hsem_t* sem, unsigned int ms) {
     return sem_timedwait(sem, &ts) != ETIMEDOUT;
 #else
     int ret = 0;
-    unsigned int end = gettick() + ms;
+    unsigned int end = gettick_ms() + ms;
     while ((ret = sem_trywait(sem)) != 0) {
-        if (gettick() >= end) {
+        if (gettick_ms() >= end) {
             break;
         }
-        msleep(1);
+        hv_msleep(1);
     }
     return ret == 0;
 #endif

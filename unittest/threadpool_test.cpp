@@ -6,7 +6,7 @@
 
 void print_task(int i) {
     printf("thread[%ld]: task[%d]\n", hv_gettid(), i);
-    sleep(1);
+    hv_sleep(1);
 }
 
 int main(int argc, char** argv) {

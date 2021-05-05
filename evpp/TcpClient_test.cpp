@@ -58,6 +58,6 @@ int main(int argc, char* argv[]) {
     cli.setReconnect(&reconn);
     cli.start();
 
-    while (1) sleep(1);
+    while (1) hv_sleep(1);
     return 0;
 }

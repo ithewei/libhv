@@ -480,7 +480,7 @@ static void kill_proc(int pid) {
     kill(pid, SIGNAL_TERMINATE);
 #else
     //SetEvent(s_hEventTerm);
-    //sleep(1);
+    //hv_sleep(1);
     HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
     if (hproc) {
         TerminateProcess(hproc, 0);
@@ -507,7 +507,7 @@ void signal_handle(const char* signal) {
         if (g_main_ctx.oldpid > 0) {
             kill_proc(g_main_ctx.oldpid);
             printf("%s stop/waiting\n", g_main_ctx.program_name);
-            msleep(1000);
+            hv_sleep(1);
         }
     } else if (strcmp(signal, "status") == 0) {
         if (g_main_ctx.oldpid > 0) {
@@ -525,7 +525,7 @@ void signal_handle(const char* signal) {
             SetEvent(s_hEventReload);
 #endif
         }
-        sleep(1);
+        hv_sleep(1);
         exit(0);
     } else {
         printf("Invalid signal: '%s'\n", signal);
@@ -613,7 +613,7 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
         g_main_ctx.pid = getpid();
         hlogi("master start/running, pid=%d", g_main_ctx.pid);
         if (wait) {
-            while (1) sleep (1);
+            while (1) hv_sleep (1);
         }
     }
     return 0;

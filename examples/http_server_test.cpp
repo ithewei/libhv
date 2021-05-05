@@ -70,7 +70,7 @@ int main() {
 #else
     // test http_server_stop
     http_server_run(&server, 0);
-    sleep(10);
+    hv_sleep(10);
     http_server_stop(&server);
 #endif
     return 0;

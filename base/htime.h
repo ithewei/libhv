@@ -52,35 +52,17 @@ static inline int gettimeofday(struct timeval *tv, struct timezone *tz) {
 }
 #endif
 
-// sleep(s), msleep(ms), usleep(us)
-#ifdef OS_WIN
-static inline void sleep(unsigned int s) {
-    Sleep(s * 1000);
-}
-
-static inline void msleep(unsigned int ms) {
-    Sleep(ms);
-}
-
-static inline void usleep(unsigned int us) {
-    Sleep(us / 1000);
-}
-#else
-static inline void msleep(unsigned int ms) {
-    usleep(ms * 1000);
-}
-#endif
-
-// ms
-HV_EXPORT unsigned int gettick();
-
+HV_EXPORT unsigned int gettick_ms();
 static inline unsigned long long gettimeofday_ms() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return tv.tv_sec * (unsigned long long)1000 + tv.tv_usec/1000;
 }
-
-// us
+static inline unsigned long long gettimeofday_us() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * (unsigned long long)1000000 + tv.tv_usec;
+}
 HV_EXPORT unsigned long long gethrtime_us();
 
 HV_EXPORT datetime_t datetime_now();

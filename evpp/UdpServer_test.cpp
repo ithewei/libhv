@@ -34,6 +34,6 @@ int main(int argc, char* argv[]) {
     };
     srv.start();
 
-    while (1) sleep(1);
+    while (1) hv_sleep(1);
     return 0;
 }
