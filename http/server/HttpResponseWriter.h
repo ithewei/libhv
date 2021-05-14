@@ -8,19 +8,24 @@ namespace hv {
 
 class HttpResponseWriter : public SocketChannel {
 public:
-    HttpResponsePtr resp;
+    HttpResponsePtr response;
     enum State {
         SEND_BEGIN,
         SEND_HEADER,
         SEND_BODY,
         SEND_END,
     } state;
-    HttpResponseWriter(hio_t* io, const HttpResponsePtr& _resp)
+    HttpResponseWriter(hio_t* io, const HttpResponsePtr& resp)
         : SocketChannel(io)
-        , resp(_resp)
+        , response(resp)
         , state(SEND_BEGIN)
     {}
     ~HttpResponseWriter() {}
+
+    // Begin -> End
+    // Begin -> WriteResponse -> End
+    // Begin -> WriteStatus -> WriteHeader -> WriteBody -> End
+    // Begin -> WriteHeader -> EndHeaders -> WriteBody -> WriteBody -> ... -> End
 
     int Begin() {
         state = SEND_BEGIN;
@@ -28,21 +33,21 @@ public:
     }
 
     int WriteStatus(http_status status_codes) {
-        resp->status_code = status_codes;
+        response->status_code = status_codes;
         return 0;
     }
 
     int WriteHeader(const char* key, const char* value) {
-        resp->headers[key] = value;
+        response->headers[key] = value;
         return 0;
     }
 
     int EndHeaders(const char* key = NULL, const char* value = NULL) {
         if (state != SEND_BEGIN) return -1;
         if (key && value) {
-            resp->headers[key] = value;
+            response->headers[key] = value;
         }
-        std::string headers = resp->Dump(true, false);
+        std::string headers = response->Dump(true, false);
         state = SEND_HEADER;
         return write(headers);
     }
@@ -50,7 +55,7 @@ public:
     int WriteBody(const char* buf, int len = -1) {
         if (len == -1) len = strlen(buf);
         if (state == SEND_BEGIN) {
-            resp->body.append(buf, len);
+            response->body.append(buf, len);
             return len;
         } else {
             state = SEND_BODY;
@@ -60,6 +65,17 @@ public:
 
     int WriteBody(const std::string& str) {
         return WriteBody(str.c_str(), str.size());
+    }
+
+    int WriteResponse(HttpResponse* resp) {
+        if (resp == NULL) {
+            response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+            return 0;
+        }
+        bool is_dump_headers = state == SEND_BEGIN ? true : false;
+        std::string msg = resp->Dump(is_dump_headers, true);
+        state = SEND_BODY;
+        return write(msg);
     }
 
     int End(const char* buf = NULL, int len = -1) {
@@ -77,11 +93,11 @@ public:
             is_dump_body = false;
         }
         if (is_dump_body) {
-            std::string msg = resp->Dump(is_dump_headers, is_dump_body);
+            std::string msg = response->Dump(is_dump_headers, is_dump_body);
             ret = write(msg);
         }
         state = SEND_END;
-        if (!resp->IsKeepAlive()) {
+        if (!response->IsKeepAlive()) {
             close();
         }
         return ret;

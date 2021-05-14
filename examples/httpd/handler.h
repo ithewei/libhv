@@ -55,14 +55,14 @@ public:
     }
 
     static void setTimeout(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
-        writer->resp->Set("start_ms", gettimeofday_ms());
+        writer->response->Set("start_ms", gettimeofday_ms());
         std::string strTime = req->GetParam("t");
         if (!strTime.empty()) {
             int ms = atoi(strTime.c_str());
             if (ms > 0) {
                 hv::setTimeout(ms, [writer](hv::TimerID timerID){
                     writer->Begin();
-                    HttpResponse* resp = writer->resp.get();
+                    HttpResponse* resp = writer->response.get();
                     resp->Set("end_ms", gettimeofday_ms());
                     response_status(resp, 0, "OK");
                     writer->End();

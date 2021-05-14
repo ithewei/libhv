@@ -52,27 +52,31 @@ public:
 
         // curl -v http://ip:port/async
         router.GET("/async", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
-            writer->resp->headers["X-Request-tid"] = hv::to_string(hv_gettid());
+            writer->response->headers["X-Request-tid"] = hv::to_string(hv_gettid());
             std::async([req, writer](){
                 writer->Begin();
                 std::string resp_tid = hv::to_string(hv_gettid());
-                writer->resp->headers["X-Response-tid"] = hv::to_string(hv_gettid());
+                writer->response->headers["X-Response-tid"] = hv::to_string(hv_gettid());
                 writer->WriteHeader("Content-Type", "text/plain");
                 writer->WriteBody("This is an async response.\n");
                 writer->End();
             });
         });
 
-        // curl -v http://ip:port/www/*
-        // curl -v http://ip:port/www/example.com
-        // curl -v http://ip:port/www/example/com
-        router.GET("/www/*", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
+        // curl -v http://ip:port/www.*
+        // curl -v http://ip:port/www.example.com
+        router.GET("/www.*", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
             HttpRequestPtr req2(new HttpRequest);
-            req2->url = replace(req->path.substr(1), "/", ".");
-            // printf("url=%s\n", req2->url.c_str());
+            req2->url = req->path.substr(1);
             http_client_send_async(req2, [writer](const HttpResponsePtr& resp2){
                 writer->Begin();
-                writer->resp = resp2;
+                if (resp2 == NULL) {
+                    writer->WriteStatus(HTTP_STATUS_NOT_FOUND);
+                    writer->WriteHeader("Content-Type", "text/html");
+                    writer->WriteBody("<center><h1>404 Not Found</h1></center>");
+                } else {
+                    writer->WriteResponse(resp2.get());
+                }
                 writer->End();
             });
         });
