@@ -223,6 +223,12 @@ HV_EXPORT void hio_setcb_connect  (hio_t* io, hconnect_cb connect_cb);
 HV_EXPORT void hio_setcb_read     (hio_t* io, hread_cb    read_cb);
 HV_EXPORT void hio_setcb_write    (hio_t* io, hwrite_cb   write_cb);
 HV_EXPORT void hio_setcb_close    (hio_t* io, hclose_cb   close_cb);
+// get callbacks
+HV_EXPORT haccept_cb  hio_getcb_accept(hio_t* io);
+HV_EXPORT hconnect_cb hio_getcb_connect(hio_t* io);
+HV_EXPORT hread_cb    hio_getcb_read(hio_t* io);
+HV_EXPORT hwrite_cb   hio_getcb_write(hio_t* io);
+HV_EXPORT hclose_cb   hio_getcb_close(hio_t* io);
 
 // some useful settings
 // Enable SSL/TLS is so easy :)

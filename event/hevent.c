@@ -53,6 +53,26 @@ void* hio_context(hio_t* io) {
     return io->ctx;
 }
 
+haccept_cb  hio_getcb_accept(hio_t* io) {
+    return io->accept_cb;
+}
+
+hconnect_cb hio_getcb_connect(hio_t* io) {
+    return io->connect_cb;
+}
+
+hread_cb    hio_getcb_read(hio_t* io) {
+    return io->read_cb;
+}
+
+hwrite_cb   hio_getcb_write(hio_t* io) {
+    return io->write_cb;
+}
+
+hclose_cb   hio_getcb_close(hio_t* io) {
+    return io->close_cb;
+}
+
 void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb) {
     io->accept_cb = accept_cb;
 }

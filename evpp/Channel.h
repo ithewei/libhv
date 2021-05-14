@@ -22,10 +22,17 @@ public:
         if (io) {
             fd_ = hio_fd(io);
             id_ = hio_id(io);
+            ctx_ = hio_context(io);
             hio_set_context(io, this);
-            hio_setcb_read(io_, on_read);
-            hio_setcb_write(io_, on_write);
-            hio_setcb_close(io_, on_close);
+            if (hio_getcb_read(io) == NULL) {
+                hio_setcb_read(io_, on_read);
+            }
+            if (hio_getcb_write(io) == NULL) {
+                hio_setcb_write(io_, on_write);
+            }
+            if (hio_getcb_close(io) == NULL) {
+                hio_setcb_close(io_, on_close);
+            }
         }
         status = isOpened() ? OPENED : CLOSED;
     }
