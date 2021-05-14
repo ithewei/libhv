@@ -1,5 +1,5 @@
-#ifndef GRPC_DEF_H_
-#define GRPC_DEF_H_
+#ifndef HV_GRPC_DEF_H_
+#define HV_GRPC_DEF_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -121,4 +121,4 @@ static inline long long varint_decode(const unsigned char* buf, int* len) {
 }
 #endif
 
-#endif // GRPC_DEF_H_
+#endif // HV_GRPC_DEF_H_

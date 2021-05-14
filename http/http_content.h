@@ -1,5 +1,5 @@
-#ifndef HTTP_CONTENT_H_
-#define HTTP_CONTENT_H_
+#ifndef HV_HTTP_CONTENT_H_
+#define HV_HTTP_CONTENT_H_
 
 #include "hexport.h"
 #include "hstring.h"
@@ -63,4 +63,4 @@ HV_EXPORT std::string dump_json(hv::Json& json);
 HV_EXPORT int         parse_json(const char* str, hv::Json& json, std::string& errmsg);
 #endif
 
-#endif // HTTP_CONTENT_H_
+#endif // HV_HTTP_CONTENT_H_

@@ -1,5 +1,5 @@
-#ifndef HTTP_CLIENT_H_
-#define HTTP_CLIENT_H_
+#ifndef HV_HTTP_CLIENT_H_
+#define HV_HTTP_CLIENT_H_
 
 #include "hexport.h"
 #include "HttpMessage.h"
@@ -55,4 +55,4 @@ HV_EXPORT int http_client_send(HttpRequest* req, HttpResponse* resp);
 // http_client_send_async(&default_async_client, ...)
 HV_EXPORT int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb = NULL);
 
-#endif  // HTTP_CLIENT_H_
+#endif // HV_HTTP_CLIENT_H_

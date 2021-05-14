@@ -71,11 +71,9 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             return;
         }
         if (ctx->parser->IsComplete()) {
-            std::string req_connection = ctx->task->req->GetHeader("Connection");
-            std::string resp_connection = ctx->resp->GetHeader("Connection");
+            bool keepalive = ctx->task->req->IsKeepAlive() && ctx->resp->IsKeepAlive();
             ctx->successCallback();
-            if (stricmp(req_connection.c_str(), "keep-alive") == 0 &&
-                stricmp(resp_connection.c_str(), "keep-alive") == 0) {
+            if (keepalive) {
                 // NOTE: add into conn_pools to reuse
                 // hlogd("add into conn_pools");
                 conn_pools[channel->peeraddr()].add(channel->fd());

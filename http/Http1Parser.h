@@ -1,5 +1,5 @@
-#ifndef HTTP1_PARSER_H_
-#define HTTP1_PARSER_H_
+#ifndef HV_HTTP1_PARSER_H_
+#define HV_HTTP1_PARSER_H_
 
 #include "HttpParser.h"
 #include "http_parser.h"
@@ -135,4 +135,4 @@ public:
     }
 };
 
-#endif // HTTP1_PARSER_H_
+#endif // HV_HTTP1_PARSER_H_

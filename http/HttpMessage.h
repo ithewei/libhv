@@ -1,5 +1,5 @@
-#ifndef HTTP_MESSAGE_H_
-#define HTTP_MESSAGE_H_
+#ifndef HV_HTTP_MESSAGE_H_
+#define HV_HTTP_MESSAGE_H_
 
 /*
  * @class HttpMessage
@@ -190,6 +190,8 @@ public:
     void FillContentType();
     // body.size -> content_length <-> headers Content-Length
     void FillContentLength();
+
+    bool IsKeepAlive();
 
     std::string GetHeader(const char* key, const std::string& defvalue = "") {
         auto iter = headers.find(key);
@@ -391,4 +393,4 @@ typedef std::shared_ptr<HttpRequest>    HttpRequestPtr;
 typedef std::shared_ptr<HttpResponse>   HttpResponsePtr;
 typedef std::function<void(const HttpResponsePtr&)> HttpResponseCallback;
 
-#endif // HTTP_MESSAGE_H_
+#endif // HV_HTTP_MESSAGE_H_

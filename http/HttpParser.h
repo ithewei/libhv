@@ -1,5 +1,5 @@
-#ifndef HTTP_PARSER_H_
-#define HTTP_PARSER_H_
+#ifndef HV_HTTP_PARSER_H_
+#define HV_HTTP_PARSER_H_
 
 #include "hexport.h"
 #include "HttpMessage.h"
@@ -48,4 +48,4 @@ public:
 
 typedef std::shared_ptr<HttpParser> HttpParserPtr;
 
-#endif // HTTP_PARSER_H_
+#endif // HV_HTTP_PARSER_H_

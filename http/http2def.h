@@ -1,5 +1,5 @@
-#ifndef HTTP2_DEF_H_
-#define HTTP2_DEF_H_
+#ifndef HV_HTTP2_DEF_H_
+#define HV_HTTP2_DEF_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,4 +83,4 @@ static inline void http2_frame_hd_unpack(const unsigned char* buf, http2_frame_h
 }
 #endif
 
-#endif
+#endif // HV_HTTP2_DEF_H_

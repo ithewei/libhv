@@ -1,5 +1,5 @@
-#ifndef HTTP_SERVER_H_
-#define HTTP_SERVER_H_
+#ifndef HV_HTTP_SERVER_H_
+#define HV_HTTP_SERVER_H_
 
 #include "hexport.h"
 #include "HttpService.h"
@@ -63,4 +63,4 @@ HV_EXPORT int http_server_run(http_server_t* server, int wait = 1);
 // NOTE: stop all loops and join all threads
 HV_EXPORT int http_server_stop(http_server_t* server);
 
-#endif
+#endif // HV_HTTP_SERVER_H_

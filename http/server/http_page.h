@@ -1,5 +1,5 @@
-#ifndef HTTP_PAGE_H_
-#define HTTP_PAGE_H_
+#ifndef HV_HTTP_PAGE_H_
+#define HV_HTTP_PAGE_H_
 
 #include <string>
 
@@ -41,4 +41,4 @@ void make_http_status_page(http_status status_code, std::string& page);
  */
 void make_index_of_page(const char* dir, std::string& page, const char* url = "");
 
-#endif // HTTP_PAGE_H_
+#endif // HV_HTTP_PAGE_H_

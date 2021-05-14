@@ -1,5 +1,5 @@
-#ifndef HTTP_HANDLER_H_
-#define HTTP_HANDLER_H_
+#ifndef HV_HTTP_HANDLER_H_
+#define HV_HTTP_HANDLER_H_
 
 #include "HttpService.h"
 #include "HttpParser.h"
@@ -55,6 +55,9 @@ public:
     } protocol;
     enum State {
         WANT_RECV,
+        HANDLE_BEGIN,
+        HANDLE_CONTINUE,
+        HANDLE_END,
         WANT_SEND,
         SEND_HEADER,
         SEND_BODY,
@@ -69,8 +72,9 @@ public:
     HttpService             *service;
     FileCache               *files;
 
-    HttpRequest             req;
-    HttpResponse            res;
+    HttpRequestPtr          req;
+    HttpResponsePtr         resp;
+    HttpResponseWriterPtr   writer;
     HttpParserPtr           parser;
 
     // for GetSendData
@@ -90,12 +94,46 @@ public:
         ws_cbs = NULL;
     }
 
-    void Reset() {
-        state = WANT_RECV;
-        req.Reset();
-        res.Reset();
+    bool Init(int http_version = 1) {
+        parser.reset(HttpParser::New(HTTP_SERVER, (enum http_version)http_version));
+        if (parser == NULL) {
+            return false;
+        }
+        protocol = http_version == 1 ? HTTP_V1 : HTTP_V2;
+        req.reset(new HttpRequest);
+        resp.reset(new HttpResponse);
+        if (http_version == 2) {
+            req->http_major = 2;
+            req->http_minor = 0;
+            resp->http_major = 2;
+            resp->http_minor = 0;
+        }
+        parser->InitRequest(req.get());
+        return true;
     }
 
+    bool SwitchHTTP2() {
+        parser.reset(HttpParser::New(HTTP_SERVER, ::HTTP_V2));
+        if (parser == NULL) {
+            return false;
+        }
+        protocol = HTTP_V2;
+        req->http_major = 2;
+        req->http_minor = 0;
+        resp->http_major = 2;
+        resp->http_minor = 0;
+        parser->InitRequest(req.get());
+        return true;
+    }
+
+    void Reset() {
+        state = WANT_RECV;
+        req->Reset();
+        resp->Reset();
+        parser->InitRequest(req.get());
+    }
+
+    int FeedRecvData(const char* data, size_t len);
     // @workflow: preprocessor -> api -> web -> postprocessor
     // @result: HttpRequest -> HttpResponse/file_cache_t
     int HandleHttpRequest();
@@ -104,12 +142,13 @@ public:
     // websocket
     WebSocketHandler* SwitchWebSocket() {
         ws.reset(new WebSocketHandler);
+        protocol = WEBSOCKET;
         return ws.get();
     }
     void WebSocketOnOpen() {
         ws->onopen();
         if (ws_cbs && ws_cbs->onopen) {
-            ws_cbs->onopen(ws->channel, req.url);
+            ws_cbs->onopen(ws->channel, req->url);
         }
     }
     void WebSocketOnClose() {
@@ -125,4 +164,4 @@ public:
     }
 };
 
-#endif // HTTP_HANDLER_H_
+#endif // HV_HTTP_HANDLER_H_

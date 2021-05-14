@@ -287,6 +287,27 @@ void HttpMessage::FillContentLength() {
     }
 }
 
+bool HttpMessage::IsKeepAlive() {
+    bool keepalive = true;
+    auto iter = headers.find("connection");
+    if (iter != headers.end()) {
+        const char* keepalive_value = iter->second.c_str();
+        if (stricmp(keepalive_value, "keep-alive") == 0) {
+            keepalive = true;
+        }
+        else if (stricmp(keepalive_value, "close") == 0) {
+            keepalive = false;
+        }
+        else if (stricmp(keepalive_value, "upgrade") == 0) {
+            keepalive = true;
+        }
+    }
+    else if (http_major == 1 && http_minor == 0) {
+        keepalive = false;
+    }
+    return keepalive;
+}
+
 void HttpMessage::DumpHeaders(std::string& str) {
     FillContentType();
     FillContentLength();

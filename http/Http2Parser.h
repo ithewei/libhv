@@ -1,5 +1,5 @@
-#ifndef HTTP2_PARSER_H_
-#define HTTP2_PARSER_H_
+#ifndef HV_HTTP2_PARSER_H_
+#define HV_HTTP2_PARSER_H_
 
 #ifdef WITH_NGHTTP2
 #include "HttpParser.h"
@@ -86,4 +86,4 @@ public:
 
 #endif
 
-#endif // HTTP2_PARSER_H_
+#endif // HV_HTTP2_PARSER_H_

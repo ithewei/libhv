@@ -155,8 +155,12 @@ int WebSocketClient::close() {
 }
 
 int WebSocketClient::send(const std::string& msg) {
+    return send(msg.c_str(), msg.size(), WS_OPCODE_TEXT);
+}
+
+int WebSocketClient::send(const char* buf, int len, enum ws_opcode opcode) {
     if (channel == NULL) return -1;
-    return channel->send(msg);
+    return channel->send(buf, len, opcode);
 }
 
 }

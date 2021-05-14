@@ -29,6 +29,7 @@ public:
     int open(const char* url);
     int close();
     int send(const std::string& msg);
+    int send(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY);
 
 private:
     enum State {

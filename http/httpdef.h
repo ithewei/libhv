@@ -1,5 +1,5 @@
-#ifndef HTTP_DEF_H_
-#define HTTP_DEF_H_
+#ifndef HV_HTTP_DEF_H_
+#define HV_HTTP_DEF_H_
 
 #include "hexport.h"
 
@@ -181,4 +181,4 @@ HV_EXPORT enum http_content_type http_content_type_enum_by_suffix(const char* su
 
 END_EXTERN_C
 
-#endif // HTTP_DEF_H_
+#endif // HV_HTTP_DEF_H_

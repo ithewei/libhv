@@ -79,21 +79,11 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     const char* buf = (const char*)_buf;
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
 
-    if (handler->protocol == HttpHandler::WEBSOCKET) {
-        WebSocketParser* parser = handler->ws->parser.get();
-        int nfeed = parser->FeedRecvData(buf, readbytes);
-        if (nfeed != readbytes) {
-            hloge("[%s:%d] websocket parse error!", handler->ip, handler->port);
-            hio_close(io);
-        }
-        return;
-    }
+    // HttpHandler::Init(http_version) -> upgrade ? SwitchHTTP2 / SwitchWebSocket
+    // on_recv -> FeedRecvData -> HttpRequest
+    // onComplete -> HandleRequest -> HttpResponse -> while (GetSendData) -> send
 
-    // HTTP1 / HTTP2 -> HttpParser -> InitRequest
-    // recv -> FeedRecvData -> !WantRecv -> HttpRequest ->
-    // HandleRequest -> HttpResponse -> SubmitResponse -> while (GetSendData) -> send
-
-    if (handler->parser == NULL) {
+    if (handler->protocol == HttpHandler::UNKNOWN) {
         // check request-line
         if (readbytes < MIN_HTTP_REQUEST_LEN) {
             hloge("[%s:%d] http request-line too small", handler->ip, handler->port);
@@ -107,67 +97,49 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
                 return;
             }
         }
-        http_version version = HTTP_V1;
-        handler->protocol = HttpHandler::HTTP_V1;
+        int http_version = 1;
         if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
-            version = HTTP_V2;
-            handler->protocol = HttpHandler::HTTP_V2;
-            handler->req.http_major = 2;
-            handler->req.http_minor = 0;
+            http_version = 2;
         }
-        handler->parser = HttpParserPtr(HttpParser::New(HTTP_SERVER, version));
-        if (handler->parser == NULL) {
-            hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, (int)version);
+        if (!handler->Init(http_version)) {
+            hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, http_version);
             hio_close(io);
             return;
         }
-        handler->parser->InitRequest(&handler->req);
+        handler->writer.reset(new HttpResponseWriter(io, handler->resp));
     }
 
-    HttpParser* parser = handler->parser.get();
-    HttpRequest* req = &handler->req;
-    HttpResponse* res = &handler->res;
-
-    int nfeed = parser->FeedRecvData(buf, readbytes);
+    int nfeed = handler->FeedRecvData(buf, readbytes);
     if (nfeed != readbytes) {
-        hloge("[%s:%d] http parse error: %s", handler->ip, handler->port, parser->StrError(parser->GetError()));
         hio_close(io);
         return;
     }
 
+    if (handler->protocol == HttpHandler::WEBSOCKET) {
+        return;
+    }
+
+    HttpParser* parser = handler->parser.get();
     if (parser->WantRecv()) {
         return;
     }
+
+    HttpRequest* req = handler->req.get();
+    HttpResponse* resp = handler->resp.get();
 
     // Server:
     static char s_Server[64] = {'\0'};
     if (s_Server[0] == '\0') {
         snprintf(s_Server, sizeof(s_Server), "httpd/%s", hv_compile_version());
     }
-    res->headers["Server"] = s_Server;
+    resp->headers["Server"] = s_Server;
 
     // Connection:
-    bool keepalive = true;
-    auto iter_keepalive = req->headers.find("connection");
-    if (iter_keepalive != req->headers.end()) {
-        const char* keepalive_value = iter_keepalive->second.c_str();
-        if (stricmp(keepalive_value, "keep-alive") == 0) {
-            keepalive = true;
-        }
-        else if (stricmp(keepalive_value, "close") == 0) {
-            keepalive = false;
-        }
-        else if (stricmp(keepalive_value, "upgrade") == 0) {
-            keepalive = true;
-        }
-    }
-    else if (req->http_major == 1 && req->http_minor == 0) {
-        keepalive = false;
-    }
+    bool keepalive = req->IsKeepAlive();
     if (keepalive) {
-        res->headers["Connection"] = "keep-alive";
+        resp->headers["Connection"] = "keep-alive";
     } else {
-        res->headers["Connection"] = "close";
+        resp->headers["Connection"] = "close";
     }
 
     // Upgrade:
@@ -186,14 +158,14 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             Upgrade: websocket
             Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
             */
-            res->status_code = HTTP_STATUS_SWITCHING_PROTOCOLS;
-            res->headers["Connection"] = "Upgrade";
-            res->headers["Upgrade"] = "websocket";
+            resp->status_code = HTTP_STATUS_SWITCHING_PROTOCOLS;
+            resp->headers["Connection"] = "Upgrade";
+            resp->headers["Upgrade"] = "websocket";
             auto iter_key = req->headers.find(SEC_WEBSOCKET_KEY);
             if (iter_key != req->headers.end()) {
                 char ws_accept[32] = {0};
                 ws_encode_key(iter_key->second.c_str(), ws_accept);
-                res->headers[SEC_WEBSOCKET_ACCEPT] = ws_accept;
+                resp->headers[SEC_WEBSOCKET_ACCEPT] = ws_accept;
             }
             upgrade_protocol = HttpHandler::WEBSOCKET;
         }
@@ -205,14 +177,12 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             Upgrade: h2c
             */
             hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
-            parser = HttpParser::New(HTTP_SERVER, HTTP_V2);
-            if (parser == NULL) {
+            if (!handler->SwitchHTTP2()) {
                 hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
                 hio_close(io);
                 return;
             }
-            handler->parser.reset(parser);
-            parser->InitRequest(req);
+            parser = handler->parser.get();
         }
         else {
             hio_close(io);
@@ -220,9 +190,9 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         }
     }
 
+    int status_code = 200;
     if (parser->IsComplete() && !upgrade) {
-        handler->HandleHttpRequest();
-        parser->SubmitResponse(res);
+        status_code = handler->HandleHttpRequest();
     }
 
     char* data = NULL;
@@ -240,17 +210,13 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         hloop_pid(loop), hloop_tid(loop),
         handler->ip, handler->port,
         http_method_str(req->method), req->path.c_str(),
-        res->status_code, res->status_message());
+        resp->status_code, resp->status_message());
 
     // switch protocol to websocket
     if (upgrade && upgrade_protocol == HttpHandler::WEBSOCKET) {
         WebSocketHandler* ws = handler->SwitchWebSocket();
-        handler->protocol = HttpHandler::WEBSOCKET;
         ws->channel.reset(new WebSocketChannel(io, WS_SERVER));
         ws->parser->onMessage = std::bind(websocket_onmessage, std::placeholders::_1, std::placeholders::_2, io);
-        // NOTE: need to reset callbacks
-        hio_setcb_read(io, on_recv);
-        hio_setcb_close(io, on_close);
         // NOTE: cancel keepalive timer, judge alive by heartbeat.
         hio_set_keepalive_timeout(io, 0);
         hio_set_heartbeat(io, HIO_DEFAULT_HEARTBEAT_INTERVAL, websocket_heartbeat);
@@ -259,11 +225,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         return;
     }
 
-    // keep-alive
-    if (keepalive) {
-        handler->Reset();
-        parser->InitRequest(req);
-    } else {
+    if (status_code && !keepalive) {
         hio_close(io);
     }
 }
