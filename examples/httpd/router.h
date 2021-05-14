@@ -55,7 +55,6 @@ public:
             writer->response->headers["X-Request-tid"] = hv::to_string(hv_gettid());
             std::async([req, writer](){
                 writer->Begin();
-                std::string resp_tid = hv::to_string(hv_gettid());
                 writer->response->headers["X-Response-tid"] = hv::to_string(hv_gettid());
                 writer->WriteHeader("Content-Type", "text/plain");
                 writer->WriteBody("This is an async response.\n");
