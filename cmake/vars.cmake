@@ -90,6 +90,7 @@ set(HTTP_CLIENT_HEADERS
 set(HTTP_SERVER_HEADERS
     http/server/HttpService.h
     http/server/HttpServer.h
+    http/server/HttpResponseWriter.h
     http/server/WebSocketServer.h
 )
 

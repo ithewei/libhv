@@ -99,7 +99,8 @@ nmap: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event cpputil examples/nmap" SRCS="examples/nmap/nmap_test.cpp" DEFINES="PRINT_DEBUG"
 
 httpd: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/server examples/httpd"
+	$(RM) examples/httpd/*.o
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client http/server examples/httpd"
 
 curl: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client" SRCS="examples/curl.cpp"

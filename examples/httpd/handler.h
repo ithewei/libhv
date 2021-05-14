@@ -2,11 +2,13 @@
 #define HV_HTTPD_HANDLER_H
 
 #include "HttpMessage.h"
+#include "HttpResponseWriter.h"
 #include "htime.h"
+#include "EventLoop.h" // import setTimeout, setInterval
 
 class Handler {
 public:
-    // preprocessor => handler => postprocessor
+    // preprocessor => api_handlers => postprocessor
     static int preprocessor(HttpRequest* req, HttpResponse* resp) {
         // printf("%s:%d\n", req->client_addr.ip.c_str(), req->client_addr.port);
         // printf("%s\n", req->Dump(true, true).c_str());
@@ -39,7 +41,7 @@ public:
     }
 
     static int sleep(HttpRequest* req, HttpResponse* resp) {
-        unsigned long long start_ms = gettimeofday_ms();
+        resp->Set("start_ms", gettimeofday_ms());
         std::string strTime = req->GetParam("t");
         if (!strTime.empty()) {
             int ms = atoi(strTime.c_str());
@@ -47,11 +49,26 @@ public:
                 hv_delay(ms);
             }
         }
-        unsigned long long end_ms = gettimeofday_ms();
-        resp->Set("start_ms", start_ms);
-        resp->Set("end_ms", end_ms);
+        resp->Set("end_ms", gettimeofday_ms());
         response_status(resp, 0, "OK");
         return 200;
+    }
+
+    static void setTimeout(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
+        writer->resp->Set("start_ms", gettimeofday_ms());
+        std::string strTime = req->GetParam("t");
+        if (!strTime.empty()) {
+            int ms = atoi(strTime.c_str());
+            if (ms > 0) {
+                hv::setTimeout(ms, [writer](hv::TimerID timerID){
+                    writer->Begin();
+                    HttpResponse* resp = writer->resp.get();
+                    resp->Set("end_ms", gettimeofday_ms());
+                    response_status(resp, 0, "OK");
+                    writer->End();
+                });
+            }
+        }
     }
 
     static int query(HttpRequest* req, HttpResponse* resp) {

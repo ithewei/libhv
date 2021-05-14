@@ -51,11 +51,6 @@ if(WITH_HTTP)
 if(WITH_HTTP_SERVER)
     include_directories(../http/server)
 
-    # httpd
-    aux_source_directory(httpd HTTPD_SRCS)
-    add_executable(httpd ${HTTPD_SRCS})
-    target_link_libraries(httpd hv)
-
     # http_server_test
     add_executable(http_server_test http_server_test.cpp)
     target_link_libraries(http_server_test hv)
@@ -64,7 +59,7 @@ if(WITH_HTTP_SERVER)
     add_executable(websocket_server_test websocket_server_test.cpp)
     target_link_libraries(websocket_server_test hv)
 
-    list(APPEND EXAMPLES httpd http_server_test websocket_server_test)
+    list(APPEND EXAMPLES http_server_test websocket_server_test)
 endif()
 
 if(WITH_HTTP_CLIENT)
@@ -105,6 +100,15 @@ if(WITH_CONSUL)
 
     list(APPEND EXAMPLES consul_cli)
 endif()
+
+if(WITH_HTTP_SERVER)
+    # httpd
+    aux_source_directory(httpd HTTPD_SRCS)
+    add_executable(httpd ${HTTPD_SRCS})
+    target_link_libraries(httpd hv)
+    list(APPEND EXAMPLES httpd)
+endif()
+
 endif()
 endif()
 

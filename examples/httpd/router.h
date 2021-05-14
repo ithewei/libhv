@@ -1,7 +1,10 @@
 #ifndef HV_HTTPD_ROUTER_H
 #define HV_HTTPD_ROUTER_H
 
+#include <future> // import std::async
+
 #include "HttpService.h"
+#include "http_client.h"
 
 #include "handler.h"
 
@@ -42,13 +45,43 @@ public:
 
         // wildcard *
         // curl -v http://ip:port/wildcard/any
-        router.GET("/wildcard*", [](HttpRequest* req, HttpResponse* resp){
+        router.GET("/wildcard*", [](HttpRequest* req, HttpResponse* resp) {
             std::string str = req->path + " match /wildcard*";
             return resp->String(str);
         });
 
-        // curl -v http://ip:port/sleep?t=3
+        // curl -v http://ip:port/async
+        router.GET("/async", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
+            writer->resp->headers["X-Request-tid"] = hv::to_string(hv_gettid());
+            std::async([req, writer](){
+                writer->Begin();
+                std::string resp_tid = hv::to_string(hv_gettid());
+                writer->resp->headers["X-Response-tid"] = hv::to_string(hv_gettid());
+                writer->WriteHeader("Content-Type", "text/plain");
+                writer->WriteBody("This is an async response.\n");
+                writer->End();
+            });
+        });
+
+        // curl -v http://ip:port/www/*
+        // curl -v http://ip:port/www/example.com
+        // curl -v http://ip:port/www/example/com
+        router.GET("/www/*", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
+            HttpRequestPtr req2(new HttpRequest);
+            req2->url = replace(req->path.substr(1), "/", ".");
+            // printf("url=%s\n", req2->url.c_str());
+            http_client_send_async(req2, [writer](const HttpResponsePtr& resp2){
+                writer->Begin();
+                writer->resp = resp2;
+                writer->End();
+            });
+        });
+
+        // curl -v http://ip:port/sleep?t=1000
         router.GET("/sleep", Handler::sleep);
+
+        // curl -v http://ip:port/setTimeout?t=1000
+        router.GET("/setTimeout", Handler::setTimeout);
 
         // curl -v http://ip:port/query?page_no=1\&page_size=10
         router.GET("/query", Handler::query);
