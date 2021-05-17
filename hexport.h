@@ -19,7 +19,7 @@
 // HV_DEPRECATED
 #if defined(HV_NO_DEPRECATED)
 #define HV_DEPRECATED
-#elif defined(_GNUC_) || defined(__clang__)
+#elif defined(__GNUC__) || defined(__clang__)
 #define HV_DEPRECATED   __attribute__((deprecated))
 #elif defined(_MSC_VER)
 #define HV_DEPRECATED   __declspec(deprecated)
