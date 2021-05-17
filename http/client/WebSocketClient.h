@@ -25,7 +25,8 @@ public:
     WebSocketClient();
     ~WebSocketClient();
 
-    // ws://127.0.0.1:8080/
+    // url = ws://ip:port/path
+    // url = wss://ip:port/path
     int open(const char* url);
     int close();
     int send(const std::string& msg);
