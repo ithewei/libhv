@@ -113,6 +113,7 @@ public:
         // RESTful API: /group/:group_name/user/:user_id
         // curl -v -X DELETE http://ip:port/group/test/user/123
         router.Delete("/group/:group_name/user/:user_id", Handler::restful);
+        // router.Delete("/group/{group_name}/user/{user_id}", Handler::restful);
 
         // bin/curl -v localhost:8080/upload -F "file=@LICENSE"
         router.POST("/upload", Handler::upload);
