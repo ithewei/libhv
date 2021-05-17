@@ -78,12 +78,14 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     // printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     const char* buf = (const char*)_buf;
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
+    assert(handler != NULL);
 
     // HttpHandler::Init(http_version) -> upgrade ? SwitchHTTP2 / SwitchWebSocket
     // on_recv -> FeedRecvData -> HttpRequest
     // onComplete -> HandleRequest -> HttpResponse -> while (GetSendData) -> send
 
-    if (handler->protocol == HttpHandler::UNKNOWN) {
+    HttpHandler::ProtocolType protocol = handler->protocol;
+    if (protocol == HttpHandler::UNKNOWN) {
         // check request-line
         if (readbytes < MIN_HTTP_REQUEST_LEN) {
             hloge("[%s:%d] http request-line too small", handler->ip, handler->port);
@@ -115,7 +117,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         return;
     }
 
-    if (handler->protocol == HttpHandler::WEBSOCKET) {
+    if (protocol == HttpHandler::WEBSOCKET) {
         return;
     }
 
