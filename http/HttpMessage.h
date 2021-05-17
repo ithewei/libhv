@@ -52,7 +52,7 @@ struct HNetAddr {
 };
 
 // Cookie: sessionid=1; domain=.example.com; path=/; max-age=86400; secure; httponly
-struct HttpCookie {
+struct HV_EXPORT HttpCookie {
     std::string name;
     std::string value;
     std::string domain;
@@ -373,6 +373,7 @@ public:
         auto iter = headers.find("Content-Range");
         if (iter != headers.end()) {
             sscanf(iter->second.c_str(), "bytes %ld-%ld/%ld", &from, &to, &total);
+            return true;
         }
         from = to = total = 0;
         return false;
