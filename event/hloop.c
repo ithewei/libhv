@@ -356,21 +356,23 @@ void hloop_free(hloop_t** pp) {
 
 // while(loop->status) { hloop_process_events(loop); }
 int hloop_run(hloop_t* loop) {
+    if (loop == NULL) return -1;
+    if (loop->status == HLOOP_STATUS_RUNNING) return -2;
+    loop->status = HLOOP_STATUS_RUNNING;
     loop->pid = hv_getpid();
     loop->tid = hv_gettid();
 
-    // intern events
-    int intern_events = 0;
-    if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
-        hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
-        ++intern_events;
-    }
+    if (loop->intern_nevents == 0) {
+        if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
+            hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
+            ++loop->intern_nevents;
+        }
 #ifdef DEBUG
-    htimer_add(loop, hloop_stat_timer_cb, HLOOP_STAT_TIMEOUT, INFINITE);
-    ++intern_events;
+        htimer_add(loop, hloop_stat_timer_cb, HLOOP_STAT_TIMEOUT, INFINITE);
+        ++loop->intern_nevents;
 #endif
+    }
 
-    loop->status = HLOOP_STATUS_RUNNING;
     while (loop->status != HLOOP_STATUS_STOP) {
         if (loop->status == HLOOP_STATUS_PAUSE) {
             hv_msleep(HLOOP_PAUSE_TIME);
@@ -378,7 +380,7 @@ int hloop_run(hloop_t* loop) {
             continue;
         }
         ++loop->loop_cnt;
-        if (loop->nactives <= intern_events && loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) {
+        if (loop->nactives <= loop->intern_nevents && loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) {
             break;
         }
         hloop_process_events(loop);

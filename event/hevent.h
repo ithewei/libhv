@@ -28,6 +28,7 @@ struct hloop_s {
     void*       userdata;
 //private:
     // events
+    uint32_t                    intern_nevents;
     uint32_t                    nactives;
     uint32_t                    npendings;
     // pendings: with priority as array.index
