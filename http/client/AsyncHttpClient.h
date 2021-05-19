@@ -68,6 +68,12 @@ struct HttpClientContext {
     HttpClientContext() {
         timerID = INVALID_TIMER_ID;
     }
+    ~HttpClientContext() {
+        if (timerID != INVALID_TIMER_ID) {
+            killTimer(timerID);
+            timerID = INVALID_TIMER_ID;
+        }
+    }
 
     void callback() {
         if (timerID != INVALID_TIMER_ID) {

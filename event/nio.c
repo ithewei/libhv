@@ -465,6 +465,16 @@ int hio_read (hio_t* io) {
     return hio_add(io, hio_handle_events, HV_READ);
 }
 
+static void hio_write_event_cb(hevent_t* ev) {
+    hio_t* io = (hio_t*)ev->userdata;
+    if (io->closed) return;
+    uint32_t id = (uintptr_t)ev->privdata;
+    if (io->id != id) return;
+    if (io->keepalive_timer) {
+        htimer_reset(io->keepalive_timer);
+    }
+}
+
 int hio_write (hio_t* io, const void* buf, size_t len) {
     if (io->closed) {
         hloge("hio_write called but fd[%d] already closed!", io->fd);
@@ -491,7 +501,27 @@ try_write:
         if (nwrite == 0) {
             goto disconnect;
         }
-        __write_cb(io, buf, nwrite);
+
+        // __write_cb(io, buf, nwrite);
+        if (io->keepalive_timer) {
+            if (hv_gettid() == io->loop->tid) {
+                htimer_reset(io->keepalive_timer);
+            } else {
+                hevent_t ev;
+                memset(&ev, 0, sizeof(ev));
+                ev.cb = hio_write_event_cb;
+                ev.userdata = io;
+                ev.privdata = (void*)(uintptr_t)io->id;
+                ev.priority = HEVENT_HIGH_PRIORITY;
+                hloop_post_event(io->loop, &ev);
+            }
+        }
+        if (io->write_cb) {
+            // printd("write_cb------\n");
+            io->write_cb(io, buf, nwrite);
+            // printd("write_cb======\n");
+        }
+
         if (nwrite == len) {
             //goto write_done;
             hrecursive_mutex_unlock(&io->write_mutex);
@@ -524,9 +554,8 @@ disconnect:
 static void hio_close_event_cb(hevent_t* ev) {
     hio_t* io = (hio_t*)ev->userdata;
     uint32_t id = (uintptr_t)ev->privdata;
-    if (io->id == id) {
-        hio_close((hio_t*)ev->userdata);
-    }
+    if (io->id != id) return;
+    hio_close(io);
 }
 
 int hio_close (hio_t* io) {
@@ -537,6 +566,7 @@ int hio_close (hio_t* io) {
         ev.cb = hio_close_event_cb;
         ev.userdata = io;
         ev.privdata = (void*)(uintptr_t)io->id;
+        ev.priority = HEVENT_HIGH_PRIORITY;
         hloop_post_event(io->loop, &ev);
         return 0;
     }
@@ -550,7 +580,6 @@ int hio_close (hio_t* io) {
         io->close_timer->privdata = io;
         return 0;
     }
-    hrecursive_mutex_unlock(&io->write_mutex);
 
     io->closed = 1;
     hio_done(io);
@@ -562,6 +591,7 @@ int hio_close (hio_t* io) {
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     }
+    hrecursive_mutex_unlock(&io->write_mutex);
     return 0;
 }
 #endif
