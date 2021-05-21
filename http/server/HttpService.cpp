@@ -79,13 +79,12 @@ int HttpService::GetApi(HttpRequest* req, http_sync_handler* handler, http_async
         while (*kp && *vp) {
             if (kp[0] == '*') {
                 // wildcard *
-                if (strendswith(vp, kp+1)) {
-                    match = true;
-                }
+                match = strendswith(vp, kp+1);
                 break;
-            } else if (*kp == *vp) {
-                if (kp[0] == '/' &&
-                   (kp[1] == ':' || kp[1] == '{')) {
+            } else if (*kp != *vp) {
+                match = false;
+                break;
+            } else if (kp[0] == '/' && (kp[1] == ':' || kp[1] == '{')) {
                     // RESTful /:field/
                     // RESTful /{field}/
                     kp += 2;
@@ -100,12 +99,9 @@ int HttpService::GetApi(HttpRequest* req, http_sync_handler* handler, http_async
                     }
                     params[std::string(ks, klen)] = std::string(vs, vp-vs);
                     continue;
-                }
+            } else {
                 ++kp;
                 ++vp;
-            } else {
-                match = false;
-                break;
             }
         }
 
