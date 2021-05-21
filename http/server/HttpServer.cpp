@@ -260,6 +260,8 @@ static void on_accept(hio_t* io) {
     hio_set_keepalive_timeout(io, HIO_DEFAULT_KEEPALIVE_TIMEOUT);
     // new HttpHandler, delete on_close
     HttpHandler* handler = new HttpHandler;
+    // ssl
+    handler->ssl = hio_type(io) == HIO_TYPE_SSL;
     // ip
     sockaddr_ip((sockaddr_u*)hio_peeraddr(io), handler->ip, sizeof(handler->ip));
     // port

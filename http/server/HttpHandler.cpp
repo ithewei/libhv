@@ -6,16 +6,18 @@
 int HttpHandler::HandleHttpRequest() {
     // preprocessor -> api -> web -> postprocessor
 
-    int status_code = 200;
+    int status_code = HTTP_STATUS_OK;
     http_sync_handler sync_handler = NULL;
     http_async_handler async_handler = NULL;
 
     HttpRequest* pReq = req.get();
     HttpResponse* pResp = resp.get();
 
-    pReq->ParseUrl();
+    pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
     pReq->client_addr.port = port;
+    pReq->Host();
+    pReq->ParseUrl();
 
 preprocessor:
     state = HANDLE_BEGIN;
@@ -46,10 +48,7 @@ preprocessor:
             (pReq->method == HTTP_GET || pReq->method == HTTP_HEAD)) {
         // file service
         status_code = 200;
-        const char* s = pReq->path.c_str();
-        const char* e = s;
-        while (*e && *e != '?' && *e != '#') ++e;
-        std::string path = std::string(s, e);
+        std::string path = pReq->Path();
         const char* req_path = path.c_str();
         // path safe check
         if (*req_path != '/' || strstr(req_path, "/../")) {

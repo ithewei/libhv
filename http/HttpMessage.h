@@ -117,6 +117,8 @@ public:
     }
 
     /*
+     * @usage   https://github.com/nlohmann/json
+     *
      * null:    Json(nullptr);
      * boolean: Json(true);
      * number:  Json(123);
@@ -127,7 +129,7 @@ public:
                     {"k2", "v2"}
                 }));
      * array:   Json(std::vector<ValueType>);
-                Json(hv::Json::object(
+                Json(hv::Json::array(
                     {1, 2, 3}
                 ));
      */
@@ -304,6 +306,26 @@ public:
 
     virtual std::string Dump(bool is_dump_headers, bool is_dump_body);
 
+    // structed url -> url
+    void DumpUrl();
+    // url -> structed url
+    void ParseUrl();
+
+    std::string Host() {
+        auto iter = headers.find("Host");
+        if (iter != headers.end()) {
+            host = iter->second;
+        }
+        return host;
+    }
+
+    std::string Path() {
+        const char* s = path.c_str();
+        const char* e = s;
+        while (*e && *e != '?' && *e != '#') ++e;
+        return std::string(s, e);
+    }
+
     std::string GetParam(const char* key, const std::string& defvalue = "") {
         auto iter = query_params.find(key);
         if (iter != query_params.end()) {
@@ -311,11 +333,6 @@ public:
         }
         return defvalue;
     }
-
-    // structed url -> url
-    void DumpUrl();
-    // url -> structed url
-    void ParseUrl();
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1) {

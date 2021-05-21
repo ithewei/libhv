@@ -65,6 +65,7 @@ public:
     } state;
 
     // peeraddr
+    bool                    ssl;
     char                    ip[64];
     int                     port;
 
@@ -89,6 +90,7 @@ public:
     HttpHandler() {
         protocol = UNKNOWN;
         state = WANT_RECV;
+        ssl = false;
         service = NULL;
         files = NULL;
         ws_cbs = NULL;

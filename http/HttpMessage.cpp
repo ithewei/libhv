@@ -438,7 +438,7 @@ void HttpRequest::DumpUrl() {
         if (port == 0 ||
             port == DEFAULT_HTTP_PORT ||
             port == DEFAULT_HTTPS_PORT) {
-            str += host;
+            str += Host();
         }
         else {
             snprintf(c_str, sizeof(c_str), "%s:%d", host.c_str(), port);
