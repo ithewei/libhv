@@ -142,7 +142,7 @@ public:
                 memcpy(ptr, data(), len);
             }
             _offset += len;
-            if (_offset >= len) _offset = 0;
+            if (_offset >= this->len) _offset = 0;
             _size   -= len;
         }
     }
