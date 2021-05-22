@@ -1,6 +1,11 @@
 #ifndef HV_ATOMIC_H_
 #define HV_ATOMIC_H_
 
+/*
+ * @功能：原子操作的跨平台封装
+ *
+ */
+
 #ifdef __cplusplus
 
 // c++11
@@ -93,6 +98,7 @@ static inline void atomic_flag_clear(atomic_flag* p) {
 }
 #endif
 
+// 垫底逻辑
 #ifndef ATOMIC_ADD
 #define ATOMIC_ADD(p, n)    (*(p) += (n))
 #endif

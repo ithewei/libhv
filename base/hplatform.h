@@ -1,9 +1,15 @@
 #ifndef HV_PLATFORM_H_
 #define HV_PLATFORM_H_
 
+/*
+ * @功能：此头文件主要定义了平台相关宏
+ *
+ */
+
 #include "hconfig.h"
 
 // OS
+// 操作系统宏
 #if defined(WIN64) || defined(_WIN64)
     #define OS_WIN64
     #define OS_WIN32
@@ -45,6 +51,7 @@
 #endif
 
 // ARCH
+// CPU体系结构宏
 #if defined(__i386) || defined(__i386__) || defined(_M_IX86)
     #define ARCH_X86
     #define ARCH_X86_32
@@ -61,6 +68,7 @@
 #endif
 
 // COMPILER
+// 编译器宏
 #if defined (_MSC_VER)
 #define COMPILER_MSVC
 
@@ -106,6 +114,7 @@
 #undef  HAVE_PTHREAD_H
 #define HAVE_PTHREAD_H          0
 
+// 禁掉一些MSVC编译时警告
 #pragma warning (disable: 4018) // signed/unsigned comparison
 #pragma warning (disable: 4100) // unused param
 #pragma warning (disable: 4244) // conversion loss of data
@@ -132,6 +141,7 @@
 #endif
 
 // headers
+// #include一些常用头文件
 #ifdef OS_WIN
     #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
@@ -195,6 +205,7 @@
 #endif
 
 // ENDIAN
+// 大小端宏
 #ifndef BIG_ENDIAN
 #define BIG_ENDIAN      4321
 #endif
@@ -206,6 +217,7 @@
 #endif
 
 // BYTE_ORDER
+// 字节序宏
 #ifndef BYTE_ORDER
 #if defined(ARCH_X86) || defined(ARCH_X86_64) || defined(__ARMEL__)
 #define BYTE_ORDER      LITTLE_ENDIAN
@@ -215,6 +227,7 @@
 #endif
 
 // ANSI C
+// #include ANSI C 标准头文件
 #include <assert.h>
 #include <stddef.h>
 #include <stdarg.h>
@@ -229,6 +242,8 @@
 #include <math.h>
 #include <signal.h>
 
+// bool类型兼容处理
+// c99前C语言是没有bool类型的
 #ifndef __cplusplus
 #if HAVE_STDBOOL_H
 #include <stdbool.h>
@@ -247,6 +262,7 @@
 #endif
 #endif
 
+// int类型兼容处理
 #if HAVE_STDINT_H
 #include <stdint.h>
 #elif defined(_MSC_VER) && _MSC_VER < 1700
@@ -266,6 +282,7 @@ typedef double              float64_t;
 typedef int (*method_t)(void* userdata);
 typedef void (*procedure_t)(void* userdata);
 
+// 根据生成的hconfig.h，#include一些非ANSI C 头文件
 #if HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif

@@ -2,6 +2,11 @@
 #define HV_ARRAY_H_
 
 /*
+ * @功能：不定长数组的宏实现
+ *
+ */
+
+/*
  * array
  * at: random access by pos
  * @effective
