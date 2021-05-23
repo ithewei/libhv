@@ -149,6 +149,7 @@ public:
         loop_thread.start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
     }
     void stop(bool wait_threads_stopped = true) {
+        enable_reconnect = false;
         loop_thread.stop(wait_threads_stopped);
     }
 

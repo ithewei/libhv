@@ -75,6 +75,7 @@ public:
 
     // Timer interfaces: setTimer, killTimer, resetTimer
     TimerID setTimer(int timeout_ms, TimerCallback cb, int repeat = INFINITE) {
+        if (loop_ == NULL) return INVALID_TIMER_ID;
         htimer_t* htimer = htimer_add(loop_, onTimer, timeout_ms, repeat);
 
         Timer timer(htimer, cb, repeat);
