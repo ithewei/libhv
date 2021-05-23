@@ -1,6 +1,11 @@
 #ifndef HV_ENDIAN_H_
 #define HV_ENDIAN_H_
 
+/*
+ * @功能：此头文件封装了跨平台的大小端工具函数
+ *
+ */
+
 #include "hplatform.h"
 #if defined(OS_MAC)
 #include <libkern/OSByteOrder.h>

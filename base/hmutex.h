@@ -1,6 +1,18 @@
 #ifndef HV_MUTEX_H_
 #define HV_MUTEX_H_
 
+/*
+ * @功能：此头文件封装了跨平台的线程同步手段，包括
+ *        互斥量 hmutex_t
+ *        可重入的互斥量 hrecursive_mutex_t
+ *        自旋锁 hspinlock_t
+ *        读写锁 hrwlock_t
+ *        定时锁 htimed_mutex_t
+ *        条件变量 hcondvar_t
+ *        信号量 hsem_t
+ *
+ */
+
 #include "hexport.h"
 #include "hplatform.h"
 #include "htime.h"

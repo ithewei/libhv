@@ -1,6 +1,11 @@
 #ifndef HV_HEAP_H_
 #define HV_HEAP_H_
 
+/*
+ * @功能：此头文件实现了大小堆
+ *
+ */
+
 #include <assert.h> // for assert
 #include <stddef.h> // for NULL
 

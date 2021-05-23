@@ -1,6 +1,12 @@
 #ifndef HV_PROC_H_
 #define HV_PROC_H_
 
+/*
+ * @功能：衍生进程
+ * @备注：unix使用的多进程、windows下使用的多线程
+ *
+ */
+
 #include "hplatform.h"
 
 typedef struct proc_ctx_s {

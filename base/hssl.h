@@ -1,6 +1,11 @@
 #ifndef HV_SSL_H_
 #define HV_SSL_H_
 
+/*
+ * @功能：提供了统一的SSL/TLS封装接口
+ *
+ */
+
 #include "hexport.h"
 
 typedef void* hssl_ctx_t; ///> SSL_CTX

@@ -1,6 +1,11 @@
 #ifndef HV_ERR_H_
 #define HV_ERR_H_
 
+/*
+ * @功能：此头文件定义了一些错误码
+ *
+ */
+
 #include <errno.h>
 
 #include "hexport.h"

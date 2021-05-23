@@ -1,6 +1,11 @@
 #ifndef HV_SOCKET_H_
 #define HV_SOCKET_H_
 
+/*
+ * @功能：此头文件封装了跨平台的套接字操作
+ *
+ */
+
 #include "hexport.h"
 #include "hplatform.h"
 
@@ -26,6 +31,7 @@ static inline int socket_errno() {
 }
 HV_EXPORT const char* socket_strerror(int err);
 
+// 屏蔽一些windows和unix下套接字的差异
 #ifdef OS_WIN
 typedef int socklen_t;
 static inline int blocking(int sockfd) {
@@ -52,6 +58,7 @@ typedef int         SOCKET;
 #endif
 
 //-----------------------------sockaddr_u----------------------------------------------
+// 定义了一个包含了IPv4、IPv6、Unix Domain Socket的联合类型
 typedef union {
     struct sockaddr     sa;
     struct sockaddr_in  sin;
@@ -61,10 +68,12 @@ typedef union {
 #endif
 } sockaddr_u;
 
+// 域名解析
 // @param host: domain or ip
 // @retval 0:succeed
 HV_EXPORT int Resolver(const char* host, sockaddr_u* addr);
 
+// 提供了一系列操作sockaddr_u的工具函数
 HV_EXPORT const char* sockaddr_ip(sockaddr_u* addr, char *ip, int len);
 HV_EXPORT uint16_t sockaddr_port(sockaddr_u* addr);
 HV_EXPORT int sockaddr_set_ip(sockaddr_u* addr, const char* host);
