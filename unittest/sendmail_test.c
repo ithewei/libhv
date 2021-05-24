@@ -5,6 +5,7 @@
 int main(int argc, char** argv) {
     if (argc < 8) {
         printf("Usage: sendmail smtp_server username password from to subject body\n");
+        return -10;
     }
 
     const char* smtp_server = argv[1];

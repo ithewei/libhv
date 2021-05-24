@@ -9,6 +9,7 @@
 int main(int argc, char** argv) {
     if (argc < 2) {
         printf("Usage: %s url\n", argv[0]);
+        return -10;
     }
     const char* url = argv[1];
 
@@ -24,7 +25,7 @@ int main(int argc, char** argv) {
     HFile file;
     if (file.open(filepath.c_str(), "wb") != 0) {
         fprintf(stderr, "Failed to open file %s\n", filepath.c_str());
-        return -10;
+        return -20;
     }
 
     // HEAD
