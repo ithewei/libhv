@@ -130,4 +130,21 @@ struct s
 #define END_NAMESPACE_HV    END_NAMESPACE(hv)
 #define USING_NAMESPACE_HV  USING_NAMESPACE(hv)
 
+// MSVC ports
+#ifdef _MSC_VER
+#if _MSC_VER < 1900 // < VS2015
+
+#ifndef __cplusplus
+#ifndef inline
+#define inline __inline
+#endif
+#endif
+
+#ifndef snprintf
+#define snprintf _snprintf
+#endif
+
+#endif
+#endif
+
 #endif // HV_EXPORT_H_
