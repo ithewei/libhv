@@ -24,8 +24,9 @@ typedef struct consul_service_s {
     int  port;
 
     consul_service_s() {
-        memset(this, 0, sizeof(consul_service_s));
+        name[0] = '\0';
         strcpy(ip, "127.0.0.1");
+        port = 0;
     }
 } consul_service_t;
 
@@ -39,8 +40,8 @@ typedef struct consul_health_s {
     int timeout;  // ms
 
     consul_health_s() {
-        memset(this, 0, sizeof(consul_health_s));
         strcpy(protocol, "TCP");
+        url[0] = '\0';
         strcpy(status, "passing");
         interval = 10000;
         timeout = 3000;

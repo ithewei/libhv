@@ -16,9 +16,7 @@ static const char url_deregister[] = "/agent/service/deregister";
 static const char url_discover[] = "/catalog/service";
 
 static string make_url(const char* ip, int port, const char* url) {
-    return asprintf(PROTOCOL "%s:%d/" API_VERSION "%s",
-            ip, port,
-            url);
+    return asprintf(PROTOCOL "%s:%d/" API_VERSION "%s", ip, port, url);
 }
 
 static string make_ServiceID(consul_service_t* service) {
@@ -60,7 +58,7 @@ int register_service(consul_node_t* node, consul_service_t* service, consul_heal
 
     json jservice;
     jservice["Name"] = service->name;
-    if (strlen(service->ip) != 0) {
+    if (*service->ip) {
         jservice["Address"] = service->ip;
     }
     jservice["Port"] = service->port;
@@ -119,7 +117,7 @@ int discover_services(consul_node_t* node, const char* service_name, std::vector
     }
     printd("%s\n", res.body.c_str());
 
-    json jroot = json::parse(res.body.c_str(), NULL, false);
+    json jroot = json::parse(res.body);
     if (!jroot.is_array()) {
         return ERR_INVALID_JSON;
     }
@@ -128,41 +126,21 @@ int discover_services(consul_node_t* node, const char* service_name, std::vector
     }
 
     consul_service_t service;
+    std::string name, ip;
     services.clear();
     for (size_t i = 0; i < jroot.size(); ++i) {
         auto jservice = jroot[i];
-        if (!jservice.is_object()) {
+        name = jservice["ServiceName"];
+        if (jservice.contains("Address")) {
+            ip = jservice["Address"];
+        } else if (jservice.contains("ServiceAddress")) {
+            ip = jservice["ServiceAddress"];
+        } else if (jservice.contains("ServiceAddress6")) {
+            ip = jservice["ServiceAddress6"];
+        } else {
             continue;
         }
-        auto jname = jservice["ServiceName"];
-        if (!jname.is_string()) {
-            continue;
-        }
-        auto jport = jservice["ServicePort"];
-        if (!jport.is_number_integer()) {
-            continue;
-        }
-
-        string ip;
-        auto jip = jservice["Address"];
-        if (jip.is_string()) {
-            ip = jip;
-        }
-        if (ip.empty()) {
-            jip = jservice["ServiceAddress"];
-            if (jip.is_string()) {
-                ip = jip;
-            }
-        }
-        if (ip.empty()) {
-            jip = jservice["ServiceAddress6"];
-            if (jip.is_string()) {
-                ip = jip;
-            }
-        }
-
-        string name = jname;
-        int    port = jport;
+        int port = jservice["ServicePort"];
 
         strncpy(service.name, name.c_str(), sizeof(service.name));
         strncpy(service.ip, ip.c_str(), sizeof(service.ip));
