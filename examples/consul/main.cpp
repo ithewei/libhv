@@ -4,6 +4,11 @@
 
 #include "consul.h"
 
+/*
+ * @介绍：consul服务注册与发现示例程序
+ *
+ */
+
 int main(int argc, char* argv[]) {
     if (argc < 3) {
         printf("Usage: consul_cli subcmd ServiceName [ServiceAddress ServicePort] [NodeIP NodePort]\n");
@@ -41,17 +46,20 @@ int main(int argc, char* argv[]) {
     consul_health_t health;
 
     if (strcmp(subcmd, "register") == 0) {
+        // 注册服务
         int ret = register_service(&node, &service, &health);
         printf("register_service retval=%d\n", ret);
         goto discover;
     }
     else if (strcmp(subcmd, "deregister") == 0) {
+        // 注销服务
         int ret = deregister_service(&node, &service);
         printf("deregister_service retval=%d\n", ret);
         goto discover;
     }
     else if (strcmp(subcmd, "discover") == 0) {
 discover:
+        // 发现服务
         std::vector<consul_service_t> services;
         discover_services(&node, ServiceName, services);
         for (auto& service : services) {

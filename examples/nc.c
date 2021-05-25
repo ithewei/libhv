@@ -12,6 +12,11 @@
  *          > [Enter]
  */
 
+/*
+ * @介绍：nc是unix下著名的网络连接客户端，此示例程序使用libhv实现了nc类似的功能。
+ *
+ */
+
 #include "hloop.h"
 #include "hbase.h"
 #include "hsocket.h"

@@ -1,6 +1,11 @@
 #include "hloop.h"
 #include "hbase.h"
 
+/*
+ * @介绍：此程序是为了测试定时器增加、删除、重置接口。
+ *
+ */
+
 void on_timer(htimer_t* timer) {
     printf("time=%llus on_timer\n", LLU(hloop_now(hevent_loop(timer))));
 }

@@ -7,6 +7,12 @@
  *         bin/curl -v 127.0.0.1:8080/echo -d 'hello,world!'
  */
 
+/*
+ * @介绍：curl是一个著名的URL命令行工具，支持ftp、telnet、smtp、http等多种协议，
+ *        最常用的还是用作http请求，这个示例代码使用libhv的http客户端实现了类似功能。
+ *
+ */
+
 #include "http_client.h"
 
 #ifdef _MSC_VER
@@ -114,6 +120,7 @@ int main(int argc, char* argv[]) {
     parse_cmdline(argc, argv);
 
     int ret = 0;
+    // 解析命令行参数，填充到请求对象
     HttpRequest req;
     if (grpc) {
         http_version = 2;
@@ -217,8 +224,10 @@ int main(int argc, char* argv[]) {
         }
     }
     HttpResponse res;
+    // 创建http客户端
     http_client_t* hc = http_client_new();
 send:
+    // 发送请求，接收响应
     ret = http_client_send(hc, &req, &res);
     if (verbose) {
         printf("%s\n", req.Dump(true,true).c_str());
@@ -243,6 +252,7 @@ send:
 #endif
         goto send;
     }
+    // 销毁http客户端
     http_client_del(hc);
     return ret;
 }
