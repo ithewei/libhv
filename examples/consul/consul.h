@@ -4,8 +4,6 @@
 #include <vector>
 #include <string.h>
 
-#include "hexport.h"
-
 typedef struct consul_node_s {
     // node
     char ip[64];
@@ -48,8 +46,8 @@ typedef struct consul_health_s {
     }
 } consul_health_t;
 
-HV_EXPORT int register_service(consul_node_t* node, consul_service_t* service, consul_health_t* health);
-HV_EXPORT int deregister_service(consul_node_t* node, consul_service_t* service);
-HV_EXPORT int discover_services(consul_node_t* node, const char* service_name, std::vector<consul_service_t>& services);
+int register_service(consul_node_t* node, consul_service_t* service, consul_health_t* health);
+int deregister_service(consul_node_t* node, consul_service_t* service);
+int discover_services(consul_node_t* node, const char* service_name, std::vector<consul_service_t>& services);
 
 #endif // CONSUL_H_

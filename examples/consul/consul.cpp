@@ -5,9 +5,6 @@
 #include "json.hpp"
 using json = nlohmann::json;
 
-#include "hstring.h"
-#include "herr.h"
-
 #define PROTOCOL    "http://"
 #define API_VERSION "v1"
 
@@ -112,18 +109,12 @@ int discover_services(consul_node_t* node, const char* service_name, std::vector
     HttpResponse res;
     printd("GET %s\n", req.url.c_str());
     int ret = http_client_send(&req, &res);
-    if (ret != 0) {
-        return ret;
-    }
+    if (ret != 0) return ret;
     printd("%s\n", res.body.c_str());
 
     json jroot = json::parse(res.body);
-    if (!jroot.is_array()) {
-        return ERR_INVALID_JSON;
-    }
-    if (jroot.size() == 0) {
-        return 0;
-    }
+    if (!jroot.is_array()) return -1;
+    if (jroot.size() == 0) return 0;
 
     consul_service_t service;
     std::string name, ip;

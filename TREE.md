@@ -7,7 +7,6 @@
 ├── build       cmake默认构建目录
 ├── cert        SSL证书存放目录
 ├── cmake       cmake脚本存放目录
-├── consul      consul服务注册与发现，使用http客户端实现
 ├── cpputil     libhv工具类，如命令行解析、json解析、ini解析
 ├── docs        文档存放目录
 ├── echo-servers 包含libevent、libev、libuv、libhv、asio、poco、muduo等多个网络库的tcp echo server写法，并做压力测试

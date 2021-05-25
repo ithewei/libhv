@@ -42,7 +42,7 @@ if(WITH_EVPP)
 
     aux_source_directory(nmap NMAP_SRCS)
     add_executable(nmap ${NMAP_SRCS})
-    target_compile_definitions(nmap PRIVATE -DPRINT_DEBUG)
+    target_compile_definitions(nmap PRIVATE PRINT_DEBUG)
     target_link_libraries(nmap hv)
 
     list(APPEND EXAMPLES hmain_test nmap)
@@ -80,6 +80,12 @@ if(WITH_HTTP_CLIENT)
     add_executable(wget wget.cpp)
     target_link_libraries(wget hv)
 
+    # consul
+    aux_source_directory(consul CONSUL_SRCS)
+    add_executable(consul ${CONSUL_SRCS})
+    target_compile_definitions(consul PRIVATE PRINT_DEBUG)
+    target_link_libraries(consul hv)
+
     # http_client_test
     add_executable(http_client_test http_client_test.cpp)
     target_link_libraries(http_client_test hv)
@@ -88,25 +94,15 @@ if(WITH_HTTP_CLIENT)
     add_executable(websocket_client_test websocket_client_test.cpp)
     target_link_libraries(websocket_client_test hv)
 
-    list(APPEND EXAMPLES ${CURL_TARGET_NAME} wget http_client_test websocket_client_test)
-endif()
+    list(APPEND EXAMPLES ${CURL_TARGET_NAME} wget consul http_client_test websocket_client_test)
 
-if(WITH_CONSUL)
-    include_directories(../consul)
-
-    add_executable(consul_cli consul_cli.cpp)
-    target_compile_definitions(consul_cli PRIVATE PRINT_DEBUG)
-    target_link_libraries(consul_cli hv)
-
-    list(APPEND EXAMPLES consul_cli)
-endif()
-
-if(WITH_HTTP_SERVER)
-    # httpd
-    aux_source_directory(httpd HTTPD_SRCS)
-    add_executable(httpd ${HTTPD_SRCS})
-    target_link_libraries(httpd hv)
-    list(APPEND EXAMPLES httpd)
+    if(WITH_HTTP_SERVER)
+        # httpd
+        aux_source_directory(httpd HTTPD_SRCS)
+        add_executable(httpd ${HTTPD_SRCS})
+        target_link_libraries(httpd hv)
+        list(APPEND EXAMPLES httpd)
+    endif()
 endif()
 
 endif()

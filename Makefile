@@ -2,7 +2,7 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base util event protocol cpputil evpp http http/client http/server consul
+ALL_SRCDIRS=. base util event protocol cpputil evpp http http/client http/server
 
 LIBHV_SRCDIRS = . base util event
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
@@ -16,28 +16,28 @@ endif
 ifeq ($(WITH_EVPP), yes)
 LIBHV_HEADERS += $(CPPUTIL_HEADERS) $(EVPP_HEADERS)
 LIBHV_SRCDIRS += cpputil evpp
+
 ifeq ($(WITH_HTTP), yes)
 LIBHV_HEADERS += $(HTTP_HEADERS)
 LIBHV_SRCDIRS += http
+
 ifeq ($(WITH_HTTP_SERVER), yes)
 LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
 endif
+
 ifeq ($(WITH_HTTP_CLIENT), yes)
 LIBHV_HEADERS += $(HTTP_CLIENT_HEADERS)
 LIBHV_SRCDIRS += http/client
-ifeq ($(WITH_CONSUL), yes)
-LIBHV_HEADERS += $(CONSUL_HEADERS)
-LIBHV_SRCDIRS += consul
 endif
-endif
+
 endif
 endif
 
 default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
-	nc nmap httpd curl wget \
+	nc nmap httpd curl wget consul\
 	tcp_echo_server \
 	tcp_chat_server \
 	tcp_proxy_server \
@@ -46,11 +46,10 @@ examples: hmain_test htimer_test hloop_test \
 	http_server_test http_client_test \
 	websocket_server_test \
 	websocket_client_test \
-	consul_cli
 
 clean:
-	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"
-	$(RM) examples/*.o examples/httpd/*.o examples/nmap/*.o
+	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS) examples/nmap examples/httpd examples/consul"
+	${RM} examples/*.o
 	$(RM) include/hv
 
 prepare:
@@ -96,11 +95,14 @@ nc: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nc.c"
 
 nmap: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event cpputil examples/nmap" SRCS="examples/nmap/nmap_test.cpp" DEFINES="PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event cpputil examples/nmap" DEFINES="PRINT_DEBUG"
 
 httpd: prepare
 	$(RM) examples/httpd/*.o
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client http/server examples/httpd"
+
+consul: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client examples/consul" DEFINES="PRINT_DEBUG"
 
 curl: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client" SRCS="examples/curl.cpp"
@@ -120,9 +122,6 @@ websocket_server_test: prepare
 
 websocket_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client" SRCS="examples/websocket_client_test.cpp"
-
-consul_cli: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client consul" SRCS="examples/consul_cli.cpp" DEFINES="PRINT_DEBUG"
 
 unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
