@@ -9,6 +9,7 @@
 int main(int argc, char** argv) {
     if (argc < 2) {
         printf("Usage: %s url\n", argv[0]);
+        return -10;
     }
     const char* url = argv[1];
 
@@ -19,25 +20,25 @@ int main(int argc, char** argv) {
     } else {
         filepath = path + 1;
     }
-    printf("save file to %s ...\n", filepath.c_str());
+    printf("Save file to %s ...\n", filepath.c_str());
 
     HFile file;
     if (file.open(filepath.c_str(), "wb") != 0) {
         fprintf(stderr, "Failed to open file %s\n", filepath.c_str());
-        return -10;
+        return -20;
     }
 
     // HEAD
     requests::Request req(new HttpRequest);
     req->url = url;
     req->method = HTTP_HEAD;
-    printf("%s\n", req->Dump(true, true).c_str());
+    printd("%s", req->Dump(true, true).c_str());
     auto resp = requests::request(req);
     if (resp == NULL) {
         fprintf(stderr, "request failed!\n");
         return -1;
     }
-    printf("%s\n", resp->Dump(true, false).c_str());
+    printd("%s", resp->Dump(true, false).c_str());
 
     bool use_range = false;
     int range_bytes = 1 << 20; // 1M
@@ -53,13 +54,13 @@ int main(int argc, char** argv) {
     // GET
     req->method = HTTP_GET;
     if (!use_range) {
-        printf("%s\n", req->Dump(true, true).c_str());
+        printd("%s", req->Dump(true, true).c_str());
         resp = requests::get(url);
         if (resp == NULL) {
             fprintf(stderr, "request failed!\n");
             return -1;
         }
-        printf("%s\n", resp->Dump(true, false).c_str());
+        printd("%s", resp->Dump(true, false).c_str());
         file.write(resp->body.data(), resp->body.size());
         return 0;
     }
@@ -73,13 +74,13 @@ int main(int argc, char** argv) {
         if (to >= content_length) to = content_length - 1;
         // Range: bytes=from-to
         req->SetRange(from, to);
-        printf("%s\n", req->Dump(true, true).c_str());
+        printd("%s", req->Dump(true, true).c_str());
         int ret = http_client_send(cli, req.get(), resp.get());
         if (ret != 0) {
             fprintf(stderr, "request failed!\n");
             return -1;
         }
-        printf("%s\n", resp->Dump(true, false).c_str());
+        printd("%s", resp->Dump(true, false).c_str());
         file.write(resp->body.data(), resp->body.size());
         from = to + 1;
     }

@@ -170,7 +170,6 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
-- [examples/nc.c](examples/nc.c)
 
 ### c++ version
 - [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
@@ -184,6 +183,14 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+
+### simulate well-known command line tools
+- [examples/nc](examples/nc.c)
+- [examples/nmap](examples/nmap)
+- [examples/httpd](examples/httpd)
+- [examples/curl](examples/curl.cpp)
+- [examples/wget](examples/wget.cpp)
+- [examples/consul](examples/consul)
 
 ## 🥇 Benchmark
 ```shell

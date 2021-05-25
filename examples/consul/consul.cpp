@@ -5,9 +5,6 @@
 #include "json.hpp"
 using json = nlohmann::json;
 
-#include "hstring.h"
-#include "herr.h"
-
 #define PROTOCOL    "http://"
 #define API_VERSION "v1"
 
@@ -16,9 +13,7 @@ static const char url_deregister[] = "/agent/service/deregister";
 static const char url_discover[] = "/catalog/service";
 
 static string make_url(const char* ip, int port, const char* url) {
-    return asprintf(PROTOCOL "%s:%d/" API_VERSION "%s",
-            ip, port,
-            url);
+    return asprintf(PROTOCOL "%s:%d/" API_VERSION "%s", ip, port, url);
 }
 
 static string make_ServiceID(consul_service_t* service) {
@@ -60,7 +55,7 @@ int register_service(consul_node_t* node, consul_service_t* service, consul_heal
 
     json jservice;
     jservice["Name"] = service->name;
-    if (strlen(service->ip) != 0) {
+    if (*service->ip) {
         jservice["Address"] = service->ip;
     }
     jservice["Port"] = service->port;
@@ -114,55 +109,29 @@ int discover_services(consul_node_t* node, const char* service_name, std::vector
     HttpResponse res;
     printd("GET %s\n", req.url.c_str());
     int ret = http_client_send(&req, &res);
-    if (ret != 0) {
-        return ret;
-    }
+    if (ret != 0) return ret;
     printd("%s\n", res.body.c_str());
 
-    json jroot = json::parse(res.body.c_str(), NULL, false);
-    if (!jroot.is_array()) {
-        return ERR_INVALID_JSON;
-    }
-    if (jroot.size() == 0) {
-        return 0;
-    }
+    json jroot = json::parse(res.body);
+    if (!jroot.is_array()) return -1;
+    if (jroot.size() == 0) return 0;
 
     consul_service_t service;
+    std::string name, ip;
     services.clear();
     for (size_t i = 0; i < jroot.size(); ++i) {
         auto jservice = jroot[i];
-        if (!jservice.is_object()) {
+        name = jservice["ServiceName"];
+        if (jservice.contains("Address")) {
+            ip = jservice["Address"];
+        } else if (jservice.contains("ServiceAddress")) {
+            ip = jservice["ServiceAddress"];
+        } else if (jservice.contains("ServiceAddress6")) {
+            ip = jservice["ServiceAddress6"];
+        } else {
             continue;
         }
-        auto jname = jservice["ServiceName"];
-        if (!jname.is_string()) {
-            continue;
-        }
-        auto jport = jservice["ServicePort"];
-        if (!jport.is_number_integer()) {
-            continue;
-        }
-
-        string ip;
-        auto jip = jservice["Address"];
-        if (jip.is_string()) {
-            ip = jip;
-        }
-        if (ip.empty()) {
-            jip = jservice["ServiceAddress"];
-            if (jip.is_string()) {
-                ip = jip;
-            }
-        }
-        if (ip.empty()) {
-            jip = jservice["ServiceAddress6"];
-            if (jip.is_string()) {
-                ip = jip;
-            }
-        }
-
-        string name = jname;
-        int    port = jport;
+        int port = jservice["ServicePort"];
 
         strncpy(service.name, name.c_str(), sizeof(service.name));
         strncpy(service.ip, ip.c_str(), sizeof(service.ip));

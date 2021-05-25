@@ -93,5 +93,3 @@ set(HTTP_SERVER_HEADERS
     http/server/HttpResponseWriter.h
     http/server/WebSocketServer.h
 )
-
-set(CONSUL_HEADERS consul/consul.h)

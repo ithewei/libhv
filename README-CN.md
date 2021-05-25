@@ -173,7 +173,6 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
-- TCP/UDP客户端: [examples/nc.c](examples/nc.c)
 
 ### c++版本
 - 事件循环: [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
@@ -187,6 +186,14 @@ wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
 - HTTP客户端: [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+
+### 模拟实现著名的命令行工具
+- 网络连接工具: [examples/nc](examples/nc.c)
+- 网络扫描工具: [examples/nmap](examples/nmap)
+- HTTP服务程序: [examples/httpd](examples/httpd)
+- URL请求工具: [examples/curl](examples/curl.cpp)
+- 文件下载工具: [examples/wget](examples/wget.cpp)
+- 服务注册与发现: [examples/consul](examples/consul)
 
 ## 🥇 性能测试
 ```shell

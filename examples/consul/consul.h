@@ -4,8 +4,6 @@
 #include <vector>
 #include <string.h>
 
-#include "hexport.h"
-
 typedef struct consul_node_s {
     // node
     char ip[64];
@@ -24,8 +22,9 @@ typedef struct consul_service_s {
     int  port;
 
     consul_service_s() {
-        memset(this, 0, sizeof(consul_service_s));
+        name[0] = '\0';
         strcpy(ip, "127.0.0.1");
+        port = 0;
     }
 } consul_service_t;
 
@@ -39,16 +38,16 @@ typedef struct consul_health_s {
     int timeout;  // ms
 
     consul_health_s() {
-        memset(this, 0, sizeof(consul_health_s));
         strcpy(protocol, "TCP");
+        url[0] = '\0';
         strcpy(status, "passing");
         interval = 10000;
         timeout = 3000;
     }
 } consul_health_t;
 
-HV_EXPORT int register_service(consul_node_t* node, consul_service_t* service, consul_health_t* health);
-HV_EXPORT int deregister_service(consul_node_t* node, consul_service_t* service);
-HV_EXPORT int discover_services(consul_node_t* node, const char* service_name, std::vector<consul_service_t>& services);
+int register_service(consul_node_t* node, consul_service_t* service, consul_health_t* health);
+int deregister_service(consul_node_t* node, consul_service_t* service);
+int discover_services(consul_node_t* node, const char* service_name, std::vector<consul_service_t>& services);
 
 #endif // CONSUL_H_

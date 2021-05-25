@@ -23,7 +23,6 @@ modules:
   --with-http           compile http module?            (DEFAULT: $WITH_HTTP)
   --with-http-client    compile http client module?     (DEFAULT: $WITH_HTTP_CLIENT)
   --with-http-server    compile http server module?     (DEFAULT: $WITH_HTTP_SERVER)
-  --with-consul         compile consul module? default: (DEFAULT: $WITH_CONSUL)
 
 features:
   --enable-ipv6         enable IPv6?                    (DEFAULT: $ENABLE_IPV6)
