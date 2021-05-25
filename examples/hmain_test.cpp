@@ -2,6 +2,19 @@
 #include "hmain.h"
 #include "iniparser.h"
 
+/*
+ * @build: make examples
+ * @usage: bin/hmain_test -h
+ *         bin/hmain_test -v
+ *
+ *         bin/hmain_test -c etc/hmain_test.conf -d
+ *         ps aux | grep hmain_test
+ *
+ *         bin/hmain_test -s stop
+ *         ps aux | grep hmain_test
+ *
+ */
+
 typedef struct conf_ctx_s {
     IniParser* parser;
     int loglevel;
@@ -215,15 +228,15 @@ int main(int argc, char** argv) {
     // pidfile
     create_pidfile();
 
-    master_workers_run(worker_fn, (void*)(intptr_t)100L, g_conf_ctx.worker_processes, g_conf_ctx.worker_threads);
+    master_workers_run(worker_fn, (void*)(intptr_t)g_conf_ctx.port, g_conf_ctx.worker_processes, g_conf_ctx.worker_threads);
 
     return 0;
 }
 
 void worker_fn(void* userdata) {
-    long num = (long)(intptr_t)(userdata);
+    long port = (long)(intptr_t)(userdata);
     while (1) {
-        printf("num=%ld pid=%ld tid=%ld\n", num, hv_getpid(), hv_gettid());
+        printf("port=%ld pid=%ld tid=%ld\n", port, hv_getpid(), hv_gettid());
         hv_delay(60000);
     }
 }
