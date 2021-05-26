@@ -59,7 +59,7 @@ using Json = nlohmann::json;
 // using Json = nlohmann::ordered_json;
 }
 
-HV_EXPORT std::string dump_json(hv::Json& json);
+HV_EXPORT std::string dump_json(hv::Json& json, int indent = -1);
 HV_EXPORT int         parse_json(const char* str, hv::Json& json, std::string& errmsg);
 #endif
 

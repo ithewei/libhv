@@ -231,8 +231,8 @@ int parse_multipart(std::string& str, MultiPart& mp, const char* boundary) {
     return nparse == str.size() ? 0 : -1;
 }
 
-std::string dump_json(hv::Json& json) {
-    return json.dump();
+std::string dump_json(hv::Json& json, int indent) {
+    return json.dump(indent);
 }
 
 int parse_json(const char* str, hv::Json& json, std::string& errmsg) {
