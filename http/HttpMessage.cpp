@@ -331,7 +331,7 @@ void HttpMessage::DumpBody() {
 #ifndef WITHOUT_HTTP_CONTENT
     switch(content_type) {
     case APPLICATION_JSON:
-        body = dump_json(json);
+        body = dump_json(json, 2);
         break;
     case MULTIPART_FORM_DATA:
     {
