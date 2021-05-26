@@ -11,38 +11,45 @@
 class Router {
 public:
     static void Register(HttpService& router) {
+        // 前处理 => 处理 => 后处理
         // preprocessor => Handler => postprocessor
         router.preprocessor = Handler::preprocessor;
         router.postprocessor = Handler::postprocessor;
 
         // curl -v http://ip:port/ping
         router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
+            // 发送字符串
             return resp->String("pong");
         });
 
         // curl -v http://ip:port/data
         router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
             static char data[] = "0123456789";
+            // 发送二进制数据
             return resp->Data(data, 10);
         });
 
         // curl -v http://ip:port/html/index.html
         router.GET("/html/index.html", [](HttpRequest* req, HttpResponse* resp) {
+            // 发送文件内容
             return resp->File("html/index.html");
         });
 
         // curl -v http://ip:port/paths
         router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
+            // 发送json
             return resp->Json(router.Paths());
         });
 
         // curl -v http://ip:port/echo -d "hello,world!"
         router.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
+            // 回显请求
             resp->content_type = req->content_type;
             resp->body = req->body;
             return 200;
         });
 
+        // 通配符匹配
         // wildcard *
         // curl -v http://ip:port/wildcard/any
         router.GET("/wildcard*", [](HttpRequest* req, HttpResponse* resp) {
@@ -50,6 +57,7 @@ public:
             return resp->String(str);
         });
 
+        // 异步响应
         // curl -v http://ip:port/async
         router.GET("/async", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
             writer->response->headers["X-Request-tid"] = hv::to_string(hv_gettid());
@@ -67,6 +75,7 @@ public:
         router.GET("/www.*", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
             HttpRequestPtr req2(new HttpRequest);
             req2->url = req->path.substr(1);
+            // 异步HTTP客户端请求 + 异步响应
             http_client_send_async(req2, [writer](const HttpResponsePtr& resp2){
                 writer->Begin();
                 if (resp2 == NULL) {

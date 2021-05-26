@@ -15,14 +15,20 @@ public:
         // if (req->content_type != APPLICATION_JSON) {
         //     return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         // }
+
+        // 解析body字符串到对应结构体(json、form、kv)
         req->ParseBody();
+        // 响应格式默认为application/json
         resp->content_type = APPLICATION_JSON;
 #if 0
+        // 前处理中我们可以做一些公共逻辑，如请求统计、请求拦截、API鉴权等，
+        // 下面是一段简单的Token头校验代码
         // authentication sample code
         if (strcmp(req->path.c_str(), "/login") != 0) {
             string token = req->GetHeader("token");
             if (token.empty()) {
                 response_status(resp, 10011, "Miss token");
+                // 返回错误码将直接发送响应，不再走后续的处理
                 return HTTP_STATUS_UNAUTHORIZED;
             }
             else if (strcmp(token.c_str(), "abcdefg") != 0) {
@@ -32,10 +38,12 @@ public:
             return 0;
         }
 #endif
+        // 返回0表示继续走后面的处理流程
         return 0;
     }
 
     static int postprocessor(HttpRequest* req, HttpResponse* resp) {
+        // 后处理中我们可以做一些后处理公共逻辑，如响应状态码统计、响应数据加密等
         // printf("%s\n", resp->Dump(true, true).c_str());
         return 0;
     }
@@ -46,6 +54,7 @@ public:
         if (!strTime.empty()) {
             int ms = atoi(strTime.c_str());
             if (ms > 0) {
+                // 该操作会阻塞当前IO线程，仅用做测试接口，实际应用中请勿在回调中做耗时操作
                 hv_delay(ms);
             }
         }
@@ -60,6 +69,7 @@ public:
         if (!strTime.empty()) {
             int ms = atoi(strTime.c_str());
             if (ms > 0) {
+                // 在回调线程中可直接使用setTimeout/setInterval定时器接口
                 hv::setTimeout(ms, [writer](hv::TimerID timerID){
                     writer->Begin();
                     HttpResponse* resp = writer->response.get();
@@ -74,6 +84,7 @@ public:
     static int query(HttpRequest* req, HttpResponse* resp) {
         // scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
         // ?query => HttpRequest::query_params
+        // URL里携带的请求参数已被解析到query_params数据结构里，可通过GetParam("key")获取
         for (auto& param : req->query_params) {
             resp->Set(param.first.c_str(), param.second);
         }
@@ -85,6 +96,7 @@ public:
         if (req->content_type != APPLICATION_URLENCODED) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }
+        // 设置响应格式为application/x-www-form-urlencoded
         resp->content_type = APPLICATION_URLENCODED;
         resp->kv = req->kv;
         resp->kv["int"] = hv::to_string(123);
@@ -97,6 +109,7 @@ public:
         if (req->content_type != APPLICATION_JSON) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }
+        // 设置响应格式为application/json
         resp->content_type = APPLICATION_JSON;
         resp->json = req->json;
         resp->json["int"] = 123;
@@ -109,16 +122,19 @@ public:
         if (req->content_type != MULTIPART_FORM_DATA) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }
+        // 设置响应格式为multipart/form-data
         resp->content_type = MULTIPART_FORM_DATA;
         resp->form = req->form;
         resp->form["int"] = 123;
         resp->form["float"] = 3.14;
         resp->form["string"] = "hello";
+        // 使用formdata格式传输文件
         // resp->form["file"] = FormData(NULL, "test.jpg");
         // resp->UploadFormFile("file", "test.jpg");
         return 200;
     }
 
+    // 通过 Get/Set 接口可以 获取/设置 key:value 到对应数据结构体 json/form/kv
     static int test(HttpRequest* req, HttpResponse* resp) {
         // bool b = req->Get<bool>("bool");
         // int64_t n = req->Get<int64_t>("int");
@@ -141,6 +157,7 @@ public:
         if (req->content_type != APPLICATION_GRPC) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }
+        // 需引入protobuf库序列化/反序列化body
         // parse protobuf
         // ParseFromString(req->body);
         // resp->content_type = APPLICATION_GRPC;
@@ -153,6 +170,7 @@ public:
     static int restful(HttpRequest* req, HttpResponse* resp) {
         // RESTful /:field/ => HttpRequest::query_params
         // path=/group/:group_name/user/:user_id
+        // restful风格URL里的参数已被解析到query_params数据结构里，可通过GetParam("key")获取
         // string group_name = req->GetParam("group_name");
         // string user_id = req->GetParam("user_id");
         for (auto& param : req->query_params) {
@@ -162,6 +180,7 @@ public:
         return 200;
     }
 
+    // 登录示例：校验用户名，密码，返回一个token
     static int login(HttpRequest* req, HttpResponse* resp) {
         string username = req->GetString("username");
         string password = req->GetString("password");
@@ -184,6 +203,7 @@ public:
         }
     }
 
+    // 上传文件示例
     static int upload(HttpRequest* req, HttpResponse* resp) {
         // return resp->SaveFormFile("file", "html/uploads/test.jpg");
         if (req->content_type != MULTIPART_FORM_DATA) {
@@ -205,6 +225,7 @@ public:
     }
 
 private:
+    // 统一的响应格式
     static int response_status(HttpResponse* resp, int code = 200, const char* message = NULL) {
         resp->Set("code", code);
         if (message == NULL) message = http_status_str((enum http_status)code);

@@ -1,3 +1,9 @@
+/*
+ * @介绍：httpd即HTTP服务端后台程序，该示例程序展示了如何使用libhv构建一个功能完备的HTTP服务端。
+ *        打算使用libhv做HTTP服务端的同学建议通读此程序，你将受益匪浅。
+ *
+ */
+
 #include "hv.h"
 #include "hmain.h"
 #include "iniparser.h"
@@ -46,7 +52,9 @@ void print_help() {
     printf("Options:\n%s\n", detail_options);
 }
 
+// 解析配置文件
 int parse_confile(const char* confile) {
+    // 加载配置文件
     IniParser ini;
     int ret = ini.LoadFromFile(confile);
     if (ret != 0) {
@@ -54,27 +62,36 @@ int parse_confile(const char* confile) {
         exit(-40);
     }
 
+    // 设置日志文件
     // logfile
     string str = ini.GetValue("logfile");
     if (!str.empty()) {
         strncpy(g_main_ctx.logfile, str.c_str(), sizeof(g_main_ctx.logfile));
     }
     hlog_set_file(g_main_ctx.logfile);
+
+    // 设置日志等级
     // loglevel
     str = ini.GetValue("loglevel");
     if (!str.empty()) {
         hlog_set_level_by_str(str.c_str());
     }
+
+    // 设置日志文件大小
     // log_filesize
     str = ini.GetValue("log_filesize");
     if (!str.empty()) {
         hlog_set_max_filesize_by_str(str.c_str());
     }
+
+    // 设置日志保留天数
     // log_remain_days
     str = ini.GetValue("log_remain_days");
     if (!str.empty()) {
         hlog_set_remain_days(atoi(str.c_str()));
     }
+
+    // 是否启用fsync强制刷新日志缓存到磁盘
     // log_fsync
     str = ini.GetValue("log_fsync");
     if (!str.empty()) {
@@ -83,6 +100,7 @@ int parse_confile(const char* confile) {
     hlogi("%s version: %s", g_main_ctx.program_name, hv_compile_version());
     hlog_fsync();
 
+    // 设置工作进程数
     // worker_processes
     int worker_processes = 0;
     str = ini.GetValue("worker_processes");
@@ -96,10 +114,13 @@ int parse_confile(const char* confile) {
         }
     }
     g_http_server.worker_processes = LIMIT(0, worker_processes, MAXNUM_WORKER_PROCESSES);
+
+    // 设置工作进程数
     // worker_threads
     int worker_threads = ini.Get<int>("worker_threads");
     g_http_server.worker_threads = LIMIT(0, worker_threads, 16);
 
+    // 设置http监听端口
     // http_port
     int port = 0;
     const char* szPort = get_arg("p");
@@ -113,6 +134,8 @@ int parse_confile(const char* confile) {
         port = ini.Get<int>("http_port");
     }
     g_http_server.port = port;
+
+    // 设置https监听端口
     // https_port
     if (HV_WITH_SSL) {
         g_http_server.https_port = ini.Get<int>("https_port");
@@ -122,31 +145,42 @@ int parse_confile(const char* confile) {
         exit(-10);
     }
 
+    // 设置url前缀
     // base_url
     str = ini.GetValue("base_url");
     if (str.size() != 0) {
         g_http_service.base_url = str;
     }
+
+    // 设置html文档根目录
     // document_root
     str = ini.GetValue("document_root");
     if (str.size() != 0) {
         g_http_service.document_root = str;
     }
+
+    // 设置首页
     // home_page
     str = ini.GetValue("home_page");
     if (str.size() != 0) {
         g_http_service.home_page = str;
     }
+
+    // 设置错误页面
     // error_page
     str = ini.GetValue("error_page");
     if (str.size() != 0) {
         g_http_service.error_page = str;
     }
+
+    // 设置indexof目录
     // index_of
     str = ini.GetValue("index_of");
     if (str.size() != 0) {
         g_http_service.index_of = str;
     }
+
+    // 设置SSL证书
     // ssl
     if (g_http_server.https_port > 0) {
         std::string crt_file = ini.GetValue("ssl_certificate");
@@ -170,6 +204,7 @@ int parse_confile(const char* confile) {
     return 0;
 }
 
+// reload信号处理: 重新加载配置文件
 static void on_reload(void* userdata) {
     hlogi("reload confile [%s]", g_main_ctx.confile);
     parse_confile(g_main_ctx.confile);
@@ -178,6 +213,7 @@ static void on_reload(void* userdata) {
 int main(int argc, char** argv) {
     // g_main_ctx
     main_ctx_init(argc, argv);
+    // 解析命令行
     //int ret = parse_opt(argc, argv, options);
     int ret = parse_opt_long(argc, argv, long_options, ARRAY_SIZE(long_options));
     if (ret != 0) {
@@ -205,31 +241,37 @@ int main(int argc, char** argv) {
     printf("================================================\n");
     */
 
+    // -h 打印帮助信息
     // help
     if (get_arg("h")) {
         print_help();
         exit(0);
     }
 
+    // -v 打印版本信息
     // version
     if (get_arg("v")) {
         print_version();
         exit(0);
     }
 
+    // -c 设置配置文件
     // parse_confile
     const char* confile = get_arg("c");
     if (confile) {
         strncpy(g_main_ctx.confile, confile, sizeof(g_main_ctx.confile));
     }
+    // 解析配置文件
     parse_confile(g_main_ctx.confile);
 
+    // -t 测试配置文件
     // test
     if (get_arg("t")) {
         printf("Test confile [%s] OK!\n", g_main_ctx.confile);
         exit(0);
     }
 
+    // -s 信号处理
     // signal
     signal_init(on_reload);
     const char* signal = get_arg("s");
@@ -238,6 +280,7 @@ int main(int argc, char** argv) {
     }
 
 #ifdef OS_UNIX
+    // -d 后台运行
     // daemon
     if (get_arg("d")) {
         // nochdir, noclose
@@ -249,12 +292,15 @@ int main(int argc, char** argv) {
     }
 #endif
 
+    // 创建pid文件
     // pidfile
     create_pidfile();
 
     // http_server
+    // 注册路由
     Router::Register(g_http_service);
     g_http_server.service = &g_http_service;
+    // 运行http服务
     ret = http_server_run(&g_http_server);
     return ret;
 }
