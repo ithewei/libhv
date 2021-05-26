@@ -36,6 +36,15 @@ public:
             return resp->Json(router.Paths());
         });
 
+        // curl -v http://ip:port/get?env=1
+        router.GET("/get", [](HttpRequest* req, HttpResponse* resp) {
+            resp->json["origin"] = req->client_addr.ip;
+            resp->json["url"] = req->url;
+            resp->json["args"] = req->query_params;
+            resp->json["headers"] = req->headers;
+            return 200;
+        });
+
         // curl -v http://ip:port/echo -d "hello,world!"
         router.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
             resp->content_type = req->content_type;

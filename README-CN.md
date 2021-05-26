@@ -108,6 +108,14 @@ int main() {
         return resp->Json(router.Paths());
     });
 
+    router.GET("/get", [](HttpRequest* req, HttpResponse* resp) {
+        resp->json["origin"] = req->client_addr.ip;
+        resp->json["url"] = req->url;
+        resp->json["args"] = req->query_params;
+        resp->json["headers"] = req->headers;
+        return 200;
+    });
+
     router.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
         resp->content_type = req->content_type;
         resp->body = req->body;
