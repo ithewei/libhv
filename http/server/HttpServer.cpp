@@ -263,7 +263,9 @@ static void on_accept(hio_t* io) {
     // ssl
     handler->ssl = hio_type(io) == HIO_TYPE_SSL;
     // ip
-    sockaddr_ip((sockaddr_u*)hio_peeraddr(io), handler->ip, sizeof(handler->ip));
+    auto addr = (sockaddr_u*)hio_peeraddr(io);
+    sockaddr_ip(addr, handler->ip, sizeof(handler->ip));
+    handler->sockaddr = *addr;
     // port
     handler->port = sockaddr_port((sockaddr_u*)hio_peeraddr(io));
     // service

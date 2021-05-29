@@ -38,6 +38,7 @@
 
 #include "httpdef.h"
 #include "http_content.h"
+#include "hsocket.h"
 
 typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
 typedef std::string                                         http_body;
@@ -45,10 +46,12 @@ typedef std::string                                         http_body;
 struct HNetAddr {
     std::string     ip;
     int             port;
+    sockaddr_u      sockaddr;
 
     std::string ipport() {
         return asprintf("%s:%d", ip.c_str(), port);
     }
+
 };
 
 // Cookie: sessionid=1; domain=.example.com; path=/; max-age=86400; secure; httponly

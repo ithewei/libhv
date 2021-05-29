@@ -15,6 +15,7 @@ int HttpHandler::HandleHttpRequest() {
 
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
+    pReq->client_addr.sockaddr = sockaddr;
     pReq->client_addr.port = port;
     pReq->Host();
     pReq->ParseUrl();

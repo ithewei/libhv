@@ -68,6 +68,7 @@ public:
     bool                    ssl;
     char                    ip[64];
     int                     port;
+    sockaddr_u              sockaddr;
 
     // for http
     HttpService             *service;
