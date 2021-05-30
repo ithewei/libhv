@@ -23,14 +23,14 @@ public:
 namespace hv {
 // NOTE: low-version NDK not provide std::to_string
 template<typename T>
-static inline std::string to_string(const T& t) {
+HV_INLINE std::string to_string(const T& t) {
     std::ostringstream oss;
     oss << t;
     return oss.str();
 }
 
 template<typename T>
-static inline T from_string(const std::string& str) {
+HV_INLINE T from_string(const std::string& str) {
     T t;
     std::istringstream iss(str);
     iss >> t;

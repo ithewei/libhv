@@ -16,6 +16,9 @@
     #define HV_EXPORT
 #endif
 
+// HV_INLINE
+#define HV_INLINE static inline
+
 // HV_DEPRECATED
 #if defined(HV_NO_DEPRECATED)
 #define HV_DEPRECATED

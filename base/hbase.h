@@ -33,7 +33,7 @@ HV_EXPORT void  safe_free(void* ptr);
 
 HV_EXPORT long hv_alloc_cnt();
 HV_EXPORT long hv_free_cnt();
-static inline void hv_memcheck() {
+HV_INLINE void hv_memcheck() {
     printf("Memcheck => alloc:%ld free:%ld\n", hv_alloc_cnt(), hv_free_cnt());
 }
 #define HV_MEMCHECK    atexit(hv_memcheck);

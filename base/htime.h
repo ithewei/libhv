@@ -37,7 +37,7 @@ struct timezone {
 };
 
 #include <sys/timeb.h>
-static inline int gettimeofday(struct timeval *tv, struct timezone *tz) {
+HV_INLINE int gettimeofday(struct timeval *tv, struct timezone *tz) {
     struct _timeb tb;
     _ftime(&tb);
     if (tv) {
@@ -53,12 +53,12 @@ static inline int gettimeofday(struct timeval *tv, struct timezone *tz) {
 #endif
 
 HV_EXPORT unsigned int gettick_ms();
-static inline unsigned long long gettimeofday_ms() {
+HV_INLINE unsigned long long gettimeofday_ms() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return tv.tv_sec * (unsigned long long)1000 + tv.tv_usec/1000;
 }
-static inline unsigned long long gettimeofday_us() {
+HV_INLINE unsigned long long gettimeofday_us() {
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return tv.tv_sec * (unsigned long long)1000000 + tv.tv_usec;

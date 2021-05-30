@@ -17,7 +17,7 @@
 
 BEGIN_EXTERN_C
 
-static inline int socket_errno() {
+HV_INLINE int socket_errno() {
 #ifdef OS_WIN
     return WSAGetLastError();
 #else
@@ -28,11 +28,11 @@ HV_EXPORT const char* socket_strerror(int err);
 
 #ifdef OS_WIN
 typedef int socklen_t;
-static inline int blocking(int sockfd) {
+HV_INLINE int blocking(int sockfd) {
     unsigned long nb = 0;
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
-static inline int nonblocking(int sockfd) {
+HV_INLINE int nonblocking(int sockfd) {
     unsigned long nb = 1;
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
@@ -77,7 +77,7 @@ HV_EXPORT const char* sockaddr_str(sockaddr_u* addr, char* buf, int len);
 //#define INET6_ADDRSTRLEN  46
 #ifdef ENABLE_UDS
 #define SOCKADDR_STRLEN     sizeof(((struct sockaddr_un*)(NULL))->sun_path)
-static inline void sockaddr_set_path(sockaddr_u* addr, const char* path) {
+HV_INLINE void sockaddr_set_path(sockaddr_u* addr, const char* path) {
     addr->sa.sa_family = AF_UNIX;
     strncpy(addr->sun.sun_path, path, sizeof(addr->sun.sun_path));
 }
@@ -85,7 +85,7 @@ static inline void sockaddr_set_path(sockaddr_u* addr, const char* path) {
 #define SOCKADDR_STRLEN     64 // ipv4:port | [ipv6]:port
 #endif
 
-static inline void sockaddr_print(sockaddr_u* addr) {
+HV_INLINE void sockaddr_print(sockaddr_u* addr) {
     char buf[SOCKADDR_STRLEN] = {0};
     sockaddr_str(addr, buf, sizeof(buf));
     puts(buf);
@@ -125,11 +125,11 @@ HV_EXPORT int ConnectUnixTimeout(const char* path, int ms DEFAULT(DEFAULT_CONNEC
 // Just implement Socketpair(AF_INET, SOCK_STREAM, 0, sv);
 HV_EXPORT int Socketpair(int family, int type, int protocol, int sv[2]);
 
-static inline int tcp_nodelay(int sockfd, int on DEFAULT(1)) {
+HV_INLINE int tcp_nodelay(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (const char*)&on, sizeof(int));
 }
 
-static inline int tcp_nopush(int sockfd, int on DEFAULT(1)) {
+HV_INLINE int tcp_nopush(int sockfd, int on DEFAULT(1)) {
 #ifdef TCP_NOPUSH
     return setsockopt(sockfd, IPPROTO_TCP, TCP_NOPUSH, (const char*)&on, sizeof(int));
 #elif defined(TCP_CORK)
@@ -139,7 +139,7 @@ static inline int tcp_nopush(int sockfd, int on DEFAULT(1)) {
 #endif
 }
 
-static inline int tcp_keepalive(int sockfd, int on DEFAULT(1), int delay DEFAULT(60)) {
+HV_INLINE int tcp_keepalive(int sockfd, int on DEFAULT(1), int delay DEFAULT(60)) {
     if (setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, (const char*)&on, sizeof(int)) != 0) {
         return socket_errno();
     }
@@ -156,12 +156,12 @@ static inline int tcp_keepalive(int sockfd, int on DEFAULT(1), int delay DEFAULT
 #endif
 }
 
-static inline int udp_broadcast(int sockfd, int on DEFAULT(1)) {
+HV_INLINE int udp_broadcast(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(int));
 }
 
 // send timeout
-static inline int so_sndtimeo(int sockfd, int timeout) {
+HV_INLINE int so_sndtimeo(int sockfd, int timeout) {
 #ifdef OS_WIN
     return setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(int));
 #else
@@ -171,7 +171,7 @@ static inline int so_sndtimeo(int sockfd, int timeout) {
 }
 
 // recv timeout
-static inline int so_rcvtimeo(int sockfd, int timeout) {
+HV_INLINE int so_rcvtimeo(int sockfd, int timeout) {
 #ifdef OS_WIN
     return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(int));
 #else
