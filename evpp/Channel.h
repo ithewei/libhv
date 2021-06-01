@@ -181,11 +181,13 @@ public:
     }
 
     int startConnect(struct sockaddr* peeraddr) {
+        if (io_ == NULL) return -1;
         hio_set_peeraddr(io_, peeraddr, SOCKADDR_LEN(peeraddr));
         return startConnect();
     }
 
     int startConnect() {
+        if (io_ == NULL) return -1;
         status = CONNECTING;
         hio_setcb_connect(io_, on_connect);
         return hio_connect(io_);
@@ -196,12 +198,14 @@ public:
     }
 
     std::string localaddr() {
+        if (io_ == NULL) return "";
         struct sockaddr* addr = hio_localaddr(io_);
         char buf[SOCKADDR_STRLEN] = {0};
         return SOCKADDR_STR(addr, buf);
     }
 
     std::string peeraddr() {
+        if (io_ == NULL) return "";
         struct sockaddr* addr = hio_peeraddr(io_);
         char buf[SOCKADDR_STRLEN] = {0};
         return SOCKADDR_STR(addr, buf);
