@@ -28,6 +28,22 @@
 
 using namespace hv;
 
+class MyContext {
+public:
+    MyContext() {
+        timerID = INVALID_TIMER_ID;
+    }
+    ~MyContext() {
+    }
+
+    int handleMessage(const std::string& msg) {
+        printf("onmessage: %s\n", msg.c_str());
+        return msg.size();
+    }
+
+    TimerID timerID;
+};
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         printf("Usage: %s port\n", argv[0]);
@@ -35,12 +51,12 @@ int main(int argc, char** argv) {
     }
     int port = atoi(argv[1]);
 
-    TimerID timerID = INVALID_TIMER_ID;
     WebSocketServerCallbacks ws;
-    ws.onopen = [&timerID](const WebSocketChannelPtr& channel, const std::string& url) {
+    ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
         printf("onopen: GET %s\n", url.c_str());
+        MyContext* ctx = channel->newContext<MyContext>();
         // send(time) every 1s
-        timerID = setInterval(1000, [channel](TimerID id) {
+        ctx->timerID = setInterval(1000, [channel](TimerID id) {
             char str[DATETIME_FMT_BUFLEN] = {0};
             datetime_t dt = datetime_now();
             datetime_fmt(&dt, str);
@@ -48,14 +64,16 @@ int main(int argc, char** argv) {
         });
     };
     ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
+        MyContext* ctx = channel->getContext<MyContext>();
+        ctx->handleMessage(msg);
     };
-    ws.onclose = [&timerID](const WebSocketChannelPtr& channel) {
+    ws.onclose = [](const WebSocketChannelPtr& channel) {
         printf("onclose\n");
-        if (timerID != INVALID_TIMER_ID) {
-            killTimer(timerID);
-            timerID = INVALID_TIMER_ID;
+        MyContext* ctx = channel->getContext<MyContext>();
+        if (ctx->timerID != INVALID_TIMER_ID) {
+            killTimer(ctx->timerID);
         }
+        channel->deleteContext<MyContext>();
     };
 
     websocket_server_t server;

@@ -376,12 +376,14 @@ int http_server_stop(http_server_t* server) {
             continue;
         }
         // wait for all loops running
+        bool all_loops_running = true;
         for (auto& loop : privdata->loops) {
             if (loop->status() < hv::Status::kRunning) {
-                continue;
+                all_loops_running = false;
+                break;
             }
         }
-        break;
+        if (all_loops_running) break;
     }
 
     // stop all loops

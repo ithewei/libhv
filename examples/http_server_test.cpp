@@ -12,7 +12,7 @@
  *
  * @build   ./configure --with-openssl && make clean && make
  *
- * @server  bin/http_server_test
+ * @server  bin/http_server_test 8080
  *
  * @client  curl -v http://127.0.0.1:8080/ping
  *          curl -v https://127.0.0.1:8443/ping --insecure
@@ -22,8 +22,14 @@
  */
 #define TEST_HTTPS 0
 
-int main() {
+int main(int argc, char** argv) {
     HV_MEMCHECK;
+
+    int port = 0;
+    if (argc > 1) {
+        port = atoi(argv[1]);
+    }
+    if (port == 0) port = 8080;
 
     HttpService router;
     router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
@@ -55,7 +61,7 @@ int main() {
 
     http_server_t server;
     server.service = &router;
-    server.port = 8080;
+    server.port = port;
 #if TEST_HTTPS
     server.https_port = 8443;
     hssl_ctx_init_param_t param;
