@@ -32,6 +32,11 @@ public:
     int send(const std::string& msg);
     int send(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY);
 
+    // setConnectTimeout / setPingInterval / setReconnect
+    void setPingInterval(int ms) {
+        ping_interval = ms;
+    }
+
 private:
     enum State {
         CONNECTING,
@@ -44,6 +49,9 @@ private:
     HttpRequestPtr      http_req_;
     HttpResponsePtr     http_resp_;
     WebSocketParserPtr  ws_parser_;
+    // ping/pong
+    int                 ping_interval;
+    int                 ping_cnt;
 };
 
 }

@@ -156,6 +156,7 @@ class SocketChannel : public Channel {
 public:
     // for TcpClient
     std::function<void()>   onconnect;
+    std::function<void()>   heartbeat;
 
     SocketChannel(hio_t* io) : Channel(io) {
     }
@@ -166,7 +167,24 @@ public:
     }
 
     void setConnectTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
         hio_set_connect_timeout(io_, timeout_ms);
+    }
+
+    void setCloseTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
+        hio_set_close_timeout(io_, timeout_ms);
+    }
+
+    void setKeepaliveTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
+        hio_set_keepalive_timeout(io_, timeout_ms);
+    }
+
+    void setHeartbeat(int interval_ms, std::function<void()> fn) {
+        if (io_ == NULL) return;
+        heartbeat = fn;
+        hio_set_heartbeat(io_, interval_ms, send_heartbeat);
     }
 
     int startConnect(int port, const char* host = "127.0.0.1") {
@@ -223,6 +241,13 @@ private:
             if (channel->onconnect) {
                 channel->onconnect();
             }
+        }
+    }
+
+    static void send_heartbeat(hio_t* io) {
+        SocketChannel* channel = (SocketChannel*)hio_context(io);
+        if (channel && channel->heartbeat) {
+            channel->heartbeat();
         }
     }
 };
