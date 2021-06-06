@@ -17,6 +17,14 @@ public:
         // }
         req->ParseBody();
         resp->content_type = APPLICATION_JSON;
+        // cors
+        resp->headers["Access-Control-Allow-Origin"] = "*";
+        if (req->method == HTTP_OPTIONS) {
+            resp->headers["Access-Control-Allow-Origin"] = req->GetHeader("Origin", "*");
+            resp->headers["Access-Control-Allow-Methods"] = req->GetHeader("Access-Control-Request-Method", "OPTIONS, HEAD, GET, POST, PUT, DELETE, PATCH");
+            resp->headers["Access-Control-Allow-Headers"] = req->GetHeader("Access-Control-Request-Headers", "Content-Type");
+            return HTTP_STATUS_NO_CONTENT;
+        }
 #if 0
         // authentication sample code
         if (strcmp(req->path.c_str(), "/login") != 0) {
@@ -153,11 +161,10 @@ public:
     static int restful(HttpRequest* req, HttpResponse* resp) {
         // RESTful /:field/ => HttpRequest::query_params
         // path=/group/:group_name/user/:user_id
-        // string group_name = req->GetParam("group_name");
-        // string user_id = req->GetParam("user_id");
-        for (auto& param : req->query_params) {
-            resp->Set(param.first.c_str(), param.second);
-        }
+        std::string group_name = req->GetParam("group_name");
+        std::string user_id = req->GetParam("user_id");
+        resp->Set("group_name", group_name);
+        resp->Set("user_id", user_id);
         response_status(resp, 0, "OK");
         return 200;
     }
