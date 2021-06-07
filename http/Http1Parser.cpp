@@ -1,5 +1,7 @@
 #include "Http1Parser.h"
 
+#define MAX_CONTENT_LENGTH  (1 << 24)   // 16M
+
 static int on_url(http_parser* parser, const char *at, size_t length);
 static int on_status(http_parser* parser, const char *at, size_t length);
 static int on_header_field(http_parser* parser, const char *at, size_t length);
@@ -112,8 +114,9 @@ int on_headers_complete(http_parser* parser) {
     if (iter != hp->parsed->headers.end()) {
         int content_length = atoi(iter->second.c_str());
         hp->parsed->content_length = content_length;
-        if ((!skip_body) && content_length > hp->parsed->body.capacity()) {
-            hp->parsed->body.reserve(content_length);
+        int reserve_length = MIN(content_length, MAX_CONTENT_LENGTH);
+        if ((!skip_body) && reserve_length > hp->parsed->body.capacity()) {
+            hp->parsed->body.reserve(reserve_length);
         }
     }
     hp->state = HP_HEADERS_COMPLETE;

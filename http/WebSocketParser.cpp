@@ -1,6 +1,9 @@
 #include "WebSocketParser.h"
 
 #include "websocket_parser.h"
+#include "hdef.h"
+
+#define MAX_PAYLOAD_LENGTH  (1 << 24)   // 16M
 
 static int on_frame_header(websocket_parser* parser) {
     WebSocketParser* wp = (WebSocketParser*)parser->data;
@@ -10,12 +13,13 @@ static int on_frame_header(websocket_parser* parser) {
         wp->opcode = opcode;
     }
     int length = parser->length;
-    if (length && length > wp->message.capacity()) {
-        wp->message.reserve(length);
+    int reserve_length = MIN(length, MAX_PAYLOAD_LENGTH);
+    if (reserve_length > wp->message.capacity()) {
+        wp->message.reserve(reserve_length);
     }
     if (wp->state == WS_FRAME_BEGIN ||
         wp->state == WS_FRAME_END) {
-        wp->message.resize(0);
+        wp->message.clear();
     }
     wp->state = WS_FRAME_HEADER;
     return 0;
