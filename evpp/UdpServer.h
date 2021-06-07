@@ -17,7 +17,7 @@ public:
     virtual ~UdpServer() {
     }
 
-    EventLoopPtr loop() {
+    const EventLoopPtr& loop() {
         return loop_thread.loop();
     }
 

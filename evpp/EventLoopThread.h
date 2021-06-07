@@ -29,7 +29,7 @@ public:
         join();
     }
 
-    EventLoopPtr loop() {
+    const EventLoopPtr& loop() {
         return loop_;
     }
 
