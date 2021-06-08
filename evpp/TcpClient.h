@@ -12,9 +12,9 @@
 namespace hv {
 
 struct ReconnectInfo {
-    uint32_t min_delay;  // ms
-    uint32_t max_delay;  // ms
-    uint32_t cur_delay;  // ms
+    uint32_t min_delay; // ms
+    uint32_t max_delay; // ms
+    uint32_t cur_delay; // ms
     /*
      * @delay_policy
      * 0: fixed
@@ -39,10 +39,11 @@ struct ReconnectInfo {
     }
 };
 
-template<class TSocketChannel = SocketChannel>
-class TcpClientTmpl {
+template <class TSocketChannel = SocketChannel> class TcpClientTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
+
+    TimerID reconnectTimer = NULL;
 
     TcpClientTmpl() {
         tls = false;
@@ -50,12 +51,9 @@ public:
         enable_reconnect = false;
     }
 
-    virtual ~TcpClientTmpl() {
-    }
+    virtual ~TcpClientTmpl() {}
 
-    const EventLoopPtr& loop() {
-        return loop_thread.loop();
-    }
+    EventLoopPtr loop() { return loop_thread.loop(); }
 
     //@retval >=0 connfd, <0 error
     int createsocket(int port, const char* host = "127.0.0.1") {
@@ -92,6 +90,9 @@ public:
         }
         channel->onconnect = [this]() {
             channel->startRead();
+            if (reconnectTimer != NULL) {
+                loop_thread.loop()->killTimer(reconnectTimer);
+            }
             if (onConnection) {
                 onConnection(channel);
             }
@@ -113,7 +114,8 @@ public:
             // reconnect
             if (enable_reconnect) {
                 startReconnect();
-            } else {
+            }
+            else {
                 channel = NULL;
                 // NOTE: channel should be destroyed,
                 // so in this lambda function, no code should be added below.
@@ -127,16 +129,18 @@ public:
         if (reconnect_info.delay_policy == 0) {
             // fixed
             reconnect_info.cur_delay = reconnect_info.min_delay;
-        } else if (reconnect_info.delay_policy == 1) {
+        }
+        else if (reconnect_info.delay_policy == 1) {
             // linear
             reconnect_info.cur_delay += reconnect_info.min_delay;
-        } else {
+        }
+        else {
             // exponential
             reconnect_info.cur_delay *= reconnect_info.delay_policy;
         }
         reconnect_info.cur_delay = MAX(reconnect_info.cur_delay, reconnect_info.min_delay);
         reconnect_info.cur_delay = MIN(reconnect_info.cur_delay, reconnect_info.max_delay);
-        loop_thread.loop()->setTimeout(reconnect_info.cur_delay, [this](TimerID timerID){
+        reconnectTimer = loop_thread.loop()->setTimeout(reconnect_info.cur_delay, [this](TimerID timerID) {
             hlogi("reconnect... cnt=%d, delay=%d", reconnect_info.cur_retry_cnt, reconnect_info.cur_delay);
             // printf("reconnect... cnt=%d, delay=%d\n", reconnect_info.cur_retry_cnt, reconnect_info.cur_delay);
             createsocket(&peeraddr.sa);
@@ -145,9 +149,7 @@ public:
         return 0;
     }
 
-    void start(bool wait_threads_started = true) {
-        loop_thread.start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
-    }
+    void start(bool wait_threads_started = true) { loop_thread.start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this)); }
     void stop(bool wait_threads_stopped = true) {
         enable_reconnect = false;
         loop_thread.stop(wait_threads_stopped);
@@ -166,9 +168,7 @@ public:
         return 0;
     }
 
-    void setConnectTimeout(int ms) {
-        connect_timeout = ms;
-    }
+    void setConnectTimeout(int ms) { connect_timeout = ms; }
 
     void setReconnect(ReconnectInfo* info) {
         enable_reconnect = true;
@@ -176,24 +176,25 @@ public:
     }
 
 public:
-    TSocketChannelPtr       channel;
+    TSocketChannelPtr channel;
 
-    sockaddr_u              peeraddr;
-    bool                    tls;
-    int                     connect_timeout;
-    bool                    enable_reconnect;
-    ReconnectInfo           reconnect_info;
+    sockaddr_u peeraddr;
+    bool tls;
+    int connect_timeout;
+    bool enable_reconnect;
+    ReconnectInfo reconnect_info;
 
     // Callback
-    std::function<void(const TSocketChannelPtr&)>           onConnection;
-    std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
-    std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
+    std::function<void(const TSocketChannelPtr&)> onConnection;
+    std::function<void(const TSocketChannelPtr&, Buffer*)> onMessage;
+    std::function<void(const TSocketChannelPtr&, Buffer*)> onWriteComplete;
+
 private:
-    EventLoopThread         loop_thread;
+    EventLoopThread loop_thread;
 };
 
 typedef TcpClientTmpl<SocketChannel> TcpClient;
 
-}
+} // namespace hv
 
 #endif // HV_TCP_CLIENT_HPP_
