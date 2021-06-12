@@ -53,7 +53,7 @@ static void websocket_onmessage(int opcode, const std::string& msg, hio_t* io) {
     WebSocketHandler* ws = handler->ws.get();
     switch(opcode) {
     case WS_OPCODE_CLOSE:
-        hio_close(io);
+        hio_close_async(io);
         break;
     case WS_OPCODE_PING:
         // printf("recv ping\n");

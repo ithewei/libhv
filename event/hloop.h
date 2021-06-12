@@ -268,6 +268,7 @@ HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
 // NOTE: hio_close is thread-safe, if called by other thread, hloop_post_event(hio_close_event).
 // hio_del(io, HV_RDWR) => close => hclose_cb
 HV_EXPORT int hio_close  (hio_t* io);
+HV_EXPORT int hio_close_async(hio_t* io);
 
 //------------------high-level apis-------------------------------------------
 // hio_get -> hio_set_readbuf -> hio_setcb_read -> hio_read
