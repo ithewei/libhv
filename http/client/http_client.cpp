@@ -331,7 +331,7 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
         cli->ssl = hssl_new(ssl_ctx, connfd);
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
-            fprintf(stderr, "SSL handshark failed: %d\n", ret);
+            fprintf(stderr, "SSL handshake failed: %d\n", ret);
             hssl_free(cli->ssl);
             cli->ssl = NULL;
             closesocket(connfd);

@@ -129,20 +129,20 @@ static void __close_cb(hio_t* io) {
     }
 }
 
-static void ssl_server_handshark(hio_t* io) {
-    printd("ssl server handshark...\n");
+static void ssl_server_handshake(hio_t* io) {
+    printd("ssl server handshake...\n");
     int ret = hssl_accept(io->ssl);
     if (ret == 0) {
-        // handshark finish
+        // handshake finish
         iowatcher_del_event(io->loop, io->fd, HV_READ);
         io->events &= ~HV_READ;
         io->cb = NULL;
-        printd("ssl handshark finished.\n");
+        printd("ssl handshake finished.\n");
         __accept_cb(io);
     }
     else if (ret == HSSL_WANT_READ) {
         if ((io->events & HV_READ) == 0) {
-            hio_add(io, ssl_server_handshark, HV_READ);
+            hio_add(io, ssl_server_handshake, HV_READ);
         }
     }
     else {
@@ -151,20 +151,20 @@ static void ssl_server_handshark(hio_t* io) {
     }
 }
 
-static void ssl_client_handshark(hio_t* io) {
-    printd("ssl client handshark...\n");
+static void ssl_client_handshake(hio_t* io) {
+    printd("ssl client handshake...\n");
     int ret = hssl_connect(io->ssl);
     if (ret == 0) {
-        // handshark finish
+        // handshake finish
         iowatcher_del_event(io->loop, io->fd, HV_READ);
         io->events &= ~HV_READ;
         io->cb = NULL;
-        printd("ssl handshark finished.\n");
+        printd("ssl handshake finished.\n");
         __connect_cb(io);
     }
     else if (ret == HSSL_WANT_READ) {
         if ((io->events & HV_READ) == 0) {
-            hio_add(io, ssl_client_handshark, HV_READ);
+            hio_add(io, ssl_client_handshake, HV_READ);
         }
     }
     else {
@@ -209,10 +209,10 @@ accept:
         }
         hio_enable_ssl(connio);
         connio->ssl = ssl;
-        ssl_server_handshark(connio);
+        ssl_server_handshake(connio);
     }
     else {
-        // NOTE: SSL call accept_cb after handshark finished
+        // NOTE: SSL call accept_cb after handshake finished
         __accept_cb(connio);
     }
 
@@ -245,10 +245,10 @@ static void nio_connect(hio_t* io) {
                 goto connect_failed;
             }
             io->ssl = ssl;
-            ssl_client_handshark(io);
+            ssl_client_handshake(io);
         }
         else {
-            // NOTE: SSL call connect_cb after handshark finished
+            // NOTE: SSL call connect_cb after handshake finished
             __connect_cb(io);
         }
 
