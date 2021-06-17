@@ -14,8 +14,8 @@ jobs:
     name: build-linux
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - name: build
-        uses: actions/checkout@v2
         run: |
           ./configure
           make libhv examples unittest evpp
@@ -24,8 +24,8 @@ jobs:
     name: build-macos
     runs-on: macos-latest
     steps:
+      - uses: actions/checkout@v2
       - name: build
-        uses: actions/checkout@v2
         run: |
           ./configure
           make libhv examples unittest evpp
@@ -34,8 +34,8 @@ jobs:
     name: build-windows
     runs-on: windows-2016
     steps:
+      - uses: actions/checkout@v2
       - name: build
-        uses: actions/checkout@v2
         run: |
           mkdir win64
           cd win64
