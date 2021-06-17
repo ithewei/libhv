@@ -8,15 +8,13 @@ jobs:
       env: COVERALLS=no
       script:
         - ./configure
-        - make clean
         - make libhv examples unittest evpp
 
     - os: osx
       compiler: clang
       env: COVERALLS=no
-      scrit:
+      script:
         - ./configure
-        - make clean
         - make libhv examples unittest evpp
 
     - os: windows

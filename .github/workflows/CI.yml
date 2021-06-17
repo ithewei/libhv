@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+
+  pull_request:
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  build-linux:
+    name: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - name: build
+        uses: actions/checkout@v2
+        run: |
+          ./configure
+          make libhv examples unittest evpp
+
+  build-macos:
+    name: build-macos
+    runs-on: macos-latest
+    steps:
+      - name: build
+        uses: actions/checkout@v2
+        run: |
+          ./configure
+          make libhv examples unittest evpp
+
+  build-windows:
+    name: build-windows
+    runs-on: windows-2016
+    steps:
+      - name: build
+        uses: actions/checkout@v2
+        run: |
+          mkdir win64
+          cd win64
+          cmake .. -G "Visual Studio 15 2017 Win64"
+          cmake --build .
