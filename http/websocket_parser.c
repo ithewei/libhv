@@ -158,8 +158,8 @@ size_t websocket_parser_execute(websocket_parser *parser, const websocket_parser
                     p--;
                 }
                 if(!parser->require) {
-                    NOTIFY_CB(frame_end);
                     SET_STATE(s_start);
+                    NOTIFY_CB(frame_end);
                 }
                 break;
             default:

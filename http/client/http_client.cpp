@@ -438,11 +438,13 @@ const char* http_client_strerror(int errcode) {
 #endif
 
 static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
-    cli->mutex_.lock();
     if (cli->async_client_ == NULL) {
-        cli->async_client_.reset(new hv::AsyncHttpClient);
+        cli->mutex_.lock();
+        if (cli->async_client_ == NULL) {
+            cli->async_client_.reset(new hv::AsyncHttpClient);
+        }
+        cli->mutex_.unlock();
     }
-    cli->mutex_.unlock();
 
     return cli->async_client_->send(req, resp_cb);
 }

@@ -101,8 +101,11 @@ public:
         return write(str.data(), str.size());
     }
 
-    int close() {
+    int close(bool async = false) {
         if (!isOpened()) return 0;
+        if (async) {
+            return hio_close_async(io_);
+        }
         return hio_close(io_);
     }
 
