@@ -2,8 +2,9 @@ English | [中文](README-CN.md)
 
 # libhv
 
-[![Latest Version](https://img.shields.io/github/release/ithewei/libhv.svg)](https://github.com/ithewei/libhv/releases)
+[![Release](https://img.shields.io/github/release/ithewei/libhv.svg)](https://github.com/ithewei/libhv/releases)
 [![CI](https://github.com/ithewei/libhv/workflows/CI/badge.svg?branch=master)](https://github.com/ithewei/libhv/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Benchmark](https://github.com/ithewei/libhv/workflows/benchmark/badge.svg?branch=master)](https://github.com/ithewei/libhv/actions/workflows/benchmark.yml?query=branch%3Amaster)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20Mac-blue)](.github/workflows/CI.yml)
 
 Like `libevent, libev, and libuv`,

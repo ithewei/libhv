@@ -46,8 +46,9 @@ jobs:
       - name: webbench
         run: |
           sudo nginx -c /etc/nginx/nginx.conf
+          sudo cp html/index.html /var/www/html/index.html
           bin/httpd -c etc/httpd.conf -d
           ps aux | grep nginx
           ps aux | grep httpd
-          wrk -c 100 -t 4 -d 10s http://127.0.0.1:80/
-          wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
+          wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/
+          wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/
