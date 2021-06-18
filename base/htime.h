@@ -10,7 +10,7 @@ BEGIN_EXTERN_C
 #define SECONDS_PER_DAY     86400   // 24*3600
 #define SECONDS_PER_WEEK    604800  // 7*24*3600
 
-#define IS_LEAP_YEAR(year) (((year)%4 == 0 && (year)%100 != 0) || (year)%100 == 0)
+#define IS_LEAP_YEAR(year) (((year)%4 == 0 && (year)%100 != 0) || (year)%400 == 0)
 
 typedef struct datetime_s {
     int year;
