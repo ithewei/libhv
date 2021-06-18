@@ -16,21 +16,36 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: apt
+      - name: prepare
         run: |
           sudo apt update
-          sudo apt install nginx wrk
+          sudo apt install libssl-dev
+          sudo apt install nginx
 
-      - name: echo-servers
+      - name: make wrk
         run: |
-          pushd echo-servers
-          ./build.sh
-          ./benchmark.sh
+          git clone https://github.com/wg/wrk
+          pushd wrk
+          make WITH_OPENSSL=/usr
+          sudo cp wrk /usr/bin
           popd
+
+      - name: make httpd
+        run: |
+          ./configure
+          make httpd
+
+      - name: build echo-servers
+        run: |
+          bash echo-servers/build.sh
+
+      - name: benchmark echo-servers
+        run: |
+          bash echo-servers/benchmark.sh
 
       - name: webbench
         run: |
-          make httpd
+          sudo nginx -c /etc/nginx/nginx.conf
           bin/httpd -c etc/httpd.conf -d
           ps aux | grep nginx
           ps aux | grep httpd
