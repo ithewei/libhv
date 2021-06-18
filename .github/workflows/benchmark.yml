@@ -1,0 +1,38 @@
+name: benchmark
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+
+  pull_request:
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  benchmark:
+    name: benchmark
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: apt
+        run: |
+          sudo apt update
+          sudo apt install nginx wrk
+
+      - name: echo-servers
+        run: |
+          pushd echo-servers
+          ./build.sh
+          ./benchmark.sh
+          popd
+
+      - name: webbench
+        run: |
+          make httpd
+          bin/httpd -c etc/httpd.conf -d
+          ps aux | grep nginx
+          ps aux | grep httpd
+          wrk -c 100 -t 4 -d 10s http://127.0.0.1:80/
+          wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
