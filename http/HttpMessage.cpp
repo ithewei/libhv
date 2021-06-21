@@ -91,7 +91,10 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
     switch (content_type) {
     case APPLICATION_JSON:
     {
-        auto value = json[key];
+        if (!json.is_object()) {
+            return defvalue;
+        }
+        const auto& value = json[key];
         if (value.is_string()) {
             return value;
         }
@@ -135,7 +138,10 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
 template<>
 HV_EXPORT int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
     if (content_type == APPLICATION_JSON) {
-        auto value = json[key];
+        if (!json.is_object()) {
+            return defvalue;
+        }
+        const auto& value = json[key];
         if (value.is_number()) {
             return value;
         }
@@ -163,7 +169,10 @@ HV_EXPORT int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
 template<>
 HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
     if (content_type == APPLICATION_JSON) {
-        auto value = json[key];
+        if (!json.is_object()) {
+            return defvalue;
+        }
+        const auto& value = json[key];
         if (value.is_number()) {
             return value;
         }
@@ -187,7 +196,10 @@ HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
 template<>
 HV_EXPORT bool HttpMessage::Get(const char* key, bool defvalue) {
     if (content_type == APPLICATION_JSON) {
-        auto value = json[key];
+        if (!json.is_object()) {
+            return defvalue;
+        }
+        const auto& value = json[key];
         if (value.is_boolean()) {
             return value;
         }
