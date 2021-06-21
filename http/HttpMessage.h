@@ -149,7 +149,7 @@ public:
         if (content_type != MULTIPART_FORM_DATA) {
             return HTTP_STATUS_BAD_REQUEST;
         }
-        FormData formdata = form[name];
+        const FormData& formdata = form[name];
         if (formdata.content.empty()) {
             return HTTP_STATUS_BAD_REQUEST;
         }

@@ -196,7 +196,7 @@ public:
         if (req->content_type != MULTIPART_FORM_DATA) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }
-        FormData file = req->form["file"];
+        const FormData& file = req->form["file"];
         if (file.content.empty()) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }

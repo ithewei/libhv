@@ -11,7 +11,7 @@
 #include "HttpMessage.h"
 #include "HttpResponseWriter.h"
 
-#define DEFAULT_BASE_URL        "/v1/api"
+#define DEFAULT_BASE_URL        "/api/v1"
 #define DEFAULT_DOCUMENT_ROOT   "/var/www/html"
 #define DEFAULT_HOME_PAGE       "index.html"
 #define DEFAULT_ERROR_PAGE      "error.html"

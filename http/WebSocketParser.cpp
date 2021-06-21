@@ -13,7 +13,7 @@ static int on_frame_header(websocket_parser* parser) {
         wp->opcode = opcode;
     }
     int length = parser->length;
-    int reserve_length = MIN(length, MAX_PAYLOAD_LENGTH);
+    int reserve_length = MIN(length + 1, MAX_PAYLOAD_LENGTH);
     if (reserve_length > wp->message.capacity()) {
         wp->message.reserve(reserve_length);
     }
