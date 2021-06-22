@@ -17,7 +17,9 @@ jobs:
       - uses: actions/checkout@v2
       - name: build
         run: |
-          ./configure
+          sudo apt update
+          sudo apt install libssl-dev libnghttp2-dev
+          ./configure --with-openssl --with-nghttp2
           make libhv examples unittest evpp
 
   build-macos:
