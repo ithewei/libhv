@@ -9,6 +9,9 @@
 #include "HttpMessage.h"
 #include "HttpParser.h"
 
+#define DEFAULT_FAIL_RETRY_COUNT  3
+#define DEFAULT_FAIL_RETRY_DELAY  1000  // ms
+
 // async => keepalive => connect_pool
 
 namespace hv {
@@ -53,8 +56,9 @@ struct HttpClientTask {
     HttpRequestPtr          req;
     HttpResponseCallback    cb;
 
-    uint64_t  start_time;
-    int       retry_cnt;
+    uint64_t    start_time;
+    int         retry_cnt;
+    int         retry_delay;
 };
 typedef std::shared_ptr<HttpClientTask> HttpClientTaskPtr;
 
@@ -113,7 +117,8 @@ public:
         task->req = req;
         task->cb = resp_cb;
         task->start_time = hloop_now_hrtime(loop_thread.hloop());
-        task->retry_cnt = 3;
+        task->retry_cnt = DEFAULT_FAIL_RETRY_COUNT;
+        task->retry_delay = DEFAULT_FAIL_RETRY_DELAY;
         return send(task);
     }
 

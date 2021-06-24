@@ -4,7 +4,7 @@
 #include <future> // import std::async
 
 #include "HttpService.h"
-#include "http_client.h"
+#include "requests.h"
 
 #include "handler.h"
 
@@ -76,7 +76,7 @@ public:
         router.GET("/www.*", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
             HttpRequestPtr req2(new HttpRequest);
             req2->url = req->path.substr(1);
-            http_client_send_async(req2, [writer](const HttpResponsePtr& resp2){
+            requests::async(req2, [writer](const HttpResponsePtr& resp2){
                 writer->Begin();
                 if (resp2 == NULL) {
                     writer->WriteStatus(HTTP_STATUS_NOT_FOUND);

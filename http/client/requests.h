@@ -35,8 +35,9 @@ int main() {
 
 namespace requests {
 
-typedef std::shared_ptr<HttpRequest>  Request;
-typedef std::shared_ptr<HttpResponse> Response;
+typedef HttpRequestPtr          Request;
+typedef HttpResponsePtr         Response;
+typedef HttpResponseCallback    ResponseCallback;
 
 static http_headers DefaultHeaders;
 static http_body    NoBody;
@@ -87,6 +88,10 @@ HV_INLINE Response patch(const char* url, const http_body& body = NoBody, const 
 // delete is c++ keyword, we have to replace delete with Delete.
 HV_INLINE Response Delete(const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {
     return request(HTTP_DELETE, url, body, headers);
+}
+
+HV_INLINE int async(Request req, ResponseCallback resp_cb) {
+    return http_client_send_async(req, resp_cb);
 }
 
 }
