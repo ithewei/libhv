@@ -115,7 +115,7 @@ public:
     int send(const HttpRequestPtr& req, HttpResponseCallback resp_cb) {
         HttpClientTaskPtr task(new HttpClientTask);
         task->req = req;
-        task->cb = resp_cb;
+        task->cb = std::move(resp_cb);
         task->start_time = hloop_now_hrtime(loop_thread.hloop());
         task->retry_cnt = DEFAULT_FAIL_RETRY_COUNT;
         task->retry_delay = DEFAULT_FAIL_RETRY_DELAY;

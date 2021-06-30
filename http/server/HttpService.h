@@ -34,8 +34,8 @@ struct http_method_handler {
                         http_async_handler a = NULL)
     {
         method = m;
-        sync_handler = s;
-        async_handler = a;
+        sync_handler = std::move(s);
+        async_handler = std::move(a);
     }
 };
 // method => http_sync_handler

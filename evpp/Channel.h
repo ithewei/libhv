@@ -186,7 +186,7 @@ public:
 
     void setHeartbeat(int interval_ms, std::function<void()> fn) {
         if (io_ == NULL) return;
-        heartbeat = fn;
+        heartbeat = std::move(fn);
         hio_set_heartbeat(io_, interval_ms, send_heartbeat);
     }
 
