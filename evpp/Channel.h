@@ -101,8 +101,11 @@ public:
         return write(str.data(), str.size());
     }
 
-    int close() {
+    int close(bool async = false) {
         if (!isOpened()) return 0;
+        if (async) {
+            return hio_close_async(io_);
+        }
         return hio_close(io_);
     }
 
@@ -156,6 +159,7 @@ class SocketChannel : public Channel {
 public:
     // for TcpClient
     std::function<void()>   onconnect;
+    std::function<void()>   heartbeat;
 
     SocketChannel(hio_t* io) : Channel(io) {
     }
@@ -166,7 +170,24 @@ public:
     }
 
     void setConnectTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
         hio_set_connect_timeout(io_, timeout_ms);
+    }
+
+    void setCloseTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
+        hio_set_close_timeout(io_, timeout_ms);
+    }
+
+    void setKeepaliveTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
+        hio_set_keepalive_timeout(io_, timeout_ms);
+    }
+
+    void setHeartbeat(int interval_ms, std::function<void()> fn) {
+        if (io_ == NULL) return;
+        heartbeat = std::move(fn);
+        hio_set_heartbeat(io_, interval_ms, send_heartbeat);
     }
 
     int startConnect(int port, const char* host = "127.0.0.1") {
@@ -181,11 +202,13 @@ public:
     }
 
     int startConnect(struct sockaddr* peeraddr) {
+        if (io_ == NULL) return -1;
         hio_set_peeraddr(io_, peeraddr, SOCKADDR_LEN(peeraddr));
         return startConnect();
     }
 
     int startConnect() {
+        if (io_ == NULL) return -1;
         status = CONNECTING;
         hio_setcb_connect(io_, on_connect);
         return hio_connect(io_);
@@ -196,12 +219,14 @@ public:
     }
 
     std::string localaddr() {
+        if (io_ == NULL) return "";
         struct sockaddr* addr = hio_localaddr(io_);
         char buf[SOCKADDR_STRLEN] = {0};
         return SOCKADDR_STR(addr, buf);
     }
 
     std::string peeraddr() {
+        if (io_ == NULL) return "";
         struct sockaddr* addr = hio_peeraddr(io_);
         char buf[SOCKADDR_STRLEN] = {0};
         return SOCKADDR_STR(addr, buf);
@@ -219,6 +244,13 @@ private:
             if (channel->onconnect) {
                 channel->onconnect();
             }
+        }
+    }
+
+    static void send_heartbeat(hio_t* io) {
+        SocketChannel* channel = (SocketChannel*)hio_context(io);
+        if (channel && channel->heartbeat) {
+            channel->heartbeat();
         }
     }
 };

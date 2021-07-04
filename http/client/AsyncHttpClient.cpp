@@ -90,9 +90,16 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         if (iter != conn_pools.end()) {
             iter->second.remove(channel->fd());
         }
-        if (ctx->task && ctx->task->retry_cnt-- > 0) {
-            // try again
-            send(ctx->task);
+        const HttpClientTaskPtr& task = ctx->task;
+        if (task && task->retry_cnt-- > 0) {
+            if (task->retry_delay) {
+                // try again after delay
+                setTimeout(ctx->task->retry_delay, [this, task](TimerID timerID){
+                    doTask(task);
+                });
+            } else {
+                send(task);
+            }
         } else {
             ctx->errorCallback();
         }

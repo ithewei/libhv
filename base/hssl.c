@@ -49,19 +49,29 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
 #endif
     if (ctx == NULL) return NULL;
     int mode = SSL_VERIFY_NONE;
+    const char* ca_file = NULL;
+    const char* ca_path = NULL;
     if (param) {
         if (param->ca_file && *param->ca_file) {
-            if (!SSL_CTX_load_verify_locations(ctx, param->ca_file, NULL)) {
-                fprintf(stderr, "ssl ca_file verify failed!\n");
+            ca_file = param->ca_file;
+        }
+        if (param->ca_path && *param->ca_path) {
+            ca_path = param->ca_path;
+        }
+        if (ca_file || ca_path) {
+            if (!SSL_CTX_load_verify_locations(ctx, ca_file, ca_path)) {
+                fprintf(stderr, "ssl ca_file/ca_path failed!\n");
                 goto error;
             }
         }
+
         if (param->crt_file && *param->crt_file) {
             if (!SSL_CTX_use_certificate_file(ctx, param->crt_file, SSL_FILETYPE_PEM)) {
                 fprintf(stderr, "ssl crt_file error!\n");
                 goto error;
             }
         }
+
         if (param->key_file && *param->key_file) {
             if (!SSL_CTX_use_PrivateKey_file(ctx, param->key_file, SSL_FILETYPE_PEM)) {
                 fprintf(stderr, "ssl key_file error!\n");
@@ -71,11 +81,14 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
                 fprintf(stderr, "ssl key_file check failed!\n");
                 goto error;
             }
-
         }
+
         if (param->verify_peer) {
             mode = SSL_VERIFY_PEER;
         }
+    }
+    if (mode == SSL_VERIFY_PEER && !ca_file && !ca_path) {
+        SSL_CTX_set_default_verify_paths(ctx);
     }
     SSL_CTX_set_verify(ctx, mode, NULL);
     s_ssl_ctx = ctx;

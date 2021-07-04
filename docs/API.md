@@ -9,13 +9,12 @@
 - BYTE_ORDER: BIG_ENDIAN, LITTLE_ENDIAN
 - stdbool.h: bool, true, false
 - stdint.h: int8_t, int16_t, int32_t, int64_t
-- var
 - hv_sleep, hv_msleep, hv_usleep, hv_delay
 - hv_mkdir
 - stricmp, strcasecmp
 
 ### hexport.h
-- HV_EXPORT
+- HV_EXPORT, HV_INLINE
 - HV_SOURCE, HV_STATICLIB, HV_DYNAMICLIB
 - HV_DEPRECATED
 - HV_UNUSED
@@ -325,6 +324,8 @@
 - hloop_create_tcp_server
 - hloop_create_udp_client
 - hloop_create_udp_server
+- hloop_create_ssl_client
+- hloop_create_ssl_server
 - hloop_new
 - hloop_free
 - hloop_run
@@ -476,6 +477,17 @@
 - http_client_del_header
 - http_client_get_header
 - http_client_clear_headers
+
+### requests.h
+- requests::request
+- requests::get
+- requests::post
+- requests::put
+- requests::patch
+- requests::Delete
+- requests::head
+- requests::options
+- requests::async
 
 ### HttpServer.h
 - http_server_run

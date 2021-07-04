@@ -8,7 +8,7 @@ BEGIN_EXTERN_C
 
 #define HV_VERSION_MAJOR    1
 #define HV_VERSION_MINOR    1
-#define HV_VERSION_PATCH    0
+#define HV_VERSION_PATCH    1
 
 #define HV_VERSION_STRING   STRINGIFY(HV_VERSION_MAJOR) "." \
                             STRINGIFY(HV_VERSION_MINOR) "." \
@@ -17,7 +17,7 @@ BEGIN_EXTERN_C
 #define HV_VERSION_NUMBER   ((HV_VERSION_MAJOR << 16) | (HV_VERSION_MINOR << 8) | HV_VERSION_PATCH)
 
 
-static inline const char* hv_version() {
+HV_INLINE const char* hv_version() {
     return HV_VERSION_STRING;
 }
 

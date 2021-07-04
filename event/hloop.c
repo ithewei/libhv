@@ -810,6 +810,24 @@ int hio_del(hio_t* io, int events) {
     return 0;
 }
 
+static void hio_close_event_cb(hevent_t* ev) {
+    hio_t* io = (hio_t*)ev->userdata;
+    uint32_t id = (uintptr_t)ev->privdata;
+    if (io->id != id) return;
+    hio_close(io);
+}
+
+int hio_close_async(hio_t* io) {
+    hevent_t ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.cb = hio_close_event_cb;
+    ev.userdata = io;
+    ev.privdata = (void*)(uintptr_t)io->id;
+    ev.priority = HEVENT_HIGH_PRIORITY;
+    hloop_post_event(io->loop, &ev);
+    return 0;
+}
+
 hio_t* hread(hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
     hio_t* io = hio_get(loop, fd);
     assert(io != NULL);

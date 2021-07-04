@@ -43,7 +43,7 @@ HV_EXPORT void  safe_free(void* ptr);
 // 统计内存分配/释放的次数，以此检查是否有内存未释放
 HV_EXPORT long hv_alloc_cnt();
 HV_EXPORT long hv_free_cnt();
-static inline void hv_memcheck() {
+HV_INLINE void hv_memcheck() {
     printf("Memcheck => alloc:%ld free:%ld\n", hv_alloc_cnt(), hv_free_cnt());
 }
 #define HV_MEMCHECK    atexit(hv_memcheck);

@@ -23,7 +23,7 @@ struct Event {
 
     Event(EventCallback cb = NULL) {
         memset(&event, 0, sizeof(hevent_t));
-        this->cb = cb;
+        this->cb = std::move(cb);
     }
 };
 
@@ -34,7 +34,7 @@ struct Timer {
 
     Timer(htimer_t* timer = NULL, TimerCallback cb = NULL, int repeat = INFINITE) {
         this->timer = timer;
-        this->cb = cb;
+        this->cb = std::move(cb);
         this->repeat = repeat;
     }
 };

@@ -1,6 +1,8 @@
 #ifndef HV_WEBSOCKET_CHANNEL_H_
 #define HV_WEBSOCKET_CHANNEL_H_
 
+#include <mutex>
+
 #include "Channel.h"
 
 #include "wsdef.h"
@@ -31,15 +33,17 @@ public:
             *(int*)mask = rand();
         }
         int frame_size = ws_calc_frame_size(len, has_mask);
-        if (sendbuf.len < frame_size) {
-            sendbuf.resize(ceil2e(frame_size));
+        std::lock_guard<std::mutex> locker(mutex_);
+        if (sendbuf_.len < frame_size) {
+            sendbuf_.resize(ceil2e(frame_size));
         }
-        ws_build_frame(sendbuf.base, buf, len, mask, has_mask, opcode);
-        return write(sendbuf.base, frame_size);
+        ws_build_frame(sendbuf_.base, buf, len, mask, has_mask, opcode);
+        return write(sendbuf_.base, frame_size);
     }
 
 private:
-    Buffer sendbuf;
+    Buffer      sendbuf_;
+    std::mutex  mutex_;
 };
 
 }

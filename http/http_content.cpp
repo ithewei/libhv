@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-std::string dump_query_params(QueryParams& query_params) {
+std::string dump_query_params(const QueryParams& query_params) {
     std::string query_string;
     for (auto& pair : query_params) {
         if (query_string.size() != 0) {
@@ -209,7 +209,7 @@ static int on_body_end(multipart_parser* parser) {
     userdata->state = MP_BODY_END;
     return 0;
 }
-int parse_multipart(std::string& str, MultiPart& mp, const char* boundary) {
+int parse_multipart(const std::string& str, MultiPart& mp, const char* boundary) {
     //printf("boundary=%s\n", boundary);
     std::string __boundary("--");
     __boundary += boundary;
@@ -231,7 +231,7 @@ int parse_multipart(std::string& str, MultiPart& mp, const char* boundary) {
     return nparse == str.size() ? 0 : -1;
 }
 
-std::string dump_json(hv::Json& json, int indent) {
+std::string dump_json(const hv::Json& json, int indent) {
     return json.dump(indent);
 }
 

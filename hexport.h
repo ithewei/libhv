@@ -24,6 +24,9 @@
     #define HV_EXPORT
 #endif
 
+// HV_INLINE
+#define HV_INLINE static inline
+
 // HV_DEPRECATED
 // 接口过时声明宏
 #if defined(HV_NO_DEPRECATED)

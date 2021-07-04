@@ -6,7 +6,7 @@
 
 // QueryParams
 typedef hv::KeyValue    QueryParams;
-HV_EXPORT std::string dump_query_params(QueryParams& query_params);
+HV_EXPORT std::string dump_query_params(const QueryParams& query_params);
 HV_EXPORT int         parse_query_params(const char* query_string, QueryParams& query_params);
 
 // NOTE: WITHOUT_HTTP_CONTENT
@@ -49,7 +49,7 @@ struct FormData {
 typedef HV_MAP<std::string, FormData>          MultiPart;
 #define DEFAULT_MULTIPART_BOUNDARY  "----WebKitFormBoundary7MA4YWxkTrZu0gW"
 HV_EXPORT std::string dump_multipart(MultiPart& mp, const char* boundary = DEFAULT_MULTIPART_BOUNDARY);
-HV_EXPORT int         parse_multipart(std::string& str, MultiPart& mp, const char* boundary);
+HV_EXPORT int         parse_multipart(const std::string& str, MultiPart& mp, const char* boundary);
 
 // Json
 // https://github.com/nlohmann/json
@@ -59,7 +59,7 @@ using Json = nlohmann::json;
 // using Json = nlohmann::ordered_json;
 }
 
-HV_EXPORT std::string dump_json(hv::Json& json, int indent = -1);
+HV_EXPORT std::string dump_json(const hv::Json& json, int indent = -1);
 HV_EXPORT int         parse_json(const char* str, hv::Json& json, std::string& errmsg);
 #endif
 

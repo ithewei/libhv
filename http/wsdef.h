@@ -53,7 +53,7 @@ HV_EXPORT int ws_build_frame(
     enum ws_opcode opcode DEFAULT(WS_OPCODE_TEXT),
     bool fin DEFAULT(true));
 
-static inline int ws_client_build_frame(
+HV_INLINE int ws_client_build_frame(
     char* out,
     const char* data,
     int data_len,
@@ -66,7 +66,7 @@ static inline int ws_client_build_frame(
     return ws_build_frame(out, data, data_len, mask, true, opcode, fin);
 }
 
-static inline int ws_server_build_frame(
+HV_INLINE int ws_server_build_frame(
     char* out,
     const char* data,
     int data_len,

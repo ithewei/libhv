@@ -2,9 +2,20 @@ English | [中文](README-CN.md)
 
 # libhv
 
-[![Latest Version](https://img.shields.io/github/release/ithewei/libhv.svg)](https://github.com/ithewei/libhv/releases)
-[![Build Status](https://travis-ci.org/ithewei/libhv.svg?branch=master)](https://travis-ci.org/ithewei/libhv)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows%20%7C%20Mac-blue)](.travis.yml)
+[![platform](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos-blue)](.github/workflows/CI.yml)
+[![CI](https://github.com/ithewei/libhv/workflows/CI/badge.svg?branch=master)](https://github.com/ithewei/libhv/actions/workflows/CI.yml?query=branch%3Amaster)
+[![benchmark](https://github.com/ithewei/libhv/workflows/benchmark/badge.svg?branch=master)](https://github.com/ithewei/libhv/actions/workflows/benchmark.yml?query=branch%3Amaster)
+<br>
+[![release](https://badgen.net/github/release/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/releases)
+[![stars](https://badgen.net/github/stars/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/stargazers)
+[![forks](https://badgen.net/github/forks/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/network/members)
+[![issues](https://badgen.net/github/issues/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/issues)
+[![PRs](https://badgen.net/github/prs/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/pulls)
+[![license](https://badgen.net/github/license/ithewei/libhv?icon=github)](LICENSE)
+<br>
+[![gitee](https://badgen.net/badge/mirror/gitee/red)](https://gitee.com/libhv/libhv)
+[![awesome-c](https://badgen.net/badge/icon/awesome-c/pink?icon=awesome&label&color)](https://github.com/oz123/awesome-c)
+[![awesome-cpp](https://badgen.net/badge/icon/awesome-cpp/pink?icon=awesome&label&color)](https://github.com/fffaraz/awesome-cpp)
 
 Like `libevent, libev, and libuv`,
 `libhv` provides event-loop with non-blocking IO and timer,
@@ -12,7 +23,7 @@ but simpler api and richer protocols.
 
 ## ✨ Features
 
-- Cross-platform (Linux, Windows, Mac, Solaris)
+- Cross-platform (Linux, Windows, MacOS, Solaris)
 - EventLoop (IO, timer, idle)
 - TCP/UDP client/server/proxy
 - SSL/TLS support: WITH_OPENSSL or WITH_MBEDTLS

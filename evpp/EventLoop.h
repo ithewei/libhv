@@ -125,6 +125,7 @@ public:
     }
 
     bool isInLoopThread() {
+        if (loop_ == NULL) return false;
         return hv_gettid() == hloop_tid(loop_);
     }
 
@@ -133,10 +134,10 @@ public:
     }
 
     void runInLoop(Functor fn) {
-        if (isInLoopThread()) {
+        if (isRunning() && isInLoopThread()) {
             if (fn) fn();
         } else {
-            queueInLoop(fn);
+            queueInLoop(std::move(fn));
         }
     }
 

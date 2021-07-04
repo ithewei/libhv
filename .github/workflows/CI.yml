@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+
+  pull_request:
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  build-linux:
+    name: build-linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: build
+        run: |
+          sudo apt update
+          sudo apt install libssl-dev libnghttp2-dev
+          ./configure --with-openssl --with-nghttp2
+          make libhv examples unittest evpp
+
+  build-macos:
+    name: build-macos
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: build
+        run: |
+          ./configure
+          make libhv examples unittest evpp
+
+  build-windows:
+    name: build-windows
+    runs-on: windows-2016
+    steps:
+      - uses: actions/checkout@v2
+      - name: build
+        run: |
+          mkdir win64
+          cd win64
+          cmake .. -G "Visual Studio 15 2017 Win64"
+          cmake --build .

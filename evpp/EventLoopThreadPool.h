@@ -62,7 +62,7 @@ public:
 
         for (int i = 0; i < thread_num_; ++i) {
             EventLoopThreadPtr loop_thread(new EventLoopThread);
-            EventLoopPtr loop = loop_thread->loop();
+            const EventLoopPtr& loop = loop_thread->loop();
             loop_thread->start(false,
                 [this, started_cnt, pre, &loop]() {
                     if (++(*started_cnt) == thread_num_) {

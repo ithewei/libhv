@@ -21,6 +21,7 @@ typedef struct {
     const char* crt_file;
     const char* key_file;
     const char* ca_file;
+    const char* ca_path;
     short       verify_peer;
     short       endpoint; // 0: server 1: client
 } hssl_ctx_init_param_t;

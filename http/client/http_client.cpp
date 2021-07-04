@@ -331,7 +331,7 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
         cli->ssl = hssl_new(ssl_ctx, connfd);
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
-            fprintf(stderr, "SSL handshark failed: %d\n", ret);
+            fprintf(stderr, "SSL handshake failed: %d\n", ret);
             hssl_free(cli->ssl);
             cli->ssl = NULL;
             closesocket(connfd);
@@ -438,11 +438,13 @@ const char* http_client_strerror(int errcode) {
 #endif
 
 static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
-    cli->mutex_.lock();
     if (cli->async_client_ == NULL) {
-        cli->async_client_.reset(new hv::AsyncHttpClient);
+        cli->mutex_.lock();
+        if (cli->async_client_ == NULL) {
+            cli->async_client_.reset(new hv::AsyncHttpClient);
+        }
+        cli->mutex_.unlock();
     }
-    cli->mutex_.unlock();
 
     return cli->async_client_->send(req, resp_cb);
 }

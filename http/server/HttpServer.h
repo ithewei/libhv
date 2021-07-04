@@ -44,7 +44,7 @@ typedef struct http_server_s {
 
 int main() {
     HttpService service;
-    service.base_url = "/v1/api";
+    service.base_url = "/api/v1";
     service.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
         resp->body = "pong";
         return 200;

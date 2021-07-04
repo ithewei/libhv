@@ -1,0 +1,54 @@
+name: benchmark
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+
+  pull_request:
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  benchmark:
+    name: benchmark
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: prepare
+        run: |
+          sudo apt update
+          sudo apt install libssl-dev
+          sudo apt install nginx
+
+      - name: make wrk
+        run: |
+          git clone https://github.com/wg/wrk
+          pushd wrk
+          make WITH_OPENSSL=/usr
+          sudo cp wrk /usr/bin
+          popd
+
+      - name: make httpd
+        run: |
+          ./configure
+          make httpd
+
+      - name: build echo-servers
+        run: |
+          bash echo-servers/build.sh
+
+      - name: benchmark echo-servers
+        run: |
+          bash echo-servers/benchmark.sh
+
+      - name: webbench
+        run: |
+          sudo nginx -c /etc/nginx/nginx.conf
+          sudo cp html/index.html /var/www/html/index.html
+          bin/httpd -c etc/httpd.conf -d
+          ps aux | grep nginx
+          ps aux | grep httpd
+          wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/
+          wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/

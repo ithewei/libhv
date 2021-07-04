@@ -20,6 +20,14 @@ public:
         req->ParseBody();
         // 响应格式默认为application/json
         resp->content_type = APPLICATION_JSON;
+        // cors
+        resp->headers["Access-Control-Allow-Origin"] = "*";
+        if (req->method == HTTP_OPTIONS) {
+            resp->headers["Access-Control-Allow-Origin"] = req->GetHeader("Origin", "*");
+            resp->headers["Access-Control-Allow-Methods"] = req->GetHeader("Access-Control-Request-Method", "OPTIONS, HEAD, GET, POST, PUT, DELETE, PATCH");
+            resp->headers["Access-Control-Allow-Headers"] = req->GetHeader("Access-Control-Request-Headers", "Content-Type");
+            return HTTP_STATUS_NO_CONTENT;
+        }
 #if 0
         // 前处理中我们可以做一些公共逻辑，如请求统计、请求拦截、API鉴权等，
         // 下面是一段简单的Token头校验代码
@@ -171,11 +179,10 @@ public:
         // RESTful /:field/ => HttpRequest::query_params
         // path=/group/:group_name/user/:user_id
         // restful风格URL里的参数已被解析到query_params数据结构里，可通过GetParam("key")获取
-        // string group_name = req->GetParam("group_name");
-        // string user_id = req->GetParam("user_id");
-        for (auto& param : req->query_params) {
-            resp->Set(param.first.c_str(), param.second);
-        }
+        std::string group_name = req->GetParam("group_name");
+        std::string user_id = req->GetParam("user_id");
+        resp->Set("group_name", group_name);
+        resp->Set("user_id", user_id);
         response_status(resp, 0, "OK");
         return 200;
     }
@@ -209,7 +216,7 @@ public:
         if (req->content_type != MULTIPART_FORM_DATA) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }
-        FormData file = req->form["file"];
+        const FormData& file = req->form["file"];
         if (file.content.empty()) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
         }

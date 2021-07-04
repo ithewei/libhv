@@ -53,7 +53,7 @@ static void websocket_onmessage(int opcode, const std::string& msg, hio_t* io) {
     WebSocketHandler* ws = handler->ws.get();
     switch(opcode) {
     case WS_OPCODE_CLOSE:
-        hio_close(io);
+        hio_close_async(io);
         break;
     case WS_OPCODE_PING:
         // printf("recv ping\n");
@@ -376,12 +376,14 @@ int http_server_stop(http_server_t* server) {
             continue;
         }
         // wait for all loops running
+        bool all_loops_running = true;
         for (auto& loop : privdata->loops) {
             if (loop->status() < hv::Status::kRunning) {
-                continue;
+                all_loops_running = false;
+                break;
             }
         }
-        break;
+        if (all_loops_running) break;
     }
 
     // stop all loops

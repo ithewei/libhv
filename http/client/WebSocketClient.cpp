@@ -3,12 +3,16 @@
 #include "base64.h"
 #include "hlog.h"
 
+#define DEFAULT_WS_PING_INTERVAL    3000 // ms
+
 namespace hv {
 
 WebSocketClient::WebSocketClient()
     : TcpClientTmpl<WebSocketChannel>()
 {
     state = WS_CLOSED;
+    ping_interval = DEFAULT_WS_PING_INTERVAL;
+    ping_cnt = 0;
 }
 
 WebSocketClient::~WebSocketClient() {
@@ -119,6 +123,7 @@ int WebSocketClient::open(const char* _url) {
                     }
                     case WS_OPCODE_PONG:
                         // printf("recv pong\n");
+                        ping_cnt = 0;
                         break;
                     case WS_OPCODE_TEXT:
                     case WS_OPCODE_BINARY:
@@ -129,6 +134,21 @@ int WebSocketClient::open(const char* _url) {
                     }
                 };
                 state = WS_OPENED;
+                // ping
+                if (ping_interval > 0) {
+                    ping_cnt = 0;
+                    channel->setHeartbeat(ping_interval, [this](){
+                        auto& channel = this->channel;
+                        if (channel == NULL) return;
+                        if (ping_cnt++ == 3) {
+                            hloge("websocket no pong!");
+                            channel->close();
+                            return;
+                        }
+                        // printf("send ping\n");
+                        channel->write(WS_CLIENT_PING_FRAME, WS_CLIENT_MIN_FRAME_SIZE);
+                    });
+                }
                 if (onopen) onopen();
             }
         } else {

@@ -17,7 +17,7 @@ public:
     virtual ~UdpClient() {
     }
 
-    EventLoopPtr loop() {
+    const EventLoopPtr& loop() {
         return loop_thread.loop();
     }
 

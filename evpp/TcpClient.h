@@ -53,7 +53,7 @@ public:
     virtual ~TcpClientTmpl() {
     }
 
-    EventLoopPtr loop() {
+    const EventLoopPtr& loop() {
         return loop_thread.loop();
     }
 

@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
     printf("main tid=%ld\n", hv_gettid());
 
     EventLoopThread loop_thread;
-    EventLoopPtr loop = loop_thread.loop();
+    const EventLoopPtr& loop = loop_thread.loop();
 
     // runEvery 1s
     loop->setInterval(1000, std::bind(onTimer, std::placeholders::_1, 100));
