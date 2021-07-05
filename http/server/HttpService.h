@@ -38,7 +38,7 @@ struct http_method_handler {
         async_handler = std::move(a);
     }
 };
-// method => http_sync_handler
+// method => http_method_handler
 typedef std::list<http_method_handler>                                  http_method_handlers;
 // path => http_method_handlers
 typedef std::map<std::string, std::shared_ptr<http_method_handlers>>    http_api_handlers;

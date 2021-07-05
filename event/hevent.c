@@ -181,8 +181,8 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
             htimer_del(io->heartbeat_timer);
             io->heartbeat_timer = NULL;
         } else {
-            ((struct htimeout_s*)io->heartbeat_fn)->timeout = interval_ms;
-            htimer_reset(io->keepalive_timer);
+            ((struct htimeout_s*)io->heartbeat_timer)->timeout = interval_ms;
+            htimer_reset(io->heartbeat_timer);
         }
     } else {
         io->heartbeat_timer = htimer_add(io->loop, __heartbeat_timer_cb, interval_ms, INFINITE);
