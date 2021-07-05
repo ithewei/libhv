@@ -147,8 +147,7 @@ int AsyncHttpClient::sendRequest(const SocketChannelPtr& channel) {
     char* data = NULL;
     size_t len = 0;
     while (ctx->parser->GetSendData(&data, &len)) {
-        Buffer buf(data, len);
-        channel->write(&buf);
+        channel->write(data, len);
     }
     channel->startRead();
 

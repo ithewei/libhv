@@ -105,6 +105,7 @@ int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port) {
     int ret = sockaddr_set_ip(addr, host);
     if (ret != 0) return ret;
     sockaddr_set_port(addr, port);
+    // SOCKADDR_PRINT(addr);
     return 0;
 }
 
