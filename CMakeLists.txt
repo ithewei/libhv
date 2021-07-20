@@ -44,7 +44,7 @@ check_header("pthread.h")
 
 # Checks for functions
 if(NOT MSVC)
-    set(CMAKE_REQUIRED_LIBRARIES "pthread")
+    set(CMAKE_REQUIRED_LIBRARIES "-pthread")
 endif()
 check_function("gettid" "unistd.h")
 check_function("strlcpy" "string.h")
