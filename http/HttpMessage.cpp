@@ -323,6 +323,8 @@ bool HttpMessage::IsKeepAlive() {
 void HttpMessage::DumpHeaders(std::string& str) {
     FillContentType();
     FillContentLength();
+
+    // headers
     for (auto& header: headers) {
         // http2 :method :path :scheme :authority :status
         if (*str.c_str() != ':') {
@@ -332,6 +334,18 @@ void HttpMessage::DumpHeaders(std::string& str) {
             str += header.second;
             str += "\r\n";
         }
+    }
+
+    // cookies
+    const char* cookie_field = "Cookie";
+    if (type == HTTP_RESPONSE) {
+        cookie_field = "Set-Cookie";
+    }
+    for (auto& cookie : cookies) {
+        str += cookie_field;
+        str += ": ";
+        str += cookie.dump();
+        str += "\r\n";
     }
 }
 
@@ -503,11 +517,11 @@ void HttpRequest::ParseUrl() {
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     ParseUrl();
 
-    char c_str[256] = {0};
     std::string str;
+    str.reserve(MAX(512, path.size() + 128));
     // GET / HTTP/1.1\r\n
-    snprintf(c_str, sizeof(c_str), "%s %s HTTP/%d.%d\r\n", http_method_str(method), path.c_str(), http_major, http_minor);
-    str += c_str;
+    str = asprintf("%s %s HTTP/%d.%d\r\n",
+            http_method_str(method), path.c_str(), http_major, http_minor);
     if (is_dump_headers) {
         // Host:
         if (headers.find("Host") == headers.end()) {
@@ -517,8 +531,7 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
                 headers["Host"] = host;
             }
             else {
-                snprintf(c_str, sizeof(c_str), "%s:%d", host.c_str(), port);
-                headers["Host"] = c_str;
+                headers["Host"] = asprintf("%s:%d", host.c_str(), port);
             }
         }
         DumpHeaders(str);
@@ -533,9 +546,11 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
 std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
     char c_str[256] = {0};
     std::string str;
+    str.reserve(512);
     // HTTP/1.1 200 OK\r\n
-    snprintf(c_str, sizeof(c_str), "HTTP/%d.%d %d %s\r\n", http_major, http_minor, status_code, http_status_str(status_code));
-    str += c_str;
+    snprintf(c_str, sizeof(c_str), "HTTP/%d.%d %d %s\r\n",
+            http_major, http_minor, status_code, http_status_str(status_code));
+    str = c_str;
     if (is_dump_headers) {
         if (*s_date) {
             headers["Date"] = s_date;

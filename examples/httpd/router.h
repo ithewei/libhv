@@ -23,7 +23,7 @@ public:
         // curl -v http://ip:port/data
         router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
             static char data[] = "0123456789";
-            return resp->Data(data, 10);
+            return resp->Data(data, 10 /*, false */);
         });
 
         // curl -v http://ip:port/html/index.html

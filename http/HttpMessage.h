@@ -39,9 +39,6 @@
 #include "httpdef.h"
 #include "http_content.h"
 
-typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
-typedef std::string                                         http_body;
-
 struct HNetAddr {
     std::string     ip;
     int             port;
@@ -62,7 +59,7 @@ struct HV_EXPORT HttpCookie {
     bool        httponly;
 
     HttpCookie() {
-        max_age = 0;
+        max_age = 86400;
         secure = false;
         httponly = false;
     }
@@ -70,6 +67,10 @@ struct HV_EXPORT HttpCookie {
     bool parse(const std::string& str);
     std::string dump() const;
 };
+
+typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
+typedef std::vector<HttpCookie>                             http_cookies;
+typedef std::string                                         http_body;
 
 class HV_EXPORT HttpMessage {
 public:
@@ -79,6 +80,7 @@ public:
     unsigned short      http_minor;
 
     http_headers        headers;
+    http_cookies        cookies;
     http_body           body;
 
     // structured content
@@ -241,10 +243,17 @@ public:
         return 200;
     }
 
-    int Data(void* data, int len) {
+    int Data(void* data, int len, bool nocopy = true) {
         content_type = APPLICATION_OCTET_STREAM;
-        content = data;
-        content_length = len;
+        if (nocopy) {
+            content = data;
+            content_length = len;
+        } else {
+            content_length = body.size();
+            body.resize(content_length + len);
+            memcpy((void*)(body.data() + content_length), data, len);
+            content_length += len;
+        }
         return 200;
     }
 

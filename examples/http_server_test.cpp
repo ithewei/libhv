@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
 
     router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
         static char data[] = "0123456789";
-        return resp->Data(data, 10);
+        return resp->Data(data, 10 /*, false */);
     });
 
     router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
