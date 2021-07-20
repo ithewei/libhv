@@ -153,12 +153,30 @@ static int sockaddr_bind(sockaddr_u* localaddr, int type) {
         return socket_errno_negative();
     }
 
-    // NOTE: SO_REUSEADDR means that you can reuse sockaddr of TIME_WAIT status
-    int reuseaddr = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
-        perror("setsockopt");
-        goto error;
+
+#ifdef SO_REUSEADDR
+    {
+        // NOTE: SO_REUSEADDR allow to reuse sockaddr of TIME_WAIT status
+        int reuseaddr = 1;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
+            perror("setsockopt");
+            goto error;
+        }
     }
+#endif
+
+/*
+#ifdef SO_REUSEPORT
+    {
+        // NOTE: SO_REUSEPORT allow multiple sockets to bind same port
+        int reuseport = 1;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuseport, sizeof(int)) < 0) {
+            perror("setsockopt");
+            goto error;
+        }
+    }
+#endif
+*/
 
     if (bind(sockfd, &localaddr->sa, sockaddr_len(localaddr)) < 0) {
         perror("bind");
