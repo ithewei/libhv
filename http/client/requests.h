@@ -2,14 +2,14 @@
 #define HV_REQUESTS_H_
 
 /*
- * Imitate python requests api
+ * Inspired by python requests
  *
  * @code
 
 #include "requests.h"
 
 int main() {
-    auto resp = requests::get("/ping");
+    auto resp = requests::get("http://127.0.0.1:8080/ping");
     if (resp == NULL) {
         printf("request failed!\n");
     } else {
@@ -17,12 +17,12 @@ int main() {
         printf("%s\n", resp->body.c_str());
     }
 
-    auto resp2 = requests::post("/echo", "hello,world!");
-    if (resp2 == NULL) {
+    resp = requests::post("http://127.0.0.1:8080/echo", "hello,world!");
+    if (resp == NULL) {
         printf("request failed!\n");
     } else {
-        printf("%d %s\r\n", resp2->status_code, resp2->status_message());
-        printf("%s\n", resp2->body.c_str());
+        printf("%d %s\r\n", resp->status_code, resp->status_message());
+        printf("%s\n", resp->body.c_str());
     }
 
     return 0;
@@ -61,16 +61,12 @@ HV_INLINE Response request(http_method method, const char* url, const http_body&
     return request(req);
 }
 
-HV_INLINE Response get(const char* url, const http_headers& headers = DefaultHeaders) {
-    return request(HTTP_GET, url, NoBody, headers);
-}
-
-HV_INLINE Response options(const char* url, const http_headers& headers = DefaultHeaders) {
-    return request(HTTP_OPTIONS, url, NoBody, headers);
-}
-
 HV_INLINE Response head(const char* url, const http_headers& headers = DefaultHeaders) {
     return request(HTTP_HEAD, url, NoBody, headers);
+}
+
+HV_INLINE Response get(const char* url, const http_headers& headers = DefaultHeaders) {
+    return request(HTTP_GET, url, NoBody, headers);
 }
 
 HV_INLINE Response post(const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {

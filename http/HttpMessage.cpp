@@ -521,7 +521,8 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     str.reserve(MAX(512, path.size() + 128));
     // GET / HTTP/1.1\r\n
     str = asprintf("%s %s HTTP/%d.%d\r\n",
-            http_method_str(method), path.c_str(), http_major, http_minor);
+            http_method_str(method), path.c_str(),
+            (int)http_major, (int)http_minor);
     if (is_dump_headers) {
         // Host:
         if (headers.find("Host") == headers.end()) {
@@ -549,7 +550,8 @@ std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
     str.reserve(512);
     // HTTP/1.1 200 OK\r\n
     snprintf(c_str, sizeof(c_str), "HTTP/%d.%d %d %s\r\n",
-            http_major, http_minor, status_code, http_status_str(status_code));
+            (int)http_major, (int)http_minor,
+            (int)status_code, http_status_str(status_code));
     str = c_str;
     if (is_dump_headers) {
         if (*s_date) {

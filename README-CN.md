@@ -101,6 +101,8 @@ bin/curl -v -X DELETE localhost:8080/group/test/user/123
 ### HTTP
 #### HTTP服务端
 见[examples/http_server_test.cpp](examples/http_server_test.cpp)
+
+golang gin style
 ```c++
 #include "HttpServer.h"
 
@@ -142,6 +144,8 @@ int main() {
 ```
 #### HTTP客户端
 见[examples/http_client_test.cpp](examples/http_client_test.cpp)
+
+python requests style
 ```c++
 #include "requests.h"
 
@@ -150,7 +154,6 @@ int main() {
     if (resp == NULL) {
         printf("request failed!\n");
     } else {
-        printf("%d %s\r\n", resp->status_code, resp->status_message());
         printf("%s\n", resp->body.c_str());
     }
 
@@ -158,10 +161,57 @@ int main() {
     if (resp == NULL) {
         printf("request failed!\n");
     } else {
-        printf("%d %s\r\n", resp->status_code, resp->status_message());
         printf("%s\n", resp->body.c_str());
     }
 
+    return 0;
+}
+```
+
+js axios style
+```
+#include "axios.h"
+
+int main() {
+    const char* strReq = R"(
+    {
+        "method": "POST",
+        "url": "http://127.0.0.1:8080/echo",
+        "params": {
+            "page_no": "1",
+            "page_size": "10"
+        },
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "app_id": "123456",
+            "app_secret": "abcdefg"
+        }
+    }
+    )";
+
+    // sync
+    auto resp = axios::axios(strReq);
+    if (resp == NULL) {
+        printf("request failed!\n");
+    } else {
+        printf("%s\n", resp->body.c_str());
+    }
+
+    // async
+    int finished = 0;
+    axios::axios(strReq, [&finished](const HttpResponsePtr& resp) {
+        if (resp == NULL) {
+            printf("request failed!\n");
+        } else {
+            printf("%s\n", resp->body.c_str());
+        }
+        finished = 1;
+    });
+
+    // wait async finished
+    while (!finished) hv_sleep(1);
     return 0;
 }
 ```
