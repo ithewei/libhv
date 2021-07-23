@@ -118,9 +118,7 @@ make_http_status_page:
     if (fc) {
         pResp->content = fc->filebuf.base;
         pResp->content_length = fc->filebuf.len;
-        if (fc->content_type && *fc->content_type != '\0') {
-            pResp->headers["Content-Type"] = fc->content_type;
-        }
+        pResp->headers["Content-Type"] = fc->content_type;
         pResp->headers["Last-Modified"] = fc->last_modified;
         pResp->headers["Etag"] = fc->etag;
     }

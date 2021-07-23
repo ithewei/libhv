@@ -70,7 +70,14 @@ file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) 
             }
             const char* suffix = strrchr(filepath, '.');
             if (suffix) {
-                fc->content_type = http_content_type_str_by_suffix(++suffix);
+                http_content_type content_type = http_content_type_enum_by_suffix(suffix+1);
+                if (content_type == TEXT_HTML) {
+                    fc->content_type = "text/html; charset=utf-8";
+                } else if (content_type == TEXT_PLAIN) {
+                    fc->content_type = "text/plain; charset=utf-8";
+                } else {
+                    fc->content_type = http_content_type_str_by_suffix(suffix+1);
+                }
             }
         }
         else if (S_ISDIR(fc->st.st_mode)) {
@@ -79,7 +86,7 @@ file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) 
             make_index_of_page(filepath, page, (const char*)ctx);
             fc->resize_buf(page.size());
             memcpy(fc->filebuf.base, page.c_str(), page.size());
-            fc->content_type = http_content_type_str(TEXT_HTML);
+            fc->content_type = "text/html; charset=utf-8";
         }
         gmtime_fmt(fc->st.st_mtime, fc->last_modified);
         snprintf(fc->etag, sizeof(fc->etag), ETAG_FMT, (size_t)fc->st.st_mtime, (size_t)fc->st.st_size);

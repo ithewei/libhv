@@ -4,6 +4,7 @@
 
 #include "htime.h"
 #include "hlog.h"
+#include "hurl.h"
 #include "http_parser.h" // for http_parser_url
 
 char HttpMessage::s_date[32] = {0};
@@ -506,7 +507,15 @@ void HttpRequest::ParseUrl() {
     port = parser.port ? parser.port : strcmp(scheme.c_str(), "https") ? DEFAULT_HTTP_PORT : DEFAULT_HTTPS_PORT;
     // path
     if (parser.field_set & (1<<UF_PATH)) {
-        path = url.c_str() + parser.field_data[UF_PATH].off;
+        const char* sp = url.c_str() + parser.field_data[UF_PATH].off;
+        char* ep = (char*)(sp + parser.field_data[UF_PATH].len);
+        char ev = *ep;
+        *ep = '\0';
+        path = url_unescape(sp);
+        if (ev != '\0') {
+            *ep = ev;
+            path += ep;
+        }
     }
     // query
     if (parser.field_set & (1<<UF_QUERY)) {

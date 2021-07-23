@@ -23,11 +23,10 @@ typedef struct file_cache_s {
     hbuf_t      httpbuf;
     char        last_modified[64];
     char        etag[64];
-    const char* content_type;
+    std::string content_type;
 
     file_cache_s() {
         stat_cnt = 0;
-        content_type = NULL;
     }
 
     bool is_modified() {
