@@ -492,6 +492,7 @@ void HttpRequest::DumpUrl() {
 }
 
 void HttpRequest::ParseUrl() {
+    DecodeUrl();
     DumpUrl();
     http_parser_url parser;
     http_parser_url_init(&parser);

@@ -320,6 +320,50 @@ public:
     // url -> structed url
     void ParseUrl();
 
+    char CharToInt(char ch) 
+    {
+        if (ch >= '0' && ch <= '9')return (char)(ch - '0');
+        if (ch >= 'a' && ch <= 'f')return (char)(ch - 'a' + 10);
+        if (ch >= 'A' && ch <= 'F')return (char)(ch - 'A' + 10);
+        return -1;
+    }
+
+    char StrToBin(const char *str) 
+    {
+        char tempWord[2];
+        char chn;
+        tempWord[0] = CharToInt(str[0]); //make the B to 11 -- 00001011 
+        tempWord[1] = CharToInt(str[1]); //make the 0 to 0 -- 00000000 
+        chn = (tempWord[0] << 4) | tempWord[1]; //to change the BO to 10110000 
+        return chn;
+    }
+
+    void DecodeUrl()
+    {
+        std::string output = "";
+        char tmp[2];
+        int i = 0, len = url.length();
+        while (i < len) {
+            if (url[i] == '%') {
+                if(i > len - 3){
+                    //防止内存溢出
+                    break;
+                }
+                tmp[0] = url[i + 1];
+                tmp[1] = url[i + 2];
+                output += StrToBin(tmp);
+                i = i + 3;
+            } else if (url[i] == '+') {
+                output += ' ';
+                i++;
+            } else {
+                output += url[i];
+                i++;
+            }
+        }
+        url = output;
+    }
+    
     std::string Host() {
         auto iter = headers.find("Host");
         if (iter != headers.end()) {
