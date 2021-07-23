@@ -100,7 +100,7 @@ bin/curl -v -X DELETE localhost:8080/group/test/user/123
 #### http server
 see [examples/http_server_test.cpp](examples/http_server_test.cpp)
 
-golang gin style
+**golang gin style**
 ```c++
 #include "HttpServer.h"
 
@@ -143,7 +143,7 @@ int main() {
 #### http client
 see [examples/http_client_test.cpp](examples/http_client_test.cpp)
 
-python requests style
+**python requests style**
 ```c++
 #include "requests.h"
 
@@ -166,13 +166,12 @@ int main() {
 }
 ```
 
-js axios style
-```
+**js axios style**
+```c++
 #include "axios.h"
 
 int main() {
-    const char* strReq = R"(
-    {
+    const char* strReq = R"({
         "method": "POST",
         "url": "http://127.0.0.1:8080/echo",
         "params": {
@@ -186,8 +185,7 @@ int main() {
             "app_id": "123456",
             "app_secret": "abcdefg"
         }
-    }
-    )";
+    })";
 
     // sync
     auto resp = axios::axios(strReq);
