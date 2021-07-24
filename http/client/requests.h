@@ -82,7 +82,7 @@ HV_INLINE Response patch(const char* url, const http_body& body = NoBody, const 
 }
 
 // delete is c++ keyword, we have to replace delete with Delete.
-HV_INLINE Response Delete(const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {
+HV_INLINE Response del(const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {
     return request(HTTP_DELETE, url, body, headers);
 }
 
