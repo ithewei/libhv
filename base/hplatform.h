@@ -238,7 +238,7 @@
     #endif
 
     #ifndef true
-    #define ture 1
+    #define true 1
     #endif
 
     #ifndef false
