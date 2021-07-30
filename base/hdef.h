@@ -103,13 +103,13 @@ ASCII:
 #endif
 
 // LD, LU, LLD, LLU for explicit conversion of integer
-#ifndef LD
-#define LD(v)   ((long)(v))
-#endif
+// #ifndef LD
+// #define LD(v)   ((long)(v))
+// #endif
 
-#ifndef LU
-#define LU(v)   ((unsigned long)(v))
-#endif
+// #ifndef LU
+// #define LU(v)   ((unsigned long)(v))
+// #endif
 
 #ifndef LLD
 #define LLD(v)  ((long long)(v))
