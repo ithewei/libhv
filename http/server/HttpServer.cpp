@@ -221,7 +221,10 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         ws->parser->onMessage = std::bind(websocket_onmessage, std::placeholders::_1, std::placeholders::_2, io);
         // NOTE: cancel keepalive timer, judge alive by heartbeat.
         hio_set_keepalive_timeout(io, 0);
-        hio_set_heartbeat(io, HIO_DEFAULT_HEARTBEAT_INTERVAL, websocket_heartbeat);
+        if (handler->ws_service && handler->ws_service->ping_interval > 0) {
+            int ping_interval = MAX(handler->ws_service->ping_interval, 1000);
+            hio_set_heartbeat(io, ping_interval, websocket_heartbeat);
+        }
         // onopen
         handler->WebSocketOnOpen();
         return;
@@ -270,7 +273,7 @@ static void on_accept(hio_t* io) {
     http_server_t* server = (http_server_t*)hevent_userdata(io);
     handler->service = server->service;
     // ws
-    handler->ws_cbs = server->ws;
+    handler->ws_service = server->ws;
     // FileCache
     handler->files = default_filecache();
     hevent_set_userdata(io, handler);

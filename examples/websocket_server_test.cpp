@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
     }
     int port = atoi(argv[1]);
 
-    WebSocketServerCallbacks ws;
+    WebSocketService ws;
     ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
         printf("onopen: GET %s\n", url.c_str());
         MyContext* ctx = channel->newContext<MyContext>();

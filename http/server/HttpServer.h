@@ -4,7 +4,7 @@
 #include "hexport.h"
 #include "HttpService.h"
 
-struct WebSocketServerCallbacks;
+struct WebSocketService;
 typedef struct http_server_s {
     char host[64];
     int port; // http_port
@@ -13,7 +13,7 @@ typedef struct http_server_s {
     int worker_processes;
     int worker_threads;
     HttpService* service;
-    WebSocketServerCallbacks* ws;
+    WebSocketService* ws;
     void* userdata;
 //private:
     int listenfd[2]; // 0: http, 1: https

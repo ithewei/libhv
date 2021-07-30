@@ -85,7 +85,7 @@ public:
 
     // for websocket
     WebSocketHandlerPtr         ws;
-    WebSocketServerCallbacks*   ws_cbs;
+    WebSocketService*           ws_service;
 
     HttpHandler() {
         protocol = UNKNOWN;
@@ -93,7 +93,7 @@ public:
         ssl = false;
         service = NULL;
         files = NULL;
-        ws_cbs = NULL;
+        ws_service = NULL;
     }
 
     bool Init(int http_version = 1) {
@@ -149,19 +149,19 @@ public:
     }
     void WebSocketOnOpen() {
         ws->onopen();
-        if (ws_cbs && ws_cbs->onopen) {
-            ws_cbs->onopen(ws->channel, req->url);
+        if (ws_service && ws_service->onopen) {
+            ws_service->onopen(ws->channel, req->url);
         }
     }
     void WebSocketOnClose() {
         ws->onclose();
-        if (ws_cbs && ws_cbs->onclose) {
-            ws_cbs->onclose(ws->channel);
+        if (ws_service && ws_service->onclose) {
+            ws_service->onclose(ws->channel);
         }
     }
     void WebSocketOnMessage(const std::string& msg) {
-        if (ws_cbs && ws_cbs->onmessage) {
-            ws_cbs->onmessage(ws->channel, msg);
+        if (ws_service && ws_service->onmessage) {
+            ws_service->onmessage(ws->channel, msg);
         }
     }
 };

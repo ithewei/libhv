@@ -8,11 +8,17 @@
 #include "HttpServer.h"
 #include "WebSocketChannel.h"
 
-struct WebSocketServerCallbacks {
+struct WebSocketService {
     std::function<void(const WebSocketChannelPtr&, const std::string&)> onopen;
     std::function<void(const WebSocketChannelPtr&, const std::string&)> onmessage;
     std::function<void(const WebSocketChannelPtr&)>                     onclose;
+    int ping_interval;
+
+    WebSocketService() {
+        ping_interval = 10000; // ms
+    }
 };
+#define WebSocketServerCallbacks WebSocketService // deprecated
 
 #define websocket_server_t      http_server_t
 #define websocket_server_run    http_server_run
