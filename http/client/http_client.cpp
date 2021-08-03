@@ -396,7 +396,8 @@ send:
                     goto connect;
                 }
                 else {
-                    return socket_errno();
+                    err = socket_errno();
+                    goto disconnect;
                 }
             }
             total_nsend += nsend;
@@ -422,13 +423,25 @@ recv:
             nrecv = recv(connfd, recvbuf, sizeof(recvbuf), 0);
         }
         if (nrecv <= 0) {
-            return socket_errno();
+            if (++fail_cnt == 1) {
+                // maybe keep-alive timeout, try again
+                cli->Close();
+                goto connect;
+            }
+            else {
+                err = socket_errno();
+                goto disconnect;
+            }
         }
         int nparse = cli->parser->FeedRecvData(recvbuf, nrecv);
         if (nparse != nrecv) {
             return ERR_PARSE;
         }
     } while(!cli->parser->IsComplete());
+
+    return 0;
+disconnect:
+    cli->Close();
     return err;
 }
 
