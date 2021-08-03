@@ -18,7 +18,7 @@ static int on_frame_header(websocket_parser* parser) {
         wp->message.reserve(reserve_length);
     }
     if (wp->state == WS_FRAME_BEGIN ||
-        wp->state == WS_FRAME_END) {
+        wp->state == WS_FRAME_FIN) {
         wp->message.clear();
     }
     wp->state = WS_FRAME_HEADER;
@@ -41,6 +41,7 @@ static int on_frame_end(websocket_parser* parser) {
     WebSocketParser* wp = (WebSocketParser*)parser->data;
     wp->state = WS_FRAME_END;
     if (wp->parser->flags & WS_FIN) {
+        wp->state = WS_FRAME_FIN;
         if (wp->onMessage) {
             wp->onMessage(wp->opcode, wp->message);
         }

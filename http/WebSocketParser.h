@@ -12,6 +12,7 @@ enum websocket_parser_state {
     WS_FRAME_HEADER,
     WS_FRAME_BODY,
     WS_FRAME_END,
+    WS_FRAME_FIN,
 };
 
 struct websocket_parser_settings;
