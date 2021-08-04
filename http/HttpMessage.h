@@ -313,7 +313,7 @@ public:
         query_params.clear();
     }
 
-    virtual std::string Dump(bool is_dump_headers, bool is_dump_body);
+    virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
 
     // structed url -> url
     void DumpUrl();

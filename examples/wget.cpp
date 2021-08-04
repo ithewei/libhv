@@ -6,34 +6,16 @@
 
 #include "requests.h"
 
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        printf("Usage: %s url\n", argv[0]);
-        return -10;
-    }
-    const char* url = argv[1];
-
-    std::string filepath;
-    const char* path = strrchr(url, '/');
-    if (path == NULL || path[1] == '\0') {
-        filepath = "index.html";
-    } else {
-        filepath = path + 1;
-    }
-    printf("Save file to %s ...\n", filepath.c_str());
-
+static int wget(const char* url, const char* filepath) {
     HFile file;
-    if (file.open(filepath.c_str(), "wb") != 0) {
-        fprintf(stderr, "Failed to open file %s\n", filepath.c_str());
+    if (file.open(filepath, "wb") != 0) {
+        fprintf(stderr, "Failed to open file %s\n", filepath);
         return -20;
     }
+    printf("Save file to %s ...\n", filepath);
 
     // HEAD
-    requests::Request req(new HttpRequest);
-    req->url = url;
-    req->method = HTTP_HEAD;
-    printd("%s", req->Dump(true, true).c_str());
-    auto resp = requests::request(req);
+    auto resp = requests::head(url);
     if (resp == NULL) {
         fprintf(stderr, "request failed!\n");
         return -1;
@@ -52,9 +34,7 @@ int main(int argc, char** argv) {
     }
 
     // GET
-    req->method = HTTP_GET;
     if (!use_range) {
-        printd("%s", req->Dump(true, true).c_str());
         resp = requests::get(url);
         if (resp == NULL) {
             fprintf(stderr, "request failed!\n");
@@ -62,19 +42,22 @@ int main(int argc, char** argv) {
         }
         printd("%s", resp->Dump(true, false).c_str());
         file.write(resp->body.data(), resp->body.size());
+        printf("progress: %ld/%ld = 100%%\n", (long)resp->body.size(), (long)resp->body.size());
         return 0;
     }
 
-    // [from, to]
-    long from, to;
-    from = 0;
+    // Range: bytes=from-to
+    long from = 0, to = 0;
+    int last_progress = 0;
     http_client_t* cli = http_client_new();
+    HttpRequestPtr req(new HttpRequest);
+    req->method = HTTP_GET;
+    req->url = url;
     while (from < content_length) {
         to = from + range_bytes - 1;
         if (to >= content_length) to = content_length - 1;
-        // Range: bytes=from-to
         req->SetRange(from, to);
-        printd("%s", req->Dump(true, true).c_str());
+        printd("%s", req->Dump(true, false).c_str());
         int ret = http_client_send(cli, req.get(), resp.get());
         if (ret != 0) {
             fprintf(stderr, "request failed!\n");
@@ -83,8 +66,35 @@ int main(int argc, char** argv) {
         printd("%s", resp->Dump(true, false).c_str());
         file.write(resp->body.data(), resp->body.size());
         from = to + 1;
+
+        // print progress
+        int cur_progress = from * 100 / content_length;
+        if (cur_progress > last_progress) {
+            printf("progress: %ld/%ld = %d%%\n", (long)from, (long)content_length, (int)cur_progress);
+            last_progress = cur_progress;
+        }
     }
     http_client_del(cli);
 
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        printf("Usage: %s url [filepath]\n", argv[0]);
+        return -10;
+    }
+    const char* url = argv[1];
+    const char* filepath = "index.html";
+    if (argc > 2) {
+        filepath = argv[2];
+    } else {
+        const char* path = strrchr(url, '/');
+        if (path && path[1]) {
+            filepath = path + 1;
+        }
+    }
+
+    wget(url, filepath);
     return 0;
 }

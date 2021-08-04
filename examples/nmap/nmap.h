@@ -1,6 +1,7 @@
 #ifndef HV_NMAP_H_
 #define HV_NMAP_H_
 
+#include <stdint.h>
 #include <map>
 
 // addr => 0:down 1:up
