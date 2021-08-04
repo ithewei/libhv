@@ -143,16 +143,19 @@ int main(int argc, char* argv[]) {
                 if (key_len && value_len) {
                     req.headers[std::string(key,key_len)] = std::string(value,value_len);
                     key_len = value_len = 0;
+                    state = s_key;
                 }
-                state = s_key;
-                key = p+1;
             }
             else if (*p == ':') {
                 state = s_value;
-                value = p+1;
             }
             else {
-                state == s_key ? ++key_len : ++value_len;
+                if (state == s_key) {
+                    if (++key_len == 1) key = p;
+                }
+                else {
+                    if (++value_len == 1) value = p;
+                }
             }
             ++p;
         }
@@ -190,16 +193,19 @@ int main(int argc, char* argv[]) {
                         }
                         req.form[std::string(key,key_len)] = data;
                         key_len = value_len = 0;
+                        state = s_key;
                     }
-                    state = s_key;
-                    key = p+1;
                 }
                 else if (*p == '=') {
                     state = s_value;
-                    value = p+1;
                 }
                 else {
-                    state == s_key ? ++key_len : ++value_len;
+                    if (state == s_key) {
+                        if (++key_len == 1) key = p;
+                    }
+                    else {
+                        if (++value_len == 1) value = p;
+                    }
                 }
                 ++p;
             }
