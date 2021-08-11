@@ -287,8 +287,9 @@ public:
     std::string         path;
     QueryParams         query_params;
     // client_addr
-    HNetAddr            client_addr; // for http server save client addr of request
-    int                 timeout; // for http client timeout
+    HNetAddr            client_addr;    // for http server save client addr of request
+    int                 timeout;        // for http client timeout
+    bool                redirect;       // for http_client redirect
 
     HttpRequest() : HttpMessage() {
         type = HTTP_REQUEST;
@@ -304,6 +305,7 @@ public:
         port = DEFAULT_HTTP_PORT;
         path = "/";
         timeout = 0;
+        redirect = true;
     }
 
     virtual void Reset() {

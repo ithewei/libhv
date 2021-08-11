@@ -7,6 +7,7 @@
 #endif
 
 #include "herr.h"
+#include "hlog.h"
 #include "hstring.h"
 #include "hsocket.h"
 #include "hssl.h"
@@ -115,6 +116,19 @@ const char* http_client_get_header(http_client_t* cli, const char* key) {
     return NULL;
 }
 
+static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
+    std::string location = resp->headers["Location"];
+    if (!location.empty()) {
+        hlogi("redirect %s => %s", req->url.c_str(), location.c_str());
+        req->url = location;
+        req->ParseUrl();
+        req->headers["Host"] = req->host;
+        resp->Reset();
+        return http_client_send(req, resp);
+    }
+    return 0;
+}
+
 int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     if (!cli || !req || !resp) return ERR_NULL_POINTER;
 
@@ -134,7 +148,14 @@ int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
         }
     }
 
-    return __http_client_send(cli, req, resp);
+    int ret = __http_client_send(cli, req, resp);
+    if (ret != 0) return ret;
+
+    // redirect
+    if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
+        return http_client_redirect(req, resp);
+    }
+    return 0;
 }
 
 int http_client_send(HttpRequest* req, HttpResponse* resp) {
@@ -145,7 +166,14 @@ int http_client_send(HttpRequest* req, HttpResponse* resp) {
     }
 
     http_client_t cli;
-    return __http_client_send(&cli, req, resp);
+    int ret = __http_client_send(&cli, req, resp);
+    if (ret != 0) return ret;
+
+    // redirect
+    if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
+        return http_client_redirect(req, resp);
+    }
+    return ret;
 }
 
 #ifdef WITH_CURL
