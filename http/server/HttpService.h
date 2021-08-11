@@ -15,6 +15,7 @@
 #define DEFAULT_DOCUMENT_ROOT   "/var/www/html"
 #define DEFAULT_HOME_PAGE       "index.html"
 #define DEFAULT_ERROR_PAGE      "error.html"
+#define DEFAULT_INDEXOF_DIR     "/downloads/"
 
 /*
  * @param[in]  req:  parsed structured http request
@@ -43,27 +44,54 @@ typedef std::list<http_method_handler>                                  http_met
 // path => http_method_handlers
 typedef std::map<std::string, std::shared_ptr<http_method_handlers>>    http_api_handlers;
 
+struct HttpService;
+struct HV_EXPORT HttpContext {
+    HttpService*            service;
+    HttpRequestPtr          request;
+    HttpResponsePtr         response;
+    HttpResponseWriterPtr   writer;
+};
+typedef std::shared_ptr<HttpContext>                    HttpContextPtr;
+typedef std::function<int(const HttpContextPtr& ctx)>   http_handler;
+
 struct HV_EXPORT HttpService {
-    // preprocessor -> api service -> file service -> indexof service -> postprocessor
+    // preprocessor -> processor -> postprocessor
     http_sync_handler   preprocessor;
+    // processor: api_handlers -> staticHandler -> errorHandler
+    http_handler        processor;
     http_sync_handler   postprocessor;
+
     // api service (that is http.APIServer)
     std::string         base_url;
     http_api_handlers   api_handlers;
+
     // file service (that is http.FileServer)
-    std::string document_root;
-    std::string home_page;
-    std::string error_page;
+    http_handler    staticHandler;
+    http_handler    largeFileHandler;
+    std::string     document_root;
+    std::string     home_page;
+    std::string     error_page;
     // indexof service (that is http.DirectoryServer)
-    std::string index_of;
+    std::string     index_of;
+
+    http_handler    errorHandler;
 
     HttpService() {
         preprocessor = NULL;
+        processor = NULL;
         postprocessor = NULL;
+
         // base_url = DEFAULT_BASE_URL;
+
+        staticHandler = NULL;
+        largeFileHandler = NULL;
+
         document_root = DEFAULT_DOCUMENT_ROOT;
         home_page = DEFAULT_HOME_PAGE;
         // error_page = DEFAULT_ERROR_PAGE;
+        // index_of = DEFAULT_INDEXOF_DIR;
+
+        errorHandler = NULL;
     }
 
     void AddApi(const char* path, http_method method, http_sync_handler handler = NULL, http_async_handler async_handler = NULL);

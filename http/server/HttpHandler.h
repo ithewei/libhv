@@ -8,8 +8,6 @@
 #include "WebSocketServer.h"
 #include "WebSocketParser.h"
 
-#include "hlog.h"
-
 class WebSocketHandler {
 public:
     WebSocketChannelPtr         channel;
@@ -26,17 +24,6 @@ public:
 
     void onopen() {
         channel->status = hv::SocketChannel::CONNECTED;
-        /*
-        channel->onread = [this](hv::Buffer* buf) {
-            const char* data = (const char*)buf->data();
-            int size= buf->size();
-            int nfeed = parser->FeedRecvData(data, size);
-            if (nfeed != size) {
-                hloge("websocket parse error!");
-                channel->close();
-            }
-        };
-        */
     }
 
     void onclose() {
@@ -164,6 +151,12 @@ public:
             ws_service->onmessage(ws->channel, msg);
         }
     }
+
+private:
+    int defaultRequestHandler();
+    int defaultStaticHandler();
+    int defaultErrorHandler();
+    int customHttpHandler(http_handler& fn);
 };
 
 #endif // HV_HTTP_HANDLER_H_

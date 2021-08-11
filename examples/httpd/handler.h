@@ -1,10 +1,14 @@
 #ifndef HV_HTTPD_HANDLER_H
 #define HV_HTTPD_HANDLER_H
 
-#include "HttpMessage.h"
-#include "HttpResponseWriter.h"
+#include <future> // import std::async
+
+#include "hbase.h"
 #include "htime.h"
+#include "hfile.h"
+#include "hstring.h"
 #include "EventLoop.h" // import setTimeout, setInterval
+#include "HttpService.h"
 
 class Handler {
 public:
@@ -45,6 +49,55 @@ public:
 
     static int postprocessor(HttpRequest* req, HttpResponse* resp) {
         // printf("%s\n", resp->Dump(true, true).c_str());
+        return 0;
+    }
+
+    static int errorHandler(const HttpContextPtr& ctx) {
+        int error_code = ctx->response->status_code;
+        return response_status(ctx->response.get(), error_code);
+    }
+
+    static int largeFileHandler(const HttpContextPtr& ctx) {
+        std::async([ctx](){
+            ctx->writer->Begin();
+            std::string filepath = ctx->service->document_root + ctx->request->Path();
+            HFile file;
+            if (file.open(filepath.c_str(), "rb") != 0) {
+                ctx->writer->WriteStatus(HTTP_STATUS_NOT_FOUND);
+                ctx->writer->WriteHeader("Content-Type", "text/html");
+                ctx->writer->WriteBody("<center><h1>404 Not Found</h1></center>");
+                ctx->writer->End();
+                return;
+            }
+            http_content_type content_type = CONTENT_TYPE_NONE;
+            const char* suffix = hv_suffixname(filepath.c_str());
+            if (suffix) {
+                content_type = http_content_type_enum_by_suffix(suffix);
+            }
+            if (content_type == CONTENT_TYPE_NONE || content_type == CONTENT_TYPE_UNDEFINED) {
+                content_type = APPLICATION_OCTET_STREAM;
+            }
+            size_t filesize = file.size();
+            ctx->writer->WriteHeader("Content-Type", http_content_type_str(content_type));
+            ctx->writer->WriteHeader("Content-Length", filesize);
+            ctx->writer->EndHeaders();
+
+            char* buf = NULL;
+            int len = 4096; // 4K
+            SAFE_ALLOC(buf, len);
+            size_t total_readbytes = 0;
+            while (total_readbytes < filesize) {
+                size_t readbytes = file.read(buf, len);
+                if (readbytes <= 0) {
+                    ctx->writer->close();
+                    break;
+                }
+                ctx->writer->WriteBody(buf, readbytes);
+                total_readbytes += readbytes;
+            }
+            ctx->writer->End();
+            SAFE_FREE(buf);
+        });
         return 0;
     }
 

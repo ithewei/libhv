@@ -14,6 +14,8 @@ public:
         // preprocessor => Handler => postprocessor
         router.preprocessor = Handler::preprocessor;
         router.postprocessor = Handler::postprocessor;
+        router.largeFileHandler = Handler::largeFileHandler;
+        // router.errorHandler = Handler::errorHandler;
 
         // curl -v http://ip:port/ping
         router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {

@@ -1,15 +1,13 @@
 #include "HttpHandler.h"
 
 #include "hbase.h"
+#include "herr.h"
+#include "hlog.h"
 #include "http_page.h"
 
 int HttpHandler::HandleHttpRequest() {
-    // preprocessor -> api -> web -> postprocessor
-
+    // preprocessor -> processor -> postprocessor
     int status_code = HTTP_STATUS_OK;
-    http_sync_handler sync_handler = NULL;
-    http_async_handler async_handler = NULL;
-
     HttpRequest* pReq = req.get();
     HttpResponse* pResp = resp.get();
 
@@ -18,103 +16,35 @@ int HttpHandler::HandleHttpRequest() {
     pReq->client_addr.port = port;
     pReq->Host();
     pReq->ParseUrl();
+    // pReq->ParseBody();
 
 preprocessor:
     state = HANDLE_BEGIN;
     if (service->preprocessor) {
         status_code = service->preprocessor(pReq, pResp);
         if (status_code != 0) {
-            goto make_http_status_page;
+            goto postprocessor;
         }
     }
 
-    if (service->api_handlers.size() != 0) {
-        service->GetApi(pReq, &sync_handler, &async_handler);
+processor:
+    if (service->processor) {
+        status_code = customHttpHandler(service->processor);
+    } else {
+        status_code = defaultRequestHandler();
     }
 
-    if (sync_handler) {
-        // sync api service
-        status_code = sync_handler(pReq, pResp);
-        if (status_code != 0) {
-            goto make_http_status_page;
-        }
-    }
-    else if (async_handler) {
-        // async api service
-        async_handler(req, writer);
-        status_code = 0;
-    }
-    else if (service->document_root.size() != 0 &&
-            (pReq->method == HTTP_GET || pReq->method == HTTP_HEAD)) {
-        // file service
-        status_code = 200;
-        std::string path = pReq->Path();
-        const char* req_path = path.c_str();
-        // path safe check
-        if (*req_path != '/' || strstr(req_path, "/../")) {
-            pResp->status_code = HTTP_STATUS_BAD_REQUEST;
-            goto make_http_status_page;
-        }
-        std::string filepath = service->document_root;
-        filepath += req_path;
-        if (req_path[1] == '\0') {
-            filepath += service->home_page;
-        }
-        bool is_dir = filepath.c_str()[filepath.size()-1] == '/';
-        bool is_index_of = false;
-        if (service->index_of.size() != 0 && strstartswith(req_path, service->index_of.c_str())) {
-            is_index_of = true;
-        }
-        if (!is_dir || is_index_of) {
-            bool need_read = pReq->method == HTTP_HEAD ? false : true;
-            fc = files->Open(filepath.c_str(), need_read, (void*)req_path);
-        }
-        if (fc == NULL) {
-            // Not Found
-            status_code = HTTP_STATUS_NOT_FOUND;
-        }
-        else {
-            // Not Modified
-            auto iter = pReq->headers.find("if-not-match");
-            if (iter != pReq->headers.end() &&
-                strcmp(iter->second.c_str(), fc->etag) == 0) {
-                status_code = HTTP_STATUS_NOT_MODIFIED;
-                fc = NULL;
-            }
-            else {
-                iter = pReq->headers.find("if-modified-since");
-                if (iter != pReq->headers.end() &&
-                    strcmp(iter->second.c_str(), fc->last_modified) == 0) {
-                    status_code = HTTP_STATUS_NOT_MODIFIED;
-                    fc = NULL;
-                }
-            }
-        }
-    }
-    else {
-        // Not Implemented
-        status_code = HTTP_STATUS_NOT_IMPLEMENTED;
-    }
-
-make_http_status_page:
+postprocessor:
     if (status_code >= 100 && status_code < 600) {
         pResp->status_code = (http_status)status_code;
     }
     if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
-        // error page
-        if (service->error_page.size() != 0) {
-            std::string filepath = service->document_root;
-            filepath += '/';
-            filepath += service->error_page;
-            fc = files->Open(filepath.c_str(), true, NULL);
-        }
-        // status page
-        if (fc == NULL && pResp->body.size() == 0) {
-            pResp->content_type = TEXT_HTML;
-            make_http_status_page(pResp->status_code, pResp->body);
+        if (service->errorHandler) {
+            customHttpHandler(service->errorHandler);
+        } else {
+            defaultErrorHandler();
         }
     }
-
     if (fc) {
         pResp->content = fc->filebuf.base;
         pResp->content_length = fc->filebuf.len;
@@ -122,8 +52,6 @@ make_http_status_page:
         pResp->headers["Last-Modified"] = fc->last_modified;
         pResp->headers["Etag"] = fc->etag;
     }
-
-postprocessor:
     if (service->postprocessor) {
         service->postprocessor(pReq, pResp);
     }
@@ -132,9 +60,131 @@ postprocessor:
         state = HANDLE_CONTINUE;
     } else {
         state = HANDLE_END;
-        parser->SubmitResponse(pResp);
+        parser->SubmitResponse(resp.get());
     }
     return status_code;
+}
+
+int HttpHandler::customHttpHandler(http_handler& fn) {
+    HttpContextPtr ctx(new HttpContext);
+    ctx->service = service;
+    ctx->request = req;
+    ctx->response = resp;
+    ctx->writer = writer;
+    return fn(ctx);
+}
+
+int HttpHandler::defaultRequestHandler() {
+    int status_code = HTTP_STATUS_OK;
+    http_sync_handler sync_handler = NULL;
+    http_async_handler async_handler = NULL;
+
+    if (service->api_handlers.size() != 0) {
+        service->GetApi(req.get(), &sync_handler, &async_handler);
+    }
+
+    if (sync_handler) {
+        // sync api handler
+        status_code = sync_handler(req.get(), resp.get());
+        if (status_code != 0) {
+            return status_code;
+        }
+    }
+    else if (async_handler) {
+        // async api handler
+        async_handler(req, writer);
+        status_code = 0;
+    }
+    else if (req->method == HTTP_GET || req->method == HTTP_HEAD) {
+        // static handler
+        if (service->staticHandler) {
+            customHttpHandler(service->staticHandler);
+        }
+        else if (service->document_root.size() != 0) {
+            status_code = defaultStaticHandler();
+        }
+        else {
+            status_code = HTTP_STATUS_NOT_FOUND;
+        }
+    }
+    else {
+        // Not Implemented
+        status_code = HTTP_STATUS_NOT_IMPLEMENTED;
+    }
+
+    return status_code;
+}
+
+int HttpHandler::defaultStaticHandler() {
+    // file service
+    int status_code = HTTP_STATUS_OK;
+    std::string path = req->Path();
+    const char* req_path = path.c_str();
+    // path safe check
+    if (req_path[0] != '/' || strstr(req_path, "/../")) {
+        return HTTP_STATUS_BAD_REQUEST;
+    }
+    std::string filepath = service->document_root + path;
+    if (req_path[1] == '\0') {
+        filepath += service->home_page;
+    }
+    bool is_dir = filepath.c_str()[filepath.size()-1] == '/';
+    bool is_index_of = false;
+    if (service->index_of.size() != 0 && strstartswith(req_path, service->index_of.c_str())) {
+        is_index_of = true;
+    }
+    if (!is_dir || is_index_of) {
+        FileCache::OpenParam param;
+        param.need_read = req->method == HTTP_HEAD ? false : true;
+        param.path = req_path;
+        fc = files->Open(filepath.c_str(), &param);
+        if (fc == NULL) {
+            status_code = HTTP_STATUS_NOT_FOUND;
+            if (param.error == ERR_OVER_LIMIT) {
+                if (service->largeFileHandler) {
+                    status_code = customHttpHandler(service->largeFileHandler);
+                }
+            }
+        }
+    } else {
+        status_code = HTTP_STATUS_NOT_FOUND;
+    }
+
+    if (fc) {
+        // Not Modified
+        auto iter = req->headers.find("if-not-match");
+        if (iter != req->headers.end() &&
+            strcmp(iter->second.c_str(), fc->etag) == 0) {
+            status_code = HTTP_STATUS_NOT_MODIFIED;
+            fc = NULL;
+        }
+        else {
+            iter = req->headers.find("if-modified-since");
+            if (iter != req->headers.end() &&
+                strcmp(iter->second.c_str(), fc->last_modified) == 0) {
+                status_code = HTTP_STATUS_NOT_MODIFIED;
+                fc = NULL;
+            }
+        }
+    }
+    return status_code;
+}
+
+int HttpHandler::defaultErrorHandler() {
+    // error page
+    if (service->error_page.size() != 0) {
+        std::string filepath = service->document_root;
+        filepath += '/';
+        filepath += service->error_page;
+        FileCache::OpenParam param;
+        fc = files->Open(filepath.c_str(), &param);
+    }
+    // status page
+    if (fc == NULL && resp->body.size() == 0) {
+        resp->content_type = TEXT_HTML;
+        make_http_status_page(resp->status_code, resp->body);
+    }
+    return 0;
 }
 
 int HttpHandler::FeedRecvData(const char* data, size_t len) {

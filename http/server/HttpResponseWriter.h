@@ -42,6 +42,12 @@ public:
         return 0;
     }
 
+    template<typename T>
+    int WriteHeader(const char* key, T num) {
+        response->headers[key] = hv::to_string(num);
+        return 0;
+    }
+
     int EndHeaders(const char* key = NULL, const char* value = NULL) {
         if (state != SEND_BEGIN) return -1;
         if (key && value) {

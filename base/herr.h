@@ -43,6 +43,8 @@
     \
     F(1030, OPEN_FILE,      "Open file failed") \
     F(1031, SAVE_FILE,      "Save file failed") \
+    F(1032, READ_FILE,      "Read file failed") \
+    F(1033, WRITE_FILE,     "Write file failed")\
     \
     F(1100, TASK_TIMEOUT,       "Task timeout")     \
     F(1101, TASK_QUEUE_FULL,    "Task queue full")  \

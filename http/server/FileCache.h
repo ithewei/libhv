@@ -10,7 +10,7 @@
 #include "hstring.h"
 
 #define HTTP_HEADER_MAX_LENGTH      1024        // 1K
-#define FILE_CACHE_MAX_SIZE         (1 << 30)   // 1G
+#define FILE_CACHE_MAX_SIZE         (1 << 26)   // 64M
 
 typedef struct file_cache_s {
     std::string filepath;
@@ -74,7 +74,22 @@ public:
         file_expired_time  = DEFAULT_FILE_EXPIRED_TIME;
     }
 
-    file_cache_ptr Open(const char* filepath, bool need_read = true, void* ctx = NULL);
+    struct OpenParam {
+        bool need_read;
+        int  max_read;
+        const char* path;
+        size_t  filesize;
+        int  error;
+
+        OpenParam() {
+            need_read = true;
+            max_read = FILE_CACHE_MAX_SIZE;
+            path = "/";
+            filesize = 0;
+            error = 0;
+        }
+    };
+    file_cache_ptr Open(const char* filepath, OpenParam* param);
     bool Close(const char* filepath);
     bool Close(const file_cache_ptr& fc);
     void RemoveExpiredFileCache();

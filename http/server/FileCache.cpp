@@ -1,5 +1,6 @@
 #include "FileCache.h"
 
+#include "herr.h"
 #include "hscope.h"
 #include "htime.h"
 #include "hlog.h"
@@ -9,7 +10,7 @@
 
 #define ETAG_FMT    "\"%zx-%zx\""
 
-file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) {
+file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
     std::lock_guard<std::mutex> locker(mutex_);
     file_cache_ptr fc = Get(filepath);
     bool modified = false;
@@ -20,19 +21,20 @@ file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) 
             fc->stat_time = now;
             fc->stat_cnt++;
         }
-        if (need_read) {
+        if (param->need_read) {
             if (!modified && fc->is_complete()) {
-                need_read = false;
+                param->need_read = false;
             }
         }
     }
-    if (fc == NULL || modified || need_read) {
+    if (fc == NULL || modified || param->need_read) {
         int flags = O_RDONLY;
 #ifdef O_BINARY
         flags |= O_BINARY;
 #endif
         int fd = open(filepath, flags);
         if (fd < 0) {
+            param->error = ERR_OPEN_FILE;
             return NULL;
         }
         defer(close(fd);)
@@ -51,20 +53,23 @@ file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) 
                 cached_files[filepath] = fc;
             }
             else {
+                param->error = ERR_MISMATCH;
                 return NULL;
             }
         }
         if (S_ISREG(fc->st.st_mode)) {
+            param->filesize = fc->st.st_size;
             // FILE
-            if (need_read) {
-                if (fc->st.st_size > FILE_CACHE_MAX_SIZE) {
-                    hlogw("Too large file: %s", filepath);
+            if (param->need_read) {
+                if (fc->st.st_size > param->max_read) {
+                    param->error = ERR_OVER_LIMIT;
                     return NULL;
                 }
                 fc->resize_buf(fc->st.st_size);
                 int nread = read(fd, fc->filebuf.base, fc->filebuf.len);
                 if (nread != fc->filebuf.len) {
                     hloge("Failed to read file: %s", filepath);
+                    param->error = ERR_READ_FILE;
                     return NULL;
                 }
             }
@@ -83,7 +88,7 @@ file_cache_ptr FileCache::Open(const char* filepath, bool need_read, void* ctx) 
         else if (S_ISDIR(fc->st.st_mode)) {
             // DIR
             std::string page;
-            make_index_of_page(filepath, page, (const char*)ctx);
+            make_index_of_page(filepath, page, param->path);
             fc->resize_buf(page.size());
             memcpy(fc->filebuf.base, page.c_str(), page.size());
             fc->content_type = "text/html; charset=utf-8";
