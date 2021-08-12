@@ -109,6 +109,9 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
             return;
         }
         handler->writer.reset(new HttpResponseWriter(io, handler->resp));
+        if (handler->writer) {
+            handler->writer->status = SocketChannel::CONNECTED;
+        }
     }
 
     int nfeed = handler->FeedRecvData(buf, readbytes);
@@ -241,6 +244,9 @@ static void on_close(hio_t* io) {
         if (handler->protocol == HttpHandler::WEBSOCKET) {
             // onclose
             handler->WebSocketOnClose();
+        }
+        if (handler->writer) {
+            handler->writer->status = SocketChannel::DISCONNECTED;
         }
         hevent_set_userdata(io, NULL);
         delete handler;

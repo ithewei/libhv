@@ -78,9 +78,10 @@ int HttpHandler::defaultRequestHandler() {
     int status_code = HTTP_STATUS_OK;
     http_sync_handler sync_handler = NULL;
     http_async_handler async_handler = NULL;
+    http_handler ctx_handler = NULL;
 
     if (service->api_handlers.size() != 0) {
-        service->GetApi(req.get(), &sync_handler, &async_handler);
+        service->GetApi(req.get(), &sync_handler, &async_handler, &ctx_handler);
     }
 
     if (sync_handler) {
@@ -94,6 +95,13 @@ int HttpHandler::defaultRequestHandler() {
         // async api handler
         async_handler(req, writer);
         status_code = 0;
+    }
+    else if (ctx_handler) {
+        // HttpContext handler
+        status_code = customHttpHandler(ctx_handler);
+        if (status_code != 0) {
+            return status_code;
+        }
     }
     else if (req->method == HTTP_GET || req->method == HTTP_HEAD) {
         // static handler

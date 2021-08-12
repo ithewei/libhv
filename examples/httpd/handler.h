@@ -92,7 +92,9 @@ public:
                     ctx->writer->close();
                     break;
                 }
-                ctx->writer->WriteBody(buf, readbytes);
+                if (ctx->writer->WriteBody(buf, readbytes) < 0) {
+                    break;
+                }
                 total_readbytes += readbytes;
             }
             ctx->writer->End();

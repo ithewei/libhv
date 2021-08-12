@@ -86,6 +86,11 @@ public:
 
     int End(const char* buf = NULL, int len = -1) {
         if (state == SEND_END) return 0;
+        if (!isConnected()) {
+            state = SEND_END;
+            return -1;
+        }
+
         int ret = 0;
         if (buf) {
             ret = WriteBody(buf, len);

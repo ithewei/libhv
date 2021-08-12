@@ -45,6 +45,8 @@ cmd="bin/curl -v localhost:8080/html/index.html" && run_cmd
 
 cmd="bin/curl -v localhost:8080/get?env=1" && run_cmd
 
+cmd="bin/curl -v localhost:8080/service" && run_cmd
+
 cmd="bin/curl -v localhost:8080/wildcard/test" && run_cmd
 
 cmd="bin/curl -v localhost:8080/echo -d 'hello,world!'" && echo_cmd

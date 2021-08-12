@@ -79,17 +79,17 @@ public:
     }
 
     int startRead() {
-        if (!isOpened()) return 0;
+        if (!isOpened()) return -1;
         return hio_read_start(io_);
     }
 
     int stopRead() {
-        if (!isOpened()) return 0;
+        if (!isOpened()) return -1;
         return hio_read_stop(io_);
     }
 
     int write(const void* data, int size) {
-        if (!isOpened()) return 0;
+        if (!isOpened()) return -1;
         return hio_write(io_, data, size);
     }
 
@@ -102,7 +102,7 @@ public:
     }
 
     int close(bool async = false) {
-        if (!isOpened()) return 0;
+        if (!isOpened()) return -1;
         if (async) {
             return hio_close_async(io_);
         }

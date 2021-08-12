@@ -47,6 +47,16 @@ public:
             return 200;
         });
 
+        // curl -v http://ip:port/service
+        router.GET("/service", [](const HttpContextPtr& ctx) {
+            ctx->response->json["base_url"] = ctx->service->base_url;
+            ctx->response->json["doucument_root"] = ctx->service->document_root;
+            ctx->response->json["home_page"] = ctx->service->home_page;
+            ctx->response->json["error_page"] = ctx->service->error_page;
+            ctx->response->json["index_of"] = ctx->service->index_of;
+            return 200;
+        });
+
         // curl -v http://ip:port/echo -d "hello,world!"
         router.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
             resp->content_type = req->content_type;

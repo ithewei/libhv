@@ -26,24 +26,6 @@
 typedef std::function<int(HttpRequest* req, HttpResponse* resp)>                            http_sync_handler;
 typedef std::function<void(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer)> http_async_handler;
 
-struct http_method_handler {
-    http_method         method;
-    http_sync_handler   sync_handler;
-    http_async_handler  async_handler;
-    http_method_handler(http_method m = HTTP_POST,
-                        http_sync_handler s = NULL,
-                        http_async_handler a = NULL)
-    {
-        method = m;
-        sync_handler = std::move(s);
-        async_handler = std::move(a);
-    }
-};
-// method => http_method_handler
-typedef std::list<http_method_handler>                                  http_method_handlers;
-// path => http_method_handlers
-typedef std::map<std::string, std::shared_ptr<http_method_handlers>>    http_api_handlers;
-
 struct HttpService;
 struct HV_EXPORT HttpContext {
     HttpService*            service;
@@ -53,6 +35,27 @@ struct HV_EXPORT HttpContext {
 };
 typedef std::shared_ptr<HttpContext>                    HttpContextPtr;
 typedef std::function<int(const HttpContextPtr& ctx)>   http_handler;
+
+struct http_method_handler {
+    http_method         method;
+    http_sync_handler   sync_handler;
+    http_async_handler  async_handler;
+    http_handler        handler;
+    http_method_handler(http_method m = HTTP_POST,
+                        http_sync_handler s = NULL,
+                        http_async_handler a = NULL,
+                        http_handler h = NULL)
+    {
+        method = m;
+        sync_handler = std::move(s);
+        async_handler = std::move(a);
+        handler = std::move(h);
+    }
+};
+// method => http_method_handler
+typedef std::list<http_method_handler>                                  http_method_handlers;
+// path => http_method_handlers
+typedef std::map<std::string, std::shared_ptr<http_method_handlers>>    http_api_handlers;
 
 struct HV_EXPORT HttpService {
     // preprocessor -> processor -> postprocessor
@@ -94,11 +97,20 @@ struct HV_EXPORT HttpService {
         errorHandler = NULL;
     }
 
-    void AddApi(const char* path, http_method method, http_sync_handler handler = NULL, http_async_handler async_handler = NULL);
+    void AddApi(const char* path, http_method method,
+            http_sync_handler sync_handler = NULL,
+            http_async_handler async_handler = NULL,
+            http_handler handler = NULL);
     // @retval 0 OK, else HTTP_STATUS_NOT_FOUND, HTTP_STATUS_METHOD_NOT_ALLOWED
-    int GetApi(const char* url, http_method method, http_sync_handler* handler = NULL, http_async_handler* async_handler = NULL);
+    int GetApi(const char* url, http_method method,
+            http_sync_handler* sync_handler = NULL,
+            http_async_handler* async_handler = NULL,
+            http_handler* handler = NULL);
     // RESTful API /:field/ => req->query_params["field"]
-    int GetApi(HttpRequest* req, http_sync_handler* handler = NULL, http_async_handler* async_handler = NULL);
+    int GetApi(HttpRequest* req,
+            http_sync_handler* sync_handler = NULL,
+            http_async_handler* async_handler = NULL,
+            http_handler* handler = NULL);
 
     StringList Paths() {
         StringList paths;
@@ -110,10 +122,13 @@ struct HV_EXPORT HttpService {
 
     // github.com/gin-gonic/gin
     void Handle(const char* httpMethod, const char* relativePath, http_sync_handler handlerFunc) {
-        AddApi(relativePath, http_method_enum(httpMethod), handlerFunc, NULL);
+        AddApi(relativePath, http_method_enum(httpMethod), handlerFunc, NULL, NULL);
     }
     void Handle(const char* httpMethod, const char* relativePath, http_async_handler handlerFunc) {
-        AddApi(relativePath, http_method_enum(httpMethod), NULL, handlerFunc);
+        AddApi(relativePath, http_method_enum(httpMethod), NULL, handlerFunc, NULL);
+    }
+    void Handle(const char* httpMethod, const char* relativePath, http_handler handlerFunc) {
+        AddApi(relativePath, http_method_enum(httpMethod), NULL, NULL, handlerFunc);
     }
 
     // HEAD
@@ -121,6 +136,9 @@ struct HV_EXPORT HttpService {
         Handle("HEAD", relativePath, handlerFunc);
     }
     void HEAD(const char* relativePath, http_async_handler handlerFunc) {
+        Handle("HEAD", relativePath, handlerFunc);
+    }
+    void HEAD(const char* relativePath, http_handler handlerFunc) {
         Handle("HEAD", relativePath, handlerFunc);
     }
 
@@ -131,6 +149,9 @@ struct HV_EXPORT HttpService {
     void GET(const char* relativePath, http_async_handler handlerFunc) {
         Handle("GET", relativePath, handlerFunc);
     }
+    void GET(const char* relativePath, http_handler handlerFunc) {
+        Handle("GET", relativePath, handlerFunc);
+    }
 
     // POST
     void POST(const char* relativePath, http_sync_handler handlerFunc) {
@@ -139,12 +160,18 @@ struct HV_EXPORT HttpService {
     void POST(const char* relativePath, http_async_handler handlerFunc) {
         Handle("POST", relativePath, handlerFunc);
     }
+    void POST(const char* relativePath, http_handler handlerFunc) {
+        Handle("POST", relativePath, handlerFunc);
+    }
 
     // PUT
     void PUT(const char* relativePath, http_sync_handler handlerFunc) {
         Handle("PUT", relativePath, handlerFunc);
     }
     void PUT(const char* relativePath, http_async_handler handlerFunc) {
+        Handle("PUT", relativePath, handlerFunc);
+    }
+    void PUT(const char* relativePath, http_handler handlerFunc) {
         Handle("PUT", relativePath, handlerFunc);
     }
 
@@ -156,12 +183,18 @@ struct HV_EXPORT HttpService {
     void Delete(const char* relativePath, http_async_handler handlerFunc) {
         Handle("DELETE", relativePath, handlerFunc);
     }
+    void Delete(const char* relativePath, http_handler handlerFunc) {
+        Handle("DELETE", relativePath, handlerFunc);
+    }
 
     // PATCH
     void PATCH(const char* relativePath, http_sync_handler handlerFunc) {
         Handle("PATCH", relativePath, handlerFunc);
     }
     void PATCH(const char* relativePath, http_async_handler handlerFunc) {
+        Handle("PATCH", relativePath, handlerFunc);
+    }
+    void PATCH(const char* relativePath, http_handler handlerFunc) {
         Handle("PATCH", relativePath, handlerFunc);
     }
 
@@ -175,6 +208,14 @@ struct HV_EXPORT HttpService {
         Handle("PATCH", relativePath, handlerFunc);
     }
     void Any(const char* relativePath, http_async_handler handlerFunc) {
+        Handle("HEAD", relativePath, handlerFunc);
+        Handle("GET", relativePath, handlerFunc);
+        Handle("POST", relativePath, handlerFunc);
+        Handle("PUT", relativePath, handlerFunc);
+        Handle("DELETE", relativePath, handlerFunc);
+        Handle("PATCH", relativePath, handlerFunc);
+    }
+    void Any(const char* relativePath, http_handler handlerFunc) {
         Handle("HEAD", relativePath, handlerFunc);
         Handle("GET", relativePath, handlerFunc);
         Handle("POST", relativePath, handlerFunc);
