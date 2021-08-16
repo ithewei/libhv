@@ -174,7 +174,7 @@ static void ssl_client_handshake(hio_t* io) {
 }
 
 static void nio_accept(hio_t* io) {
-    //printd("nio_accept listenfd=%d\n", io->fd);
+    // printd("nio_accept listenfd=%d\n", io->fd);
     socklen_t addrlen;
 accept:
     addrlen = sizeof(sockaddr_u);
@@ -223,7 +223,7 @@ accept_error:
 }
 
 static void nio_connect(hio_t* io) {
-    //printd("nio_connect connfd=%d\n", io->fd);
+    // printd("nio_connect connfd=%d\n", io->fd);
     socklen_t addrlen = sizeof(sockaddr_u);
     int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
@@ -283,6 +283,7 @@ static int __nio_read(hio_t* io, void* buf, int len) {
         nread = read(io->fd, buf, len);
         break;
     }
+    // hlogd("read retval=%d", nread);
     return nread;
 }
 
@@ -307,11 +308,12 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
         nwrite = write(io->fd, buf, len);
         break;
     }
+    // hlogd("write retval=%d", nwrite);
     return nwrite;
 }
 
 static void nio_read(hio_t* io) {
-    //printd("nio_read fd=%d\n", io->fd);
+    // printd("nio_read fd=%d\n", io->fd);
     void* buf;
     int len, nread;
 read:
@@ -321,7 +323,7 @@ read:
     buf = io->readbuf.base;
     len = io->readbuf.len;
     nread = __nio_read(io, buf, len);
-    //printd("read retval=%d\n", nread);
+    // printd("read retval=%d\n", nread);
     if (nread < 0) {
         if (socket_errno() == EAGAIN) {
             //goto read_done;
@@ -347,7 +349,7 @@ disconnect:
 }
 
 static void nio_write(hio_t* io) {
-    //printd("nio_write fd=%d\n", io->fd);
+    // printd("nio_write fd=%d\n", io->fd);
     int nwrite = 0;
     hrecursive_mutex_lock(&io->write_mutex);
 write:
@@ -363,7 +365,7 @@ write:
     char* buf = pbuf->base + pbuf->offset;
     int len = pbuf->len - pbuf->offset;
     nwrite = __nio_write(io, buf, len);
-    //printd("write retval=%d\n", nwrite);
+    // printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
         if (socket_errno() == EAGAIN) {
             //goto write_done;
@@ -485,7 +487,7 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
     if (write_queue_empty(&io->write_queue)) {
 try_write:
         nwrite = __nio_write(io, buf, len);
-        //printd("write retval=%d\n", nwrite);
+        // printd("write retval=%d\n", nwrite);
         if (nwrite < 0) {
             if (socket_errno() == EAGAIN) {
                 nwrite = 0;
@@ -541,6 +543,7 @@ enqueue:
             write_queue_init(&io->write_queue, 4);
         }
         write_queue_push_back(&io->write_queue, &rest);
+        // hlogd("write queue %d", rest.len);
     }
     hrecursive_mutex_unlock(&io->write_mutex);
     return nwrite;

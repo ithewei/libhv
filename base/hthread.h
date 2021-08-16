@@ -195,7 +195,7 @@ protected:
         case SLEEP_UNTIL: {
             if (status_changed) {
                 status_changed = false;
-                base_tp = std::chrono::system_clock::now();
+                base_tp = std::chrono::steady_clock::now();
             }
             base_tp += std::chrono::milliseconds(sleep_ms);
             std::this_thread::sleep_until(base_tp);
@@ -210,7 +210,7 @@ protected:
     uint32_t    sleep_ms;
     // for SLEEP_UNTIL
     std::atomic<bool> status_changed;
-    std::chrono::system_clock::time_point base_tp;
+    std::chrono::steady_clock::time_point base_tp;
 };
 #endif
 

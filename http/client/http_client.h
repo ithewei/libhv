@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 }
 */
 
-#define DEFAULT_HTTP_TIMEOUT    30 // s
+#define DEFAULT_HTTP_TIMEOUT    60 // s
 typedef struct http_client_s http_client_t;
 
 HV_EXPORT http_client_t* http_client_new(const char* host = NULL, int port = DEFAULT_HTTP_PORT, int https = 0);
