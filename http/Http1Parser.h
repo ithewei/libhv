@@ -12,7 +12,9 @@ enum http_parser_state {
     HP_HEADER_FIELD,
     HP_HEADER_VALUE,
     HP_HEADERS_COMPLETE,
+    HP_CHUNK_HEADER,
     HP_BODY,
+    HP_CHUNK_COMPLETE,
     HP_MESSAGE_COMPLETE
 };
 

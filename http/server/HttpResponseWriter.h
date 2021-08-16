@@ -13,6 +13,8 @@ public:
         SEND_BEGIN,
         SEND_HEADER,
         SEND_BODY,
+        SEND_CHUNKED,
+        SEND_CHUNKED_END,
         SEND_END,
     } state;
     HttpResponseWriter(hio_t* io, const HttpResponsePtr& resp)
@@ -25,7 +27,8 @@ public:
     // Begin -> End
     // Begin -> WriteResponse -> End
     // Begin -> WriteStatus -> WriteHeader -> WriteBody -> End
-    // Begin -> WriteHeader -> EndHeaders -> WriteBody -> WriteBody -> ... -> End
+    // Begin -> EndHeaders("Content-Length", content_length) -> WriteBody -> WriteBody -> ... -> End
+    // Begin -> EndHeaders("Transfer-Encoding", "chunked") -> WriteChunked -> WriteChunked -> ... -> End
 
     int Begin() {
         state = SEND_BEGIN;
@@ -58,7 +61,44 @@ public:
         return write(headers);
     }
 
+    template<typename T>
+    int EndHeaders(const char* key, T num) {
+        std::string value = hv::to_string(num);
+        return EndHeaders(key, value.c_str());
+    }
+
+    int WriteChunked(const char* buf, int len = -1) {
+        int ret = 0;
+        if (len == -1) len = strlen(buf);
+        if (state == SEND_BEGIN) {
+            EndHeaders("Transfer-Encoding", "chunked");
+        }
+        char chunked_header[64];
+        int chunked_header_len = snprintf(chunked_header, sizeof(chunked_header), "%x\r\n", len);
+        write(chunked_header, chunked_header_len);
+        if (buf && len) {
+            ret = write(buf, len);
+            state = SEND_CHUNKED;
+        } else {
+            state = SEND_CHUNKED_END;
+        }
+        write("\r\n", 2);
+        return ret;
+    }
+
+    int WriteChunked(const std::string& str) {
+        return WriteChunked(str.c_str(), str.size());
+    }
+
+    int EndChunked() {
+        return WriteChunked(NULL, 0);
+    }
+
     int WriteBody(const char* buf, int len = -1) {
+        if (response->IsChunked()) {
+            return WriteChunked(buf, len);
+        }
+
         if (len == -1) len = strlen(buf);
         if (state == SEND_BEGIN) {
             response->body.append(buf, len);
@@ -92,21 +132,31 @@ public:
         }
 
         int ret = 0;
-        if (buf) {
-            ret = WriteBody(buf, len);
+        if (state == SEND_CHUNKED) {
+            if (buf) {
+                ret = WriteChunked(buf, len);
+            }
+            if (state == SEND_CHUNKED) {
+                EndChunked();
+            }
+        } else {
+            if (buf) {
+                ret = WriteBody(buf, len);
+            }
+            bool is_dump_headers = true;
+            bool is_dump_body = true;
+            if (state == SEND_HEADER) {
+                is_dump_headers = false;
+            } else if (state == SEND_BODY) {
+                is_dump_headers = false;
+                is_dump_body = false;
+            }
+            if (is_dump_body) {
+                std::string msg = response->Dump(is_dump_headers, is_dump_body);
+                ret = write(msg);
+            }
         }
-        bool is_dump_headers = true;
-        bool is_dump_body = true;
-        if (state == SEND_HEADER) {
-            is_dump_headers = false;
-        } else if (state == SEND_BODY) {
-            is_dump_headers = false;
-            is_dump_body = false;
-        }
-        if (is_dump_body) {
-            std::string msg = response->Dump(is_dump_headers, is_dump_body);
-            ret = write(msg);
-        }
+
         state = SEND_END;
         if (!response->IsKeepAlive()) {
             close();

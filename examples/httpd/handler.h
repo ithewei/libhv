@@ -1,7 +1,8 @@
 #ifndef HV_HTTPD_HANDLER_H
 #define HV_HTTPD_HANDLER_H
 
-#include <future> // import std::async
+#include <thread>   // import std::thread
+#include <chrono>   // import std::chrono
 
 #include "hbase.h"
 #include "htime.h"
@@ -58,7 +59,7 @@ public:
     }
 
     static int largeFileHandler(const HttpContextPtr& ctx) {
-        std::async([ctx](){
+        std::thread([ctx](){
             ctx->writer->Begin();
             std::string filepath = ctx->service->document_root + ctx->request->Path();
             HFile file;
@@ -80,12 +81,16 @@ public:
             size_t filesize = file.size();
             ctx->writer->WriteHeader("Content-Type", http_content_type_str(content_type));
             ctx->writer->WriteHeader("Content-Length", filesize);
+            // ctx->writer->WriteHeader("Transfer-Encoding", "chunked");
             ctx->writer->EndHeaders();
 
             char* buf = NULL;
             int len = 4096; // 4K
             SAFE_ALLOC(buf, len);
             size_t total_readbytes = 0;
+            int last_progress = 0;
+            auto start_time = std::chrono::steady_clock::now();
+            auto end_time = start_time;
             while (total_readbytes < filesize) {
                 size_t readbytes = file.read(buf, len);
                 if (readbytes <= 0) {
@@ -96,10 +101,20 @@ public:
                     break;
                 }
                 total_readbytes += readbytes;
+                int cur_progress = total_readbytes * 100 / filesize;
+                if (cur_progress > last_progress) {
+                    // printf("<< %s progress: %ld/%ld = %d%%\n",
+                    //     ctx->request->path.c_str(), (long)total_readbytes, (long)filesize, (int)cur_progress);
+                    last_progress = cur_progress;
+                }
+                end_time += std::chrono::milliseconds(len / 1024); // 1KB/ms = 1MB/s = 8Mbps
+                std::this_thread::sleep_until(end_time);
             }
             ctx->writer->End();
             SAFE_FREE(buf);
-        });
+            // auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
+            // printf("<< %s taked %ds\n", ctx->request->path.c_str(), (int)elapsed_time.count());
+        }).detach();
         return 0;
     }
 

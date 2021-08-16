@@ -71,6 +71,7 @@ struct HV_EXPORT HttpCookie {
 typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
 typedef std::vector<HttpCookie>                             http_cookies;
 typedef std::string                                         http_body;
+typedef std::function<void(const char* data, size_t size)>  http_chuncked_cb;
 
 class HV_EXPORT HttpMessage {
 public:
@@ -82,6 +83,7 @@ public:
     http_headers        headers;
     http_cookies        cookies;
     http_body           body;
+    http_chuncked_cb    chunked_cb;
 
     // structured content
     void*               content;    // DATA_NO_COPY
@@ -177,6 +179,7 @@ public:
         content = NULL;
         content_length = 0;
         content_type = CONTENT_TYPE_NONE;
+        chunked_cb = NULL;
     }
 
     virtual void Reset() {
@@ -195,14 +198,12 @@ public:
     // body.size -> content_length <-> headers Content-Length
     void FillContentLength();
 
+    bool IsChunked();
     bool IsKeepAlive();
 
     std::string GetHeader(const char* key, const std::string& defvalue = "") {
         auto iter = headers.find(key);
-        if (iter != headers.end()) {
-            return iter->second;
-        }
-        return defvalue;
+        return iter == headers.end() ? defvalue : iter->second;
     }
 
     // headers -> string
@@ -324,10 +325,7 @@ public:
 
     std::string Host() {
         auto iter = headers.find("Host");
-        if (iter != headers.end()) {
-            host = iter->second;
-        }
-        return host;
+        return iter == headers.end() ? host : iter->second;
     }
 
     std::string Path() {
@@ -339,10 +337,7 @@ public:
 
     std::string GetParam(const char* key, const std::string& defvalue = "") {
         auto iter = query_params.find(key);
-        if (iter != query_params.end()) {
-            return iter->second;
-        }
-        return defvalue;
+        return iter == query_params.end() ? defvalue : iter->second;
     }
 
     // Range: bytes=0-4095

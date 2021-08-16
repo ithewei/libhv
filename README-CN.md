@@ -22,11 +22,12 @@
 ## ✨ 特征
 
 - 跨平台（Linux, Windows, MacOS, Solaris）
-- 高性能事件循环（网络IO事件、定时器事件、空闲事件）
+- 高性能事件循环（网络IO事件、定时器事件、空闲事件、自定义事件）
 - TCP/UDP服务端/客户端/代理
-- SSL/TLS加密通信（WITH_OPENSSL or WITH_MBEDTLS）
-- HTTP服务端/客户端（https http1/x http2 grpc）
-- HTTP文件服务、目录服务、API服务（支持RESTful）
+- SSL/TLS加密通信（可选WITH_OPENSSL or WITH_MBEDTLS）
+- HTTP服务端/客户端（支持https http1/x http2 grpc）
+- HTTP支持静态文件服务、目录服务、同步/异步API处理函数
+- HTTP支持RESTful风格、URI路由、keep-alive长连接、chunked分块等特性
 - WebSocket服务端/客户端
 
 ## ⌛️ 构建

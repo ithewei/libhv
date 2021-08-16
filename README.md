@@ -24,11 +24,12 @@ but simpler api and richer protocols.
 ## ✨ Features
 
 - Cross-platform (Linux, Windows, MacOS, Solaris)
-- EventLoop (IO, timer, idle)
+- EventLoop (IO, timer, idle, custom)
 - TCP/UDP client/server/proxy
-- SSL/TLS support: WITH_OPENSSL or WITH_MBEDTLS
-- HTTP client/server (include https http1/x http2 grpc)
-- HTTP file service, indexof service, api service (support RESTful)
+- SSL/TLS support: (via WITH_OPENSSL or WITH_MBEDTLS)
+- HTTP client/server (support https http1/x http2 grpc)
+- HTTP static file service, indexof service, sync/async API handler
+- HTTP supports RESTful, URI router, keep-alive, chunked, etc.
 - WebSocket client/server
 
 ## ⌛️ Build

@@ -285,19 +285,18 @@ void HttpMessage::FillContentLength() {
     if (iter != headers.end()) {
         content_length = atoi(iter->second.c_str());
     }
-
-    if (iter == headers.end() || content_length == 0) {
-        if (content_length == 0) {
-            content_length = body.size();
-        }
-        if (content_length == 0) {
-            DumpBody();
-            content_length = body.size();
-        }
-        char sz[64];
-        snprintf(sz, sizeof(sz), "%d", content_length);
-        headers["Content-Length"] = sz;
+    if (content_length == 0) {
+        DumpBody();
+        content_length = body.size();
     }
+    if (iter == headers.end() && content_length != 0 && !IsChunked()) {
+        headers["Content-Length"] = hv::to_string(content_length);
+    }
+}
+
+bool HttpMessage::IsChunked() {
+    auto iter = headers.find("Transfer-Encoding");
+    return iter == headers.end() ? false : stricmp(iter->second.c_str(), "chunked") == 0;
 }
 
 bool HttpMessage::IsKeepAlive() {
