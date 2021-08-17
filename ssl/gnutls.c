@@ -21,6 +21,7 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
     const char* crt_file = NULL;
     const char* key_file = NULL;
     const char* ca_file = NULL;
+    const char* ca_path = NULL;
 
     int ret = gnutls_certificate_allocate_credentials(&ctx);
     if (ret != GNUTLS_E_SUCCESS) {
@@ -37,9 +38,20 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
         if (param->ca_file && *param->ca_file) {
             ca_file = param->ca_file;
         }
+        if (param->ca_path && *param->ca_path) {
+            ca_path = param->ca_path;
+        }
 
         if (ca_file) {
             ret = gnutls_certificate_set_x509_trust_file(ctx, ca_file, GNUTLS_X509_FMT_PEM);
+            if (ret < 0) {
+                fprintf(stderr, "ssl ca_file failed!\n");
+                goto error;
+            }
+        }
+
+        if (ca_path) {
+            ret = gnutls_certificate_set_x509_trust_dir(ctx, ca_path, GNUTLS_X509_FMT_PEM);
             if (ret < 0) {
                 fprintf(stderr, "ssl ca_file failed!\n");
                 goto error;
@@ -54,7 +66,7 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
             }
         }
 
-        if (param->verify_peer && !ca_file) {
+        if (param->verify_peer && !ca_file && !ca_path) {
             gnutls_certificate_set_x509_system_trust(ctx);
         }
     }

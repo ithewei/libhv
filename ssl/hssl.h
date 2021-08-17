@@ -7,7 +7,7 @@
 #if !defined(WITH_OPENSSL) &&   \
     !defined(WITH_GNUTLS)  &&   \
     !defined(WITH_MBEDTLS)
-#if OS_WIN
+#ifdef OS_WIN
 #define WITH_WINTLS
 #elif defined(OS_DARWIN)
 #define WITH_APPLETLS
