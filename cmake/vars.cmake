@@ -14,21 +14,24 @@ set(BASE_HEADERS
     base/hthread.h
     base/hmutex.h
     base/hsocket.h
-    base/hssl.h
     base/hlog.h
     base/hbuf.h
     base/hendian.h
+)
+
+set(SSL_HEADERS
+    ssl/hssl.h
+)
+
+set(EVENT_HEADERS
+    event/hloop.h
+    event/nlog.h
 )
 
 set(UTIL_HEADERS
     util/base64.h
     util/md5.h
     util/sha1.h
-)
-
-set(EVENT_HEADERS
-    event/hloop.h
-    event/nlog.h
 )
 
 set(CPPUTIL_HEADERS

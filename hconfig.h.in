@@ -65,6 +65,10 @@
 #define HAVE_SEM_TIMEDWAIT @HAVE_SEM_TIMEDWAIT@
 #endif
 
+#cmakedefine WITH_OPENSSL   1
+#cmakedefine WITH_GNUTLS    1
+#cmakedefine WITH_MBEDTLS   1
+
 #cmakedefine ENABLE_UDS     1
 #cmakedefine USE_MULTIMAP   1
 

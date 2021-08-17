@@ -65,6 +65,9 @@
 #define HAVE_SEM_TIMEDWAIT 0
 #endif
 
+/* #undef WITH_OPENSSL */
+/* #undef WITH_GNUTLS */
+/* #undef WITH_MBEDTLS */
 /* #undef ENABLE_UDS */
 /* #undef USE_MULTIMAP */
 

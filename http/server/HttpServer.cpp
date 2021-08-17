@@ -1,6 +1,7 @@
 #include "HttpServer.h"
 
 #include "hv.h"
+#include "hssl.h"
 #include "hmain.h"
 
 #include "httpdef.h"

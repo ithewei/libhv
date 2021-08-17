@@ -25,6 +25,7 @@ option(WITH_CURL "with curl library" OFF)
 option(WITH_NGHTTP2 "with nghttp2 library" OFF)
 
 option(WITH_OPENSSL "with openssl library" OFF)
+option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
@@ -105,6 +106,11 @@ if(WITH_OPENSSL)
     set(LIBS ${LIBS} ssl crypto)
 endif()
 
+if(WITH_GNUTLS)
+    add_definitions(-DWITH_GNUTLS)
+    set(LIBS ${LIBS} gnutls)
+endif()
+
 if(WITH_MBEDTLS)
     add_definitions(-DWITH_MBEDTLS)
     set(LIBS ${LIBS} mbedtls mbedx509 mbedcrypto)
@@ -131,10 +137,10 @@ if(ANDROID)
 endif()
 
 # see Makefile
-set(ALL_SRCDIRS . base util event protocol cpputil evpp http http/client http/server)
-set(LIBHV_SRCDIRS . base util event)
+set(ALL_SRCDIRS . base event ssl util cpputil evpp protocol http http/client http/server)
+set(LIBHV_SRCDIRS . base ssl event util)
 set(LIBHV_HEADERS hv.h hconfig.h hexport.h)
-set(LIBHV_HEADERS ${LIBHV_HEADERS} ${BASE_HEADERS} ${UTIL_HEADERS} ${EVENT_HEADERS})
+set(LIBHV_HEADERS ${LIBHV_HEADERS} ${BASE_HEADERS} ${SSL_HEADERS} ${EVENT_HEADERS} ${CPPUTIL_HEADERS})
 
 if(WITH_PROTOCOL)
     set(LIBHV_HEADERS ${LIBHV_HEADERS} ${PROTOCOL_HEADERS})

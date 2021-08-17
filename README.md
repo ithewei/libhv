@@ -26,7 +26,7 @@ but simpler api and richer protocols.
 - Cross-platform (Linux, Windows, MacOS, Solaris)
 - EventLoop (IO, timer, idle, custom)
 - TCP/UDP client/server/proxy
-- SSL/TLS support: (via WITH_OPENSSL or WITH_MBEDTLS)
+- SSL/TLS support: (via WITH_OPENSSL or WITH_GNUTLS or WITH_MBEDTLS)
 - HTTP client/server (support https http1/x http2 grpc)
 - HTTP static file service, indexof service, sync/async API handler
 - HTTP supports RESTful, URI router, keep-alive, chunked, etc.

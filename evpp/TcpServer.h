@@ -62,7 +62,7 @@ public:
             memset(&param, 0, sizeof(param));
             param.crt_file = cert_file;
             param.key_file = key_file;
-            param.endpoint = 0;
+            param.endpoint = HSSL_SERVER;
             return hssl_ctx_init(&param) == NULL ? -1 : 0;
         }
         return 0;

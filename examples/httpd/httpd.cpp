@@ -1,4 +1,5 @@
 #include "hv.h"
+#include "hssl.h"
 #include "hmain.h"
 #include "iniparser.h"
 
@@ -152,6 +153,7 @@ int parse_confile(const char* confile) {
         std::string crt_file = ini.GetValue("ssl_certificate");
         std::string key_file = ini.GetValue("ssl_privatekey");
         std::string ca_file = ini.GetValue("ssl_ca_certificate");
+        hlogi("SSL backend is %s", hssl_backend());
         hssl_ctx_init_param_t param;
         memset(&param, 0, sizeof(param));
         param.crt_file = crt_file.c_str();

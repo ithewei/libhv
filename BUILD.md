@@ -93,7 +93,7 @@ make libhv
 ### compile WITH_OPENSSL
 Enable SSL in libhv is so easy, just only two apis:
 ```
-// init ssl_ctx, see base/hssl.h
+// init ssl_ctx, see ssl/hssl.h
 hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
 
 // enable ssl, see event/hloop.h

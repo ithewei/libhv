@@ -295,7 +295,9 @@ shini_write()
 # default usage
 __shini_parsed()
 {
-    eval $2=$3
+    if [[ $2 != *\$* ]] && [[ $3 != *\$* ]]; then
+        eval $2=$3
+    fi
 }
 
 __shini_parse_error()

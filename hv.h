@@ -24,7 +24,6 @@
 #include "hthread.h"
 #include "hmutex.h"
 #include "hsocket.h"
-#include "hssl.h"
 
 #include "hlog.h"
 #include "hbuf.h"

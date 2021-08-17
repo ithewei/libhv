@@ -33,6 +33,7 @@ dependencies:
   --with-curl           compile with curl?              (DEFAULT: $WITH_CURL)
   --with-nghttp2        compile with nghttp2?           (DEFAULT: $WITH_NGHTTP2)
   --with-openssl        compile with openssl?           (DEFAULT: $WITH_OPENSSL)
+  --with-gnutls         compile with gnutls?            (DEFAULT: $WITH_GNUTLS)
   --with-mbedtls        compile with mbedtls?           (DEFAULT: $WITH_MBEDTLS)
 
 END
@@ -244,6 +245,9 @@ function=sem_timedwait && header=semaphore.h && check_function
 
 # Checks for options
 source config.mk 2>/dev/null
+option=WITH_OPENSSL && check_option
+option=WITH_GNUTLS && check_option
+option=WITH_MBEDTLS && check_option
 option=ENABLE_UDS && check_option
 option=USE_MULTIMAP && check_option
 

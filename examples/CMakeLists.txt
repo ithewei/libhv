@@ -9,7 +9,7 @@ list(APPEND EXAMPLES
     udp_proxy_server
 )
 
-include_directories(.. ../base ../util ../event)
+include_directories(.. ../base ../ssl ../event ../util)
 
 add_executable(hloop_test hloop_test.c)
 target_link_libraries(hloop_test hv)

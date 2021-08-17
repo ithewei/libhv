@@ -2,11 +2,11 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base util event protocol cpputil evpp http http/client http/server
+ALL_SRCDIRS=. base ssl event util cpputil evpp protocol http http/client http/server
 
-LIBHV_SRCDIRS = . base util event
+LIBHV_SRCDIRS = . base ssl event util
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
-LIBHV_HEADERS += $(BASE_HEADERS) $(UTIL_HEADERS) $(EVENT_HEADERS)
+LIBHV_HEADERS += $(BASE_HEADERS) $(SSL_HEADERS) $(EVENT_HEADERS) $(UTIL_HEADERS)
 
 ifeq ($(WITH_PROTOCOL), yes)
 LIBHV_HEADERS += $(PROTOCOL_HEADERS)
@@ -71,57 +71,57 @@ hmain_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base cpputil" SRCS="examples/hmain_test.cpp"
 
 htimer_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/htimer_test.c"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/htimer_test.c"
 
 hloop_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/hloop_test.c"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/hloop_test.c"
 
 tcp_echo_server: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp_echo_server.c"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/tcp_echo_server.c"
 
 tcp_chat_server: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp_chat_server.c"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/tcp_chat_server.c"
 
 tcp_proxy_server: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/tcp_proxy_server.c"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/tcp_proxy_server.c"
 
 udp_echo_server: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp_echo_server.c"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/udp_echo_server.c"
 
 udp_proxy_server: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/udp_proxy_server.c"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/udp_proxy_server.c"
 
 nc: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event" SRCS="examples/nc.c"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/nc.c"
 
 nmap: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event cpputil examples/nmap" DEFINES="PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event cpputil examples/nmap" DEFINES="PRINT_DEBUG"
 
 httpd: prepare
 	$(RM) examples/httpd/*.o
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client http/server examples/httpd"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/client http/server examples/httpd"
 
 consul: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client examples/consul" DEFINES="PRINT_DEBUG"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/client examples/consul" DEFINES="PRINT_DEBUG"
 
 curl: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client" SRCS="examples/curl.cpp"
-	# $(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/client" SRCS="examples/curl.cpp"
+	# $(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/client" SRCS="examples/curl.cpp" WITH_CURL=yes
 
 wget: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client" SRCS="examples/wget.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/client" SRCS="examples/wget.cpp"
 
 http_server_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/server" SRCS="examples/http_server_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/server" SRCS="examples/http_server_test.cpp"
 
 http_client_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client" SRCS="examples/http_client_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/client" SRCS="examples/http_client_test.cpp"
 
 websocket_server_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/server" SRCS="examples/websocket_server_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/server" SRCS="examples/websocket_server_test.cpp"
 
 websocket_client_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS=". base event util cpputil evpp http http/client" SRCS="examples/websocket_client_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/client" SRCS="examples/websocket_client_test.cpp"
 
 unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
@@ -146,13 +146,13 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c util/base64.c
 
 evpp: prepare libhv
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Ievpp -o bin/EventLoop_test           evpp/EventLoop_test.cpp           -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Ievpp -o bin/EventLoopThread_test     evpp/EventLoopThread_test.cpp     -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Ievpp -o bin/EventLoopThreadPool_test evpp/EventLoopThreadPool_test.cpp -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Ievpp -o bin/TcpServer_test           evpp/TcpServer_test.cpp           -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Ievpp -o bin/TcpClient_test           evpp/TcpClient_test.cpp           -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Ievpp -o bin/UdpServer_test           evpp/UdpServer_test.cpp           -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Ievpp -o bin/UdpClient_test           evpp/UdpClient_test.cpp           -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/EventLoop_test           evpp/EventLoop_test.cpp           -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/EventLoopThread_test     evpp/EventLoopThread_test.cpp     -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/EventLoopThreadPool_test evpp/EventLoopThreadPool_test.cpp -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/TcpServer_test           evpp/TcpServer_test.cpp           -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/TcpClient_test           evpp/TcpClient_test.cpp           -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/UdpServer_test           evpp/UdpServer_test.cpp           -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/UdpClient_test           evpp/UdpClient_test.cpp           -Llib -lhv -pthread
 
 # UNIX only
 webbench: prepare
