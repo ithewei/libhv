@@ -29,6 +29,7 @@ enum {
     HSSL_ERROR = -1,
     HSSL_WANT_READ = -2,
     HSSL_WANT_WRITE = -3,
+    HSSL_WOULD_BLOCK = -4,
 };
 
 typedef struct {

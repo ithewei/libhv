@@ -199,6 +199,10 @@ endif
 endif
 endif
 
+ifeq ($(OS), Darwin)
+	LDFLAGS += -framework CoreFoundation -framework Security
+endif
+
 ALL_SRCS += $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
 ifeq ($(ALL_SRCS), )
 	ALL_SRCS = $(wildcard *.c *.cc *.cpp)

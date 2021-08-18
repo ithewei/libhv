@@ -136,6 +136,10 @@ if(ANDROID)
     set(LIBS ${LIBS} log)
 endif()
 
+if(APPLE)
+    set(LIBS ${LIBS} "-framework CoreFoundation" "-framework Security")
+endif()
+
 # see Makefile
 set(ALL_SRCDIRS . base ssl event util cpputil evpp protocol http http/client http/server)
 set(LIBHV_SRCDIRS . base ssl event util)

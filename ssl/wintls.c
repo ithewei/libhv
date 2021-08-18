@@ -3,7 +3,7 @@
 #ifdef WITH_WINTLS
 
 const char* hssl_backend() {
-    return "wintls";
+    return "nossl";
 }
 
 hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
