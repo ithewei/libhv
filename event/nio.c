@@ -199,16 +199,18 @@ accept:
     connio->userdata = io->userdata;
 
     if (io->io_type == HIO_TYPE_SSL) {
-        hssl_ctx_t ssl_ctx = hssl_ctx_instance();
-        if (ssl_ctx == NULL) {
-            goto accept_error;
-        }
-        hssl_t ssl = hssl_new(ssl_ctx, connfd);
-        if (ssl == NULL) {
-            goto accept_error;
+        if (connio->ssl == NULL) {
+            hssl_ctx_t ssl_ctx = hssl_ctx_instance();
+            if (ssl_ctx == NULL) {
+                goto accept_error;
+            }
+            hssl_t ssl = hssl_new(ssl_ctx, connfd);
+            if (ssl == NULL) {
+                goto accept_error;
+            }
+            connio->ssl = ssl;
         }
         hio_enable_ssl(connio);
-        connio->ssl = ssl;
         ssl_server_handshake(connio);
     }
     else {
@@ -236,15 +238,17 @@ static void nio_connect(hio_t* io) {
         getsockname(io->fd, io->localaddr, &addrlen);
 
         if (io->io_type == HIO_TYPE_SSL) {
-            hssl_ctx_t ssl_ctx = hssl_ctx_instance();
-            if (ssl_ctx == NULL) {
-                goto connect_failed;
+            if (io->ssl == NULL) {
+                hssl_ctx_t ssl_ctx = hssl_ctx_instance();
+                if (ssl_ctx == NULL) {
+                    goto connect_failed;
+                }
+                hssl_t ssl = hssl_new(ssl_ctx, io->fd);
+                if (ssl == NULL) {
+                    goto connect_failed;
+                }
+                io->ssl = ssl;
             }
-            hssl_t ssl = hssl_new(ssl_ctx, io->fd);
-            if (ssl == NULL) {
-                goto connect_failed;
-            }
-            io->ssl = ssl;
             ssl_client_handshake(io);
         }
         else {

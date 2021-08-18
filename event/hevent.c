@@ -116,6 +116,16 @@ int hio_enable_ssl(hio_t* io) {
     return 0;
 }
 
+hssl_t hio_get_ssl(hio_t* io) {
+    return io->ssl;
+}
+
+int hio_set_ssl(hio_t* io, hssl_t ssl) {
+    io->io_type = HIO_TYPE_SSL;
+    io->ssl = ssl;
+    return 0;
+}
+
 void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
     if (buf == NULL || len == 0) {
         hloop_t* loop = io->loop;

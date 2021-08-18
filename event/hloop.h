@@ -4,6 +4,7 @@
 #include "hexport.h"
 #include "hplatform.h"
 #include "hdef.h"
+#include "hssl.h"
 
 typedef struct hloop_s      hloop_t;
 typedef struct hevent_s     hevent_t;
@@ -233,6 +234,8 @@ HV_EXPORT hclose_cb   hio_getcb_close(hio_t* io);
 // some useful settings
 // Enable SSL/TLS is so easy :)
 HV_EXPORT int  hio_enable_ssl(hio_t* io);
+HV_EXPORT hssl_t hio_get_ssl(hio_t* io);
+HV_EXPORT int  hio_set_ssl(hio_t* io, hssl_t ssl);
 // TODO: One loop per thread, one readbuf per loop.
 // But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
 HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);

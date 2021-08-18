@@ -53,7 +53,7 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
         if (ca_path) {
             ret = gnutls_certificate_set_x509_trust_dir(ctx, ca_path, GNUTLS_X509_FMT_PEM);
             if (ret < 0) {
-                fprintf(stderr, "ssl ca_file failed!\n");
+                fprintf(stderr, "ssl ca_path failed!\n");
                 goto error;
             }
         }
@@ -193,7 +193,7 @@ int hssl_set_sni_hostname(hssl_t ssl, const char* hostname) {
     if (ssl == NULL) return HSSL_ERROR;
     gnutls_t* gnutls = (gnutls_t*)ssl;
     if (gnutls->session == NULL) {
-        hssl_init(ssl, GNUTLS_SERVER);
+        hssl_init(ssl, GNUTLS_CLIENT);
     }
     gnutls_server_name_set(gnutls->session, GNUTLS_NAME_DNS, hostname, strlen(hostname));
     return 0;

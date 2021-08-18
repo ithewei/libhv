@@ -137,10 +137,10 @@ if(ANDROID)
 endif()
 
 # see Makefile
-set(ALL_SRCDIRS . base event ssl util cpputil evpp protocol http http/client http/server)
+set(ALL_SRCDIRS . base ssl event util cpputil evpp protocol http http/client http/server)
 set(LIBHV_SRCDIRS . base ssl event util)
 set(LIBHV_HEADERS hv.h hconfig.h hexport.h)
-set(LIBHV_HEADERS ${LIBHV_HEADERS} ${BASE_HEADERS} ${SSL_HEADERS} ${EVENT_HEADERS} ${CPPUTIL_HEADERS})
+set(LIBHV_HEADERS ${LIBHV_HEADERS} ${BASE_HEADERS} ${SSL_HEADERS} ${EVENT_HEADERS} ${UTIL_HEADERS})
 
 if(WITH_PROTOCOL)
     set(LIBHV_HEADERS ${LIBHV_HEADERS} ${PROTOCOL_HEADERS})
