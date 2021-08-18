@@ -145,6 +145,12 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c util/base64.c
 
+run-unittest: unittest
+	bash scripts/unittest.sh
+
+check: examples
+	bash scripts/check.sh
+
 evpp: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/EventLoop_test           evpp/EventLoop_test.cpp           -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/EventLoopThread_test     evpp/EventLoopThread_test.cpp     -Llib -lhv -pthread
@@ -167,5 +173,8 @@ echo-servers:
 	$(CXX) -g -Wall -std=c++11 -o bin/asio_echo       echo-servers/asio_echo.cpp       -lboost_system -pthread
 	$(CXX) -g -Wall -std=c++11 -o bin/poco_echo       echo-servers/poco_echo.cpp       -lPocoNet -lPocoUtil -lPocoFoundation
 #	$(CXX) -g -Wall -std=c++11 -o bin/muduo_echo      echo-servers/muduo_echo.cpp      -lmuduo_net -lmuduo_base -pthread
+
+echo-benchmark: echo-servers
+	bash echo-servers/benchmark.sh
 
 .PHONY: clean prepare install libhv examples unittest evpp echo-servers

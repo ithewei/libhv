@@ -21,6 +21,7 @@ jobs:
           sudo apt install libssl-dev libnghttp2-dev
           ./configure --with-openssl --with-nghttp2
           make libhv examples unittest evpp
+          make check
 
   build-macos:
     name: build-macos
@@ -31,6 +32,7 @@ jobs:
         run: |
           ./configure
           make libhv examples unittest evpp
+          make check
 
   build-windows:
     name: build-windows
