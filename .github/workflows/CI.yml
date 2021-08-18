@@ -32,7 +32,6 @@ jobs:
         run: |
           ./configure
           make libhv examples unittest evpp
-          make check
 
   build-windows:
     name: build-windows
