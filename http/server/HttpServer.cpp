@@ -255,6 +255,8 @@ static void on_close(hio_t* io) {
 }
 
 static void on_accept(hio_t* io) {
+    http_server_t* server = (http_server_t*)hevent_userdata(io);
+    HttpService* service = server->service;
     /*
     printf("on_accept connfd=%d\n", hio_fd(io));
     char localaddrstr[SOCKADDR_STRLEN] = {0};
@@ -267,18 +269,18 @@ static void on_accept(hio_t* io) {
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_read(io);
-    hio_set_keepalive_timeout(io, HIO_DEFAULT_KEEPALIVE_TIMEOUT);
+    hio_set_keepalive_timeout(io, service->keepalive_timeout);
+
     // new HttpHandler, delete on_close
     HttpHandler* handler = new HttpHandler;
     // ssl
-    handler->ssl = hio_type(io) == HIO_TYPE_SSL;
+    handler->ssl = hio_is_ssl(io);
     // ip
     sockaddr_ip((sockaddr_u*)hio_peeraddr(io), handler->ip, sizeof(handler->ip));
     // port
     handler->port = sockaddr_port((sockaddr_u*)hio_peeraddr(io));
     // service
-    http_server_t* server = (http_server_t*)hevent_userdata(io);
-    handler->service = server->service;
+    handler->service = service;
     // ws
     handler->ws_service = server->ws;
     // FileCache

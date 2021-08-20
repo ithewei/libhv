@@ -42,20 +42,20 @@ public:
                 response_status(resp, 10012, "Token wrong");
                 return HTTP_STATUS_UNAUTHORIZED;
             }
-            return 0;
+            return HTTP_STATUS_UNFINISHED;
         }
 #endif
-        return 0;
+        return HTTP_STATUS_UNFINISHED;
     }
 
     static int postprocessor(HttpRequest* req, HttpResponse* resp) {
         // printf("%s\n", resp->Dump(true, true).c_str());
-        return 0;
+        return resp->status_code;
     }
 
     static int errorHandler(const HttpContextPtr& ctx) {
         int error_code = ctx->response->status_code;
-        return response_status(ctx->response.get(), error_code);
+        return response_status(ctx, error_code);
     }
 
     static int largeFileHandler(const HttpContextPtr& ctx) {
@@ -115,47 +115,46 @@ public:
             // auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
             // printf("<< %s taked %ds\n", ctx->request->path.c_str(), (int)elapsed_time.count());
         }).detach();
-        return 0;
+        return HTTP_STATUS_UNFINISHED;
     }
 
-    static int sleep(HttpRequest* req, HttpResponse* resp) {
-        resp->Set("start_ms", gettimeofday_ms());
-        std::string strTime = req->GetParam("t");
+    static int sleep(const HttpContextPtr& ctx) {
+        ctx->set("start_ms", gettimeofday_ms());
+        std::string strTime = ctx->param("t", "1000");
         if (!strTime.empty()) {
             int ms = atoi(strTime.c_str());
             if (ms > 0) {
                 hv_delay(ms);
             }
         }
-        resp->Set("end_ms", gettimeofday_ms());
-        response_status(resp, 0, "OK");
+        ctx->set("end_ms", gettimeofday_ms());
+        response_status(ctx, 0, "OK");
         return 200;
     }
 
-    static void setTimeout(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
-        writer->response->Set("start_ms", gettimeofday_ms());
-        std::string strTime = req->GetParam("t");
+    static int setTimeout(const HttpContextPtr& ctx) {
+        ctx->set("start_ms", gettimeofday_ms());
+        std::string strTime = ctx->param("t", "1000");
         if (!strTime.empty()) {
             int ms = atoi(strTime.c_str());
             if (ms > 0) {
-                hv::setTimeout(ms, [writer](hv::TimerID timerID){
-                    writer->Begin();
-                    HttpResponse* resp = writer->response.get();
-                    resp->Set("end_ms", gettimeofday_ms());
-                    response_status(resp, 0, "OK");
-                    writer->End();
+                hv::setTimeout(ms, [ctx](hv::TimerID timerID){
+                    ctx->set("end_ms", gettimeofday_ms());
+                    response_status(ctx, 0, "OK");
+                    ctx->send();
                 });
             }
         }
+        return HTTP_STATUS_UNFINISHED;
     }
 
-    static int query(HttpRequest* req, HttpResponse* resp) {
+    static int query(const HttpContextPtr& ctx) {
         // scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
         // ?query => HttpRequest::query_params
-        for (auto& param : req->query_params) {
-            resp->Set(param.first.c_str(), param.second);
+        for (auto& param : ctx->params()) {
+            ctx->set(param.first.c_str(), param.second);
         }
-        response_status(resp, 0, "OK");
+        response_status(ctx, 0, "OK");
         return 200;
     }
 
@@ -197,24 +196,6 @@ public:
         return 200;
     }
 
-    static int test(HttpRequest* req, HttpResponse* resp) {
-        // bool b = req->Get<bool>("bool");
-        // int64_t n = req->Get<int64_t>("int");
-        // double f = req->Get<double>("float");
-        bool b = req->GetBool("bool");
-        int64_t n = req->GetInt("int");
-        double f = req->GetFloat("float");
-        string str = req->GetString("string");
-
-        resp->content_type = req->content_type;
-        resp->Set("bool", b);
-        resp->Set("int", n);
-        resp->Set("float", f);
-        resp->Set("string", str);
-        response_status(resp, 0, "OK");
-        return 200;
-    }
-
     static int grpc(HttpRequest* req, HttpResponse* resp) {
         if (req->content_type != APPLICATION_GRPC) {
             return response_status(resp, HTTP_STATUS_BAD_REQUEST);
@@ -228,35 +209,45 @@ public:
         return 200;
     }
 
-    static int restful(HttpRequest* req, HttpResponse* resp) {
-        // RESTful /:field/ => HttpRequest::query_params
-        // path=/group/:group_name/user/:user_id
-        std::string group_name = req->GetParam("group_name");
-        std::string user_id = req->GetParam("user_id");
-        resp->Set("group_name", group_name);
-        resp->Set("user_id", user_id);
-        response_status(resp, 0, "OK");
+    static int test(const HttpContextPtr& ctx) {
+        ctx->setContentType(ctx->type());
+        ctx->set("bool", ctx->get<bool>("bool"));
+        ctx->set("int", ctx->get<int>("int"));
+        ctx->set("float", ctx->get<float>("float"));
+        ctx->set("string", ctx->get("string"));
+        response_status(ctx, 0, "OK");
         return 200;
     }
 
-    static int login(HttpRequest* req, HttpResponse* resp) {
-        string username = req->GetString("username");
-        string password = req->GetString("password");
+    static int restful(const HttpContextPtr& ctx) {
+        // RESTful /:field/ => HttpRequest::query_params
+        // path=/group/:group_name/user/:user_id
+        std::string group_name = ctx->param("group_name");
+        std::string user_id = ctx->param("user_id");
+        ctx->set("group_name", group_name);
+        ctx->set("user_id", user_id);
+        response_status(ctx, 0, "OK");
+        return 200;
+    }
+
+    static int login(const HttpContextPtr& ctx) {
+        string username = ctx->get("username");
+        string password = ctx->get("password");
         if (username.empty() || password.empty()) {
-            response_status(resp, 10001, "Miss username or password");
+            response_status(ctx, 10001, "Miss username or password");
             return HTTP_STATUS_BAD_REQUEST;
         }
         else if (strcmp(username.c_str(), "admin") != 0) {
-            response_status(resp, 10002, "Username not exist");
+            response_status(ctx, 10002, "Username not exist");
             return HTTP_STATUS_BAD_REQUEST;
         }
         else if (strcmp(password.c_str(), "123456") != 0) {
-            response_status(resp, 10003, "Password wrong");
+            response_status(ctx, 10003, "Password wrong");
             return HTTP_STATUS_BAD_REQUEST;
         }
         else {
-            resp->Set("token", "abcdefg");
-            response_status(resp, 0, "OK");
+            ctx->set("token", "abcdefg");
+            response_status(ctx, 0, "OK");
             return HTTP_STATUS_OK;
         }
     }
@@ -283,10 +274,15 @@ public:
 
 private:
     static int response_status(HttpResponse* resp, int code = 200, const char* message = NULL) {
-        resp->Set("code", code);
         if (message == NULL) message = http_status_str((enum http_status)code);
+        resp->Set("code", code);
         resp->Set("message", message);
-        resp->DumpBody();
+        return code;
+    }
+    static int response_status(const HttpContextPtr& ctx, int code = 200, const char* message = NULL) {
+        if (message == NULL) message = http_status_str((enum http_status)code);
+        ctx->set("code", code);
+        ctx->set("message", message);
         return code;
     }
 };

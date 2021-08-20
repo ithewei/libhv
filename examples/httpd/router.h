@@ -49,11 +49,12 @@ public:
 
         // curl -v http://ip:port/service
         router.GET("/service", [](const HttpContextPtr& ctx) {
-            ctx->response->json["base_url"] = ctx->service->base_url;
-            ctx->response->json["doucument_root"] = ctx->service->document_root;
-            ctx->response->json["home_page"] = ctx->service->home_page;
-            ctx->response->json["error_page"] = ctx->service->error_page;
-            ctx->response->json["index_of"] = ctx->service->index_of;
+            ctx->setContentType("application/json");
+            ctx->set("base_url", ctx->service->base_url);
+            ctx->set("document_root", ctx->service->document_root);
+            ctx->set("home_page", ctx->service->home_page);
+            ctx->set("error_page", ctx->service->error_page);
+            ctx->set("index_of", ctx->service->index_of);
             return 200;
         });
 
@@ -73,10 +74,9 @@ public:
 
         // curl -v http://ip:port/async
         router.GET("/async", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
-            writer->response->headers["X-Request-tid"] = hv::to_string(hv_gettid());
+            writer->WriteHeader("X-Request-tid", hv_gettid());
             std::async([req, writer](){
-                writer->Begin();
-                writer->response->headers["X-Response-tid"] = hv::to_string(hv_gettid());
+                writer->WriteHeader("X-Response-tid", hv_gettid());
                 writer->WriteHeader("Content-Type", "text/plain");
                 writer->WriteBody("This is an async response.\n");
                 writer->End();

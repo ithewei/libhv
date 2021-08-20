@@ -168,6 +168,11 @@ HV_EXPORT int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
 }
 
 template<>
+HV_EXPORT int HttpMessage::Get(const char* key, int defvalue) {
+    return (int)Get<int64_t>(key, defvalue);
+}
+
+template<>
 HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
     if (content_type == APPLICATION_JSON) {
         if (!json.is_object()) {
@@ -192,6 +197,11 @@ HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
         std::string str = GetString(key);
         return str.empty() ? defvalue : atof(str.c_str());
     }
+}
+
+template<>
+HV_EXPORT float HttpMessage::Get(const char* key, float defvalue) {
+    return (float)Get<double>(key, defvalue);
 }
 
 template<>

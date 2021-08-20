@@ -66,7 +66,7 @@ postprocessor:
 }
 
 int HttpHandler::customHttpHandler(http_handler& fn) {
-    HttpContextPtr ctx(new HttpContext);
+    HttpContextPtr ctx(new hv::HttpContext);
     ctx->service = service;
     ctx->request = req;
     ctx->response = resp;
@@ -87,9 +87,6 @@ int HttpHandler::defaultRequestHandler() {
     if (sync_handler) {
         // sync api handler
         status_code = sync_handler(req.get(), resp.get());
-        if (status_code != 0) {
-            return status_code;
-        }
     }
     else if (async_handler) {
         // async api handler
@@ -99,8 +96,8 @@ int HttpHandler::defaultRequestHandler() {
     else if (ctx_handler) {
         // HttpContext handler
         status_code = customHttpHandler(ctx_handler);
-        if (status_code != 0) {
-            return status_code;
+        if (writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
+            status_code = 0;
         }
     }
     else if (req->method == HTTP_GET || req->method == HTTP_HEAD) {

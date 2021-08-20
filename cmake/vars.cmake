@@ -92,8 +92,9 @@ set(HTTP_CLIENT_HEADERS
     http/client/WebSocketClient.h)
 
 set(HTTP_SERVER_HEADERS
-    http/server/HttpService.h
     http/server/HttpServer.h
+    http/server/HttpService.h
+    http/server/HttpContext.h
     http/server/HttpResponseWriter.h
     http/server/WebSocketServer.h
 )

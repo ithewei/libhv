@@ -94,7 +94,7 @@ public:
     MultiPart           form;       // MULTIPART_FORM_DATA
     hv::KeyValue        kv;         // X_WWW_FORM_URLENCODED
 
-    // T=[bool, int64_t, double]
+    // T=[bool, int, int64_t, float, double]
     template<typename T>
     T Get(const char* key, T defvalue = 0);
 

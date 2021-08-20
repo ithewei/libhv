@@ -10,31 +10,25 @@
 #include "hexport.h"
 #include "HttpMessage.h"
 #include "HttpResponseWriter.h"
+#include "HttpContext.h"
 
 #define DEFAULT_BASE_URL        "/api/v1"
 #define DEFAULT_DOCUMENT_ROOT   "/var/www/html"
 #define DEFAULT_HOME_PAGE       "index.html"
 #define DEFAULT_ERROR_PAGE      "error.html"
 #define DEFAULT_INDEXOF_DIR     "/downloads/"
+#define DEFAULT_KEEPALIVE_TIMEOUT   75000   // ms
 
 /*
  * @param[in]  req:  parsed structured http request
  * @param[out] resp: structured http response
- * @return  0:                  handle continue
+ * @return  0:                  handle unfinished
  *          http_status_code:   handle done
  */
+#define HTTP_STATUS_UNFINISHED  0
 typedef std::function<int(HttpRequest* req, HttpResponse* resp)>                            http_sync_handler;
 typedef std::function<void(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer)> http_async_handler;
-
-struct HttpService;
-struct HV_EXPORT HttpContext {
-    HttpService*            service;
-    HttpRequestPtr          request;
-    HttpResponsePtr         response;
-    HttpResponseWriterPtr   writer;
-};
-typedef std::shared_ptr<HttpContext>                    HttpContextPtr;
-typedef std::function<int(const HttpContextPtr& ctx)>   http_handler;
+typedef std::function<int(const HttpContextPtr& ctx)>                                       http_handler;
 
 struct http_method_handler {
     http_method         method;
@@ -79,6 +73,9 @@ struct HV_EXPORT HttpService {
 
     http_handler    errorHandler;
 
+    // options
+    int keepalive_timeout;
+
     HttpService() {
         preprocessor = NULL;
         processor = NULL;
@@ -95,6 +92,8 @@ struct HV_EXPORT HttpService {
         // index_of = DEFAULT_INDEXOF_DIR;
 
         errorHandler = NULL;
+
+        keepalive_timeout = DEFAULT_KEEPALIVE_TIMEOUT;
     }
 
     void AddApi(const char* path, http_method method,
