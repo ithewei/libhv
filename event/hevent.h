@@ -148,6 +148,11 @@ void hio_done(hio_t* io);
 void hio_free(hio_t* io);
 uint32_t hio_next_id();
 
+void hio_del_connect_timer(hio_t* io);
+void hio_del_close_timer(hio_t* io);
+void hio_del_keepalive_timer(hio_t* io);
+void hio_del_heartbeat_timer(hio_t* io);
+
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)
 #define TIMER_ENTRY(p)          container_of(p, htimer_t, node)

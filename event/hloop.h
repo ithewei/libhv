@@ -234,6 +234,7 @@ HV_EXPORT hclose_cb   hio_getcb_close(hio_t* io);
 // some useful settings
 // Enable SSL/TLS is so easy :)
 HV_EXPORT int  hio_enable_ssl(hio_t* io);
+HV_EXPORT bool hio_is_ssl(hio_t* io);
 HV_EXPORT hssl_t hio_get_ssl(hio_t* io);
 HV_EXPORT int  hio_set_ssl(hio_t* io, hssl_t ssl);
 // TODO: One loop per thread, one readbuf per loop.

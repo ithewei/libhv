@@ -116,6 +116,10 @@ int hio_enable_ssl(hio_t* io) {
     return 0;
 }
 
+bool hio_is_ssl(hio_t* io) {
+    return io->io_type == HIO_TYPE_SSL;
+}
+
 hssl_t hio_get_ssl(hio_t* io) {
     return io->ssl;
 }
@@ -141,6 +145,39 @@ void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
     }
 }
 
+void hio_del_connect_timer(hio_t* io) {
+    if (io->connect_timer) {
+        htimer_del(io->connect_timer);
+        io->connect_timer = NULL;
+        io->connect_timeout = 0;
+    }
+}
+
+void hio_del_close_timer(hio_t* io) {
+    if (io->close_timer) {
+        htimer_del(io->close_timer);
+        io->close_timer = NULL;
+        io->close_timeout = 0;
+    }
+}
+
+void hio_del_keepalive_timer(hio_t* io) {
+    if (io->keepalive_timer) {
+        htimer_del(io->keepalive_timer);
+        io->keepalive_timer = NULL;
+        io->keepalive_timeout = 0;
+    }
+}
+
+void hio_del_heartbeat_timer(hio_t* io) {
+    if (io->heartbeat_timer) {
+        htimer_del(io->heartbeat_timer);
+        io->heartbeat_timer = NULL;
+        io->heartbeat_interval = 0;
+        io->heartbeat_fn = NULL;
+    }
+}
+
 void hio_set_connect_timeout(hio_t* io, int timeout_ms) {
     io->connect_timeout = timeout_ms;
 }
@@ -163,15 +200,18 @@ static void __keepalive_timeout_cb(htimer_t* timer) {
 }
 
 void hio_set_keepalive_timeout(hio_t* io, int timeout_ms) {
+    if (timeout_ms == 0) {
+        // del
+        hio_del_keepalive_timer(io);
+        return;
+    }
+
     if (io->keepalive_timer) {
-        if (timeout_ms == 0) {
-            htimer_del(io->keepalive_timer);
-            io->keepalive_timer = NULL;
-        } else {
-            ((struct htimeout_s*)io->keepalive_timer)->timeout = timeout_ms;
-            htimer_reset(io->keepalive_timer);
-        }
+        // reset
+        ((struct htimeout_s*)io->keepalive_timer)->timeout = timeout_ms;
+        htimer_reset(io->keepalive_timer);
     } else {
+        // add
         io->keepalive_timer = htimer_add(io->loop, __keepalive_timeout_cb, timeout_ms, 1);
         io->keepalive_timer->privdata = io;
     }
@@ -186,15 +226,18 @@ static void __heartbeat_timer_cb(htimer_t* timer) {
 }
 
 void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
+    if (interval_ms == 0) {
+        // del
+        hio_del_heartbeat_timer(io);
+        return;
+    }
+
     if (io->heartbeat_timer) {
-        if (interval_ms == 0) {
-            htimer_del(io->heartbeat_timer);
-            io->heartbeat_timer = NULL;
-        } else {
-            ((struct htimeout_s*)io->heartbeat_timer)->timeout = interval_ms;
-            htimer_reset(io->heartbeat_timer);
-        }
+        // reset
+        ((struct htimeout_s*)io->heartbeat_timer)->timeout = interval_ms;
+        htimer_reset(io->heartbeat_timer);
     } else {
+        // add
         io->heartbeat_timer = htimer_add(io->loop, __heartbeat_timer_cb, interval_ms, INFINITE);
         io->heartbeat_timer->privdata = io;
     }

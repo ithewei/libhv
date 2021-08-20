@@ -56,11 +56,7 @@ static void __connect_cb(hio_t* io) {
             SOCKADDR_STR(io->localaddr, localaddrstr),
             SOCKADDR_STR(io->peeraddr, peeraddrstr));
     */
-    if (io->connect_timer) {
-        htimer_del(io->connect_timer);
-        io->connect_timer = NULL;
-        io->connect_timeout = 0;
-    }
+    hio_del_connect_timer(io);
 
     if (io->connect_cb) {
         // printd("connect_cb------\n");
@@ -97,30 +93,11 @@ static void __write_cb(hio_t* io, const void* buf, int writebytes) {
 
 static void __close_cb(hio_t* io) {
     // printd("close fd=%d\n", io->fd);
-    if (io->connect_timer) {
-        htimer_del(io->connect_timer);
-        io->connect_timer = NULL;
-        io->connect_timeout = 0;
-    }
 
-    if (io->close_timer) {
-        htimer_del(io->close_timer);
-        io->close_timer = NULL;
-        io->close_timeout = 0;
-    }
-
-    if (io->keepalive_timer) {
-        htimer_del(io->keepalive_timer);
-        io->keepalive_timer = NULL;
-        io->keepalive_timeout = 0;
-    }
-
-    if (io->heartbeat_timer) {
-        htimer_del(io->heartbeat_timer);
-        io->heartbeat_timer = NULL;
-        io->heartbeat_interval = 0;
-        io->heartbeat_fn = NULL;
-    }
+    hio_del_connect_timer(io);
+    hio_del_close_timer(io);
+    hio_del_keepalive_timer(io);
+    hio_del_heartbeat_timer(io);
 
     if (io->close_cb) {
         // printd("close_cb------\n");
