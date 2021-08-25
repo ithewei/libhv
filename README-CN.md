@@ -237,6 +237,7 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
+- jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
 
 ### c++版本
 - 事件循环: [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)

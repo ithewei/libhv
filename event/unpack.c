@@ -169,7 +169,7 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
         }
         if (package_len > io->readbuf.len) {
             if (package_len > setting->package_max_length) {
-                hloge("recv package over %d bytes!", (int)setting->package_max_length);
+                hloge("package length over %d bytes!", (int)setting->package_max_length);
                 io->error = ERR_OVER_LIMIT;
                 hio_close(io);
                 return -1;

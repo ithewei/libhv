@@ -7,6 +7,7 @@ list(APPEND EXAMPLES
     tcp_proxy_server
     udp_echo_server
     udp_proxy_server
+    jsonrpc
 )
 
 include_directories(.. ../base ../ssl ../event ../util)
@@ -34,6 +35,12 @@ target_link_libraries(udp_echo_server hv)
 
 add_executable(udp_proxy_server udp_proxy_server.c)
 target_link_libraries(udp_proxy_server hv)
+
+add_executable(jsonrpc_client jsonrpc/jsonrpc_client.c jsonrpc/jsonrpc.c jsonrpc/cJSON.c)
+target_link_libraries(jsonrpc_client hv)
+
+add_executable(jsonrpc_server jsonrpc/jsonrpc_server.c jsonrpc/jsonrpc.c jsonrpc/cJSON.c)
+target_link_libraries(jsonrpc_server hv)
 
 if(WITH_EVPP)
     include_directories(../cpputil ../evpp)
@@ -108,4 +115,5 @@ endif()
 endif()
 endif()
 
+add_custom_target(jsonrpc DEPENDS jsonrpc_client jsonrpc_server)
 add_custom_target(examples DEPENDS ${EXAMPLES})

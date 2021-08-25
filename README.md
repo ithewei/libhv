@@ -234,6 +234,7 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
+- [examples/jsonrpc](examples/jsonrpc)
 
 ### c++ version
 - [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)

@@ -37,7 +37,7 @@ endif
 default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
-	nc nmap httpd curl wget consul\
+	nc nmap httpd curl wget consul \
 	tcp_echo_server \
 	tcp_chat_server \
 	tcp_proxy_server \
@@ -46,6 +46,7 @@ examples: hmain_test htimer_test hloop_test \
 	http_server_test http_client_test \
 	websocket_server_test \
 	websocket_client_test \
+	jsonrpc \
 
 clean:
 	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS) examples/nmap examples/httpd examples/consul"
@@ -122,6 +123,15 @@ websocket_server_test: prepare
 
 websocket_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http http/client" SRCS="examples/websocket_client_test.cpp"
+
+jsonrpc: jsonrpc_client jsonrpc_server
+
+jsonrpc_client: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/jsonrpc/jsonrpc_client.c examples/jsonrpc/jsonrpc.c examples/jsonrpc/cJSON.c"
+
+jsonrpc_server: prepare
+	$(RM) examples/jsonrpc/*.o
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/jsonrpc/jsonrpc_server.c examples/jsonrpc/jsonrpc.c examples/jsonrpc/cJSON.c"
 
 unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
