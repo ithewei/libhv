@@ -12,34 +12,36 @@ extern "C" {
 
 typedef struct {
     unsigned char   flags;
-    int             length;
+    unsigned int    length;
 } grpc_message_hd;
 
 typedef struct {
     unsigned char   flags;
-    int             length;
+    unsigned int    length;
     unsigned char*  message;
 } grpc_message;
 
 static inline void grpc_message_hd_pack(const grpc_message_hd* hd, unsigned char* buf) {
-    // hton
-    int length = hd->length;
     unsigned char* p = buf;
+    // flags
     *p++ = hd->flags;
+    // hton length
+    unsigned int length = hd->length;
     *p++ = (length >> 24) & 0xFF;
     *p++ = (length >> 16) & 0xFF;
     *p++ = (length >>  8) & 0xFF;
     *p++ =  length        & 0xFF;
 }
 
-static inline void grpc_message_hd_unpack(const unsigned char* buf, grpc_message_hd* hd) {
-    // ntoh
+static inline void grpc_message_hd_unpack(grpc_message_hd* hd, const unsigned char* buf) {
     const unsigned char* p = buf;
+    // flags
     hd->flags = *p++;
-    hd->length  = *p++ << 24;
-    hd->length += *p++ << 16;
-    hd->length += *p++ << 8;
-    hd->length += *p++;
+    // ntoh length
+    hd->length  = ((unsigned int)*p++) << 24;
+    hd->length |= ((unsigned int)*p++) << 16;
+    hd->length |= ((unsigned int)*p++) << 8;
+    hd->length |= *p++;
 }
 
 // protobuf
@@ -79,43 +81,6 @@ typedef enum {
 #define PROTOBUF_MAKE_TAG(field_number, wire_type)  ((field_number) << 3 | (wire_type))
 #define PROTOBUF_FILED_NUMBER(tag)                  ((tag) >> 3)
 #define PROTOBUF_WIRE_TYPE(tag)                     ((tag) & 0x07)
-
-// varint little-endian
-// MSB
-static inline int varint_encode(long long value, unsigned char* buf) {
-    unsigned char ch;
-    unsigned char *p = buf;
-    int bytes = 0;
-    do {
-        ch = value & 0x7F;
-        value >>= 7;
-        *p++ = value == 0 ? ch : (ch | 0x80);
-        ++bytes;
-    } while (value);
-    return bytes;
-}
-
-// @param[IN|OUT] len: in=>buflen, out=>varint bytesize
-static inline long long varint_decode(const unsigned char* buf, int* len) {
-    long long ret = 0;
-    int bytes = 0;
-    int bits = 0;
-    const unsigned char *p = buf;
-    unsigned char ch;
-    do {
-        if (len && *len && bytes == *len) {
-            break;
-        }
-        ch = *p & 0x7F;
-        ret |= (ch << bits);
-        bits += 7;
-        ++bytes;
-        if (!(*p & 0x80)) break;
-        ++p;
-    } while(bytes < 10);
-    *len = bytes;
-    return ret;
-}
 
 #ifdef __cplusplus
 }

@@ -238,6 +238,10 @@ public:
         return content_type;
     }
 
+    void AddCookie(const HttpCookie& cookie) {
+        cookies.push_back(cookie);
+    }
+
     int String(const std::string& str) {
         content_type = TEXT_PLAIN;
         body = str;

@@ -38,14 +38,14 @@ hio_t*      sockio = NULL;
 
 int verbose = 0;
 
-void send_heartbeat(hio_t* io) {
+static void send_heartbeat(hio_t* io) {
     static char buf[] = "PING\r\n";
     // printf("send_heartbeat %s", buf);
     hio_write(io, buf, 6);
 }
 
-void on_recv(hio_t* io, void* buf, int readbytes) {
-    //printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
+static void on_recv(hio_t* io, void* buf, int readbytes) {
+    // printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     if (verbose) {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -69,9 +69,9 @@ void on_recv(hio_t* io, void* buf, int readbytes) {
     fflush(stdout);
 }
 
-void on_stdin(hio_t* io, void* buf, int readbytes) {
-    //printf("on_stdin fd=%d readbytes=%d\n", hio_fd(io), readbytes);
-    //printf("> %s\n", buf);
+static void on_stdin(hio_t* io, void* buf, int readbytes) {
+    // printf("on_stdin fd=%d readbytes=%d\n", hio_fd(io), readbytes);
+    // printf("> %s\n", buf);
 
     char* str = (char*)buf;
 
@@ -115,13 +115,13 @@ void on_stdin(hio_t* io, void* buf, int readbytes) {
     hio_write(sockio, buf, readbytes);
 }
 
-void on_close(hio_t* io) {
-    //printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
+static void on_close(hio_t* io) {
+    // printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
     hio_del(stdinio, HV_READ);
 }
 
-void on_connect(hio_t* io) {
-    //printf("on_connect fd=%d\n", hio_fd(io));
+static void on_connect(hio_t* io) {
+    // printf("on_connect fd=%d\n", hio_fd(io));
     if (verbose) {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};

@@ -362,7 +362,7 @@ int on_data_chunk_recv_callback(nghttp2_session *session,
         // grpc_message_hd
         if (len >= GRPC_MESSAGE_HDLEN) {
             grpc_message_hd msghd;
-            grpc_message_hd_unpack(data, &msghd);
+            grpc_message_hd_unpack(&msghd, data);
             printd("grpc_message_hd: flags=%d length=%d\n", msghd.flags, msghd.length);
             data += GRPC_MESSAGE_HDLEN;
             len -= GRPC_MESSAGE_HDLEN;

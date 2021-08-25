@@ -166,6 +166,10 @@ if(WITH_EVPP)
             set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} http/client)
         endif()
     endif()
+
+    if(CMAKE_SYSTEM_NAME MATCHES "Linux" AND CMAKE_COMPILER_IS_GNUCC)
+        set(LIBS ${LIBS} stdc++)
+    endif()
 endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
