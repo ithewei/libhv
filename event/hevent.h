@@ -107,7 +107,7 @@ struct hio_s {
     int         revents;
     struct sockaddr*    localaddr;
     struct sockaddr*    peeraddr;
-    hbuf_t              readbuf;        // for hread
+    offset_buf_t        readbuf;        // for hread
     struct write_queue  write_queue;    // for hwrite
     hrecursive_mutex_t  write_mutex;    // lock write and write_queue
     // callbacks
@@ -128,6 +128,8 @@ struct hio_s {
     htimer_t*   heartbeat_timer;
     // upstream
     struct hio_s*   upstream_io;
+    // unpack
+    unpack_setting_t*   unpack_setting;
 // private:
     int         event_index[2]; // for poll,kqueue
     void*       hovlp;          // for iocp/overlapio

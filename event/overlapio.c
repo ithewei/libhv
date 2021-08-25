@@ -47,9 +47,6 @@ int post_recv(hio_t* io, hoverlapped_t* hovlp) {
     hovlp->fd = io->fd;
     hovlp->event = HV_READ;
     hovlp->io = io;
-    if (io->readbuf.base == NULL || io->readbuf.len == 0) {
-        hio_set_readbuf(io, io->loop->readbuf.base, io->loop->readbuf.len);
-    }
     hovlp->buf.len = io->readbuf.len;
     if (io->io_type == HIO_TYPE_UDP || io->io_type == HIO_TYPE_IP) {
         HV_ALLOC(hovlp->buf.buf, hovlp->buf.len);

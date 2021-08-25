@@ -24,6 +24,7 @@
 - 跨平台（Linux, Windows, MacOS, Solaris）
 - 高性能事件循环（网络IO事件、定时器事件、空闲事件、自定义事件）
 - TCP/UDP服务端/客户端/代理
+- TCP支持心跳、转发、拆包、多线程安全write和close等特性
 - SSL/TLS加密通信（可选WITH_OPENSSL、WITH_GNUTLS、WITH_MBEDTLS）
 - HTTP服务端/客户端（支持https http1/x http2 grpc）
 - HTTP支持静态文件服务、目录服务、同步/异步API处理函数

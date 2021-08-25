@@ -48,6 +48,7 @@ public:
         tls = false;
         connect_timeout = 5000;
         enable_reconnect = false;
+        enable_unpack = false;
     }
 
     virtual ~TcpClientTmpl() {
@@ -91,6 +92,9 @@ public:
             channel->setConnectTimeout(connect_timeout);
         }
         channel->onconnect = [this]() {
+            if (enable_unpack) {
+                channel->setUnpack(&unpack_setting);
+            }
             channel->startRead();
             if (onConnection) {
                 onConnection(channel);
@@ -171,8 +175,21 @@ public:
     }
 
     void setReconnect(ReconnectInfo* info) {
-        enable_reconnect = true;
-        reconnect_info = *info;
+        if (info) {
+            enable_reconnect = true;
+            reconnect_info = *info;
+        } else {
+            enable_reconnect = false;
+        }
+    }
+
+    void setUnpack(unpack_setting_t* setting) {
+        if (setting) {
+            enable_unpack = true;
+            unpack_setting = *setting;
+        } else {
+            enable_unpack = false;
+        }
     }
 
 public:
@@ -183,6 +200,8 @@ public:
     int                     connect_timeout;
     bool                    enable_reconnect;
     ReconnectInfo           reconnect_info;
+    bool                    enable_unpack;
+    unpack_setting_t        unpack_setting;
 
     // Callback
     std::function<void(const TSocketChannelPtr&)>           onConnection;

@@ -5,6 +5,7 @@
 #include "hssl.h"
 #include "hlog.h"
 #include "hthread.h"
+#include "unpack.h"
 
 static void __connect_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
@@ -69,6 +70,11 @@ static void __read_cb(hio_t* io, void* buf, int readbytes) {
     // printd("> %.*s\n", readbytes, buf);
     if (io->keepalive_timer) {
         htimer_reset(io->keepalive_timer);
+    }
+
+    if (io->unpack_setting) {
+        hio_unpack(io, buf, readbytes);
+        return;
     }
 
     if (io->read_cb) {
@@ -174,6 +180,9 @@ accept:
     // NOTE: inherit from listenio
     connio->accept_cb = io->accept_cb;
     connio->userdata = io->userdata;
+    if (io->unpack_setting) {
+        hio_set_unpack(connio, io->unpack_setting);
+    }
 
     if (io->io_type == HIO_TYPE_SSL) {
         if (connio->ssl == NULL) {
@@ -298,11 +307,8 @@ static void nio_read(hio_t* io) {
     void* buf;
     int len, nread;
 read:
-    if (io->readbuf.base == NULL || io->readbuf.len == 0) {
-        hio_set_readbuf(io, io->loop->readbuf.base, io->loop->readbuf.len);
-    }
-    buf = io->readbuf.base;
-    len = io->readbuf.len;
+    buf = io->readbuf.base + io->readbuf.offset;
+    len = io->readbuf.len - io->readbuf.offset;
     nread = __nio_read(io, buf, len);
     // printd("read retval=%d\n", nread);
     if (nread < 0) {

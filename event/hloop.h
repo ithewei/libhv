@@ -237,7 +237,7 @@ HV_EXPORT int  hio_enable_ssl(hio_t* io);
 HV_EXPORT bool hio_is_ssl(hio_t* io);
 HV_EXPORT hssl_t hio_get_ssl(hio_t* io);
 HV_EXPORT int  hio_set_ssl(hio_t* io, hssl_t ssl);
-// TODO: One loop per thread, one readbuf per loop.
+// NOTE: One loop per thread, one readbuf per loop.
 // But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
 HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
 // connect timeout => hclose_cb
@@ -356,6 +356,86 @@ HV_EXPORT hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, i
 // @return upstream_io
 // @see examples/udp_proxy_server
 HV_EXPORT hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port);
+
+//-----------------unpack---------------------------------------------
+typedef enum {
+    UNPACK_BY_FIXED_LENGTH  = 1,    // Not recommended
+    UNPACK_BY_DELIMITER     = 2,
+    UNPACK_BY_LENGTH_FIELD  = 3,    // Recommended
+} unpack_mode_e;
+
+#define DEFAULT_PACKAGE_MAX_LENGTH  (1 << 21)   // 2M
+
+// UNPACK_BY_DELIMITER
+#define PACKAGE_MAX_DELIMITER_BYTES 8
+
+// UNPACK_BY_LENGTH_FIELD
+typedef enum {
+    ENCODE_BY_VARINT        = 1,
+    ENCODE_BY_LITTEL_ENDIAN = LITTLE_ENDIAN,    // 1234
+    ENCODE_BY_BIG_ENDIAN    = BIG_ENDIAN,       // 4321
+} unpack_coding_e;
+
+typedef struct unpack_setting_s {
+    unpack_mode_e   mode;
+    unsigned int    package_max_length;
+    // UNPACK_BY_FIXED_LENGTH
+    unsigned int    fixed_length;
+    // UNPACK_BY_DELIMITER
+    unsigned char   delimiter[PACKAGE_MAX_DELIMITER_BYTES];
+    unsigned short  delimiter_bytes;
+    // UNPACK_BY_LENGTH_FIELD
+    unsigned short  body_offset; // real_body_offset = body_offset + varint_bytes - length_field_bytes
+    unsigned short  length_field_offset;
+    unsigned short  length_field_bytes;
+    unpack_coding_e length_field_coding;
+#ifdef __cplusplus
+    unpack_setting_s() {
+        // Recommended setting:
+        // head = flags:1byte + length:4bytes = 5bytes
+        mode = UNPACK_BY_LENGTH_FIELD;
+        package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
+        fixed_length = 0;
+        delimiter_bytes = 0;
+        body_offset = 5;
+        length_field_offset = 1;
+        length_field_bytes = 4;
+        length_field_coding = ENCODE_BY_BIG_ENDIAN;
+    }
+#endif
+} unpack_setting_t;
+
+HV_EXPORT void hio_set_unpack(hio_t* io, unpack_setting_t* setting);
+HV_EXPORT void hio_unset_unpack(hio_t* io);
+
+// unpack examples
+/*
+unpack_setting_t ftp_unpack_setting;
+memset(&ftp_unpack_setting, 0, sizeof(unpack_setting_t));
+ftp_unpack_setting.package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
+ftp_unpack_setting.mode = UNPACK_BY_DELIMITER;
+ftp_unpack_setting.delimiter[0] = '\r';
+ftp_unpack_setting.delimiter[1] = '\n';
+ftp_unpack_setting.delimiter_bytes = 2;
+
+unpack_setting_t mqtt_unpack_setting = {
+    .mode = UNPACK_BY_LENGTH_FIELD,
+    .package_max_length = DEFAULT_PACKAGE_MAX_LENGTH,
+    .body_offset = 2,
+    .length_field_offset = 1,
+    .length_field_bytes = 1,
+    .length_field_coding = ENCODE_BY_VARINT,
+};
+
+unpack_setting_t grpc_unpack_setting = {
+    .mode = UNPACK_BY_LENGTH_FIELD,
+    .package_max_length = DEFAULT_PACKAGE_MAX_LENGTH,
+    .body_offset = 5,
+    .length_field_offset = 1,
+    .length_field_bytes = 4,
+    .length_field_coding = ENCODE_BY_BIG_ENDIAN,
+};
+*/
 
 END_EXTERN_C
 

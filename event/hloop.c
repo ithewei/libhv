@@ -509,7 +509,7 @@ htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t rep
     timer->repeat = repeat;
     timer->timeout = timeout;
     hloop_update_time(loop);
-    timer->next_timeout = hloop_now_hrtime(loop) + timeout*1000;
+    timer->next_timeout = hloop_now_hrtime(loop) + (uint64_t)timeout*1000;
     heap_insert(&loop->timers, &timer->node);
     EVENT_ADD(loop, timer, cb);
     loop->ntimers++;
@@ -530,7 +530,7 @@ void htimer_reset(htimer_t* timer) {
     if (timer->repeat == 0) {
         timer->repeat = 1;
     }
-    timer->next_timeout = hloop_now_hrtime(loop) + timeout->timeout*1000;
+    timer->next_timeout = hloop_now_hrtime(loop) + (uint64_t)timeout->timeout*1000;
     heap_insert(&loop->timers, &timer->node);
     EVENT_RESET(timer);
 }
@@ -671,6 +671,10 @@ void hio_ready(hio_t* io) {
     io->io_type = HIO_TYPE_UNKNOWN;
     io->error = 0;
     io->events = io->revents = 0;
+    // readbuf
+    io->readbuf.base = io->loop->readbuf.base;
+    io->readbuf.len = io->loop->readbuf.len;
+    io->readbuf.offset = 0;
     // callbacks
     io->read_cb = NULL;
     io->write_cb = NULL;
@@ -689,6 +693,8 @@ void hio_ready(hio_t* io) {
     io->heartbeat_timer = NULL;
     // upstream
     io->upstream_io = NULL;
+    // unpack
+    io->unpack_setting = NULL;
     // private:
     io->event_index[0] = io->event_index[1] = -1;
     io->hovlp = NULL;
@@ -707,6 +713,10 @@ void hio_done(hio_t* io) {
 
     hio_del(io, HV_RDWR);
 
+    // readbuf
+    hio_unset_unpack(io);
+
+    // write_queue
     offset_buf_t* pbuf = NULL;
     hrecursive_mutex_lock(&io->write_mutex);
     while (!write_queue_empty(&io->write_queue)) {
@@ -831,8 +841,10 @@ int hio_close_async(hio_t* io) {
 hio_t* hread(hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
     hio_t* io = hio_get(loop, fd);
     assert(io != NULL);
-    io->readbuf.base = (char*)buf;
-    io->readbuf.len = len;
+    if (buf && len) {
+        io->readbuf.base = (char*)buf;
+        io->readbuf.len = len;
+    }
     if (read_cb) {
         io->read_cb = read_cb;
     }

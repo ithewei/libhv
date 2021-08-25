@@ -131,18 +131,10 @@ int hio_set_ssl(hio_t* io, hssl_t ssl) {
 }
 
 void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
-    if (buf == NULL || len == 0) {
-        hloop_t* loop = io->loop;
-        if (loop && (loop->readbuf.base == NULL || loop->readbuf.len == 0)) {
-            loop->readbuf.len = HLOOP_READ_BUFSIZE;
-            HV_ALLOC(loop->readbuf.base, loop->readbuf.len);
-            io->readbuf = loop->readbuf;
-        }
-    }
-    else {
-        io->readbuf.base = (char*)buf;
-        io->readbuf.len = len;
-    }
+    assert(io && buf && len != 0);
+    io->readbuf.base = (char*)buf;
+    io->readbuf.len = len;
+    io->readbuf.offset = 0;
 }
 
 void hio_del_connect_timer(hio_t* io) {
@@ -243,4 +235,52 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
     }
     io->heartbeat_interval = interval_ms;
     io->heartbeat_fn = fn;
+}
+
+void hio_unset_unpack(hio_t* io) {
+    if (io->unpack_setting) {
+        // NOTE: unpack has own readbuf
+        if (io->readbuf.base && io->readbuf.len &&
+            io->readbuf.base != io->loop->readbuf.base) {
+            HV_FREE(io->readbuf.base);
+            // reset to loop->readbuf
+            io->readbuf.base = io->loop->readbuf.base;
+            io->readbuf.len = io->loop->readbuf.len;
+        }
+        io->unpack_setting = NULL;
+    }
+}
+
+void hio_set_unpack(hio_t* io, unpack_setting_t* setting) {
+    hio_unset_unpack(io);
+    if (setting == NULL) return;
+
+    io->unpack_setting = setting;
+    if (io->unpack_setting->package_max_length == 0) {
+        io->unpack_setting->package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
+    }
+    if (io->unpack_setting->mode == UNPACK_BY_FIXED_LENGTH) {
+        assert(io->unpack_setting->fixed_length != 0 &&
+               io->unpack_setting->fixed_length <= io->unpack_setting->package_max_length);
+    }
+    else if (io->unpack_setting->mode == UNPACK_BY_DELIMITER) {
+        if (io->unpack_setting->delimiter_bytes == 0) {
+            io->unpack_setting->delimiter_bytes = strlen((char*)io->unpack_setting->delimiter);
+        }
+    }
+    else if (io->unpack_setting->mode == UNPACK_BY_LENGTH_FIELD) {
+        assert(io->unpack_setting->body_offset >=
+               io->unpack_setting->length_field_offset +
+               io->unpack_setting->length_field_bytes);
+    }
+
+    // NOTE: unpack must have own readbuf
+    if (io->unpack_setting->mode == UNPACK_BY_FIXED_LENGTH) {
+        io->readbuf.len = io->unpack_setting->fixed_length;
+    } else {
+        io->readbuf.len = 2;
+    }
+    assert(io->readbuf.len > 0);
+    // NOTE: free in hio_unset_unpack
+    HV_ALLOC(io->readbuf.base, io->readbuf.len);
 }

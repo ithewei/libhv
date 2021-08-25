@@ -16,6 +16,7 @@ public:
     TcpServer() {
         listenfd = -1;
         tls = false;
+        enable_unpack = false;
         max_connections = 0xFFFFFFFF;
     }
 
@@ -118,6 +119,9 @@ private:
             // so in this lambda function, no code should be added below.
         };
 
+        if (server->enable_unpack) {
+            channel->setUnpack(&server->unpack_setting);
+        }
         channel->startRead();
         if (server->onConnection) {
             server->onConnection(channel);
@@ -127,6 +131,8 @@ private:
 public:
     int                     listenfd;
     bool                    tls;
+    bool                    enable_unpack;
+    unpack_setting_t        unpack_setting;
     // Callback
     ConnectionCallback      onConnection;
     MessageCallback         onMessage;

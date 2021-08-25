@@ -190,6 +190,11 @@ public:
         hio_set_heartbeat(io_, interval_ms, send_heartbeat);
     }
 
+    void setUnpack(unpack_setting_t* setting) {
+        if (io_ == NULL) return;
+        hio_set_unpack(io_, setting);
+    }
+
     int startConnect(int port, const char* host = "127.0.0.1") {
         sockaddr_u peeraddr;
         memset(&peeraddr, 0, sizeof(peeraddr));
