@@ -69,6 +69,15 @@ public:
         return 0;
     }
 
+    void setUnpack(unpack_setting_t* setting) {
+        if (setting) {
+            enable_unpack = true;
+            unpack_setting = *setting;
+        } else {
+            enable_unpack = false;
+        }
+    }
+
     // channel
     const SocketChannelPtr& addChannel(hio_t* io) {
         std::lock_guard<std::mutex> locker(mutex_);
