@@ -133,6 +133,22 @@ jsonrpc_server: prepare
 	$(RM) examples/jsonrpc/*.o
 	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/jsonrpc/jsonrpc_server.c examples/jsonrpc/jsonrpc.c examples/jsonrpc/cJSON.c"
 
+protorpc: protorpc_client protorpc_server
+
+protorpc_protoc:
+	bash examples/protorpc/proto/protoc.sh
+
+protorpc_client: prepare protorpc_protoc
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event cpputil evpp examples/protorpc/generated" \
+		SRCS="examples/protorpc/protorpc_client.cpp examples/protorpc/protorpc.c" \
+		LIBS="protobuf"
+
+protorpc_server: prepare protorpc_protoc
+	$(RM) examples/protorpc/*.o
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event cpputil evpp examples/protorpc/generated" \
+		SRCS="examples/protorpc/protorpc_server.cpp examples/protorpc/protorpc.c" \
+		LIBS="protobuf"
+
 unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rmdir_p           unittest/rmdir_test.c         base/hbase.c

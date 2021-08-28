@@ -40,6 +40,9 @@ tags
 cscope*
 .ycm*
 
+# generated
+examples/protorpc/generated
+
 # output
 *.pid
 *.log

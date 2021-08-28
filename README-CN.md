@@ -251,6 +251,7 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - HTTP客户端: [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+- protobufRPC示例: [examples/protorpc](examples/protorpc)
 
 ### 模拟实现著名的命令行工具
 - 网络连接工具: [examples/nc](examples/nc.c)

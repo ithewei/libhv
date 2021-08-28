@@ -248,6 +248,7 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+- [examples/protorpc](examples/protorpc)
 
 ### simulate well-known command line tools
 - [examples/nc](examples/nc.c)
