@@ -53,10 +53,8 @@ int main(int argc, char** argv) {
         return 200;
     });
 
-    router.POST("/echo", [](HttpRequest* req, HttpResponse* resp) {
-        resp->content_type = req->content_type;
-        resp->body = req->body;
-        return 200;
+    router.POST("/echo", [](const HttpContextPtr& ctx) {
+        return ctx->send(ctx->body(), ctx->type());
     });
 
     http_server_t server;

@@ -70,7 +70,7 @@ struct HV_EXPORT HttpContext {
     }
 
     std::string& body() {
-        return response->body;
+        return request->body;
     }
 
 #ifndef WITHOUT_HTTP_CONTENT
