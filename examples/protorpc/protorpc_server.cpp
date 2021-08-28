@@ -7,10 +7,6 @@
  *
  */
 
-#include "hloop.h"
-#include "hbase.h"
-#include "hsocket.h"
-
 #include "TcpServer.h"
 
 using namespace hv;
