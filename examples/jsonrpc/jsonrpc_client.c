@@ -8,6 +8,7 @@
  */
 
 #include "hloop.h"
+#include "hatomic.h"
 #include "hbase.h"
 #include "hsocket.h"
 
@@ -19,18 +20,15 @@
 static int verbose = 0;
 static unpack_setting_t jsonrpc_unpack_setting;
 
-typedef struct  {
-    char method[64];
-    char params[2][64];
-} jsonrpc_call_data;
-
 static void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
-    void* userdata = hevent_userdata(io);
-    if (userdata) {
-        HV_FREE(userdata);
+    cJSON* jreq = (cJSON*)(hevent_userdata(io));
+    if (jreq) {
+        cJSON_Delete(jreq);
         hevent_set_userdata(io, NULL);
     }
+
+    hloop_stop(hevent_loop(io));
 }
 
 static void on_recv(hio_t* io, void* readbuf, int readbytes) {
@@ -60,7 +58,8 @@ static void on_recv(hio_t* io, void* readbuf, int readbytes) {
     cJSON* jresult = cJSON_GetObjectItem(jres, "result");
     // ...
     cJSON_Delete(jres);
-    hloop_stop(hevent_loop(io));
+
+    hio_close(io);
 }
 
 static void on_connect(hio_t* io) {
@@ -77,17 +76,11 @@ static void on_connect(hio_t* io) {
     hio_set_unpack(io, &jsonrpc_unpack_setting);
     hio_read(io);
 
-    jsonrpc_call_data* rpc_data = (jsonrpc_call_data*)hevent_userdata(io);
-    assert(rpc_data != NULL);
+    cJSON* jreq = (cJSON*)(hevent_userdata(io));
+    hevent_set_userdata(io, NULL);
+    assert(jreq != NULL);
 
     // cJSON_Print -> pack -> hio_write
-    cJSON* jreq = cJSON_CreateObject();
-    cJSON_AddItemToObject(jreq, "method", cJSON_CreateString(rpc_data->method));
-    cJSON* jparams = cJSON_CreateArray();
-    cJSON_AddItemToArray(jparams, cJSON_CreateNumber(atoi(rpc_data->params[0])));
-    cJSON_AddItemToArray(jparams, cJSON_CreateNumber(atoi(rpc_data->params[1])));
-    cJSON_AddItemToObject(jreq, "params", jparams);
-
     jsonrpc_message msg;
     memset(&msg, 0, sizeof(msg));
     msg.body = cJSON_PrintUnformatted(jreq);
@@ -106,8 +99,6 @@ static void on_connect(hio_t* io) {
     cJSON_Delete(jreq);
     cJSON_free((void*)msg.body);
     HV_FREE(writebuf);
-    HV_FREE(rpc_data);
-    hevent_set_userdata(io, NULL);
 }
 
 static int jsonrpc_call(hloop_t* loop, const char* host, int port, const char* method, const char* param1, const char* param2) {
@@ -117,12 +108,16 @@ static int jsonrpc_call(hloop_t* loop, const char* host, int port, const char* m
     }
     // printf("connfd=%d\n", hio_fd(connio));
 
-    jsonrpc_call_data* rpc_data = NULL;
-    HV_ALLOC_SIZEOF(rpc_data);
-    strcpy(rpc_data->method, method);
-    strcpy(rpc_data->params[0], param1);
-    strcpy(rpc_data->params[1], param2);
-    hevent_set_userdata(connio, rpc_data);
+    // construct request
+    cJSON* jreq = cJSON_CreateObject();
+    static hatomic_t s_id = HATOMIC_VAR_INIT(0);
+    cJSON_AddItemToObject(jreq, "id", cJSON_CreateNumber(++s_id));
+    cJSON_AddItemToObject(jreq, "method", cJSON_CreateString(method));
+    cJSON* jparams = cJSON_CreateArray();
+    cJSON_AddItemToArray(jparams, cJSON_CreateNumber(atoi(param1)));
+    cJSON_AddItemToArray(jparams, cJSON_CreateNumber(atoi(param2)));
+    cJSON_AddItemToObject(jreq, "params", jparams);
+    hevent_set_userdata(connio, jreq);
 
     hio_setcb_connect(connio, on_connect);
     hio_setcb_close(connio, on_close);

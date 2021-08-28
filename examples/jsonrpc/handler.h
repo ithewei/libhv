@@ -18,7 +18,7 @@ void bad_request(cJSON* jreq, cJSON* jres) {
     error_response(jres, 400, "Bad Request");
 }
 
-void do_add(cJSON* jreq, cJSON* jres) {
+void calc_add(cJSON* jreq, cJSON* jres) {
     cJSON* jparams = cJSON_GetObjectItem(jreq, "params");
     if (cJSON_GetArraySize(jparams) != 2) {
         return bad_request(jreq, jres);
@@ -31,7 +31,7 @@ void do_add(cJSON* jreq, cJSON* jres) {
     cJSON_AddItemToObject(jres, "result", cJSON_CreateNumber(result));
 }
 
-void do_sub(cJSON* jreq, cJSON* jres) {
+void calc_sub(cJSON* jreq, cJSON* jres) {
     cJSON* jparams = cJSON_GetObjectItem(jreq, "params");
     if (cJSON_GetArraySize(jparams) != 2) {
         return bad_request(jreq, jres);
@@ -44,7 +44,7 @@ void do_sub(cJSON* jreq, cJSON* jres) {
     cJSON_AddItemToObject(jres, "result", cJSON_CreateNumber(result));
 }
 
-void do_mul(cJSON* jreq, cJSON* jres) {
+void calc_mul(cJSON* jreq, cJSON* jres) {
     cJSON* jparams = cJSON_GetObjectItem(jreq, "params");
     if (cJSON_GetArraySize(jparams) != 2) {
         return bad_request(jreq, jres);
@@ -57,7 +57,7 @@ void do_mul(cJSON* jreq, cJSON* jres) {
     cJSON_AddItemToObject(jres, "result", cJSON_CreateNumber(result));
 }
 
-void do_div(cJSON* jreq, cJSON* jres) {
+void calc_div(cJSON* jreq, cJSON* jres) {
     cJSON* jparams = cJSON_GetObjectItem(jreq, "params");
     if (cJSON_GetArraySize(jparams) != 2) {
         return bad_request(jreq, jres);

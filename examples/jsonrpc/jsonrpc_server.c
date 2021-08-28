@@ -22,10 +22,10 @@ static int verbose = 0;
 static unpack_setting_t jsonrpc_unpack_setting;
 
 jsonrpc_router router[] = {
-    {"add", do_add},
-    {"sub", do_sub},
-    {"mul", do_mul},
-    {"div", do_div},
+    {"add", calc_add},
+    {"sub", calc_sub},
+    {"mul", calc_mul},
+    {"div", calc_div},
 };
 #define JSONRPC_ROUTER_NUM  (sizeof(router)/sizeof(router[0]))
 
@@ -58,10 +58,13 @@ static void on_recv(hio_t* io, void* readbuf, int readbytes) {
     printf("> %.*s\n", msg.head.length, msg.body);
     cJSON* jreq = cJSON_ParseWithLength(msg.body, msg.head.length);
     cJSON* jres = cJSON_CreateObject();
+    cJSON* jid = cJSON_GetObjectItem(jreq, "id");
     cJSON* jmethod = cJSON_GetObjectItem(jreq, "method");
-    if (!jmethod || !cJSON_IsString(jmethod)) {
-        bad_request(jreq, jres);
-    } else {
+    if (cJSON_IsNumber(jid)) {
+        long id = cJSON_GetNumberValue(jid);
+        cJSON_AddItemToObject(jres, "id", cJSON_CreateNumber(id));
+    }
+    if (cJSON_IsString(jmethod)) {
         // router
         char* method = cJSON_GetStringValue(jmethod);
         bool found = false;
@@ -75,6 +78,8 @@ static void on_recv(hio_t* io, void* readbuf, int readbytes) {
         if (!found) {
             not_found(jreq, jres);
         }
+    } else {
+        bad_request(jreq, jres);
     }
 
     // cJSON_Print
