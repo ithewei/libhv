@@ -78,7 +78,11 @@ int on_body(http_parser* parser, const char *at, size_t length) {
     // printd("on_body:%.*s\n", (int)length, at);
     Http1Parser* hp = (Http1Parser*)parser->data;
     hp->state = HP_BODY;
-    hp->parsed->body.append(at, length);
+    if (hp->parsed->body_cb) {
+        hp->parsed->body_cb(at, length);
+    } else {
+        hp->parsed->body.append(at, length);
+    }
     return 0;
 }
 
@@ -139,7 +143,6 @@ int on_chunk_header(http_parser* parser) {
     printd("on_chunk_header:%llu\n", parser->content_length);
     Http1Parser* hp = (Http1Parser*)parser->data;
     hp->state = HP_CHUNK_HEADER;
-    hp->parsed->body.clear();
     int chunk_size = parser->content_length;
     int reserve_size = MIN(chunk_size + 1, MAX_CONTENT_LENGTH);
     if (reserve_size > hp->parsed->body.capacity()) {
@@ -154,6 +157,7 @@ int on_chunk_complete(http_parser* parser) {
     hp->state = HP_CHUNK_COMPLETE;
     if (hp->parsed->chunked_cb) {
         hp->parsed->chunked_cb(hp->parsed->body.c_str(), hp->parsed->body.size());
+        hp->parsed->body.clear();
     }
     return 0;
 }

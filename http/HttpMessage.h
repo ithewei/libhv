@@ -71,7 +71,8 @@ struct HV_EXPORT HttpCookie {
 typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
 typedef std::vector<HttpCookie>                             http_cookies;
 typedef std::string                                         http_body;
-typedef std::function<void(const char* data, size_t size)>  http_chuncked_cb;
+typedef std::function<void(const char* data, size_t size)>  http_body_cb;
+typedef std::function<void(const char* data, size_t size)>  http_chunked_cb;
 
 class HV_EXPORT HttpMessage {
 public:
@@ -83,7 +84,8 @@ public:
     http_headers        headers;
     http_cookies        cookies;
     http_body           body;
-    http_chuncked_cb    chunked_cb;
+    http_body_cb        body_cb;
+    http_chunked_cb     chunked_cb; // Transfer-Encoding: chunked
 
     // structured content
     void*               content;    // DATA_NO_COPY
@@ -179,7 +181,6 @@ public:
         content = NULL;
         content_length = 0;
         content_type = CONTENT_TYPE_NONE;
-        chunked_cb = NULL;
     }
 
     virtual void Reset() {
