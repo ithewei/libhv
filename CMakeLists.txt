@@ -179,7 +179,10 @@ if(BUILD_SHARED)
     target_compile_definitions(hv PRIVATE HV_DYNAMICLIB)
     target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS})
     target_link_libraries(hv ${LIBS})
-    install(TARGETS hv DESTINATION lib)
+    install(TARGETS hv
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin)
     add_custom_target(libhv DEPENDS hv)
 endif()
 

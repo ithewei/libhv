@@ -80,15 +80,16 @@ public:
 
     // channel
     const SocketChannelPtr& addChannel(hio_t* io) {
-        std::lock_guard<std::mutex> locker(mutex_);
         int fd = hio_fd(io);
-        channels[fd] = SocketChannelPtr(new SocketChannel(io));
+        auto channel = SocketChannelPtr(new SocketChannel(io));
+        std::lock_guard<std::mutex> locker(mutex_);
+        channels[fd] = channel;
         return channels[fd];
     }
 
     void removeChannel(const SocketChannelPtr& channel) {
-        std::lock_guard<std::mutex> locker(mutex_);
         int fd = channel->fd();
+        std::lock_guard<std::mutex> locker(mutex_);
         channels.erase(fd);
     }
 
