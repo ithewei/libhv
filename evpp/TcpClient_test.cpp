@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
                     char str[DATETIME_FMT_BUFLEN] = {0};
                     datetime_t dt = datetime_now();
                     datetime_fmt(&dt, str);
-                    channel->send(str);
+                    channel->write(str);
                 } else {
                     killTimer(timerID);
                 }

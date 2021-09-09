@@ -237,10 +237,6 @@ public:
         return SOCKADDR_STR(addr, buf);
     }
 
-    int send(const std::string& str) {
-        return write(str);
-    }
-
 private:
     static void on_connect(hio_t* io) {
         SocketChannel* channel = (SocketChannel*)hio_context(io);

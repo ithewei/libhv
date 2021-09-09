@@ -66,8 +66,9 @@ int main(int argc, char** argv) {
     memset(&param, 0, sizeof(param));
     param.crt_file = "cert/server.crt";
     param.key_file = "cert/server.key";
+    param.endpoint = HSSL_SERVER;
     if (hssl_ctx_init(&param) == NULL) {
-        fprintf(stderr, "SSL certificate verify failed!\n");
+        fprintf(stderr, "hssl_ctx_init failed!\n");
         return -20;
     }
 #endif

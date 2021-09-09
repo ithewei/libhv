@@ -158,19 +158,20 @@ static void ssl_client_handshake(hio_t* io) {
 
 static void nio_accept(hio_t* io) {
     // printd("nio_accept listenfd=%d\n", io->fd);
+    int connfd = 0, err = 0;
     socklen_t addrlen;
 accept:
     addrlen = sizeof(sockaddr_u);
-    int connfd = accept(io->fd, io->peeraddr, &addrlen);
+    connfd = accept(io->fd, io->peeraddr, &addrlen);
     hio_t* connio = NULL;
     if (connfd < 0) {
-        if (socket_errno() == EAGAIN) {
+        err = socket_errno();
+        if (err == EAGAIN) {
             //goto accept_done;
             return;
-        }
-        else {
-            io->error = socket_errno();
+        } else {
             perror("accept");
+            io->error = err;
             goto accept_error;
         }
     }
@@ -216,7 +217,7 @@ static void nio_connect(hio_t* io) {
     int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
         io->error = socket_errno();
-        printd("connect failed: %s: %d\n", strerror(socket_errno()), socket_errno());
+        printd("connect failed: %s: %d\n", strerror(io->error), io->error);
         goto connect_failed;
     }
     else {
@@ -305,20 +306,23 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
 static void nio_read(hio_t* io) {
     // printd("nio_read fd=%d\n", io->fd);
     void* buf;
-    int len, nread;
+    int len = 0, nread = 0, err = 0;
 read:
     buf = io->readbuf.base + io->readbuf.offset;
     len = io->readbuf.len - io->readbuf.offset;
     nread = __nio_read(io, buf, len);
     // printd("read retval=%d\n", nread);
     if (nread < 0) {
-        if (socket_errno() == EAGAIN) {
-            //goto read_done;
+        err = socket_errno();
+        if (err == EAGAIN) {
+            // goto read_done;
             return;
-        }
-        else {
-            io->error = socket_errno();
+        } else if (err == EMSGSIZE) {
+            // ignore
+            return;
+        } else {
             // perror("read");
+            io->error = err;
             goto read_error;
         }
     }
@@ -337,7 +341,7 @@ disconnect:
 
 static void nio_write(hio_t* io) {
     // printd("nio_write fd=%d\n", io->fd);
-    int nwrite = 0;
+    int nwrite = 0, err = 0;
     hrecursive_mutex_lock(&io->write_mutex);
 write:
     if (write_queue_empty(&io->write_queue)) {
@@ -354,14 +358,14 @@ write:
     nwrite = __nio_write(io, buf, len);
     // printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
-        if (socket_errno() == EAGAIN) {
+        err = socket_errno();
+        if (err == EAGAIN) {
             //goto write_done;
             hrecursive_mutex_unlock(&io->write_mutex);
             return;
-        }
-        else {
-            io->error = socket_errno();
+        } else {
             // perror("write");
+            io->error = err;
             goto write_error;
         }
     }
@@ -469,21 +473,21 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
         hloge("hio_write called but fd[%d] already closed!", io->fd);
         return -1;
     }
-    int nwrite = 0;
+    int nwrite = 0, err = 0;
     hrecursive_mutex_lock(&io->write_mutex);
     if (write_queue_empty(&io->write_queue)) {
 try_write:
         nwrite = __nio_write(io, buf, len);
         // printd("write retval=%d\n", nwrite);
         if (nwrite < 0) {
-            if (socket_errno() == EAGAIN) {
+            err = socket_errno();
+            if (err == EAGAIN) {
                 nwrite = 0;
                 hlogw("try_write failed, enqueue!");
                 goto enqueue;
-            }
-            else {
+            } else {
                 // perror("write");
-                io->error = socket_errno();
+                io->error = err;
                 goto write_error;
             }
         }

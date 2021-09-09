@@ -52,6 +52,11 @@ public:
         loop_thread.stop(wait_threads_stopped);
     }
 
+    int sendto(const void* data, int size) {
+        if (channel == NULL) return 0;
+        return channel->write(data, size);
+    }
+
     int sendto(Buffer* buf) {
         if (channel == NULL) return 0;
         return channel->write(buf);

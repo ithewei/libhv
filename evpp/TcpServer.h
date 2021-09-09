@@ -57,15 +57,18 @@ public:
     }
 
     int withTLS(const char* cert_file, const char* key_file) {
-        tls = true;
         if (cert_file) {
             hssl_ctx_init_param_t param;
             memset(&param, 0, sizeof(param));
             param.crt_file = cert_file;
             param.key_file = key_file;
             param.endpoint = HSSL_SERVER;
-            return hssl_ctx_init(&param) == NULL ? -1 : 0;
+            if (hssl_ctx_init(&param) == NULL) {
+                fprintf(stderr, "hssl_ctx_init failed!\n");
+                return -1;
+            }
         }
+        tls = true;
         return 0;
     }
 

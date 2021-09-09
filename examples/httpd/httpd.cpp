@@ -159,6 +159,7 @@ int parse_confile(const char* confile) {
         param.crt_file = crt_file.c_str();
         param.key_file = key_file.c_str();
         param.ca_file = ca_file.c_str();
+        param.endpoint = HSSL_SERVER;
         if (hssl_ctx_init(&param) == NULL) {
             hloge("SSL certificate verify failed!");
             exit(0);

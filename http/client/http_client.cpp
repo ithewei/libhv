@@ -364,7 +364,8 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
         // hssl_set_sni_hostname(cli->ssl, req->host.c_str());
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
-            fprintf(stderr, "SSL handshake failed: %d\n", ret);
+            fprintf(stderr, "ssl handshake failed: %d\n", ret);
+            hloge("ssl handshake failed: %d", ret);
             hssl_free(cli->ssl);
             cli->ssl = NULL;
             closesocket(connfd);

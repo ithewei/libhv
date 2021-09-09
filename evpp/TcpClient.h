@@ -157,16 +157,35 @@ public:
         loop_thread.stop(wait_threads_stopped);
     }
 
-    int withTLS(const char* cert_file = NULL, const char* key_file = NULL) {
-        tls = true;
+    int send(const void* data, int size) {
+        if (channel == NULL) return 0;
+        return channel->write(data, size);
+    }
+
+    int send(Buffer* buf) {
+        if (channel == NULL) return 0;
+        return channel->write(buf);
+    }
+
+    int send(const std::string& str) {
+        if (channel == NULL) return 0;
+        return channel->write(str);
+    }
+
+    int withTLS(const char* cert_file = NULL, const char* key_file = NULL, bool verify_peer = false) {
         if (cert_file) {
             hssl_ctx_init_param_t param;
             memset(&param, 0, sizeof(param));
             param.crt_file = cert_file;
             param.key_file = key_file;
+            param.verify_peer = verify_peer ? 1 : 0;
             param.endpoint = HSSL_CLIENT;
-            return hssl_ctx_init(&param) == NULL ? -1 : 0;
+            if (hssl_ctx_init(&param) == NULL) {
+                fprintf(stderr, "hssl_ctx_init failed!\n");
+                return -1;
+            }
         }
+        tls = true;
         return 0;
     }
 
