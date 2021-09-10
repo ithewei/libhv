@@ -27,7 +27,9 @@ HV_INLINE int socket_errno() {
 HV_EXPORT const char* socket_strerror(int err);
 
 #ifdef OS_WIN
+
 typedef int socklen_t;
+
 HV_INLINE int blocking(int sockfd) {
     unsigned long nb = 0;
     return ioctlsocket(sockfd, FIONBIO, &nb);
@@ -36,19 +38,32 @@ HV_INLINE int nonblocking(int sockfd) {
     unsigned long nb = 1;
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
+
+#ifndef poll
 #define poll        WSAPoll
+#endif
+
 #undef  EAGAIN
 #define EAGAIN      WSAEWOULDBLOCK
+
 #undef  EINPROGRESS
 #define EINPROGRESS WSAEINPROGRESS
+
 #undef  ENOTSOCK
 #define ENOTSOCK    WSAENOTSOCK
+
+#undef  EMSGSIZE
+#define EMSGSIZE    WSAEMSGSIZE
+
 #else
+
 #define blocking(s)     fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
 #define nonblocking(s)  fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK)
+
 typedef int         SOCKET;
 #define INVALID_SOCKET  -1
 #define closesocket close
+
 #endif
 
 //-----------------------------sockaddr_u----------------------------------------------
