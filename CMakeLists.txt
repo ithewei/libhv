@@ -197,6 +197,12 @@ endif()
 file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
 
+if(BUILD_SHARED)
+    set(HV_LIBRARIES hv CACHE INTERNAL "link hv libraries")
+else()
+    set(HV_LIBRARIES hv_static ${LIBS} CACHE INTERNAL "link hv libraries")
+endif()
+
 if(BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
