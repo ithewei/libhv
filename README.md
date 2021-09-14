@@ -233,6 +233,9 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
 - [examples/jsonrpc](examples/jsonrpc)
+- [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
+- [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
+- [examples/multi-thread/one-acceptor-multi-workers.c](examples/multi-thread/one-acceptor-multi-workers.c)
 
 ### c++ version
 - [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)

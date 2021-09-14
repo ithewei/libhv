@@ -43,6 +43,9 @@ examples: hmain_test htimer_test hloop_test \
 	tcp_proxy_server \
 	udp_echo_server \
 	udp_proxy_server \
+	multi-acceptor-processes \
+	multi-acceptor-threads \
+	one-acceptor-multi-workers \
 	http_server_test http_client_test \
 	websocket_server_test \
 	websocket_client_test \
@@ -91,6 +94,15 @@ udp_echo_server: prepare
 
 udp_proxy_server: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/udp_proxy_server.c"
+
+multi-acceptor-processes: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/multi-thread/multi-acceptor-processes.c"
+
+multi-acceptor-threads: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/multi-thread/multi-acceptor-threads.c"
+
+one-acceptor-multi-workers: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/multi-thread/one-acceptor-multi-workers.c"
 
 nc: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event" SRCS="examples/nc.c"

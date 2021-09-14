@@ -773,6 +773,29 @@ hio_t* hio_get(hloop_t* loop, int fd) {
     return io;
 }
 
+void hio_detach(hio_t* io) {
+    hloop_t* loop = io->loop;
+    int fd = io->fd;
+    assert(loop != NULL && fd < loop->ios.maxsize);
+    loop->ios.ptr[fd] = NULL;
+}
+
+void hio_attach(hloop_t* loop, hio_t* io) {
+    int fd = io->fd;
+    if (fd >= loop->ios.maxsize) {
+        int newsize = ceil2e(fd);
+        io_array_resize(&loop->ios, newsize > fd ? newsize : 2*fd);
+    }
+
+    if (loop->ios.ptr[fd] == NULL) {
+        io->loop = loop;
+        // NOTE: use new_loop readbuf
+        io->readbuf.base = loop->readbuf.base;
+        io->readbuf.len = loop->readbuf.len;
+        loop->ios.ptr[fd] = io;
+    }
+}
+
 int hio_add(hio_t* io, hio_cb cb, int events) {
     printd("hio_add fd=%d io->events=%d events=%d\n", io->fd, io->events, events);
 #ifdef OS_WIN

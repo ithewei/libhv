@@ -17,7 +17,7 @@
 [![awesome-c](https://badgen.net/badge/icon/awesome-c/pink?icon=awesome&label&color)](https://github.com/oz123/awesome-c)
 [![awesome-cpp](https://badgen.net/badge/icon/awesome-cpp/pink?icon=awesome&label&color)](https://github.com/fffaraz/awesome-cpp)
 
-`libhv`是一个类似于`libevent、libev、libuv`的跨平台网络库，提供了更简单的接口和更丰富的协议。
+`libhv`是一个类似于`libevent、libev、libuv`的跨平台网络库，提供了更易用的接口和更丰富的协议。
 
 ## ✨ 特征
 
@@ -236,6 +236,9 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
 - jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
+- 多accept进程模式: [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
+- 多accept线程模式: [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
+- 一个accept线程+多worker线程: [examples/multi-thread/one-acceptor-multi-workers.c](examples/multi-thread/one-acceptor-multi-workers.c)
 
 ### c++版本
 - 事件循环: [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)

@@ -203,6 +203,29 @@ HV_EXPORT hio_t* hio_get(hloop_t* loop, int fd);
 HV_EXPORT int    hio_add(hio_t* io, hio_cb cb, int events DEFAULT(HV_READ));
 HV_EXPORT int    hio_del(hio_t* io, int events DEFAULT(HV_RDWR));
 
+// NOTE: io detach from old loop and attach to new loop
+/* @see examples/multi-thread/one-acceptor-multi-workers.c
+void new_conn_event(hevent_t* ev) {
+    hloop_t* loop = ev->loop;
+    hio_t* io = (hio_t*)hevent_userdata(ev);
+    hio_attach(loop, io);
+}
+
+void on_accpet(hio_t* io) {
+    hio_detach(io);
+
+    hloop_t* worker_loop = get_one_loop();
+    hevent_t ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.loop = worker_loop;
+    ev.cb = new_conn_event;
+    ev.userdata = io;
+    hloop_post_event(worker_loop, &ev);
+}
+ */
+HV_EXPORT void hio_detach(/*hloop_t* loop,*/ hio_t* io);
+HV_EXPORT void hio_attach(hloop_t* loop, hio_t* io);
+
 // hio_t fields
 // NOTE: fd cannot be used as unique identifier, so we provide an id.
 HV_EXPORT uint32_t hio_id (hio_t* io);
