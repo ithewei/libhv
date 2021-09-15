@@ -510,6 +510,10 @@ htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t rep
     timer->timeout = timeout;
     hloop_update_time(loop);
     timer->next_timeout = hloop_now_hrtime(loop) + (uint64_t)timeout*1000;
+    // NOTE: Limit granularity to 100ms
+    if (timeout >= 1000 && timeout % 100 == 0) {
+        timer->next_timeout = timer->next_timeout / 100000 * 100000;
+    }
     heap_insert(&loop->timers, &timer->node);
     EVENT_ADD(loop, timer, cb);
     loop->ntimers++;
@@ -531,6 +535,10 @@ void htimer_reset(htimer_t* timer) {
         timer->repeat = 1;
     }
     timer->next_timeout = hloop_now_hrtime(loop) + (uint64_t)timeout->timeout*1000;
+    // NOTE: Limit granularity to 100ms
+    if (timeout->timeout >= 1000 && timeout->timeout % 100 == 0) {
+        timer->next_timeout = timer->next_timeout / 100000 * 100000;
+    }
     heap_insert(&loop->timers, &timer->node);
     EVENT_RESET(timer);
 }
