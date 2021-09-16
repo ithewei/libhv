@@ -104,6 +104,9 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
     if (poll_ctx->fds.size == 0)   return 0;
     int npoll = poll(poll_ctx->fds.ptr, poll_ctx->fds.size, timeout);
     if (npoll < 0) {
+        if (errno == EINTR) {
+            return 0;
+        }
         perror("poll");
         return npoll;
     }

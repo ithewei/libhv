@@ -106,6 +106,9 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
     if (epoll_ctx->events.size == 0) return 0;
     int nepoll = epoll_wait(epoll_ctx->epfd, epoll_ctx->events.ptr, epoll_ctx->events.size, timeout);
     if (nepoll < 0) {
+        if (errno == EINTR) {
+            return 0;
+        }
         perror("epoll");
         return nepoll;
     }

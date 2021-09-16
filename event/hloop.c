@@ -91,7 +91,7 @@ static int hloop_process_ios(hloop_t* loop, int timeout) {
     // That is to call IO multiplexing function such as select, poll, epoll, etc.
     int nevents = iowatcher_poll_events(loop, timeout);
     if (nevents < 0) {
-        hloge("poll_events error=%d", -nevents);
+        hlogd("poll_events error=%d", -nevents);
     }
     return nevents < 0 ? 0 : nevents;
 }
@@ -680,6 +680,7 @@ void hio_ready(hio_t* io) {
     io->error = 0;
     io->events = io->revents = 0;
     // readbuf
+    io->alloced_readbuf = 0;
     io->readbuf.base = io->loop->readbuf.base;
     io->readbuf.len = io->loop->readbuf.len;
     io->readbuf.offset = 0;
@@ -722,7 +723,7 @@ void hio_done(hio_t* io) {
     hio_del(io, HV_RDWR);
 
     // readbuf
-    hio_unset_unpack(io);
+    hio_free_readbuf(io);
 
     // write_queue
     offset_buf_t* pbuf = NULL;

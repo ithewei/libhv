@@ -98,6 +98,7 @@ struct hio_s {
     unsigned    recvfrom    :1;
     unsigned    sendto      :1;
     unsigned    close       :1;
+    unsigned    alloced_readbuf :1;
 // public:
     uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
     int         fd;
@@ -154,6 +155,10 @@ void hio_del_connect_timer(hio_t* io);
 void hio_del_close_timer(hio_t* io);
 void hio_del_keepalive_timer(hio_t* io);
 void hio_del_heartbeat_timer(hio_t* io);
+
+bool hio_is_alloced_readbuf(hio_t* io);
+void hio_alloc_readbuf(hio_t* io, int len);
+void hio_free_readbuf(hio_t* io);
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)

@@ -103,7 +103,7 @@ int HttpHandler::defaultRequestHandler() {
     else if (req->method == HTTP_GET || req->method == HTTP_HEAD) {
         // static handler
         if (service->staticHandler) {
-            customHttpHandler(service->staticHandler);
+            status_code = customHttpHandler(service->staticHandler);
         }
         else if (service->document_root.size() != 0) {
             status_code = defaultStaticHandler();

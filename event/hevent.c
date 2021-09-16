@@ -237,17 +237,38 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
     io->heartbeat_fn = fn;
 }
 
+bool hio_is_alloced_readbuf(hio_t* io) {
+    return  io->alloced_readbuf &&
+            io->readbuf.base &&
+            io->readbuf.len &&
+            io->readbuf.base != io->loop->readbuf.base;
+}
+
+void hio_alloc_readbuf(hio_t* io, int len) {
+    if (hio_is_alloced_readbuf(io)) {
+        io->readbuf.base = (char*)safe_realloc(io->readbuf.base, len, io->readbuf.len);
+    } else {
+        HV_ALLOC(io->readbuf.base, len);
+    }
+    io->readbuf.len = len;
+    io->alloced_readbuf = 1;
+}
+
+void hio_free_readbuf(hio_t* io) {
+    if (hio_is_alloced_readbuf(io)) {
+        HV_FREE(io->readbuf.base);
+        io->alloced_readbuf = 0;
+        // reset to loop->readbuf
+        io->readbuf.base = io->loop->readbuf.base;
+        io->readbuf.len = io->loop->readbuf.len;
+    }
+}
+
 void hio_unset_unpack(hio_t* io) {
     if (io->unpack_setting) {
-        // NOTE: unpack has own readbuf
-        if (io->readbuf.base && io->readbuf.len &&
-            io->readbuf.base != io->loop->readbuf.base) {
-            HV_FREE(io->readbuf.base);
-            // reset to loop->readbuf
-            io->readbuf.base = io->loop->readbuf.base;
-            io->readbuf.len = io->loop->readbuf.len;
-        }
         io->unpack_setting = NULL;
+        // NOTE: unpack has own readbuf
+        hio_free_readbuf(io);
     }
 }
 
@@ -278,9 +299,7 @@ void hio_set_unpack(hio_t* io, unpack_setting_t* setting) {
     if (io->unpack_setting->mode == UNPACK_BY_FIXED_LENGTH) {
         io->readbuf.len = io->unpack_setting->fixed_length;
     } else {
-        io->readbuf.len = 2;
+        io->readbuf.len = HLOOP_READ_BUFSIZE;
     }
-    assert(io->readbuf.len > 0);
-    // NOTE: free in hio_unset_unpack
-    HV_ALLOC(io->readbuf.base, io->readbuf.len);
+    hio_alloc_readbuf(io, io->readbuf.len);
 }
