@@ -52,8 +52,8 @@ examples: hmain_test htimer_test hloop_test \
 	jsonrpc \
 
 clean:
-	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS) examples/nmap examples/httpd examples/consul"
-	${RM} examples/*.o
+	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"
+	$(RM) examples/*.o examples/*/*.o
 	$(RM) include/hv
 
 prepare:
