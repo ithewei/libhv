@@ -514,10 +514,11 @@ enqueue:
         }
         write_queue_push_back(&io->write_queue, &remain);
         io->write_queue_bytes += remain.len - remain.offset;
-        // hlogd("write queue %d, total %u", remain.len - remain.offset, io->write_queue_bytes);
         if (io->write_queue_bytes > WRITE_QUEUE_HIGH_WATER) {
-            hlogw("write queue %d, total %u, over high water %u",
-                    remain.len - remain.offset, io->write_queue_bytes, WRITE_QUEUE_HIGH_WATER);
+            hlogw("write queue %u, total %u, over high water %u",
+                (unsigned int)(remain.len - remain.offset),
+                (unsigned int)io->write_queue_bytes,
+                (unsigned int)WRITE_QUEUE_HIGH_WATER);
         }
     }
     hrecursive_mutex_unlock(&io->write_mutex);
