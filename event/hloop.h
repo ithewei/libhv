@@ -289,6 +289,9 @@ HV_EXPORT int hio_connect(hio_t* io);
 HV_EXPORT int hio_read   (hio_t* io);
 #define hio_read_start(io) hio_read(io)
 #define hio_read_stop(io)  hio_del(io, HV_READ)
+// hio_read_start => hread_cb => hio_read_stop
+HV_EXPORT int hio_read_once (hio_t* io);
+HV_EXPORT int hio_read_until(hio_t* io, int len);
 // NOTE: hio_write is thread-safe, locked by recursive_mutex, allow to be called by other threads.
 // hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);

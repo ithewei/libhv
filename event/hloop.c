@@ -176,7 +176,7 @@ process_timers:
 static void hloop_stat_timer_cb(htimer_t* timer) {
     hloop_t* loop = timer->loop;
     // hlog_set_level(LOG_LEVEL_DEBUG);
-    hlogd("[loop] pid=%ld tid=%ld uptime=%lluus cnt=%llu nactives=%u nios=%d ntimers=%d nidles=%u",
+    hlogd("[loop] pid=%ld tid=%ld uptime=%lluus cnt=%llu nactives=%u nios=%u ntimers=%u nidles=%u",
         loop->pid, loop->tid, loop->cur_hrtime - loop->start_hrtime, loop->loop_cnt,
         loop->nactives, loop->nios, loop->ntimers, loop->nidles);
 }
@@ -684,6 +684,11 @@ void hio_ready(hio_t* io) {
     io->readbuf.base = io->loop->readbuf.base;
     io->readbuf.len = io->loop->readbuf.len;
     io->readbuf.offset = 0;
+    io->read_once = 0;
+    io->read_until = 0;
+    io->small_readbytes_cnt = 0;
+    // write_queue
+    io->write_queue_bytes = 0;
     // callbacks
     io->read_cb = NULL;
     io->write_cb = NULL;

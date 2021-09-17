@@ -34,36 +34,12 @@ static void __close_timeout_cb(htimer_t* timer) {
 }
 
 static void __accept_cb(hio_t* io) {
-    /*
-    char localaddrstr[SOCKADDR_STRLEN] = {0};
-    char peeraddrstr[SOCKADDR_STRLEN] = {0};
-    printd("accept connfd=%d [%s] <= [%s]\n", io->fd,
-            SOCKADDR_STR(io->localaddr, localaddrstr),
-            SOCKADDR_STR(io->peeraddr, peeraddrstr));
-    */
-
-    if (io->accept_cb) {
-        // printd("accept_cb------\n");
-        io->accept_cb(io);
-        // printd("accept_cb======\n");
-    }
+    hio_accept_cb(io);
 }
 
 static void __connect_cb(hio_t* io) {
-    /*
-    char localaddrstr[SOCKADDR_STRLEN] = {0};
-    char peeraddrstr[SOCKADDR_STRLEN] = {0};
-    printd("connect connfd=%d [%s] => [%s]\n", io->fd,
-            SOCKADDR_STR(io->localaddr, localaddrstr),
-            SOCKADDR_STR(io->peeraddr, peeraddrstr));
-    */
     hio_del_connect_timer(io);
-
-    if (io->connect_cb) {
-        // printd("connect_cb------\n");
-        io->connect_cb(io);
-        // printd("connect_cb======\n");
-    }
+    hio_connect_cb(io);
 }
 
 static void __read_cb(hio_t* io, void* buf, int readbytes) {
@@ -77,11 +53,11 @@ static void __read_cb(hio_t* io, void* buf, int readbytes) {
         return;
     }
 
-    if (io->read_cb) {
-        // printd("read_cb------\n");
-        io->read_cb(io, buf, readbytes);
-        // printd("read_cb======\n");
+    if (io->read_once) {
+        hio_read_stop(io);
     }
+
+    hio_read_cb(io, buf, readbytes);
 }
 
 static void __write_cb(hio_t* io, const void* buf, int writebytes) {
@@ -89,27 +65,16 @@ static void __write_cb(hio_t* io, const void* buf, int writebytes) {
     if (io->keepalive_timer) {
         htimer_reset(io->keepalive_timer);
     }
-
-    if (io->write_cb) {
-        // printd("write_cb------\n");
-        io->write_cb(io, buf, writebytes);
-        // printd("write_cb======\n");
-    }
+    hio_write_cb(io, buf, writebytes);
 }
 
 static void __close_cb(hio_t* io) {
     // printd("close fd=%d\n", io->fd);
-
     hio_del_connect_timer(io);
     hio_del_close_timer(io);
     hio_del_keepalive_timer(io);
     hio_del_heartbeat_timer(io);
-
-    if (io->close_cb) {
-        // printd("close_cb------\n");
-        io->close_cb(io);
-        // printd("close_cb======\n");
-    }
+    hio_close_cb(io);
 }
 
 static void ssl_server_handshake(hio_t* io) {
@@ -309,7 +274,11 @@ static void nio_read(hio_t* io) {
     int len = 0, nread = 0, err = 0;
 read:
     buf = io->readbuf.base + io->readbuf.offset;
-    len = io->readbuf.len - io->readbuf.offset;
+    if (io->read_until) {
+        len = io->read_until;
+    } else {
+        len = io->readbuf.len - io->readbuf.offset;
+    }
     nread = __nio_read(io, buf, len);
     // printd("read retval=%d\n", nread);
     if (nread < 0) {
@@ -329,9 +298,18 @@ read:
     if (nread == 0) {
         goto disconnect;
     }
-    __read_cb(io, buf, nread);
-    if (nread == len) {
-        goto read;
+    if (io->read_until) {
+        io->readbuf.offset += nread;
+        io->read_until -= nread;
+        if (io->read_until == 0) {
+            __read_cb(io, io->readbuf.base, io->readbuf.offset);
+            io->readbuf.offset = 0;
+        }
+    } else {
+        __read_cb(io, buf, nread);
+        if (nread == len) {
+            goto read;
+        }
     }
     return;
 read_error:
@@ -374,6 +352,7 @@ write:
     }
     __write_cb(io, buf, nwrite);
     pbuf->offset += nwrite;
+    io->write_queue_bytes -= nwrite;
     if (nwrite == len) {
         HV_FREE(pbuf->base);
         write_queue_pop_front(&io->write_queue);
@@ -524,17 +503,22 @@ enqueue:
         hio_add(io, hio_handle_events, HV_WRITE);
     }
     if (nwrite < len) {
-        offset_buf_t rest;
-        rest.len = len;
-        rest.offset = nwrite;
+        offset_buf_t remain;
+        remain.len = len;
+        remain.offset = nwrite;
         // NOTE: free in nio_write
-        HV_ALLOC(rest.base, rest.len);
-        memcpy(rest.base, buf, rest.len);
+        HV_ALLOC(remain.base, remain.len);
+        memcpy(remain.base, buf, remain.len);
         if (io->write_queue.maxsize == 0) {
             write_queue_init(&io->write_queue, 4);
         }
-        write_queue_push_back(&io->write_queue, &rest);
-        // hlogd("write queue %d", rest.len);
+        write_queue_push_back(&io->write_queue, &remain);
+        io->write_queue_bytes += remain.len - remain.offset;
+        // hlogd("write queue %d, total %u", remain.len - remain.offset, io->write_queue_bytes);
+        if (io->write_queue_bytes > WRITE_QUEUE_HIGH_WATER) {
+            hlogw("write queue %d, total %u, over high water %u",
+                    remain.len - remain.offset, io->write_queue_bytes, WRITE_QUEUE_HIGH_WATER);
+        }
     }
     hrecursive_mutex_unlock(&io->write_mutex);
     return nwrite;

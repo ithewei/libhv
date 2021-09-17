@@ -10,7 +10,9 @@
 #include "heap.h"
 #include "queue.h"
 
-#define HLOOP_READ_BUFSIZE  8192
+#define HLOOP_READ_BUFSIZE          8192        // 8K
+#define READ_BUFSIZE_HIGH_WATER     65536       // 64K
+#define WRITE_QUEUE_HIGH_WATER      (1U << 23)  // 8M
 
 ARRAY_DECL(hio_t*, io_array);
 QUEUE_DECL(hevent_t, event_queue);
@@ -98,7 +100,8 @@ struct hio_s {
     unsigned    recvfrom    :1;
     unsigned    sendto      :1;
     unsigned    close       :1;
-    unsigned    alloced_readbuf :1;
+    unsigned    read_once   :1;     // for hio_read_once
+    unsigned    alloced_readbuf :1; // for hio_read_until, hio_set_unpack
 // public:
     uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
     int         fd;
@@ -108,9 +111,12 @@ struct hio_s {
     int         revents;
     struct sockaddr*    localaddr;
     struct sockaddr*    peeraddr;
-    offset_buf_t        readbuf;        // for hread
-    struct write_queue  write_queue;    // for hwrite
+    offset_buf_t        readbuf;        // for read
+    int                 read_until;     // for hio_read_until
+    uint32_t            small_readbytes_cnt;
+    struct write_queue  write_queue;    // for write
     hrecursive_mutex_t  write_mutex;    // lock write and write_queue
+    uint32_t            write_queue_bytes;
     // callbacks
     hread_cb    read_cb;
     hwrite_cb   write_cb;
@@ -151,12 +157,23 @@ void hio_done(hio_t* io);
 void hio_free(hio_t* io);
 uint32_t hio_next_id();
 
+void hio_accept_cb(hio_t* io);
+void hio_connect_cb(hio_t* io);
+void hio_read_cb(hio_t* io, void* buf, int len);
+void hio_write_cb(hio_t* io, const void* buf, int len);
+void hio_close_cb(hio_t* io);
+
 void hio_del_connect_timer(hio_t* io);
 void hio_del_close_timer(hio_t* io);
 void hio_del_keepalive_timer(hio_t* io);
 void hio_del_heartbeat_timer(hio_t* io);
 
-bool hio_is_alloced_readbuf(hio_t* io);
+static inline bool hio_is_loop_readbuf(hio_t* io) {
+    return io->readbuf.base == io->loop->readbuf.base;
+}
+static inline bool hio_is_alloced_readbuf(hio_t* io) {
+    return io->alloced_readbuf;
+}
 void hio_alloc_readbuf(hio_t* io, int len);
 void hio_free_readbuf(hio_t* io);
 

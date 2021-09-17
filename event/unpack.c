@@ -14,9 +14,7 @@ int hio_unpack(hio_t* io, void* buf, int readbytes) {
     case UNPACK_BY_LENGTH_FIELD:
         return hio_unpack_by_length_field(io, buf, readbytes);
     default:
-        if (io->read_cb) {
-            io->read_cb(io, buf, readbytes);
-        }
+        hio_read_cb(io, buf, readbytes);
         return readbytes;
     }
 }
@@ -34,9 +32,7 @@ int hio_unpack_by_fixed_length(hio_t* io, void* buf, int readbytes) {
     int remain = ep - p;
     int handled = 0;
     while (remain >= fixed_length) {
-        if (io->read_cb) {
-            io->read_cb(io, (void*)p, fixed_length);
-        }
+        hio_read_cb(io, (void*)p, fixed_length);
         handled += fixed_length;
         p += fixed_length;
         remain -= fixed_length;
@@ -77,9 +73,7 @@ int hio_unpack_by_delimiter(hio_t* io, void* buf, int readbytes) {
 match:
         p += delimiter_bytes;
         remain -= delimiter_bytes;
-        if (io->read_cb) {
-            io->read_cb(io, (void*)sp, p - sp);
-        }
+        hio_read_cb(io, (void*)sp, p - sp);
         handled += p - sp;
         sp = p;
         continue;
@@ -150,9 +144,7 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
         }
         package_len = head_len + body_len;
         if (remain >= package_len) {
-            if (io->read_cb) {
-                io->read_cb(io, (void*)p, package_len);
-            }
+            hio_read_cb(io, (void*)p, package_len);
             handled += package_len;
             p += package_len;
             remain -= package_len;
