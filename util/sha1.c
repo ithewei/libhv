@@ -46,7 +46,7 @@ A million repetitions of "a"
 
 /* Hash a single 512-bit block. This is the core of the algorithm. */
 
-void SHA1Transform(
+void HV_SHA1Transform(
     uint32_t state[5],
     const unsigned char buffer[64]
 )
@@ -172,10 +172,10 @@ void SHA1Transform(
 }
 
 
-/* SHA1Init - Initialize new context */
+/* HV_SHA1Init - Initialize new context */
 
-void SHA1Init(
-    SHA1_CTX * context
+void HV_SHA1Init(
+    HV_SHA1_CTX * context
 )
 {
     /* SHA1 initialization constants */
@@ -190,8 +190,8 @@ void SHA1Init(
 
 /* Run your data through this. */
 
-void SHA1Update(
-    SHA1_CTX * context,
+void HV_SHA1Update(
+    HV_SHA1_CTX * context,
     const unsigned char *data,
     uint32_t len
 )
@@ -208,10 +208,10 @@ void SHA1Update(
     if ((j + len) > 63)
     {
         memcpy(&context->buffer[j], data, (i = 64 - j));
-        SHA1Transform(context->state, context->buffer);
+        HV_SHA1Transform(context->state, context->buffer);
         for (; i + 63 < len; i += 64)
         {
-            SHA1Transform(context->state, &data[i]);
+            HV_SHA1Transform(context->state, &data[i]);
         }
         j = 0;
     }
@@ -223,9 +223,9 @@ void SHA1Update(
 
 /* Add padding and return the message digest. */
 
-void SHA1Final(
+void HV_SHA1Final(
     unsigned char digest[20],
-    SHA1_CTX * context
+    HV_SHA1_CTX * context
 )
 {
     unsigned i;
@@ -257,13 +257,13 @@ void SHA1Final(
     }
 #endif
     c = 0200;
-    SHA1Update(context, &c, 1);
+    HV_SHA1Update(context, &c, 1);
     while ((context->count[0] & 504) != 448)
     {
         c = 0000;
-        SHA1Update(context, &c, 1);
+        HV_SHA1Update(context, &c, 1);
     }
-    SHA1Update(context, finalcount, 8); /* Should cause a SHA1Transform() */
+    HV_SHA1Update(context, finalcount, 8); /* Should cause a HV_SHA1Transform() */
     for (i = 0; i < 20; i++)
     {
         digest[i] = (unsigned char)
@@ -274,26 +274,26 @@ void SHA1Final(
     memset(&finalcount, '\0', sizeof(finalcount));
 }
 
-void SHA1(
+void HV_SHA1(
     char *hash_out,
     const char *str,
     int len)
 {
-    SHA1_CTX ctx;
+    HV_SHA1_CTX ctx;
     unsigned int ii;
 
-    SHA1Init(&ctx);
+    HV_SHA1Init(&ctx);
     for (ii=0; ii<len; ii+=1)
-        SHA1Update(&ctx, (const unsigned char*)str + ii, 1);
-    SHA1Final((unsigned char *)hash_out, &ctx);
+        HV_SHA1Update(&ctx, (const unsigned char*)str + ii, 1);
+    HV_SHA1Final((unsigned char *)hash_out, &ctx);
     hash_out[20] = '\0';
 }
 
 void hv_sha1(unsigned char* input, uint32_t inputlen, unsigned char digest[20]) {
-    SHA1_CTX ctx;
-    SHA1Init(&ctx);
-    SHA1Update(&ctx, input, inputlen);
-    SHA1Final(digest, &ctx);
+    HV_SHA1_CTX ctx;
+    HV_SHA1Init(&ctx);
+    HV_SHA1Update(&ctx, input, inputlen);
+    HV_SHA1Final(digest, &ctx);
 }
 
 static inline char i2hex(unsigned char i) {

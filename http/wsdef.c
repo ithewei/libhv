@@ -11,12 +11,12 @@
 void ws_encode_key(const char* key, char accept[]) {
     char magic[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     unsigned char digest[20] = {0};
-    SHA1_CTX ctx;
-    SHA1Init(&ctx);
-    SHA1Update(&ctx, (unsigned char*)key, strlen(key));
-    SHA1Update(&ctx, (unsigned char*)magic, strlen(magic));
-    SHA1Final(digest, &ctx);
-    base64_encode(digest, 20, accept);
+    HV_SHA1_CTX ctx;
+    HV_SHA1Init(&ctx);
+    HV_SHA1Update(&ctx, (unsigned char*)key, strlen(key));
+    HV_SHA1Update(&ctx, (unsigned char*)magic, strlen(magic));
+    HV_SHA1Final(digest, &ctx);
+    hv_base64_encode(digest, 20, accept);
 }
 
 // fix-header[2] + var-length[2/8] + mask[4] + data[data_len]

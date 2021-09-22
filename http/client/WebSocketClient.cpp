@@ -67,7 +67,7 @@ int WebSocketClient::open(const char* _url) {
                 *p = rand();
             }
             char ws_key[32] = {0};
-            base64_encode(rand_key, 16, ws_key);
+            hv_base64_encode(rand_key, 16, ws_key);
             http_req_->headers[SEC_WEBSOCKET_KEY] = ws_key;
             http_req_->headers[SEC_WEBSOCKET_VERSION] = "13";
             std::string http_msg = http_req_->Dump(true, true);

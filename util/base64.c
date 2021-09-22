@@ -50,7 +50,7 @@ static const signed char base64de[] = {
         44,  45,  46,  47,  48,  49,  50,  51,
 };
 
-int base64_encode(const unsigned char *in, unsigned int inlen, char *out) {
+int hv_base64_encode(const unsigned char *in, unsigned int inlen, char *out) {
     unsigned int i, j;
 
     for (i = j = 0; i < inlen; i++) {
@@ -85,7 +85,7 @@ int base64_encode(const unsigned char *in, unsigned int inlen, char *out) {
     return BASE64_OK;
 }
 
-int base64_decode(const char *in, unsigned int inlen, unsigned char *out) {
+int hv_base64_decode(const char *in, unsigned int inlen, unsigned char *out) {
     unsigned int i, j;
 
     for (i = j = 0; i < inlen; i++) {

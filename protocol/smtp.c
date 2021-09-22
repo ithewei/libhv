@@ -111,7 +111,7 @@ int sendmail(const char* smtp_server,
         memcpy(basic+1+usernamelen+1, password, passwordlen);
         basiclen = 1 + usernamelen + 1 + passwordlen;
     }
-    base64_encode((unsigned char*)basic, basiclen, buf);
+    hv_base64_encode((unsigned char*)basic, basiclen, buf);
     cmdlen = BASE64_ENCODE_OUT_SIZE(basiclen);
     buf[cmdlen] = '\r';
     buf[cmdlen+1] = '\n';

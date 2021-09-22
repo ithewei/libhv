@@ -10,8 +10,8 @@ enum {BASE64_OK = 0, BASE64_INVALID};
 
 BEGIN_EXTERN_C
 
-HV_EXPORT int base64_encode(const unsigned char *in, unsigned int inlen, char *out);
-HV_EXPORT int base64_decode(const char *in, unsigned int inlen, unsigned char *out);
+HV_EXPORT int hv_base64_encode(const unsigned char *in, unsigned int inlen, char *out);
+HV_EXPORT int hv_base64_decode(const char *in, unsigned int inlen, unsigned char *out);
 
 END_EXTERN_C
 
