@@ -21,11 +21,11 @@ public:
 
     // isConnected, send, close
 
-    int send(const std::string& msg, enum ws_opcode opcode = WS_OPCODE_TEXT) {
-        return send(msg.c_str(), msg.size(), opcode);
+    int send(const std::string& msg, enum ws_opcode opcode = WS_OPCODE_TEXT, bool fin = true) {
+        return send(msg.c_str(), msg.size(), opcode, fin);
     }
 
-    int send(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY) {
+    int send(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY, bool fin = true) {
         bool has_mask = false;
         char mask[4] = {0};
         if (type == WS_CLIENT) {
@@ -37,8 +37,38 @@ public:
         if (sendbuf_.len < frame_size) {
             sendbuf_.resize(ceil2e(frame_size));
         }
-        ws_build_frame(sendbuf_.base, buf, len, mask, has_mask, opcode);
+        ws_build_frame(sendbuf_.base, buf, len, mask, has_mask, opcode, fin);
         return write(sendbuf_.base, frame_size);
+    }
+
+    // websocket fragment
+    // send(p, fragment, opcode, false) ->
+    // send(p, fragment, WS_OPCODE_CONTINUE, false) ->
+    // ... ->
+    // send(p, remain, WS_OPCODE_CONTINUE, true)
+    int send(const char* buf, int len, int fragment, enum ws_opcode opcode = WS_OPCODE_BINARY) {
+        if (len <= fragment) {
+            return send(buf, len, opcode, true);
+        }
+
+        // first fragment
+        int nsend = send(buf, fragment, opcode, false);
+        if (nsend < 0) return nsend;
+
+        const char* p = buf + fragment;
+        int remain = len - fragment;
+        while (remain > fragment) {
+            nsend = send(p, fragment, WS_OPCODE_CONTINUE, false);
+            if (nsend < 0) return nsend;
+            p += fragment;
+            remain -= fragment;
+        }
+
+        // last fragment
+        nsend = send(p, remain, WS_OPCODE_CONTINUE, true);
+        if (nsend < 0) return nsend;
+
+        return len;
     }
 
 private:
