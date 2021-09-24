@@ -47,8 +47,8 @@ if(WITH_EVPP)
     add_executable(hmain_test hmain_test.cpp)
     target_link_libraries(hmain_test ${HV_LIBRARIES})
 
-    aux_source_directory(nmap NMAP_SRCS)
-    add_executable(nmap ${NMAP_SRCS})
+    glob_headers_and_sources(NMAP_FILES nmap)
+    add_executable(nmap ${NMAP_FILES})
     target_compile_definitions(nmap PRIVATE PRINT_DEBUG)
     target_link_libraries(nmap ${HV_LIBRARIES})
 
@@ -88,8 +88,8 @@ if(WITH_HTTP_CLIENT)
     target_link_libraries(wget ${HV_LIBRARIES})
 
     # consul
-    aux_source_directory(consul CONSUL_SRCS)
-    add_executable(consul ${CONSUL_SRCS})
+    glob_headers_and_sources(CONSUL_FILES consul)
+    add_executable(consul ${CONSUL_FILES})
     target_compile_definitions(consul PRIVATE PRINT_DEBUG)
     target_link_libraries(consul ${HV_LIBRARIES})
 
@@ -105,8 +105,8 @@ if(WITH_HTTP_CLIENT)
 
     if(WITH_HTTP_SERVER)
         # httpd
-        aux_source_directory(httpd HTTPD_SRCS)
-        add_executable(httpd ${HTTPD_SRCS})
+        glob_headers_and_sources(HTTPD_FILES httpd)
+        add_executable(httpd ${HTTPD_FILES})
         target_link_libraries(httpd ${HV_LIBRARIES})
         list(APPEND EXAMPLES httpd)
     endif()
