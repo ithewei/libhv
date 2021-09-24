@@ -1,9 +1,7 @@
 /*
  * TcpClient_test.cpp
  *
- * @build
- * make libhv && sudo make install
- * g++ -std=c++11 TcpClient_test.cpp -o TcpClient_test -I/usr/local/include/hv -lhv -lpthread
+ * @build: make evpp
  *
  */
 

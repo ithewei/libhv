@@ -13,6 +13,8 @@
 #include "hbase.h"
 #include "list.h"
 
+unpack_setting_t unpack_setting;
+
 // hloop_create_tcp_server
 // on_accept => join
 // on_recv => broadcast
@@ -115,7 +117,8 @@ static void on_accept(hio_t* io) {
 
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
-    hio_read(io);
+    hio_set_unpack(io, &unpack_setting);
+    hio_read_start(io);
 
     // free on_close
     connection_t* conn = NULL;
@@ -132,6 +135,12 @@ int main(int argc, char** argv) {
         return -10;
     }
     int port = atoi(argv[1]);
+
+    memset(&unpack_setting, 0, sizeof(unpack_setting_t));
+    unpack_setting.package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
+    unpack_setting.mode = UNPACK_BY_DELIMITER;
+    unpack_setting.delimiter[0] = '\n';
+    unpack_setting.delimiter_bytes = 1;
 
     hloop_t* loop = hloop_new(0);
     hio_t* listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);

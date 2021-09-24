@@ -98,6 +98,138 @@ bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
 bin/curl -v -X DELETE localhost:8080/group/test/user/123
 ```
 
+### TCP
+#### tcp server
+**c version**: [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
+```c
+#include "hloop.h"
+
+static void on_close(hio_t* io) {
+    printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
+}
+
+static void on_recv(hio_t* io, void* buf, int readbytes) {
+    // echo
+    hio_write(io, buf, readbytes);
+}
+
+static void on_accept(hio_t* io) {
+    hio_setcb_close(io, on_close);
+    hio_setcb_read(io, on_recv);
+    hio_read(io);
+}
+
+int main() {
+    int port = 1234;
+    hloop_t* loop = hloop_new(0);
+    hio_t* listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    if (listenio == NULL) {
+        return -1;
+    }
+    hloop_run(loop);
+    hloop_free(&loop);
+    return 0;
+}
+```
+
+**c++ version**: [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
+```c++
+#include "TcpServer.h"
+using namespace hv;
+
+int main() {
+    int port = 1234;
+    TcpServer srv;
+    int listenfd = srv.createsocket(port);
+    if (listenfd < 0) {
+        return -1;
+    }
+    printf("server listen on port %d, listenfd=%d ...\n", port, listenfd);
+    srv.onConnection = [](const SocketChannelPtr& channel) {
+        std::string peeraddr = channel->peeraddr();
+        if (channel->isConnected()) {
+            printf("%s connected! connfd=%d\n", peeraddr.c_str(), channel->fd());
+        } else {
+            printf("%s disconnected! connfd=%d\n", peeraddr.c_str(), channel->fd());
+        }
+    };
+    srv.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
+        // echo
+        channel->write(buf);
+    };
+    srv.setThreadNum(4);
+    srv.start();
+
+    while (1) hv_sleep(1);
+    return 0;
+}
+```
+
+#### tcp client
+**c version**: [examples/nc.c](examples/nc.c)
+```c
+#include "hloop.h"
+
+static void on_close(hio_t* io) {
+    printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
+}
+
+static void on_recv(hio_t* io, void* buf, int readbytes) {
+    printf("< %.*s\n", readbytes, (char*)buf);
+}
+
+static void on_connect(hio_t* io) {
+    hio_setcb_close(io, on_close);
+    hio_setcb_read(io, on_recv);
+    hio_read(io);
+
+    hio_write(io, "hello", 5);
+}
+
+int main() {
+    int port = 1234;
+    hloop_t* loop = hloop_new(0);
+    hio_t* connio = hloop_create_tcp_client(loop, "127.0.0.1", port, on_connect);
+    if (connio == NULL) {
+        return -1;
+    }
+    hloop_run(loop);
+    hloop_free(&loop);
+    return 0;
+}
+```
+
+**c++ version**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
+```c++
+#include "TcpClient.h"
+using namespace hv;
+
+int main() {
+    int port = 1234;
+    TcpClient cli;
+    int connfd = cli.createsocket(port);
+    if (connfd < 0) {
+        return -1;
+    }
+    cli.onConnection = [](const SocketChannelPtr& channel) {
+        std::string peeraddr = channel->peeraddr();
+        if (channel->isConnected()) {
+            printf("connected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
+            channel->write("hello");
+        } else {
+            printf("disconnected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
+        }
+    };
+    cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
+        printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
+    };
+    cli.start();
+
+    while (1) hv_sleep(1);
+    return 0;
+}
+```
+
 ### HTTP
 #### http server
 see [examples/http_server_test.cpp](examples/http_server_test.cpp)
@@ -212,19 +344,7 @@ int main() {
 }
 ```
 
-#### http benchmark
-```shell
-# sudo apt install wrk
-wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
-
-# sudo apt install apache2-utils
-ab -c 100 -n 100000 http://127.0.0.1:8080/
-```
-
-**libhv(port:8080) vs nginx(port:80)**
-![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
-
-## 🍭 Examples
+## 🍭 More examples
 ### c version
 - [examples/hloop_test.c](examples/hloop_test.c)
 - [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
@@ -260,6 +380,7 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - [examples/consul](examples/consul)
 
 ## 🥇 Benchmark
+### tcp benchmark
 ```shell
 cd echo-servers
 ./build.sh
@@ -305,3 +426,17 @@ throughput = 132 MB/s
 total readcount=1699652 readbytes=1740443648
 throughput = 165 MB/s
 ```
+
+### http benchmark
+```shell
+# sudo apt install wrk
+wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
+
+# sudo apt install apache2-utils
+ab -c 100 -n 100000 http://127.0.0.1:8080/
+```
+
+**libhv(port:8080) vs nginx(port:80)**
+![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
+
+Above test results can be found on [Github Actions](https://github.com/ithewei/libhv/actions/workflows/benchmark.yml).

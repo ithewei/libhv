@@ -1,9 +1,7 @@
 /*
  * UdpClient_test.cpp
  *
- * @build
- * make libhv && sudo make install
- * g++ -std=c++11 UdpClient_test.cpp -o UdpClient_test -I/usr/local/include/hv -lhv -lpthread
+ * @build: make evpp
  *
  */
 

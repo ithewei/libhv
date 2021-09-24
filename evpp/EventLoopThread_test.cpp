@@ -1,9 +1,7 @@
 /*
  * EventLoopThread_test.cpp
  *
- * @build
- * make libhv && sudo make install
- * g++ -std=c++11 EventLoopThread_test.cpp -o EventLoopThread_test -I/usr/local/include/hv -lhv -lpthread
+ * @build: make evpp
  *
  */
 

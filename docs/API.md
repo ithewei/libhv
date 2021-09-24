@@ -37,7 +37,6 @@
 - IS_HEX
 - IS_LOWER, IS_UPPER
 - LOWER, UPPER
-- LD, LU, LLD, LLU
 - MAKEWORD, LOBYTE, HIBYTE
 - MAKELONG, LOWORD, HIWORD
 - MAKEINT64, LOINT, HIINT
@@ -289,15 +288,27 @@
 
 ## utils
 ### md5.h
-- MD5Init
-- MD5Update
-- MD5Final
+- HV_MD5Init
+- HV_MD5Update
+- HV_MD5Final
+- hv_md5
+- hv_md5_hex
+
+### sha1.h
+- HV_SHA1Init
+- HV_SHA1Update
+- HV_SHA1Final
+- HV_SHA1
+- hv_sha1
+- hv_sha1_hex
 
 ### base64.h
-- base64_decode
-- base64_encode
+- hv_base64_decode
+- hv_base64_encode
 
 ### json.hpp
+- json::parse
+- json::dump
 
 ### hmain.h
 - main_ctx_init

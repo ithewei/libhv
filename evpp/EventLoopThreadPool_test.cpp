@@ -1,9 +1,7 @@
 /*
  * EventLoopThreadPool_test.cpp
  *
- * @build
- * make libhv && sudo make install
- * g++ -std=c++11 EventLoopThreadPool_test.cpp -o EventLoopThreadPool_test -I/usr/local/include/hv -lhv -lpthread
+ * @build: make evpp
  *
  */
 
