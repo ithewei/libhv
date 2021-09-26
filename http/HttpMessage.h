@@ -146,7 +146,7 @@ public:
         return 200;
     }
 
-    void UploadFormFile(const char* name, const char* filepath) {
+    void FormFile(const char* name, const char* filepath) {
         content_type = MULTIPART_FORM_DATA;
         form[name] = FormData(NULL, filepath);
     }

@@ -191,8 +191,8 @@ public:
         resp->form["int"] = 123;
         resp->form["float"] = 3.14;
         resp->form["string"] = "hello";
-        // resp->form["file"] = FormData(NULL, "test.jpg");
-        // resp->UploadFormFile("file", "test.jpg");
+        // resp->form["file"] = FormFile("test.jpg");
+        // resp->FormFile("file", "test.jpg");
         return 200;
     }
 

@@ -43,6 +43,14 @@ struct FormData {
         content = hv::to_string(num);
     }
 };
+// FormFile
+struct FormFile : public FormData {
+    FormFile(const char* filename = NULL) {
+        if (filename) {
+            this->filename = filename;
+        }
+    }
+};
 
 // MultiPart
 // name => FormData
