@@ -20,6 +20,9 @@ int HttpHandler::HandleHttpRequest() {
 
 preprocessor:
     state = HANDLE_BEGIN;
+    if (writer) {
+        writer->Begin();
+    }
     if (service->preprocessor) {
         status_code = service->preprocessor(pReq, pResp);
         if (status_code != 0) {
