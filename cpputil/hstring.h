@@ -52,14 +52,4 @@ HV_EXPORT string trimR(const string& str, const char* chars = SPACE_CHARS);
 HV_EXPORT string trim_pairs(const string& str, const char* pairs = PAIR_CHARS);
 HV_EXPORT string replace(const string& str, const string& find, const string& rep);
 
-// str=/mnt/share/image/test.jpg
-// basename=test.jpg
-// dirname=/mnt/share/image
-// filename=test
-// suffixname=jpg
-HV_EXPORT string basename(const string& str);
-HV_EXPORT string dirname(const string& str);
-HV_EXPORT string filename(const string& str);
-HV_EXPORT string suffixname(const string& str);
-
 #endif // HV_STRING_H_

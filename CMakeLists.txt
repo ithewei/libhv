@@ -127,7 +127,6 @@ if(WIN32)
     endif()
 endif()
 
-
 if(ANDROID)
     set(LIBS ${LIBS} log)
 elseif(UNIX)
@@ -136,7 +135,6 @@ elseif(UNIX)
         set(LIBS ${LIBS} rt)
     endif()
 endif()
-
 
 if(APPLE)
     set(LIBS ${LIBS} "-framework CoreFoundation" "-framework Security")
@@ -207,6 +205,7 @@ endif()
 
 if(BUILD_EXAMPLES)
     add_subdirectory(examples)
+    file(INSTALL etc DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 endif()
 
 if(BUILD_UNITTEST)

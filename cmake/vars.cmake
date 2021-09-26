@@ -38,6 +38,7 @@ set(CPPUTIL_HEADERS
     cpputil/hmap.h
     cpputil/hstring.h
     cpputil/hfile.h
+    cpputil/hpath.h
     cpputil/hdir.h
     cpputil/hurl.h
     cpputil/hmain.h

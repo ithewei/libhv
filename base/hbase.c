@@ -240,6 +240,26 @@ int hv_rmdir_p(const char* dir) {
     return 0;
 }
 
+bool hv_exists(const char* path) {
+    return access(path, F_OK) == 0;
+}
+
+bool hv_isdir(const char* path) {
+    if (access(path, F_OK) != 0) return false;
+    struct stat st;
+    memset(&st, 0, sizeof(st));
+    stat(path, &st);
+    return S_ISDIR(st.st_mode);
+}
+
+bool hv_isfile(const char* path) {
+    if (access(path, F_OK) != 0) return false;
+    struct stat st;
+    memset(&st, 0, sizeof(st));
+    stat(path, &st);
+    return S_ISREG(st.st_mode);
+}
+
 bool getboolean(const char* str) {
     if (str == NULL) return false;
     int len = strlen(str);

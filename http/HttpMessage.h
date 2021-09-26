@@ -35,6 +35,7 @@
 #include "hbase.h"
 #include "hstring.h"
 #include "hfile.h"
+#include "hpath.h"
 
 #include "httpdef.h"
 #include "http_content.h"
@@ -151,7 +152,7 @@ public:
         form[name] = FormData(NULL, filepath);
     }
 
-    int SaveFormFile(const char* name, const char* filepath) {
+    int SaveFormFile(const char* name, const char* path) {
         if (content_type != MULTIPART_FORM_DATA) {
             return HTTP_STATUS_BAD_REQUEST;
         }
@@ -159,8 +160,12 @@ public:
         if (formdata.content.empty()) {
             return HTTP_STATUS_BAD_REQUEST;
         }
+        std::string filepath(path);
+        if (HPath::isdir(path)) {
+            filepath = HPath::join(filepath, formdata.filename);
+        }
         HFile file;
-        if (file.open(filepath, "wb") != 0) {
+        if (file.open(filepath.c_str(), "wb") != 0) {
             return HTTP_STATUS_INTERNAL_SERVER_ERROR;
         }
         file.write(formdata.content.data(), formdata.content.size());
@@ -276,6 +281,15 @@ public:
             content_type = APPLICATION_OCTET_STREAM;
         }
         file.readall(body);
+        return 200;
+    }
+
+    int SaveFile(const char* filepath) {
+        HFile file;
+        if (file.open(filepath, "wb") != 0) {
+            return HTTP_STATUS_NOT_FOUND;
+        }
+        file.write(body.data(), body.size());
         return 200;
     }
 };

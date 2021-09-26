@@ -32,6 +32,9 @@ target_include_directories(socketpair_test PRIVATE .. ../base)
 add_executable(hstring_test hstring_test.cpp ../cpputil/hstring.cpp)
 target_include_directories(hstring_test PRIVATE .. ../base ../cpputil)
 
+add_executable(hpath_test hpath_test.cpp ../cpputil/hpath.cpp)
+target_include_directories(hpath_test PRIVATE .. ../base ../cpputil)
+
 add_executable(ls listdir_test.cpp ../cpputil/hdir.cpp)
 target_include_directories(ls PRIVATE .. ../base ../cpputil)
 
@@ -81,6 +84,7 @@ add_custom_target(unittest DEPENDS
     connect_test
     socketpair_test
     hstring_test
+    hpath_test
     ls
     ifconfig
     defer_test

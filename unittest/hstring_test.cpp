@@ -40,16 +40,5 @@ int main(int argc, char** argv) {
     std::string str11 = replace(str10, "{{title}}", "Home");
     printf("replace %s\n", str11.c_str());
 
-    std::string filepath("/mnt/share/image/test.jpg");
-    std::string base = basename(filepath);
-    std::string dir = dirname(filepath);
-    std::string file = filename(filepath);
-    std::string suffix = suffixname(filepath);
-    printf("filepath %s\n", filepath.c_str());
-    printf("basename %s\n", base.c_str());
-    printf("dirname %s\n", dir.c_str());
-    printf("filename %s\n", file.c_str());
-    printf("suffixname %s\n", suffix.c_str());
-
     return 0;
 }

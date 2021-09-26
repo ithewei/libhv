@@ -83,7 +83,7 @@ std::string dump_multipart(MultiPart& mp, const char* boundary) {
                     file.readall(form.content);
                 }
             }
-            snprintf(c_str, sizeof(c_str), "; filename=\"%s\"", basename(form.filename).c_str());
+            snprintf(c_str, sizeof(c_str), "; filename=\"%s\"", hv_basename(form.filename.c_str()));
             str += c_str;
             const char* suffix = strrchr(form.filename.c_str(), '.');
             if (suffix) {

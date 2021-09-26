@@ -31,6 +31,10 @@ public:
         }
     }
 
+    bool isopen() {
+        return fp != NULL;
+    }
+
     size_t read(void* ptr, size_t len) {
         return fread(ptr, 1, len, fp);
     }

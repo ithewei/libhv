@@ -114,6 +114,9 @@
 - hv_suffixname
 - hv_mkdir_p
 - hv_rmdir_p
+- hv_exists
+- hv_isdir
+- hv_isfile
 - getboolean
 - get_executable_path
 - get_executable_dir
@@ -257,15 +260,21 @@
 - split
 - splitKV
 - replace
-- basename
-- dirname
-- filename
-- suffixname
 - hv::to_string
 - hv::from_string
 
 ### hfile.h
 - class HFile
+
+### hpath.h
+- exists
+- isdir
+- isfile
+- basename
+- dirname
+- filename
+- suffixname
+- join
 
 ### hdir.h
 - listdir

@@ -73,6 +73,10 @@ HV_EXPORT const char* hv_suffixname(const char* filename);
 HV_EXPORT int hv_mkdir_p(const char* dir);
 // rmdir -p
 HV_EXPORT int hv_rmdir_p(const char* dir);
+// path
+HV_EXPORT bool hv_exists(const char* path);
+HV_EXPORT bool hv_isdir(const char* path);
+HV_EXPORT bool hv_isfile(const char* path);
 
 // 1 y on yes true enable
 HV_EXPORT bool getboolean(const char* str);

@@ -33,6 +33,7 @@
 #include "hmap.h"       // <map>
 #include "hstring.h"    // <string>
 #include "hfile.h"
+#include "hpath.h"
 #include "hdir.h"
 #include "hurl.h"
 #include "hscope.h"

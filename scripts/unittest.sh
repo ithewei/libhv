@@ -12,6 +12,7 @@ bin/rmdir_p 123/456
 
 bin/defer_test
 bin/hstring_test
+bin/hpath_test
 # bin/hatomic_test
 # bin/hatomic_cpp_test
 # bin/hthread_test
