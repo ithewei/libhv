@@ -127,16 +127,16 @@ if(WIN32)
     endif()
 endif()
 
-if(UNIX)
+
+if(ANDROID)
+    set(LIBS ${LIBS} log)
+elseif(UNIX)
     set(LIBS ${LIBS} pthread m dl)
     if(CMAKE_COMPILER_IS_GNUCC)
         set(LIBS ${LIBS} rt)
     endif()
 endif()
 
-if(ANDROID)
-    set(LIBS ${LIBS} log)
-endif()
 
 if(APPLE)
     set(LIBS ${LIBS} "-framework CoreFoundation" "-framework Security")
