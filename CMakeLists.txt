@@ -78,6 +78,13 @@ set(LIBDIRS . lib 3rd/lib)
 include_directories(${INCDIRS} ${SRCDIR})
 link_directories(${LIBDIRS})
 
+message(STATUS "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}")
+if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    add_definitions(-DDEBUG)
+else()
+    add_definitions(-DNDEBUG)
+endif()
+
 if(ENABLE_IPV6)
     add_definitions(-DENABLE_IPV6)
 endif()

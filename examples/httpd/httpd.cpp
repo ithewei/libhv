@@ -86,6 +86,10 @@ int parse_confile(const char* confile) {
 
     // worker_processes
     int worker_processes = 0;
+#ifdef DEBUG
+    // Disable multi-processes mode for debugging
+    worker_processes = 0;
+#else
     str = ini.GetValue("worker_processes");
     if (str.size() != 0) {
         if (strcmp(str.c_str(), "auto") == 0) {
@@ -96,10 +100,21 @@ int parse_confile(const char* confile) {
             worker_processes = atoi(str.c_str());
         }
     }
+#endif
     g_http_server.worker_processes = LIMIT(0, worker_processes, MAXNUM_WORKER_PROCESSES);
     // worker_threads
-    int worker_threads = ini.Get<int>("worker_threads");
-    g_http_server.worker_threads = LIMIT(0, worker_threads, 16);
+    int worker_threads = 0;
+    str = ini.GetValue("worker_threads");
+    if (str.size() != 0) {
+        if (strcmp(str.c_str(), "auto") == 0) {
+            worker_threads = get_ncpu();
+            hlogd("worker_threads=ncpu=%d", worker_threads);
+        }
+        else {
+            worker_threads = atoi(str.c_str());
+        }
+    }
+    g_http_server.worker_threads = LIMIT(0, worker_threads, 64);
 
     // http_port
     int port = 0;

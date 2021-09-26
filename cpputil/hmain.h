@@ -95,7 +95,7 @@ void signal_handler(int signo);
 
 // global var
 #define DEFAULT_WORKER_PROCESSES    4
-#define MAXNUM_WORKER_PROCESSES     1024
+#define MAXNUM_WORKER_PROCESSES     256
 HV_EXPORT extern main_ctx_t   g_main_ctx;
 
 // master-workers processes
