@@ -34,13 +34,25 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
 #endif
         int fd = open(filepath, flags);
         if (fd < 0) {
+#ifdef OS_WIN
+            // NOTE: open(dir) return -1 on windows
+            if (!hv_isdir(filepath)) {
+                param->error = ERR_OPEN_FILE;
+                return NULL;
+            }
+#else
             param->error = ERR_OPEN_FILE;
             return NULL;
+#endif
         }
-        defer(close(fd);)
+        defer(if (fd > 0) { close(fd); })
         if (fc == NULL) {
             struct stat st;
-            fstat(fd, &st);
+            if (fd > 0) {
+                fstat(fd, &st);
+            } else {
+                stat(filepath, &st);
+            }
             if (S_ISREG(st.st_mode) ||
                 (S_ISDIR(st.st_mode) &&
                  filepath[strlen(filepath)-1] == '/')) {

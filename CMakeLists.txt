@@ -212,7 +212,10 @@ endif()
 
 if(BUILD_EXAMPLES)
     add_subdirectory(examples)
-    file(INSTALL etc DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
+    # for httpd -c etc/httpd.conf
+    file(INSTALL etc DESTINATION ${CMAKE_BINARY_DIR})
+    file(INSTALL etc DESTINATION ${CMAKE_BINARY_DIR}/bin)
+    file(INSTALL etc DESTINATION ${CMAKE_BINARY_DIR}/examples)
 endif()
 
 if(BUILD_UNITTEST)

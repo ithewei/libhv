@@ -1,11 +1,11 @@
 #include "hpath.h"
 
 bool HPath::exists(const char* path) {
-    return access(path, F_OK) == 0;
+    return access(path, 0) == 0;
 }
 
 bool HPath::isdir(const char* path) {
-    if (access(path, F_OK) != 0) return false;
+    if (access(path, 0) != 0) return false;
     struct stat st;
     memset(&st, 0, sizeof(st));
     stat(path, &st);
@@ -13,7 +13,7 @@ bool HPath::isdir(const char* path) {
 }
 
 bool HPath::isfile(const char* path) {
-    if (access(path, F_OK) != 0) return false;
+    if (access(path, 0) != 0) return false;
     struct stat st;
     memset(&st, 0, sizeof(st));
     stat(path, &st);

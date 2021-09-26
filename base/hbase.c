@@ -241,11 +241,11 @@ int hv_rmdir_p(const char* dir) {
 }
 
 bool hv_exists(const char* path) {
-    return access(path, F_OK) == 0;
+    return access(path, 0) == 0;
 }
 
 bool hv_isdir(const char* path) {
-    if (access(path, F_OK) != 0) return false;
+    if (access(path, 0) != 0) return false;
     struct stat st;
     memset(&st, 0, sizeof(st));
     stat(path, &st);
@@ -253,7 +253,7 @@ bool hv_isdir(const char* path) {
 }
 
 bool hv_isfile(const char* path) {
-    if (access(path, F_OK) != 0) return false;
+    if (access(path, 0) != 0) return false;
     struct stat st;
     memset(&st, 0, sizeof(st));
     stat(path, &st);
