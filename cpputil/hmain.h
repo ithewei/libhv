@@ -27,8 +27,8 @@ typedef struct main_ctx_s {
     char**  os_argv;
     char**  save_argv;
     char*   cmdline;
-    keyval_t    arg_kv;
-    StringList  arg_list;
+    keyval_t        arg_kv;
+    hv::StringList  arg_list;
 
     // env
     int     envc;

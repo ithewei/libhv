@@ -226,8 +226,8 @@ int Handler::restful(const HttpContextPtr& ctx) {
 }
 
 int Handler::login(const HttpContextPtr& ctx) {
-    string username = ctx->get("username");
-    string password = ctx->get("password");
+    std::string username = ctx->get("username");
+    std::string password = ctx->get("password");
     if (username.empty() || password.empty()) {
         response_status(ctx, 10001, "Miss username or password");
         return HTTP_STATUS_BAD_REQUEST;

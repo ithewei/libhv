@@ -7,6 +7,8 @@
 #include "hurl.h"
 #include "http_parser.h" // for http_parser_url
 
+using namespace hv;
+
 char HttpMessage::s_date[32] = {0};
 
 bool HttpCookie::parse(const std::string& str) {
@@ -429,7 +431,7 @@ int HttpMessage::ParseBody() {
             return false;
         }
         boundary += strlen("boundary=");
-        string strBoundary(boundary);
+        std::string strBoundary(boundary);
         strBoundary = trim_pairs(strBoundary, "\"\"\'\'");
         return parse_multipart(body, form, strBoundary.c_str());
     }

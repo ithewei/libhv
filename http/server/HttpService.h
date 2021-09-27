@@ -111,8 +111,8 @@ struct HV_EXPORT HttpService {
             http_async_handler* async_handler = NULL,
             http_handler* handler = NULL);
 
-    StringList Paths() {
-        StringList paths;
+    hv::StringList Paths() {
+        hv::StringList paths;
         for (auto& pair : api_handlers) {
             paths.emplace_back(pair.first);
         }

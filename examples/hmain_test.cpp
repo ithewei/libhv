@@ -78,7 +78,7 @@ int parse_confile(const char* confile) {
     }
 
     // logfile
-    string str = g_conf_ctx.parser->GetValue("logfile");
+    std::string str = g_conf_ctx.parser->GetValue("logfile");
     if (!str.empty()) {
         strncpy(g_main_ctx.logfile, str.c_str(), sizeof(g_main_ctx.logfile));
     }

@@ -4,6 +4,8 @@
 #include "hsocket.h"
 #include "netinet.h"
 
+using namespace hv;
+
 #define MAX_RECVFROM_TIMEOUT    5000 // ms
 #define MAX_SENDTO_PERSOCKET    1024
 

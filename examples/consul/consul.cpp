@@ -1,6 +1,7 @@
 #include "consul.h"
 
 #include "http_client.h"
+using namespace hv;
 
 #include "json.hpp"
 using json = nlohmann::json;
@@ -12,11 +13,11 @@ static const char url_register[] = "/agent/service/register";
 static const char url_deregister[] = "/agent/service/deregister";
 static const char url_discover[] = "/catalog/service";
 
-static string make_url(const char* ip, int port, const char* url) {
+static std::string make_url(const char* ip, int port, const char* url) {
     return asprintf(PROTOCOL "%s:%d/" API_VERSION "%s", ip, port, url);
 }
 
-static string make_ServiceID(consul_service_t* service) {
+static std::string make_ServiceID(consul_service_t* service) {
     return asprintf("%s-%s:%d", service->name, service->ip, service->port);
 }
 
@@ -81,7 +82,7 @@ int register_service(consul_node_t* node, consul_service_t* service, consul_heal
 }
 
 int deregister_service(consul_node_t* node, consul_service_t* service) {
-    string url = make_url(node->ip, node->port, url_deregister);
+    std::string url = make_url(node->ip, node->port, url_deregister);
     url += '/';
     url += make_ServiceID(service);
 
@@ -98,7 +99,7 @@ int deregister_service(consul_node_t* node, consul_service_t* service) {
 }
 
 int discover_services(consul_node_t* node, const char* service_name, std::vector<consul_service_t>& services) {
-    string url = make_url(node->ip, node->port, url_discover);
+    std::string url = make_url(node->ip, node->port, url_discover);
     url += '/';
     url += service_name;
 

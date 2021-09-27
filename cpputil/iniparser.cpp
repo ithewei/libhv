@@ -9,6 +9,8 @@
 #include "hfile.h"
 #include "hbase.h"
 
+using namespace hv;
+
 /**********************************
 # div
 
@@ -29,8 +31,8 @@ public:
         INI_NODE_TYPE_DIV,
         INI_NODE_TYPE_SPAN,
     } type;
-    string  label; // section|key|comment
-    string  value;
+    std::string  label; // section|key|comment
+    std::string  value;
     std::list<IniNode*>    children;
 
     virtual ~IniNode() {
@@ -56,7 +58,7 @@ public:
         }
     }
 
-    IniNode* Get(const string& label, Type type = INI_NODE_TYPE_KEY_VALUE) {
+    IniNode* Get(const std::string& label, Type type = INI_NODE_TYPE_KEY_VALUE) {
         for (auto pNode : children) {
             if (pNode->type == type && pNode->label == label) {
                 return pNode;
@@ -71,7 +73,7 @@ public:
     IniSection() : IniNode(), section(label) {
         type = INI_NODE_TYPE_SECTION;
     }
-    string &section;
+    std::string &section;
 };
 
 class IniKeyValue : public IniNode {
@@ -79,14 +81,14 @@ public:
     IniKeyValue() : IniNode(), key(label) {
         type = INI_NODE_TYPE_KEY_VALUE;
     }
-    string &key;
+    std::string &key;
 };
 
 class IniComment : public IniNode {
 public:
     IniComment() : IniNode(), comment(label) {
     }
-    string &comment;
+    std::string &comment;
 };
 
 IniParser::IniParser() {
@@ -131,11 +133,9 @@ int IniParser::LoadFromMem(const char* data) {
     ss << data;
     std::string strLine;
     int line = 0;
-    string::size_type pos;
+    std::string::size_type pos;
 
-    string      content;
-    string      comment;
-    string      strDiv;
+    std::string content, comment, strDiv;
     IniNode* pScopeNode = root_;
     IniNode* pNewNode = NULL;
     while (std::getline(ss, strLine)) {
@@ -151,7 +151,7 @@ int IniParser::LoadFromMem(const char* data) {
         // trim_comment
         comment = "";
         pos = content.find_first_of(_comment);
-        if (pos != string::npos) {
+        if (pos != std::string::npos) {
             comment = content.substr(pos);
             content = content.substr(0, pos);
         }
@@ -184,7 +184,7 @@ int IniParser::LoadFromMem(const char* data) {
             }
         } else {
             pos = content.find_first_of(_delim);
-            if (pos != string::npos) {
+            if (pos != std::string::npos) {
                 // key-value
                 pNewNode = new IniNode;
                 pNewNode->type = IniNode::INI_NODE_TYPE_KEY_VALUE;
@@ -218,7 +218,7 @@ int IniParser::LoadFromMem(const char* data) {
     return 0;
 }
 
-void IniParser::DumpString(IniNode* pNode, string& str) {
+void IniParser::DumpString(IniNode* pNode, std::string& str) {
     if (pNode == NULL)  return;
 
     if (pNode->type != IniNode::INI_NODE_TYPE_SPAN) {
@@ -256,8 +256,8 @@ void IniParser::DumpString(IniNode* pNode, string& str) {
     }
 }
 
-string IniParser::DumpString() {
-    string str;
+std::string IniParser::DumpString() {
+    std::string str;
     DumpString(root_, str);
     return str;
 }
@@ -267,7 +267,7 @@ int IniParser::Save() {
 }
 
 int IniParser::SaveAs(const char* filepath) {
-    string str = DumpString();
+    std::string str = DumpString();
     if (str.length() == 0) {
         return 0;
     }
@@ -281,7 +281,7 @@ int IniParser::SaveAs(const char* filepath) {
     return 0;
 }
 
-string IniParser::GetValue(const string& key, const string& section) {
+std::string IniParser::GetValue(const std::string& key, const std::string& section) {
     if (root_ == NULL)  return "";
 
     IniNode* pSection = root_;
@@ -296,7 +296,7 @@ string IniParser::GetValue(const string& key, const string& section) {
     return pKV->value;
 }
 
-void IniParser::SetValue(const string& key, const string& value, const string& section) {
+void IniParser::SetValue(const std::string& key, const std::string& value, const std::string& section) {
     if (root_ == NULL) {
         root_ = new IniNode;
     }
@@ -323,35 +323,34 @@ void IniParser::SetValue(const string& key, const string& value, const string& s
 }
 
 template<>
-HV_EXPORT bool IniParser::Get(const string& key, const string& section, bool defvalue) {
-    string str = GetValue(key, section);
+HV_EXPORT bool IniParser::Get(const std::string& key, const std::string& section, bool defvalue) {
+    std::string str = GetValue(key, section);
     return str.empty() ? defvalue : getboolean(str.c_str());
 }
 
 template<>
-HV_EXPORT int IniParser::Get(const string& key, const string& section, int defvalue) {
-    string str = GetValue(key, section);
+HV_EXPORT int IniParser::Get(const std::string& key, const std::string& section, int defvalue) {
+    std::string str = GetValue(key, section);
     return str.empty() ? defvalue : atoi(str.c_str());
 }
 
 template<>
-HV_EXPORT float IniParser::Get(const string& key, const string& section, float defvalue) {
-    string str = GetValue(key, section);
+HV_EXPORT float IniParser::Get(const std::string& key, const std::string& section, float defvalue) {
+    std::string str = GetValue(key, section);
     return str.empty() ? defvalue : atof(str.c_str());
 }
 
 template<>
-HV_EXPORT void IniParser::Set(const string& key, const bool& value, const string& section) {
+HV_EXPORT void IniParser::Set(const std::string& key, const bool& value, const std::string& section) {
     SetValue(key, value ? "true" : "false", section);
 }
 
 template<>
-HV_EXPORT void IniParser::Set(const string& key, const int& value, const string& section) {
+HV_EXPORT void IniParser::Set(const std::string& key, const int& value, const std::string& section) {
     SetValue(key, asprintf("%d", value), section);
 }
 
 template<>
-HV_EXPORT void IniParser::Set(const string& key, const float& value, const string& section) {
+HV_EXPORT void IniParser::Set(const std::string& key, const float& value, const std::string& section) {
     SetValue(key, asprintf("%f", value), section);
 }
-

@@ -2,7 +2,6 @@
 #define HV_INI_PARSER_H_
 
 #include <string>
-using std::string;
 
 #include "hexport.h"
 
@@ -22,28 +21,28 @@ public:
     int Unload();
     int Reload();
 
-    string DumpString();
+    std::string DumpString();
     int Save();
     int SaveAs(const char* filepath);
 
-    string GetValue(const string& key, const string& section = "");
-    void   SetValue(const string& key, const string& value, const string& section = "");
+    std::string GetValue(const std::string& key, const std::string& section = "");
+    void        SetValue(const std::string& key, const std::string& value, const std::string& section = "");
 
     // T = [bool, int, float]
     template<typename T>
-    T Get(const string& key, const string& section = "", T defvalue = 0);
+    T Get(const std::string& key, const std::string& section = "", T defvalue = 0);
 
     // T = [bool, int, float]
     template<typename T>
-    void Set(const string& key, const T& value, const string& section = "");
+    void Set(const std::string& key, const T& value, const std::string& section = "");
 
 protected:
-    void DumpString(IniNode* pNode, string& str);
+    void DumpString(IniNode* pNode, std::string& str);
 
 public:
-    string  _comment;
-    string  _delim;
-    string  _filepath;
+    std::string _comment;
+    std::string _delim;
+    std::string _filepath;
 private:
     IniNode* root_;
 };

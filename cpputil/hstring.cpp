@@ -9,13 +9,15 @@ static inline int vscprintf(const char* fmt, va_list ap) {
     return vsnprintf(NULL, 0, fmt, ap);
 }
 
-string asprintf(const char* fmt, ...) {
+namespace hv {
+
+std::string asprintf(const char* fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
     int len = vscprintf(fmt, ap);
     va_end(ap);
 
-    string str;
+    std::string str;
     str.reserve(len+1);
     // must resize to set str.size
     str.resize(len);
@@ -27,7 +29,7 @@ string asprintf(const char* fmt, ...) {
     return str;
 }
 
-StringList split(const string& str, char delim) {
+StringList split(const std::string& str, char delim) {
     /*
     std::stringstream ss;
     ss << str;
@@ -52,7 +54,7 @@ StringList split(const string& str, char delim) {
     return res;
 }
 
-hv::KeyValue splitKV(const string& str, char kv_kv, char k_v) {
+hv::KeyValue splitKV(const std::string& str, char kv_kv, char k_v) {
     enum {
         s_key,
         s_value,
@@ -87,26 +89,26 @@ hv::KeyValue splitKV(const string& str, char kv_kv, char k_v) {
     return kvs;
 }
 
-string trim(const string& str, const char* chars) {
-    string::size_type pos1 = str.find_first_not_of(chars);
-    if (pos1 == string::npos)   return "";
+std::string trim(const std::string& str, const char* chars) {
+    std::string::size_type pos1 = str.find_first_not_of(chars);
+    if (pos1 == std::string::npos)   return "";
 
-    string::size_type pos2 = str.find_last_not_of(chars);
+    std::string::size_type pos2 = str.find_last_not_of(chars);
     return str.substr(pos1, pos2-pos1+1);
 }
 
-string trimL(const string& str, const char* chars) {
-    string::size_type pos = str.find_first_not_of(chars);
-    if (pos == string::npos)    return "";
+std::string trimL(const std::string& str, const char* chars) {
+    std::string::size_type pos = str.find_first_not_of(chars);
+    if (pos == std::string::npos)    return "";
     return str.substr(pos);
 }
 
-string trimR(const string& str, const char* chars) {
-    string::size_type pos = str.find_last_not_of(chars);
+std::string trimR(const std::string& str, const char* chars) {
+    std::string::size_type pos = str.find_last_not_of(chars);
     return str.substr(0, pos+1);
 }
 
-string trim_pairs(const string& str, const char* pairs) {
+std::string trim_pairs(const std::string& str, const char* pairs) {
     const char* s = str.c_str();
     const char* e = str.c_str() + str.size() - 1;
     const char* p = pairs;
@@ -121,15 +123,17 @@ string trim_pairs(const string& str, const char* pairs) {
     return is_pair ? str.substr(1, str.size()-2) : str;
 }
 
-string replace(const string& str, const string& find, const string& rep) {
-    string::size_type pos = 0;
-    string::size_type a = find.size();
-    string::size_type b = rep.size();
+std::string replace(const std::string& str, const std::string& find, const std::string& rep) {
+    std::string::size_type pos = 0;
+    std::string::size_type a = find.size();
+    std::string::size_type b = rep.size();
 
-    string res(str);
-    while ((pos = res.find(find, pos)) != string::npos) {
+    std::string res(str);
+    while ((pos = res.find(find, pos)) != std::string::npos) {
         res.replace(pos, a, rep);
         pos += b;
     }
     return res;
 }
+
+} // end namespace hv

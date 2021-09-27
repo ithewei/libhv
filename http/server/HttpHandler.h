@@ -16,10 +16,15 @@ public:
     uint64_t                    last_recv_pong_time;
 
     WebSocketHandler() {
-        parser.reset(new WebSocketParser);
-        // channel.reset(new WebSocketChannel);
         last_send_ping_time = 0;
         last_recv_pong_time = 0;
+    }
+
+    void Init(hio_t* io = NULL, ws_session_type type = WS_SERVER) {
+        parser.reset(new WebSocketParser);
+        if (io) {
+            channel.reset(new hv::WebSocketChannel(io, type));
+        }
     }
 
     void onopen() {
@@ -83,7 +88,13 @@ public:
         ws_service = NULL;
     }
 
-    bool Init(int http_version = 1) {
+    ~HttpHandler() {
+        if (writer) {
+            writer->status = hv::SocketChannel::DISCONNECTED;
+        }
+    }
+
+    bool Init(int http_version = 1, hio_t* io = NULL) {
         parser.reset(HttpParser::New(HTTP_SERVER, (enum http_version)http_version));
         if (parser == NULL) {
             return false;
@@ -98,6 +109,10 @@ public:
             resp->http_minor = 0;
         }
         parser->InitRequest(req.get());
+        if (io) {
+            writer.reset(new hv::HttpResponseWriter(io, resp));
+            writer->status = hv::SocketChannel::CONNECTED;
+        }
         return true;
     }
 
@@ -120,6 +135,9 @@ public:
         req->Reset();
         resp->Reset();
         parser->InitRequest(req.get());
+        if (writer) {
+            writer->Begin();
+        }
     }
 
     int FeedRecvData(const char* data, size_t len);

@@ -56,7 +56,7 @@ int parse_confile(const char* confile) {
     }
 
     // logfile
-    string str = ini.GetValue("logfile");
+    std::string str = ini.GetValue("logfile");
     if (!str.empty()) {
         strncpy(g_main_ctx.logfile, str.c_str(), sizeof(g_main_ctx.logfile));
     }

@@ -4,7 +4,6 @@
 #include <string> // for std::string
 
 #include "hexport.h"
-#include "hplatform.h" // for stat
 
 class HV_EXPORT HPath {
 public:
@@ -17,10 +16,10 @@ public:
     // dirname  = /mnt/share/image
     // filename = test
     // suffixname = jpg
-    static std::string basename(const std::string& str);
-    static std::string dirname(const std::string& str);
-    static std::string filename(const std::string& str);
-    static std::string suffixname(const std::string& str);
+    static std::string basename(const std::string& filepath);
+    static std::string dirname(const std::string& filepath);
+    static std::string filename(const std::string& filepath);
+    static std::string suffixname(const std::string& filepath);
 
     static std::string join(const std::string& dir, const std::string& filename);
 };

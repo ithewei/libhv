@@ -1,5 +1,7 @@
 #include "hpath.h"
 
+#include "hplatform.h"
+
 bool HPath::exists(const char* path) {
     return access(path, 0) == 0;
 }

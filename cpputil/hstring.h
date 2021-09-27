@@ -6,11 +6,15 @@
 #include <sstream>
 
 #include "hexport.h"
-#include "hbase.h"
+#include "hplatform.h"
 #include "hmap.h"
 
-using std::string;
-typedef std::vector<string> StringList;
+#define SPACE_CHARS     " \t\r\n"
+#define PAIR_CHARS      "{}[]()<>\"\"\'\'``"
+
+namespace hv {
+
+typedef std::vector<std::string> StringList;
 
 // std::map<std::string, std::string, StringCaseLess>
 class StringCaseLess : public std::less<std::string> {
@@ -20,7 +24,6 @@ public:
     }
 };
 
-namespace hv {
 // NOTE: low-version NDK not provide std::to_string
 template<typename T>
 HV_INLINE std::string to_string(const T& t) {
@@ -36,20 +39,18 @@ HV_INLINE T from_string(const std::string& str) {
     iss >> t;
     return t;
 }
-}
 
-#define SPACE_CHARS     " \t\r\n"
-#define PAIR_CHARS      "{}[]()<>\"\"\'\'``"
-
-HV_EXPORT string asprintf(const char* fmt, ...);
+HV_EXPORT std::string asprintf(const char* fmt, ...);
 // x,y,z
-HV_EXPORT StringList split(const string& str, char delim = ',');
+HV_EXPORT StringList split(const std::string& str, char delim = ',');
 // user=amdin&pswd=123456
-HV_EXPORT hv::KeyValue splitKV(const string& str, char kv_kv = '&', char k_v = '=');
-HV_EXPORT string trim(const string& str, const char* chars = SPACE_CHARS);
-HV_EXPORT string trimL(const string& str, const char* chars = SPACE_CHARS);
-HV_EXPORT string trimR(const string& str, const char* chars = SPACE_CHARS);
-HV_EXPORT string trim_pairs(const string& str, const char* pairs = PAIR_CHARS);
-HV_EXPORT string replace(const string& str, const string& find, const string& rep);
+HV_EXPORT hv::KeyValue splitKV(const std::string& str, char kv_kv = '&', char k_v = '=');
+HV_EXPORT std::string trim(const std::string& str, const char* chars = SPACE_CHARS);
+HV_EXPORT std::string trimL(const std::string& str, const char* chars = SPACE_CHARS);
+HV_EXPORT std::string trimR(const std::string& str, const char* chars = SPACE_CHARS);
+HV_EXPORT std::string trim_pairs(const std::string& str, const char* pairs = PAIR_CHARS);
+HV_EXPORT std::string replace(const std::string& str, const std::string& find, const std::string& rep);
+
+} // end namespace hv
 
 #endif // HV_STRING_H_

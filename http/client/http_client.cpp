@@ -16,6 +16,8 @@
 // for async
 #include "AsyncHttpClient.h"
 
+using namespace hv;
+
 struct http_client_s {
     std::string  host;
     int          port;

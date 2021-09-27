@@ -45,7 +45,7 @@ struct HNetAddr {
     int             port;
 
     std::string ipport() {
-        return asprintf("%s:%d", ip.c_str(), port);
+        return hv::asprintf("%s:%d", ip.c_str(), port);
     }
 };
 
@@ -69,11 +69,11 @@ struct HV_EXPORT HttpCookie {
     std::string dump() const;
 };
 
-typedef std::map<std::string, std::string, StringCaseLess>  http_headers;
-typedef std::vector<HttpCookie>                             http_cookies;
-typedef std::string                                         http_body;
-typedef std::function<void(const char* data, size_t size)>  http_body_cb;
-typedef std::function<void(const char* data, size_t size)>  http_chunked_cb;
+typedef std::map<std::string, std::string, hv::StringCaseLess>  http_headers;
+typedef std::vector<HttpCookie>                                 http_cookies;
+typedef std::string                                             http_body;
+typedef std::function<void(const char* data, size_t size)>      http_body_cb;
+typedef std::function<void(const char* data, size_t size)>      http_chunked_cb;
 
 class HV_EXPORT HttpMessage {
 public:
@@ -361,7 +361,7 @@ public:
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1) {
-        headers["Range"] = asprintf("bytes=%ld-%ld", from, to);
+        headers["Range"] = hv::asprintf("bytes=%ld-%ld", from, to);
     }
     bool GetRange(long& from, long& to) {
         auto iter = headers.find("Range");
@@ -409,7 +409,7 @@ public:
 
     // Content-Range: bytes 0-4095/10240000
     void SetRange(long from, long to, long total) {
-        headers["Content-Range"] = asprintf("bytes %ld-%ld/%ld", from, to, total);
+        headers["Content-Range"] = hv::asprintf("bytes %ld-%ld/%ld", from, to, total);
     }
     bool GetRange(long& from, long& to, long& total) {
         auto iter = headers.find("Content-Range");

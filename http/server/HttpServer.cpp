@@ -104,14 +104,10 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
             http_version = 2;
         }
-        if (!handler->Init(http_version)) {
+        if (!handler->Init(http_version, io)) {
             hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, http_version);
             hio_close(io);
             return;
-        }
-        handler->writer.reset(new HttpResponseWriter(io, handler->resp));
-        if (handler->writer) {
-            handler->writer->status = SocketChannel::CONNECTED;
         }
     }
 
@@ -221,7 +217,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     // switch protocol to websocket
     if (upgrade && upgrade_protocol == HttpHandler::WEBSOCKET) {
         WebSocketHandler* ws = handler->SwitchWebSocket();
-        ws->channel.reset(new WebSocketChannel(io, WS_SERVER));
+        ws->Init(io);
         ws->parser->onMessage = std::bind(websocket_onmessage, std::placeholders::_1, std::placeholders::_2, io);
         // NOTE: cancel keepalive timer, judge alive by heartbeat.
         hio_set_keepalive_timeout(io, 0);
@@ -245,9 +241,6 @@ static void on_close(hio_t* io) {
         if (handler->protocol == HttpHandler::WEBSOCKET) {
             // onclose
             handler->WebSocketOnClose();
-        }
-        if (handler->writer) {
-            handler->writer->status = SocketChannel::DISCONNECTED;
         }
         hevent_set_userdata(io, NULL);
         delete handler;
