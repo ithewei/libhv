@@ -40,10 +40,18 @@ HV_INLINE T from_string(const std::string& str) {
     return t;
 }
 
+HV_EXPORT std::string& toupper(std::string& str);
+HV_EXPORT std::string& tolower(std::string& str);
+HV_EXPORT std::string& reverse(std::string& str);
+
+HV_EXPORT bool startswith(const std::string& str, const std::string& start);
+HV_EXPORT bool endswith(const std::string& str, const std::string& end);
+HV_EXPORT bool contains(const std::string& str, const std::string& sub);
+
 HV_EXPORT std::string asprintf(const char* fmt, ...);
 // x,y,z
 HV_EXPORT StringList split(const std::string& str, char delim = ',');
-// user=amdin&pswd=123456
+// k1=v1&k2=v2
 HV_EXPORT hv::KeyValue splitKV(const std::string& str, char kv_kv = '&', char k_v = '=');
 HV_EXPORT std::string trim(const std::string& str, const char* chars = SPACE_CHARS);
 HV_EXPORT std::string trimL(const std::string& str, const char* chars = SPACE_CHARS);

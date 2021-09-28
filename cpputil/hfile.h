@@ -43,11 +43,15 @@ public:
         return fwrite(ptr, 1, len, fp);
     }
 
-    size_t size() {
+    static size_t size(const char* filepath) {
         struct stat st;
         memset(&st, 0, sizeof(st));
         stat(filepath, &st);
         return st.st_size;
+    }
+
+    size_t size() {
+        return HFile::size(filepath);
     }
 
     size_t readall(HBuf& buf) {

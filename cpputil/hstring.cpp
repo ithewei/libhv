@@ -5,11 +5,65 @@
 #include <string.h>
 #include <stdarg.h>
 
+namespace hv {
+
+std::string& toupper(std::string& str) {
+    // std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+    char* p = (char*)str.c_str();
+    while (*p != '\0') {
+        if (*p >= 'a' && *p <= 'z') {
+            *p &= ~0x20;
+        }
+        ++p;
+    }
+    return str;
+}
+
+std::string& tolower(std::string& str) {
+    // std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+    char* p = (char*)str.c_str();
+    while (*p != '\0') {
+        if (*p >= 'A' && *p <= 'Z') {
+            *p |= 0x20;
+        }
+        ++p;
+    }
+    return str;
+}
+
+std::string& reverse(std::string& str) {
+    // std::reverse(str.begin(), str.end());
+    char* b = (char*)str.c_str();
+    char* e = b + str.length() - 1;
+    char tmp;
+    while (e > b) {
+        tmp = *e;
+        *e = *b;
+        *b = tmp;
+        --e;
+        ++b;
+    }
+    return str;
+}
+
+bool startswith(const std::string& str, const std::string& start) {
+    if (str.length() < start.length()) return false;
+    return str.compare(0, start.length(), start) == 0;
+}
+
+bool endswith(const std::string& str, const std::string& end) {
+    if (str.length() < end.length()) return false;
+    return str.compare(str.length() - end.length(), end.length(), end) == 0;
+}
+
+bool contains(const std::string& str, const std::string& sub) {
+    if (str.length() < sub.length()) return false;
+    return str.find(sub) != std::string::npos;
+}
+
 static inline int vscprintf(const char* fmt, va_list ap) {
     return vsnprintf(NULL, 0, fmt, ap);
 }
-
-namespace hv {
 
 std::string asprintf(const char* fmt, ...) {
     va_list ap;

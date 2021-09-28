@@ -10,6 +10,7 @@ public:
     static bool exists(const char* path);
     static bool isdir(const char* path);
     static bool isfile(const char* path);
+    static bool islink(const char* path);
 
     // filepath = /mnt/share/image/test.jpg
     // basename = test.jpg

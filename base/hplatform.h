@@ -152,6 +152,21 @@
     #define hv_delay(ms)    hv_msleep(ms)
     #define hv_mkdir(dir)   mkdir(dir)
 
+    // access
+    #ifndef F_OK
+    #define F_OK            0       /* test for existence of file */
+    #endif
+    #ifndef X_OK
+    #define X_OK            (1<<0)  /* test for execute or search permission */
+    #endif
+    #ifndef W_OK
+    #define W_OK            (1<<1)  /* test for write permission */
+    #endif
+    #ifndef R_OK
+    #define R_OK            (1<<2)  /* test for read permission */
+    #endif
+
+    // stat
     #ifndef S_ISREG
     #define S_ISREG(st_mode) (((st_mode) & S_IFMT) == S_IFREG)
     #endif

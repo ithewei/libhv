@@ -260,6 +260,18 @@ bool hv_isfile(const char* path) {
     return S_ISREG(st.st_mode);
 }
 
+bool hv_islink(const char* path) {
+#ifdef OS_WIN
+    return hv_isdir(path) && (GetFileAttributes(path) & FILE_ATTRIBUTE_REPARSE_POINT);
+#else
+    if (access(path, 0) != 0) return false;
+    struct stat st;
+    memset(&st, 0, sizeof(st));
+    lstat(path, &st);
+    return S_ISLNK(st.st_mode);
+#endif
+}
+
 bool getboolean(const char* str) {
     if (str == NULL) return false;
     int len = strlen(str);
