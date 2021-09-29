@@ -151,13 +151,13 @@ std::string trim(const std::string& str, const char* chars) {
     return str.substr(pos1, pos2-pos1+1);
 }
 
-std::string trimL(const std::string& str, const char* chars) {
+std::string ltrim(const std::string& str, const char* chars) {
     std::string::size_type pos = str.find_first_not_of(chars);
     if (pos == std::string::npos)    return "";
     return str.substr(pos);
 }
 
-std::string trimR(const std::string& str, const char* chars) {
+std::string rtrim(const std::string& str, const char* chars) {
     std::string::size_type pos = str.find_last_not_of(chars);
     return str.substr(0, pos+1);
 }
@@ -178,6 +178,15 @@ std::string trim_pairs(const std::string& str, const char* pairs) {
 }
 
 std::string replace(const std::string& str, const std::string& find, const std::string& rep) {
+    std::string res(str);
+    std::string::size_type pos = res.find(find);
+    if (pos != std::string::npos) {
+        res.replace(pos, find.size(), rep);
+    }
+    return res;
+}
+
+std::string replaceAll(const std::string& str, const std::string& find, const std::string& rep) {
     std::string::size_type pos = 0;
     std::string::size_type a = find.size();
     std::string::size_type b = rep.size();

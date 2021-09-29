@@ -158,6 +158,14 @@ char* datetime_fmt(datetime_t* dt, char* buf) {
     return buf;
 }
 
+char* datetime_fmt_iso(datetime_t* dt, char* buf) {
+    sprintf(buf, DATETIME_FMT_ISO,
+        dt->year, dt->month, dt->day,
+        dt->hour, dt->min, dt->sec,
+        dt->ms);
+    return buf;
+}
+
 char* gmtime_fmt(time_t time, char* buf) {
     struct tm* tm = gmtime(&time);
     //strftime(buf, GMTIME_FMT_BUFLEN, "%a, %d %b %Y %H:%M:%S GMT", tm);

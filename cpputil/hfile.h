@@ -43,6 +43,22 @@ public:
         return fwrite(ptr, 1, len, fp);
     }
 
+    size_t write(const std::string& str) {
+        return write(str.c_str(), str.length());
+    }
+
+    int seek(size_t offset, int whence = SEEK_SET) {
+        return fseek(fp, offset, whence);
+    }
+
+    int tell() {
+        return ftell(fp);
+    }
+
+    int flush() {
+        return fflush(fp);
+    }
+
     static size_t size(const char* filepath) {
         struct stat st;
         memset(&st, 0, sizeof(st));

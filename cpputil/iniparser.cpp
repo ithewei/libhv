@@ -141,7 +141,7 @@ int IniParser::LoadFromMem(const char* data) {
     while (std::getline(ss, strLine)) {
         ++line;
 
-        content = trimL(strLine);
+        content = ltrim(strLine);
         if (content.length() == 0)  {
             // blank line
             strDiv += '\n';
@@ -156,7 +156,7 @@ int IniParser::LoadFromMem(const char* data) {
             content = content.substr(0, pos);
         }
 
-        content = trimR(content);
+        content = rtrim(content);
         if (content.length() == 0) {
             strDiv += strLine;
             strDiv += '\n';

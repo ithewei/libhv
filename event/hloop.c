@@ -208,8 +208,6 @@ unlock:
 }
 
 void hloop_post_event(hloop_t* loop, hevent_t* ev) {
-    char buf = '1';
-
     if (loop->sockpair[0] == -1 || loop->sockpair[1] == -1) {
         hlogw("socketpair not created!");
         return;
@@ -226,7 +224,7 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
     }
 
     hmutex_lock(&loop->custom_events_mutex);
-    hwrite(loop, loop->sockpair[SOCKPAIR_WRITE_INDEX], &buf, 1, NULL);
+    hwrite(loop, loop->sockpair[SOCKPAIR_WRITE_INDEX], "e", 1, NULL);
     event_queue_push_back(&loop->custom_events, ev);
     hmutex_unlock(&loop->custom_events_mutex);
 }

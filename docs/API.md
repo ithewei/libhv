@@ -117,6 +117,7 @@
 - hv_exists
 - hv_isdir
 - hv_isfile
+- hv_islink
 - getboolean
 - get_executable_path
 - get_executable_dir
@@ -252,16 +253,23 @@
 - class HRingBuf
 
 ### hstring.h
+- to_string
+- from_string
+- toupper
+- tolower
+- reverse
+- startswith
+- endswith
+- contains
 - asprintf
 - trim
-- trimL
-- trimR
+- ltrim
+- rtrim
 - trim_pairs
 - split
 - splitKV
 - replace
-- hv::to_string
-- hv::from_string
+- replaceAll
 
 ### hfile.h
 - class HFile
@@ -270,6 +278,7 @@
 - exists
 - isdir
 - isfile
+- islink
 - basename
 - dirname
 - filename
