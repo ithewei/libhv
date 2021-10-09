@@ -370,6 +370,7 @@ int main() {
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 - [examples/protorpc](examples/protorpc)
+- [examples/qt](examples/qt)
 
 ### simulate well-known command line tools
 - [examples/nc](examples/nc.c)

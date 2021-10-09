@@ -374,6 +374,7 @@ int main() {
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 - protobufRPC示例: [examples/protorpc](examples/protorpc)
+- Qt中使用libhv示例: [examples/qt](examples/qt)
 
 ### 模拟实现著名的命令行工具
 - 网络连接工具: [examples/nc](examples/nc.c)
