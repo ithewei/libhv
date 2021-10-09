@@ -28,7 +28,7 @@ void MainWindow::initUI()
 {
     initMenu();
 
-    setFixedSize(640, 480);
+    setFixedSize(800, 600);
 
     QVBoxLayout* vbox = new QVBoxLayout();
 

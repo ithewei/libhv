@@ -302,6 +302,8 @@ void hio_read_cb(hio_t* io, void* buf, int len) {
         size_t small_size = io->readbuf.len / 2;
         if (len < small_size) {
             ++io->small_readbytes_cnt;
+        } else {
+            io->small_readbytes_cnt = 0;
         }
     }
 }
