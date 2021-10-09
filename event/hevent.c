@@ -297,15 +297,11 @@ void hio_read_cb(hio_t* io, void* buf, int len) {
         // printd("read_cb======\n");
     }
 
+    // for readbuf autosize
     if (hio_is_alloced_readbuf(io) && io->readbuf.len > READ_BUFSIZE_HIGH_WATER) {
-        // readbuf autosize
         size_t small_size = io->readbuf.len / 2;
         if (len < small_size) {
-            if (++io->small_readbytes_cnt == 3) {
-                io->small_readbytes_cnt = 0;
-                io->readbuf.base = (char*)safe_realloc(io->readbuf.base, small_size, io->readbuf.len);
-                io->readbuf.len = small_size;
-            }
+            ++io->small_readbytes_cnt;
         }
     }
 }

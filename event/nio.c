@@ -50,14 +50,21 @@ static void __read_cb(hio_t* io, void* buf, int readbytes) {
 
     if (io->unpack_setting) {
         hio_unpack(io, buf, readbytes);
-        return;
+    } else {
+        if (io->read_once) {
+            hio_read_stop(io);
+        }
+
+        hio_read_cb(io, buf, readbytes);
     }
 
-    if (io->read_once) {
-        hio_read_stop(io);
+    // readbuf autosize
+    if (io->small_readbytes_cnt >= 3) {
+        io->small_readbytes_cnt = 0;
+        size_t small_size = io->readbuf.len / 2;
+        io->readbuf.base = (char*)safe_realloc(io->readbuf.base, small_size, io->readbuf.len);
+        io->readbuf.len = small_size;
     }
-
-    hio_read_cb(io, buf, readbytes);
 }
 
 static void __write_cb(hio_t* io, const void* buf, int writebytes) {
