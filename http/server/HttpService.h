@@ -51,6 +51,8 @@ typedef std::list<http_method_handler>                                  http_met
 // path => http_method_handlers
 typedef std::map<std::string, std::shared_ptr<http_method_handlers>>    http_api_handlers;
 
+namespace hv {
+
 struct HV_EXPORT HttpService {
     // preprocessor -> processor -> postprocessor
     http_sync_handler   preprocessor;
@@ -223,5 +225,7 @@ struct HV_EXPORT HttpService {
         Handle("PATCH", relativePath, handlerFunc);
     }
 };
+
+}
 
 #endif // HV_HTTP_SERVICE_H_

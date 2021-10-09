@@ -154,10 +154,10 @@ public:
     uint32_t                max_connections;
 
 private:
-    EventLoopThreadPool     loop_threads;
     // fd => SocketChannelPtr
     std::map<int, SocketChannelPtr> channels; // GUAREDE_BY(mutex_)
     std::mutex                      mutex_;
+    EventLoopThreadPool             loop_threads;
 };
 
 }

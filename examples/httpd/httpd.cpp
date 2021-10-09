@@ -7,8 +7,8 @@
 
 #include "router.h"
 
-http_server_t   g_http_server;
-HttpService     g_http_service;
+hv::HttpServer  g_http_server;
+hv::HttpService g_http_service;
 
 static void print_version();
 static void print_help();
@@ -272,7 +272,7 @@ int main(int argc, char** argv) {
 
     // http_server
     Router::Register(g_http_service);
-    g_http_server.service = &g_http_service;
-    ret = http_server_run(&g_http_server);
+    g_http_server.registerHttpService(&g_http_service);
+    g_http_server.run();
     return ret;
 }

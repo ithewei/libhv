@@ -2,6 +2,8 @@
 
 #include "hbase.h" // import strendswith
 
+namespace hv {
+
 void HttpService::AddApi(const char* path, http_method method, http_sync_handler sync_handler, http_async_handler async_handler, http_handler handler) {
     std::shared_ptr<http_method_handlers> method_handlers = NULL;
     auto iter = api_handlers.find(path);
@@ -137,4 +139,6 @@ int HttpService::GetApi(HttpRequest* req, http_sync_handler* sync_handler, http_
     if (async_handler) *async_handler = NULL;
     if (handler) *handler = NULL;
     return HTTP_STATUS_NOT_FOUND;
+}
+
 }

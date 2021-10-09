@@ -6,7 +6,7 @@
 #include "hthread.h"
 #include "requests.h"
 
-void Router::Register(HttpService& router) {
+void Router::Register(hv::HttpService& router) {
     // preprocessor => Handler => postprocessor
     router.preprocessor = Handler::preprocessor;
     router.postprocessor = Handler::postprocessor;

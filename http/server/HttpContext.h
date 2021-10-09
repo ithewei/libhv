@@ -5,10 +5,9 @@
 #include "HttpMessage.h"
 #include "HttpResponseWriter.h"
 
-struct HttpService;
-
 namespace hv {
 
+struct HttpService;
 struct HV_EXPORT HttpContext {
     HttpService*            service;
     HttpRequestPtr          request;

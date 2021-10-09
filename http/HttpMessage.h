@@ -207,9 +207,21 @@ public:
     bool IsChunked();
     bool IsKeepAlive();
 
+    // headers
+    void SetHeader(const char* key, const std::string& value) {
+        headers[key] = value;
+    }
     std::string GetHeader(const char* key, const std::string& defvalue = "") {
         auto iter = headers.find(key);
         return iter == headers.end() ? defvalue : iter->second;
+    }
+
+    // body
+    void SetBody(const std::string& body) {
+        this->body = body;
+    }
+    const std::string& Body() {
+        return this->body;
     }
 
     // headers -> string
@@ -337,16 +349,27 @@ public:
 
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
 
+    // method
+    void SetMethod(const char* method) {
+        this->method = http_method_enum(method);
+    }
+    const char* Method() {
+        return http_method_str(method);
+    }
+
+    // url
+    void SetUrl(const char* url) {
+        this->url = url;
+    }
+    const std::string& Url() {
+        return url;
+    }
     // structed url -> url
     void DumpUrl();
     // url -> structed url
     void ParseUrl();
 
-    std::string Host() {
-        auto iter = headers.find("Host");
-        return iter == headers.end() ? host : iter->second;
-    }
-
+    // /path
     std::string Path() {
         const char* s = path.c_str();
         const char* e = s;
@@ -354,9 +377,19 @@ public:
         return std::string(s, e);
     }
 
+    // ?query_params
+    void SetParam(const char* key, const std::string& value) {
+        query_params[key] = value;
+    }
     std::string GetParam(const char* key, const std::string& defvalue = "") {
         auto iter = query_params.find(key);
         return iter == query_params.end() ? defvalue : iter->second;
+    }
+
+    // Host:
+    std::string Host() {
+        auto iter = headers.find("Host");
+        return iter == headers.end() ? host : iter->second;
     }
 
     // Range: bytes=0-4095
@@ -373,7 +406,7 @@ public:
         return false;
     }
 
-    // Cookie
+    // Cookie:
     void SetCookie(const HttpCookie& cookie) {
         headers["Cookie"] = cookie.dump();
     }
