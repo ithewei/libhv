@@ -126,9 +126,6 @@ bool TcpClientPage::connect(int port, const char *host)
 
 void TcpClientPage::close()
 {
-    if (client) {
-        client->stop(true);
-    }
     SAFE_DELETE(client);
 }
 
