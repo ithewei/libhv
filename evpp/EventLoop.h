@@ -52,6 +52,7 @@ public:
 
     void stop() {
         if (loop_ == NULL) return;
+        if (status() < kRunning) return;
         setStatus(kStopping);
         hloop_stop(loop_);
         loop_ = NULL;

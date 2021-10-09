@@ -47,9 +47,9 @@ public:
     void start(bool wait_thread_started = true,
                Functor pre = Functor(),
                Functor post = Functor()) {
+        if (status() >= kStarting && status() < kStopped) return;
         setStatus(kStarting);
 
-        assert(thread_.get() == NULL);
         thread_.reset(new std::thread(&EventLoopThread::loop_thread, this, pre, post));
 
         if (wait_thread_started) {
@@ -61,7 +61,7 @@ public:
 
     // @param wait_thread_started: if ture this method will block until loop_thread stopped.
     void stop(bool wait_thread_stopped = false) {
-        if (status() >= kStopping) return;
+        if (status() < kStarting || status() >= kStopping) return;
         setStatus(kStopping);
 
         loop_->stop();

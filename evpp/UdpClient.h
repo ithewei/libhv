@@ -53,17 +53,17 @@ public:
     }
 
     int sendto(const void* data, int size) {
-        if (channel == NULL) return 0;
+        if (channel == NULL) return -1;
         return channel->write(data, size);
     }
 
     int sendto(Buffer* buf) {
-        if (channel == NULL) return 0;
+        if (channel == NULL) return -1;
         return channel->write(buf);
     }
 
     int sendto(const std::string& str) {
-        if (channel == NULL) return 0;
+        if (channel == NULL) return -1;
         return channel->write(str);
     }
 

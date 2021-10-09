@@ -50,6 +50,7 @@ public:
     void start(bool wait_threads_started = false,
                std::function<void(const EventLoopPtr&)> pre = NULL,
                std::function<void(const EventLoopPtr&)> post = NULL) {
+        if (status() >= kStarting && status() < kStopped) return;
         setStatus(kStarting);
 
         if (thread_num_ == 0) {
@@ -60,6 +61,7 @@ public:
         std::shared_ptr<std::atomic<int>> started_cnt(new std::atomic<int>(0));
         std::shared_ptr<std::atomic<int>> exited_cnt(new std::atomic<int>(0));
 
+        loop_threads_.clear();
         for (int i = 0; i < thread_num_; ++i) {
             EventLoopThreadPtr loop_thread(new EventLoopThread);
             const EventLoopPtr& loop = loop_thread->loop();
@@ -91,6 +93,7 @@ public:
 
     // @param wait_threads_started: if ture this method will block until all loop_threads stopped.
     void stop(bool wait_threads_stopped = false) {
+        if (status() < kStarting || status() >= kStopping) return;
         setStatus(kStopping);
 
         for (auto& loop_thread : loop_threads_) {

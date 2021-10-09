@@ -157,18 +157,23 @@ public:
         loop_thread.stop(wait_threads_stopped);
     }
 
+    bool isConnected() {
+        if (channel == NULL) return false;
+        return channel->isConnected();
+    }
+
     int send(const void* data, int size) {
-        if (channel == NULL) return 0;
+        if (!isConnected()) return -1;
         return channel->write(data, size);
     }
 
     int send(Buffer* buf) {
-        if (channel == NULL) return 0;
+        if (!isConnected()) return -1;
         return channel->write(buf);
     }
 
     int send(const std::string& str) {
-        if (channel == NULL) return 0;
+        if (!isConnected()) return -1;
         return channel->write(str);
     }
 
