@@ -411,10 +411,19 @@ typedef struct unpack_setting_s {
     unsigned char   delimiter[PACKAGE_MAX_DELIMITER_BYTES];
     unsigned short  delimiter_bytes;
     // UNPACK_BY_LENGTH_FIELD
-    unsigned short  body_offset; // real_body_offset = body_offset + varint_bytes - length_field_bytes
+    /* package_len = head_len + body_len + length_adjustment
+     *
+     * if (length_field_coding == ENCODE_BY_VARINT) head_len = body_offset + varint_bytes - length_field_bytes;
+     * else head_len = body_offset;
+     *
+     * body_len calc by length_field
+     *
+     */
+    unsigned short  body_offset;
     unsigned short  length_field_offset;
     unsigned short  length_field_bytes;
     unpack_coding_e length_field_coding;
+    int             length_adjustment;
 #ifdef __cplusplus
     unpack_setting_s() {
         // Recommended setting:
@@ -427,6 +436,7 @@ typedef struct unpack_setting_s {
         length_field_offset = 1;
         length_field_bytes = 4;
         length_field_coding = ENCODE_BY_BIG_ENDIAN;
+        length_adjustment = 0;
     }
 #endif
 } unpack_setting_t;

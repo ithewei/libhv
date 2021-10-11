@@ -115,7 +115,7 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
     int handled = 0;
     unsigned int head_len = setting->body_offset;
     unsigned int body_len = 0;
-    unsigned int package_len = head_len + body_len;
+    unsigned int package_len = head_len;
     const unsigned char* lp = NULL;
     while (remain >= setting->body_offset) {
         body_len = 0;
@@ -142,7 +142,7 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
             }
             head_len = setting->body_offset + varint_bytes - setting->length_field_bytes;
         }
-        package_len = head_len + body_len;
+        package_len = head_len + body_len + setting->length_adjustment;
         if (remain >= package_len) {
             hio_read_cb(io, (void*)p, package_len);
             handled += package_len;
