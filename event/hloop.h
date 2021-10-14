@@ -225,6 +225,7 @@ void on_accpet(hio_t* io) {
  */
 HV_EXPORT void hio_detach(/*hloop_t* loop,*/ hio_t* io);
 HV_EXPORT void hio_attach(hloop_t* loop, hio_t* io);
+HV_EXPORT bool hio_exists(hloop_t* loop, int fd);
 
 // hio_t fields
 // NOTE: fd cannot be used as unique identifier, so we provide an id.

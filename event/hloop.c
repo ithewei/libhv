@@ -283,6 +283,17 @@ static void hloop_cleanup(hloop_t* loop) {
         loop->pendings[i] = NULL;
     }
 
+    // sockpair
+    if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
+        if (!hio_exists(loop, loop->sockpair[0])) {
+            closesocket(loop->sockpair[0]);
+        }
+        if (!hio_exists(loop, loop->sockpair[1])) {
+            closesocket(loop->sockpair[1]);
+        }
+        loop->sockpair[0] = loop->sockpair[1] = -1;
+    }
+
     // ios
     printd("cleanup ios...\n");
     for (int i = 0; i < loop->ios.maxsize; ++i) {
@@ -326,11 +337,6 @@ static void hloop_cleanup(hloop_t* loop) {
 
     // custom_events
     hmutex_lock(&loop->custom_events_mutex);
-    if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
-        closesocket(loop->sockpair[0]);
-        closesocket(loop->sockpair[1]);
-        loop->sockpair[0] = loop->sockpair[1] = -1;
-    }
     event_queue_cleanup(&loop->custom_events);
     hmutex_unlock(&loop->custom_events_mutex);
     hmutex_destroy(&loop->custom_events_mutex);
@@ -639,6 +645,13 @@ void hio_attach(hloop_t* loop, hio_t* io) {
         io->readbuf.len = loop->readbuf.len;
         loop->ios.ptr[fd] = io;
     }
+}
+
+bool hio_exists(hloop_t* loop, int fd) {
+    if (fd >= loop->ios.maxsize) {
+        return false;
+    }
+    return loop->ios.ptr[fd] != NULL;
 }
 
 int hio_add(hio_t* io, hio_cb cb, int events) {

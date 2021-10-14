@@ -495,11 +495,7 @@ try_write:
                 hloop_post_event(io->loop, &ev);
             }
         }
-        if (io->write_cb) {
-            // printd("write_cb------\n");
-            io->write_cb(io, buf, nwrite);
-            // printd("write_cb======\n");
-        }
+        hio_write_cb(io, buf, nwrite);
 
         if (nwrite == len) {
             //goto write_done;
