@@ -133,16 +133,21 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
 int AsyncHttpClient::sendRequest(const SocketChannelPtr& channel) {
     HttpClientContext* ctx = (HttpClientContext*)channel->context();
     assert(ctx != NULL && ctx->task != NULL);
+    HttpRequest* req = ctx->task->req.get();
+    HttpResponse* resp = ctx->resp.get();
 
     if (ctx->parser == NULL) {
         ctx->parser.reset(HttpParser::New(HTTP_CLIENT, (http_version)ctx->task->req->http_major));
     }
-    if (ctx->resp == NULL) {
-        ctx->resp.reset(new HttpResponse);
+    if (resp == NULL) {
+        resp = new HttpResponse;
+        ctx->resp.reset(resp);
     }
+    if (req->body_cb)    resp->body_cb = std::move(req->body_cb);
+    if (req->chunked_cb) resp->chunked_cb = std::move(req->chunked_cb);
 
-    ctx->parser->InitResponse(ctx->resp.get());
-    ctx->parser->SubmitRequest(ctx->task->req.get());
+    ctx->parser->InitResponse(resp);
+    ctx->parser->SubmitRequest(req);
 
     char* data = NULL;
     size_t len = 0;
