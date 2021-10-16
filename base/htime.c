@@ -86,7 +86,7 @@ time_t datetime_mktime(datetime_t* dt) {
     time(&ts);
     struct tm* ptm = localtime(&ts);
     memcpy(&tm, ptm, sizeof(struct tm));
-    tm.tm_yday  = dt->year   - 1900;
+    tm.tm_year  = dt->year   - 1900;
     tm.tm_mon   = dt->month  - 1;
     tm.tm_mday  = dt->day;
     tm.tm_hour  = dt->hour;
