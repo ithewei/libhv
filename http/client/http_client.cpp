@@ -150,6 +150,7 @@ int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
         }
     }
 
+    if (req->head_cb)    resp->head_cb = std::move(req->head_cb);
     if (req->body_cb)    resp->body_cb = std::move(req->body_cb);
     if (req->chunked_cb) resp->chunked_cb = std::move(req->chunked_cb);
 

@@ -129,6 +129,9 @@ int on_headers_complete(http_parser* parser) {
         }
     }
     hp->state = HP_HEADERS_COMPLETE;
+    if (hp->parsed->head_cb) {
+        hp->parsed->head_cb(hp->parsed->headers);
+    }
     return skip_body ? 1 : 0;
 }
 

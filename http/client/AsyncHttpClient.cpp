@@ -143,6 +143,7 @@ int AsyncHttpClient::sendRequest(const SocketChannelPtr& channel) {
         resp = new HttpResponse;
         ctx->resp.reset(resp);
     }
+    if (req->head_cb)    resp->head_cb = std::move(req->head_cb);
     if (req->body_cb)    resp->body_cb = std::move(req->body_cb);
     if (req->chunked_cb) resp->chunked_cb = std::move(req->chunked_cb);
 

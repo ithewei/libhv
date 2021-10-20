@@ -191,7 +191,7 @@ int hv_mkdir_p(const char* dir) {
     if (access(dir, 0) == 0) {
         return EEXIST;
     }
-    char tmp[MAX_PATH];
+    char tmp[MAX_PATH] = {0};
     safe_strncpy(tmp, dir, sizeof(tmp));
     char* p = tmp;
     char delim = '/';
@@ -221,7 +221,7 @@ int hv_rmdir_p(const char* dir) {
     if (rmdir(dir) != 0) {
         return EPERM;
     }
-    char tmp[MAX_PATH];
+    char tmp[MAX_PATH] = {0};
     safe_strncpy(tmp, dir, sizeof(tmp));
     char* p = tmp;
     while (*p) ++p;
@@ -300,7 +300,7 @@ char* get_executable_path(char* buf, int size) {
 }
 
 char* get_executable_dir(char* buf, int size) {
-    char filepath[MAX_PATH];
+    char filepath[MAX_PATH] = {0};
     get_executable_path(filepath, sizeof(filepath));
     char* pos = strrchr_dir(filepath);
     if (pos) {
@@ -311,7 +311,7 @@ char* get_executable_dir(char* buf, int size) {
 }
 
 char* get_executable_file(char* buf, int size) {
-    char filepath[MAX_PATH];
+    char filepath[MAX_PATH] = {0};
     get_executable_path(filepath, sizeof(filepath));
     char* pos = strrchr_dir(filepath);
     if (pos) {
