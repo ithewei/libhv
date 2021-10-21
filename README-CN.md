@@ -450,8 +450,25 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 
 ## 📚 中文资料
 
-- **libhv 教程**: <https://hewei.blog.csdn.net/article/details/113733758>
 - **libhv QQ群**: `739352073`，欢迎加群交流
+- **libhv 教程**: <https://hewei.blog.csdn.net/article/details/113733758>
+- [libhv教程01--介绍与体验](https://hewei.blog.csdn.net/article/details/113702536)
+- [libhv教程02--编译与安装](https://hewei.blog.csdn.net/article/details/113704737)
+- [libhv教程03--链库与使用](https://hewei.blog.csdn.net/article/details/113706378)
+- [libhv教程04--编写一个完整的命令行程序](https://hewei.blog.csdn.net/article/details/113719503)
+- [libhv教程05--事件循环以及定时器的简单使用](https://hewei.blog.csdn.net/article/details/113724474)
+- [libhv教程06--创建一个简单的TCP服务端](https://hewei.blog.csdn.net/article/details/113737580)
+- [libhv教程07--创建一个简单的TCP客户端](https://hewei.blog.csdn.net/article/details/113738900)
+- [libhv教程08--创建一个简单的UDP服务端](https://hewei.blog.csdn.net/article/details/113871498)
+- [libhv教程09--创建一个简单的UDP客户端](https://hewei.blog.csdn.net/article/details/113871724)
+- [libhv教程10--创建一个简单的HTTP服务端](https://hewei.blog.csdn.net/article/details/113982999)
+- [libhv教程11--创建一个简单的HTTP客户端](https://hewei.blog.csdn.net/article/details/113984302)
+- [libhv教程12--创建一个简单的WebSocket服务端](https://hewei.blog.csdn.net/article/details/113985321)
+- [libhv教程13--创建一个简单的WebSocket客户端](https://hewei.blog.csdn.net/article/details/113985895)
+- [libhv教程14--200行实现一个纯C版jsonrpc框架](https://hewei.blog.csdn.net/article/details/119920540)
+- [libhv教程15--200行实现一个C++版protorpc框架](https://hewei.blog.csdn.net/article/details/119966701)
+- [libhv教程16--多线程/多进程服务端编程](https://hewei.blog.csdn.net/article/details/120366024)
+- [libhv教程17--Qt中使用libhv](https://hewei.blog.csdn.net/article/details/120699890)
 
 ## 💎 用户案例
 

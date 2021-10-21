@@ -207,7 +207,7 @@ static int sockaddr_connect(sockaddr_u* peeraddr, int nonblock) {
 #else
     if (ret < 0 && socket_errno() != EINPROGRESS) {
 #endif
-        perror("connect");
+        // perror("connect");
         closesocket(connfd);
         return socket_errno_negative();
     }

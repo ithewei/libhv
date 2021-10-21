@@ -22,7 +22,6 @@ int main(int argc, char** argv) {
     WebSocketClient ws;
     ws.onopen = [&ws]() {
         printf("onopen\n");
-        ws.send("hello");
     };
     ws.onclose = []() {
         printf("onclose\n");
@@ -40,6 +39,12 @@ int main(int argc, char** argv) {
 
     ws.open(url);
 
-    while (1) hv_delay(1000);
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (ws.isConnected()) {
+            ws.send(str);
+        }
+    }
+
     return 0;
 }

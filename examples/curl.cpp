@@ -224,6 +224,12 @@ int main(int argc, char* argv[]) {
     }
     HttpResponse res;
     /*
+    res.head_cb = [](const http_headers& headers){
+        for (auto& header : headers) {
+            printf("%s: %s\r\n", header.first.c_str(), header.second.c_str());
+        }
+        printf("\r\n");
+    };
     res.body_cb = [](const char* data, size_t size){
         printf("%.*s", (int)size, data);
     };
@@ -231,12 +237,12 @@ int main(int argc, char* argv[]) {
     res.chunked_cb = [](const char* data, size_t size){
         printf("%.*s", (int)size, data);
     };
-    http_client_t* hc = http_client_new();
+    http_client_t* cli = http_client_new();
 send:
     if (verbose) {
         printf("%s\n", req.Dump(true,true).c_str());
     }
-    ret = http_client_send(hc, &req, &res);
+    ret = http_client_send(cli, &req, &res);
     if (ret != 0) {
         printf("* Failed:%s:%d\n", http_client_strerror(ret), ret);
     } else {
@@ -256,6 +262,6 @@ send:
 #endif
         goto send;
     }
-    http_client_del(hc);
+    http_client_del(cli);
     return ret;
 }
