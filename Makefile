@@ -171,6 +171,9 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hmutex_test       unittest/hmutex_test.c        base/htime.c   -pthread
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/connect_test      unittest/connect_test.c       base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/socketpair_test   unittest/socketpair_test.c    base/hsocket.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/base64            unittest/base64_test.c        util/base64.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/md5               unittest/md5_test.c           util/md5.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/sha1              unittest/sha1_test.c          util/sha1.c
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/hstring_test      unittest/hstring_test.cpp     cpputil/hstring.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/hpath_test        unittest/hpath_test.cpp       cpputil/hpath.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/ls                unittest/listdir_test.cpp     cpputil/hdir.cpp

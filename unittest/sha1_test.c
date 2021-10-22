@@ -10,17 +10,23 @@
 
 #include "sha1.h"
 
+static void test() {
+    unsigned char ch = '1';
+    char sha1[41] = {0};
+    hv_sha1_hex(&ch, 1, sha1, sizeof(sha1));
+    assert(strcmp(sha1, "356a192b7913b04c54574d18c28d46e6395428ab") == 0);
+}
+
 int main(int argc, char* argv[]) {
+    test();
+
     if (argc < 2) {
         printf("Usage: sha1 file\n");
         printf("       sha1 -s string\n");
         return -10;
     }
 
-    unsigned char ch = '1';
-    char sha1[41];
-    hv_sha1_hex(&ch, 1, sha1, sizeof(sha1));
-    assert(strcmp(sha1, "356a192b7913b04c54574d18c28d46e6395428ab") == 0);
+    char sha1[41] = {0};
 
     if (argc == 2) {
         const char* filepath = argv[1];
@@ -33,10 +39,13 @@ int main(int argc, char* argv[]) {
         long filesize = ftell(fp);
         // printf("filesize=%ld\n", filesize);
         fseek(fp, 0, SEEK_SET);
-        unsigned char* buf = (unsigned char*)malloc(filesize);
-        size_t nread = fread(buf, 1, filesize, fp);
+        unsigned char* filebuf = (unsigned char*)malloc(filesize);
+        size_t nread = fread(filebuf, 1, filesize, fp);
         assert(nread == filesize);
-        hv_sha1_hex(buf, filesize, sha1, sizeof(sha1));
+        hv_sha1_hex(filebuf, filesize, sha1, sizeof(sha1));
+
+        free(filebuf);
+        fclose(fp);
     }
     else if (argc == 3) {
         const char* flags = argv[1];

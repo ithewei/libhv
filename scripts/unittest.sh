@@ -10,6 +10,10 @@ bin/mkdir_p 123/456
 bin/ls
 bin/rmdir_p 123/456
 
+bin/base64
+bin/md5
+bin/sha1
+
 bin/defer_test
 bin/hstring_test
 bin/hpath_test

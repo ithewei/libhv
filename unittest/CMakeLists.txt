@@ -28,6 +28,16 @@ target_include_directories(connect_test PRIVATE .. ../base)
 add_executable(socketpair_test socketpair_test.c ../base/hsocket.c)
 target_include_directories(socketpair_test PRIVATE .. ../base)
 
+# ------util------
+add_executable(base64 base64_test.c ../util/base64.c)
+target_include_directories(base64 PRIVATE .. ../util)
+
+add_executable(md5 md5_test.c ../util/md5.c)
+target_include_directories(md5 PRIVATE .. ../util)
+
+add_executable(sha1 sha1_test.c ../util/sha1.c)
+target_include_directories(sha1 PRIVATE .. ../util)
+
 # ------cpputil------
 add_executable(hstring_test hstring_test.cpp ../cpputil/hstring.cpp)
 target_include_directories(hstring_test PRIVATE .. ../base ../cpputil)
@@ -83,6 +93,9 @@ add_custom_target(unittest DEPENDS
     hmutex_test
     connect_test
     socketpair_test
+    base64
+    md5
+    sha1
     hstring_test
     hpath_test
     ls

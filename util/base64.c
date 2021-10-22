@@ -51,9 +51,9 @@ static const signed char base64de[] = {
 };
 
 int hv_base64_encode(const unsigned char *in, unsigned int inlen, char *out) {
-    unsigned int i, j;
+    unsigned int i = 0, j = 0;
 
-    for (i = j = 0; i < inlen; i++) {
+    for (; i < inlen; i++) {
         int s = i % 3;
 
         switch (s) {
@@ -82,22 +82,22 @@ int hv_base64_encode(const unsigned char *in, unsigned int inlen, char *out) {
         out[j++] = BASE64_PAD;
     }
 
-    return BASE64_OK;
+    return j;
 }
 
 int hv_base64_decode(const char *in, unsigned int inlen, unsigned char *out) {
-    unsigned int i, j;
+    unsigned int i = 0, j = 0;
 
-    for (i = j = 0; i < inlen; i++) {
+    for (; i < inlen; i++) {
         int c;
         int s = i % 4;
 
         if (in[i] == '=')
-            return BASE64_OK;
+            return j;
 
         if (in[i] < BASE64DE_FIRST || in[i] > BASE64DE_LAST ||
             (c = base64de[in[i] - BASE64DE_FIRST]) == -1)
-            return BASE64_INVALID;
+            return -1;
 
         switch (s) {
         case 0:
@@ -122,6 +122,5 @@ int hv_base64_decode(const char *in, unsigned int inlen, unsigned char *out) {
         }
     }
 
-    return BASE64_OK;
+    return j;
 }
-
