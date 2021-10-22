@@ -306,13 +306,7 @@ int create_pidfile() {
     }
 
     g_main_ctx.pid = hv_getpid();
-    char pid[16] = {0};
-    int len = snprintf(pid, sizeof(pid), "%d\n", g_main_ctx.pid);
-    int nwrite = fwrite(pid, 1, len, fp);
-    if (nwrite != len) {
-        fprintf(stderr, "fwrite failed!\n");
-        exit(-1);
-    }
+    fprintf(fp, "%d\n", (int)g_main_ctx.pid);
     fclose(fp);
     hlogi("create_pidfile('%s') pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
     atexit(delete_pidfile);
@@ -330,10 +324,10 @@ pid_t getpid_from_pidfile() {
         // hloge("fopen('%s') error: %d", g_main_ctx.pidfile, errno);
         return -1;
     }
-    char pid[64];
-    int readbytes = fread(pid, 1, sizeof(pid), fp);
+    int pid = -1;
+    fscanf(fp, "%d", &pid);
     fclose(fp);
-    return readbytes <= 0 ? -1 : atoi(pid);
+    return pid;
 }
 
 #ifdef OS_UNIX

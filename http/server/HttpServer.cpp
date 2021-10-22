@@ -362,15 +362,15 @@ int http_server_run(http_server_t* server, int wait) {
 }
 
 int http_server_stop(http_server_t* server) {
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
+    if (privdata == NULL) return 0;
+
 #ifdef OS_UNIX
     if (server->worker_processes) {
         signal_handle("stop");
         return 0;
     }
 #endif
-
-    HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
-    if (privdata == NULL) return 0;
 
     // wait for all threads started and all loops running
     while (1) {
