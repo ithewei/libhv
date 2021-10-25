@@ -42,14 +42,16 @@ static inline unsigned char hex2i(char hex) {
 
 std::string url_escape(const char* istr) {
     std::string ostr;
-    const char* p = istr;
-    char szHex[4] = {0};
+    static char tab[] = "0123456789ABCDEF";
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(istr);
+    char szHex[4] = "%00";
     while (*p != '\0') {
         if (is_unambiguous(*p)) {
             ostr += *p;
         }
         else {
-            sprintf(szHex, "%%%02X", *p);
+            szHex[1] = tab[*p >> 4];
+            szHex[2] = tab[*p & 0xF];
             ostr += szHex;
         }
         ++p;
