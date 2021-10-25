@@ -63,12 +63,27 @@ static void test_requests() {
         printf("%s\n", resp->body.c_str());
     }
 
+    // Content-Type: application/json
     hv::Json jroot;
     jroot["user"] = "admin";
     jroot["pswd"] = "123456";
     http_headers headers;
     headers["Content-Type"] = "application/json";
     resp = requests::post("127.0.0.1:8080/echo", jroot.dump(), headers);
+    if (resp == NULL) {
+        printf("request failed!\n");
+    } else {
+        printf("%d %s\r\n", resp->status_code, resp->status_message());
+        printf("%s\n", resp->body.c_str());
+    }
+
+    // Content-Type: multipart/form-data
+    requests::Request req(new HttpRequest);
+    req->method = HTTP_POST;
+    req->url = "http://127.0.0.1:8080/echo";
+    req->form["username"] = FormData("admin");
+    req->form["avata"] = FormFile("avatar.jpg");
+    resp = requests::request(req);
     if (resp == NULL) {
         printf("request failed!\n");
     } else {

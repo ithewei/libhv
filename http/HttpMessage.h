@@ -112,7 +112,7 @@ public:
 
     template<typename T>
     void Set(const char* key, const T& value) {
-        switch (content_type) {
+        switch (ContentType()) {
         case APPLICATION_JSON:
             json[key] = value;
             break;
@@ -157,7 +157,7 @@ public:
     }
 
     int SaveFormFile(const char* name, const char* path) {
-        if (content_type != MULTIPART_FORM_DATA) {
+        if (ContentType() != MULTIPART_FORM_DATA) {
             return HTTP_STATUS_BAD_REQUEST;
         }
         const FormData& formdata = form[name];

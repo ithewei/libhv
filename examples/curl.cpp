@@ -47,34 +47,42 @@ static const char* help = R"(Options:
     -v|--verbose        Show verbose infomation.
     -X|--method         Set http method.
     -H|--header         Add http headers, -H "Content-Type:application/json Accept:*/*"
-    -r|--range          Add http header Range: bytes=0-1023
+    -r|--range          Add http header Range:bytes=0-1023
     -d|--data           Set http body.
-    -F|--form           Set http form, -F "name1=content;name2=@filename"
+    -F|--form           Set http form, -F "name1=content name2=@filename"
     -n|--count          Send request count, used for test keep-alive
        --http2          Use http2
        --grpc           Use grpc over http2
 Examples:
+    curl -v GET  httpbin.org/get
+    curl -v POST httpbin.org/post   user=admin pswd=123456
+    curl -v PUT  httpbin.org/put    user=admin pswd=123456
     curl -v localhost:8080
-    curl -v localhost:8080 -X HEAD
     curl -v localhost:8080 -r 0-9
     curl -v localhost:8080/ping
-    curl -v localhost:8080/query?page_no=1&page_size=10
-    curl -v localhost:8080/echo  -d 'hello,world!'
-    curl -v localhost:8080/kv    -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
-    curl -v localhost:8080/json  -H "Content-Type:application/json"                  -d '{"user":"admin","pswd":"123456"}'
-    curl -v localhost:8080/form  -F 'file=@filename'
+    curl -v localhost:8080/query?page_no=1\&page_size=10
+    curl -v localhost:8080/echo     hello,world!
+    curl -v localhost:8080/kv       user=admin\&pswd=123456
+    curl -v localhost:8080/json     user=admin pswd=123456
+    curl -v localhost:8080/form     -F file=@filename
 )";
 
-void print_usage() {
-    printf("Usage: curl [%s] url\n", options);
+static void print_usage() {
+    printf("Usage: curl [%s] [METHOD] url [header_field:header_value] [body_key=body_value]\n", options);
 }
-void print_version() {
+static void print_version() {
     printf("curl version 1.0.0\n");
 }
-void print_help() {
+static void print_help() {
     print_usage();
     puts(help);
     print_version();
+}
+
+static bool is_upper_string(const char* str) {
+    const char* p = str;
+    while (*p >= 'A' && *p <= 'Z') ++p;
+    return *p == '\0';
 }
 
 int parse_cmdline(int argc, char* argv[]) {
@@ -100,7 +108,11 @@ int parse_cmdline(int argc, char* argv[]) {
         print_usage();
         exit(-1);
     }
-    url = argv[optind];
+
+    if (is_upper_string(argv[optind])) {
+        method = argv[optind++];
+    }
+    url = argv[optind++];
 
     return 0;
 }
@@ -222,6 +234,40 @@ int main(int argc, char* argv[]) {
             }
         }
     }
+    for (int d = optind; d < argc; ++d) {
+        const char* arg = argv[d];
+        const char* pos = NULL;
+        if ((pos = strchr(arg, ':')) != NULL) {
+            // header_field:header_value
+            *(char*)pos = '\0';
+            req.headers[arg] = pos + 1;
+        } else {
+            if (method == NULL) {
+                req.method = HTTP_POST;
+            }
+            if ((pos = strchr(arg, '&')) != NULL) {
+                if (req.ContentType() == CONTENT_TYPE_NONE) {
+                    req.content_type = X_WWW_FORM_URLENCODED;
+                }
+                req.body = arg;
+            }
+            else if ((pos = strchr(arg, '=')) != NULL) {
+                // body_key=body_value
+                if (req.ContentType() == CONTENT_TYPE_NONE) {
+                    req.content_type = APPLICATION_JSON;
+                }
+                *(char*)pos = '\0';
+                req.Set(arg, pos + 1);
+            }
+            else {
+                if (req.ContentType() == CONTENT_TYPE_NONE) {
+                    req.content_type = TEXT_PLAIN;
+                }
+                req.body = arg;
+            }
+        }
+    }
+
     HttpResponse res;
     /*
     res.head_cb = [](const http_headers& headers){

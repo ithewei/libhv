@@ -91,7 +91,7 @@ std::string HttpCookie::dump() const {
 // NOTE: json ignore number/string, 123/"123"
 
 std::string HttpMessage::GetString(const char* key, const std::string& defvalue) {
-    switch (content_type) {
+    switch (ContentType()) {
     case APPLICATION_JSON:
     {
         if (!json.is_object()) {
@@ -140,7 +140,7 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
 
 template<>
 HV_EXPORT int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
-    if (content_type == APPLICATION_JSON) {
+    if (ContentType() == APPLICATION_JSON) {
         if (!json.is_object()) {
             return defvalue;
         }
@@ -176,7 +176,7 @@ HV_EXPORT int HttpMessage::Get(const char* key, int defvalue) {
 
 template<>
 HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
-    if (content_type == APPLICATION_JSON) {
+    if (ContentType() == APPLICATION_JSON) {
         if (!json.is_object()) {
             return defvalue;
         }
@@ -208,7 +208,7 @@ HV_EXPORT float HttpMessage::Get(const char* key, float defvalue) {
 
 template<>
 HV_EXPORT bool HttpMessage::Get(const char* key, bool defvalue) {
-    if (content_type == APPLICATION_JSON) {
+    if (ContentType() == APPLICATION_JSON) {
         if (!json.is_object()) {
             return defvalue;
         }
