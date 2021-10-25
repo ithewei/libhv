@@ -85,13 +85,17 @@ int WebSocketClient::open(const char* _url) {
         }
     };
     onMessage = [this](const WebSocketChannelPtr& channel, Buffer* buf) {
+        const char* data = (const char*)buf->data();
+        size_t size = buf->size();
         if (state == WS_UPGRADING) {
-            int nparse = http_parser_->FeedRecvData((const char*)buf->data(), buf->size());
-            if (nparse != buf->size()) {
+            int nparse = http_parser_->FeedRecvData(data, size);
+            if (nparse != size && http_parser_->GetError()) {
                 hloge("http parse error!");
                 channel->close();
                 return;
             }
+            data += nparse;
+            size -= nparse;
             if (http_parser_->IsComplete()) {
                 if (http_resp_->status_code != HTTP_STATUS_SWITCHING_PROTOCOLS) {
                     hloge("server side not support websocket!");
@@ -151,9 +155,10 @@ int WebSocketClient::open(const char* _url) {
                 }
                 if (onopen) onopen();
             }
-        } else {
-            int nparse = ws_parser_->FeedRecvData((const char*)buf->data(), buf->size());
-            if (nparse != buf->size()) {
+        }
+        if (state == WS_OPENED && size != 0) {
+            int nparse = ws_parser_->FeedRecvData(data, size);
+            if (nparse != size) {
                 hloge("websocket parse error!");
                 channel->close();
                 return;
