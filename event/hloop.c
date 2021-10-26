@@ -409,19 +409,11 @@ int hloop_wakeup(hloop_t* loop) {
     return 0;
 }
 
-static void hloop_stop_event_cb(hevent_t* ev) {
-    ev->loop->status = HLOOP_STATUS_STOP;
-}
-
 int hloop_stop(hloop_t* loop) {
-    loop->status = HLOOP_STATUS_STOP;
     if (hv_gettid() != loop->tid) {
-        hevent_t ev;
-        memset(&ev, 0, sizeof(ev));
-        ev.priority = HEVENT_HIGHEST_PRIORITY;
-        ev.cb = hloop_stop_event_cb;
-        hloop_post_event(loop, &ev);
+        hloop_wakeup(loop);
     }
+    loop->status = HLOOP_STATUS_STOP;
     return 0;
 }
 
