@@ -61,11 +61,11 @@ struct HV_EXPORT HttpContext {
     }
 
     bool is(http_content_type content_type) {
-        return request->content_type == content_type;
+        return request->ContentType() == content_type;
     }
 
     bool is(const char* content_type) {
-        return request->content_type == http_content_type_enum(content_type);
+        return request->ContentType() == http_content_type_enum(content_type);
     }
 
     std::string& body() {
@@ -73,34 +73,25 @@ struct HV_EXPORT HttpContext {
     }
 
 #ifndef WITHOUT_HTTP_CONTENT
+    // Content-Type: application/json
     const hv::Json& json() {
-        // Content-Type: application/json
-        if (request->content_type == APPLICATION_JSON &&
-            request->json.empty() &&
-            !request->body.empty()) {
-            request->ParseBody();
-        }
-        return request->json;
+        return request->GetJson();
     }
 
+    // Content-Type: multipart/form-data
     const MultiPart& form() {
-        // Content-Type: multipart/form-data
-        if (request->content_type == MULTIPART_FORM_DATA &&
-            request->form.empty() &&
-            !request->body.empty()) {
-            request->ParseBody();
-        }
-        return request->form;
+        return request->GetForm();
+    }
+    std::string form(const char* name, const std::string& defvalue = "") {
+        return request->GetFormData(name);
     }
 
+    // Content-Type: application/x-www-form-urlencoded
     const hv::KeyValue& urlencoded() {
-        // Content-Type: application/x-www-form-urlencoded
-        if (request->content_type == X_WWW_FORM_URLENCODED &&
-            request->kv.empty() &&
-            !request->body.empty()) {
-            request->ParseBody();
-        }
-        return request->kv;
+        return request->GetUrlEncoded();
+    }
+    std::string urlencoded(const char* key, const std::string& defvalue = "") {
+        return request->GetUrlEncoded(key);
     }
 
     // T=[bool, int, int64_t, float, double]

@@ -17,12 +17,17 @@
  *
  * @function
  * Content, ContentLength, ContentType
- * Get, Set
+ * ParseUrl, ParseBody
+ * DumpUrl, DumpHeaders, DumpBody, Dump
+ * GetJson, GetForm, GetUrlEncoded
  * GetHeader, GetParam, GetString, GetBool, GetInt, GetFloat
- * String, Data, File, Json
+ * String, Data, File, Json, FormFile, SetFormData, SetUrlEncoded
+ * Get, Set
  *
  * @example
- * see examples/httpd
+ * examples/http_server_test.cpp
+ * examples/http_client_test.cpp
+ * examples/httpd
  *
  */
 
@@ -144,18 +149,46 @@ public:
                     {1, 2, 3}
                 ));
      */
+    // Content-Type: application/json
     template<typename T>
     int Json(const T& t) {
         content_type = APPLICATION_JSON;
         json = t;
         return 200;
     }
-
-    void FormFile(const char* name, const char* filepath) {
-        content_type = MULTIPART_FORM_DATA;
-        form[name] = FormData(NULL, filepath);
+    const hv::Json& GetJson() {
+        if (json.empty() && ContentType() == APPLICATION_JSON) {
+            ParseBody();
+        }
+        return json;
     }
 
+    // Content-Type: multipart/form-data
+    template<typename T>
+    void SetFormData(const char* name, const T& t) {
+        form[name] = FormData(t);
+    }
+    void SetFormFile(const char* name, const char* filepath) {
+        form[name] = FormData(NULL, filepath);
+    }
+    int FormFile(const char* name, const char* filepath) {
+        content_type = MULTIPART_FORM_DATA;
+        form[name] = FormData(NULL, filepath);
+        return 200;
+    }
+    const MultiPart& GetForm() {
+        if (form.empty() && ContentType() == MULTIPART_FORM_DATA) {
+            ParseBody();
+        }
+        return form;
+    }
+    std::string GetFormData(const char* name, const std::string& defvalue = "") {
+        if (form.empty() && ContentType() == MULTIPART_FORM_DATA) {
+            ParseBody();
+        }
+        auto iter = form.find(name);
+        return iter == form.end() ? defvalue : iter->second.content;
+    }
     int SaveFormFile(const char* name, const char* path) {
         if (ContentType() != MULTIPART_FORM_DATA) {
             return HTTP_STATUS_BAD_REQUEST;
@@ -174,6 +207,25 @@ public:
         }
         file.write(formdata.content.data(), formdata.content.size());
         return 200;
+    }
+
+    // Content-Type: application/x-www-form-urlencoded
+    template<typename T>
+    void SetUrlEncoded(const char* key, const T& t) {
+        kv[key] = hv::to_string(t);
+    }
+    const hv::KeyValue& GetUrlEncoded() {
+        if (kv.empty() && ContentType() == X_WWW_FORM_URLENCODED) {
+            ParseBody();
+        }
+        return kv;
+    }
+    std::string GetUrlEncoded(const char* key, const std::string& defvalue = "") {
+        if (kv.empty() && ContentType() == X_WWW_FORM_URLENCODED) {
+            ParseBody();
+        }
+        auto iter = kv.find(key);
+        return iter == kv.end() ? defvalue : iter->second;
     }
 #endif
 

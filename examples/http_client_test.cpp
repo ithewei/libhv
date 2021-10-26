@@ -81,8 +81,9 @@ static void test_requests() {
     requests::Request req(new HttpRequest);
     req->method = HTTP_POST;
     req->url = "http://127.0.0.1:8080/echo";
-    req->form["username"] = FormData("admin");
-    req->form["avata"] = FormFile("avatar.jpg");
+    req->content_type = MULTIPART_FORM_DATA;
+    req->SetFormData("username", "admin");
+    req->SetFormFile("avatar", "avatar.jpg");
     resp = requests::request(req);
     if (resp == NULL) {
         printf("request failed!\n");
