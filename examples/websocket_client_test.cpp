@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
     const char* url = argv[1];
 
     WebSocketClient ws;
-    ws.onopen = [&ws]() {
+    ws.onopen = []() {
         printf("onopen\n");
     };
     ws.onclose = []() {
@@ -43,9 +43,12 @@ int main(int argc, char** argv) {
 
     std::string str;
     while (std::getline(std::cin, str)) {
-        if (ws.isConnected()) {
-            ws.send(str);
+        if (!ws.isConnected()) break;
+        if (str == "quit") {
+            ws.close();
+            break;
         }
+        ws.send(str);
     }
 
     return 0;

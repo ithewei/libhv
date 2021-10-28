@@ -183,6 +183,9 @@ int hssl_close(hssl_t ssl) {
 }
 
 int hssl_set_sni_hostname(hssl_t ssl, const char* hostname) {
+#ifdef MBEDTLS_X509_CRT_PARSE_C
+    mbedtls_ssl_set_hostname(ssl, hostname);
+#endif
     return 0;
 }
 
