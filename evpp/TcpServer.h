@@ -101,6 +101,24 @@ public:
         return channels.size();
     }
 
+    int foreachChannel(std::function<void(const SocketChannelPtr& channel)> fn) {
+        std::lock_guard<std::mutex> locker(mutex_);
+        for (auto& pair : channels) {
+            fn(pair.second);
+        }
+        return channels.size();
+    }
+
+    int broadcast(const void* data, int size) {
+        return foreachChannel([data, size](const SocketChannelPtr& channel) {
+            channel->write(data, size);
+        });
+    }
+
+    int broadcast(const std::string& str) {
+        return broadcast(str.data(), str.size());
+    }
+
 private:
     static void onAccept(hio_t* connio) {
         TcpServer* server = (TcpServer*)hevent_userdata(connio);
