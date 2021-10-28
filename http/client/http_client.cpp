@@ -350,7 +350,8 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
         blocktime = MIN(req->timeout*1000, blocktime);
     }
     req->ParseUrl();
-    int connfd = ConnectTimeout(req->host.c_str(), req->port, blocktime);
+    const char* host = req->host.c_str();
+    int connfd = ConnectTimeout(host, req->port, blocktime);
     if (connfd < 0) {
         return connfd;
     }
@@ -367,7 +368,9 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
             closesocket(connfd);
             return HSSL_ERROR;
         }
-        // hssl_set_sni_hostname(cli->ssl, req->host.c_str());
+        if (!is_ipaddr(host)) {
+            hssl_set_sni_hostname(cli->ssl, host);
+        }
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
             fprintf(stderr, "ssl handshake failed: %d\n", ret);

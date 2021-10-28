@@ -39,9 +39,6 @@ typedef HttpRequestPtr          Request;
 typedef HttpResponsePtr         Response;
 typedef HttpResponseCallback    ResponseCallback;
 
-static http_headers DefaultHeaders;
-static http_body    NoBody;
-
 HV_INLINE Response request(Request req) {
     Response resp(new HttpResponse);
     int ret = http_client_send(req.get(), resp.get());
