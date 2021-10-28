@@ -82,6 +82,9 @@ typedef std::function<void(const http_headers& headers)>        http_head_cb;
 typedef std::function<void(const char* data, size_t size)>      http_body_cb;
 typedef std::function<void(const char* data, size_t size)>      http_chunked_cb;
 
+HV_EXPORT extern http_headers DefaultHeaders;
+HV_EXPORT extern http_body    NoBody;
+
 class HV_EXPORT HttpMessage {
 public:
     static char         s_date[32];

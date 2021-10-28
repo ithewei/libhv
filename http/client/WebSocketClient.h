@@ -27,7 +27,7 @@ public:
 
     // url = ws://ip:port/path
     // url = wss://ip:port/path
-    int open(const char* url);
+    int open(const char* url, const http_headers& headers = DefaultHeaders);
     int close();
     int send(const std::string& msg);
     int send(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY);

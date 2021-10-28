@@ -25,7 +25,7 @@ WebSocketClient::~WebSocketClient() {
  * TCP::onMessage => WebSocketParser => WS::onmessage =>
  * TCP::onConnection => WS::onclose
  */
-int WebSocketClient::open(const char* _url) {
+int WebSocketClient::open(const char* _url, const http_headers& headers) {
     close();
 
     // ParseUrl
@@ -54,22 +54,30 @@ int WebSocketClient::open(const char* _url) {
         withTLS();
     }
 
+    for (auto& header : headers) {
+        http_req_->headers[header.first] = header.second;
+    }
+
     onConnection = [this](const WebSocketChannelPtr& channel) {
         if (channel->isConnected()) {
             state = CONNECTED;
             // websocket_handshake
             http_req_->headers["Connection"] = "Upgrade";
             http_req_->headers["Upgrade"] = "websocket";
-            // generate SEC_WEBSOCKET_KEY
-            unsigned char rand_key[16] = {0};
-            int *p = (int*)rand_key;
-            for (int i = 0; i < 4; ++i, ++p) {
-                *p = rand();
+            if (http_req_->GetHeader(SEC_WEBSOCKET_KEY).empty()) {
+                // generate SEC_WEBSOCKET_KEY
+                unsigned char rand_key[16] = {0};
+                int *p = (int*)rand_key;
+                for (int i = 0; i < 4; ++i, ++p) {
+                    *p = rand();
+                }
+                char ws_key[32] = {0};
+                hv_base64_encode(rand_key, 16, ws_key);
+                http_req_->headers[SEC_WEBSOCKET_KEY] = ws_key;
             }
-            char ws_key[32] = {0};
-            hv_base64_encode(rand_key, 16, ws_key);
-            http_req_->headers[SEC_WEBSOCKET_KEY] = ws_key;
-            http_req_->headers[SEC_WEBSOCKET_VERSION] = "13";
+            if (http_req_->GetHeader(SEC_WEBSOCKET_VERSION).empty()) {
+                http_req_->headers[SEC_WEBSOCKET_VERSION] = "13";
+            }
             std::string http_msg = http_req_->Dump(true, true);
             // printf("%s", http_msg.c_str());
             // NOTE: not use WebSocketChannel::send

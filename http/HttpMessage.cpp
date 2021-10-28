@@ -9,6 +9,8 @@
 
 using namespace hv;
 
+http_headers DefaultHeaders;
+http_body    NoBody;
 char HttpMessage::s_date[32] = {0};
 
 bool HttpCookie::parse(const std::string& str) {
@@ -424,11 +426,11 @@ int HttpMessage::ParseBody() {
     {
         auto iter = headers.find("Content-Type");
         if (iter == headers.end()) {
-            return false;
+            return -1;
         }
         const char* boundary = strstr(iter->second.c_str(), "boundary=");
         if (boundary == NULL) {
-            return false;
+            return -1;
         }
         boundary += strlen("boundary=");
         std::string strBoundary(boundary);

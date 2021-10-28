@@ -37,7 +37,9 @@ int main(int argc, char** argv) {
     reconn.delay_policy = 2;
     ws.setReconnect(&reconn);
 
-    ws.open(url);
+    http_headers headers;
+    headers["Origin"] = "http://example.com/";
+    ws.open(url, headers);
 
     std::string str;
     while (std::getline(std::cin, str)) {
