@@ -630,13 +630,18 @@ void hio_attach(hloop_t* loop, hio_t* io) {
         io_array_resize(&loop->ios, newsize > fd ? newsize : 2*fd);
     }
 
-    if (loop->ios.ptr[fd] == NULL) {
-        io->loop = loop;
-        // NOTE: use new_loop readbuf
-        io->readbuf.base = loop->readbuf.base;
-        io->readbuf.len = loop->readbuf.len;
-        loop->ios.ptr[fd] = io;
+    // NOTE: hio was not freed for reused when closed, but attached hio can't be reused,
+    // so we need to free it if fd exists to avoid memory leak.
+    hio_t* preio = loop->ios.ptr[fd];
+    if (preio != NULL && preio != io) {
+        hio_free(preio);
     }
+
+    io->loop = loop;
+    // NOTE: use new_loop readbuf
+    io->readbuf.base = loop->readbuf.base;
+    io->readbuf.len = loop->readbuf.len;
+    loop->ios.ptr[fd] = io;
 }
 
 bool hio_exists(hloop_t* loop, int fd) {

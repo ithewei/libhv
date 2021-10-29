@@ -145,11 +145,14 @@ struct hio_s {
 };
 /*
  * hio lifeline:
+ *
  * fd =>
  * hio_get => HV_ALLOC_SIZEOF(io) => hio_init =>
- * hio_ready => hio_add => hio_del => hio_done =>
- * hio_close => hclose_cb =>
- * hio_free => HV_FREE(io)
+ *
+ * hio_ready => hio_add => hio_read_cb/hio_write_cb =>
+ * hio_close => hio_done => hio_close_cb =>
+ *
+ * hloop_stop => hloop_free => hio_free => HV_FREE(io)
  */
 void hio_init(hio_t* io);
 void hio_ready(hio_t* io);
