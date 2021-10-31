@@ -160,6 +160,7 @@ HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, ui
 /*
  * minute   hour    day     week    month       cb
  * 0~59     0~23    1~31    0~6     1~12
+ *  -1      -1      -1      -1      -1          cron.minutely
  *  30      -1      -1      -1      -1          cron.hourly
  *  30      1       -1      -1      -1          cron.daily
  *  30      1       15      -1      -1          cron.monthly

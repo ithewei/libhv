@@ -6,6 +6,7 @@
 
 BEGIN_EXTERN_C
 
+#define SECONDS_PER_MINUTE  60
 #define SECONDS_PER_HOUR    3600
 #define SECONDS_PER_DAY     86400   // 24*3600
 #define SECONDS_PER_WEEK    604800  // 7*24*3600
@@ -98,6 +99,7 @@ HV_EXPORT datetime_t hv_compile_datetime();
 /*
  * minute   hour    day     week    month       action
  * 0~59     0~23    1~31    0~6     1~12
+ *  -1      -1      -1      -1      -1          cron.minutely
  *  30      -1      -1      -1      -1          cron.hourly
  *  30      1       -1      -1      -1          cron.daily
  *  30      1       15      -1      -1          cron.monthly

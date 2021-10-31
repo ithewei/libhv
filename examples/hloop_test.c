@@ -35,10 +35,14 @@ void on_timer(htimer_t* timer) {
         LLU(hloop_now(loop)), LLU(hloop_now_hrtime(loop)));
 }
 
+void cron_minutely(htimer_t* timer) {
+    time_t now = time(NULL);
+    printf("cron_minutely: %s\n", ctime(&now));
+}
+
 void cron_hourly(htimer_t* timer) {
-    time_t tt;
-    time(&tt);
-    printf("cron_hourly: %s\n", ctime(&tt));
+    time_t now = time(NULL);
+    printf("cron_hourly: %s\n", ctime(&now));
 }
 
 void timer_write_log(htimer_t* timer) {
@@ -80,6 +84,7 @@ int main() {
 
     // test timer period
     int minute = time(NULL)%3600/60;
+    htimer_add_period(loop, cron_minutely, -1, -1, -1, -1, -1, INFINITE);
     htimer_add_period(loop, cron_hourly, minute+1, -1, -1, -1, -1, INFINITE);
 
     // test network_logger

@@ -214,13 +214,13 @@ datetime_t hv_compile_datetime() {
 
 time_t cron_next_timeout(int minute, int hour, int day, int week, int month) {
     enum {
-        UNKOWN,
+        MINUTELY,
         HOURLY,
         DAILY,
         WEEKLY,
         MONTHLY,
         YEARLY,
-    } period_type = UNKOWN;
+    } period_type = MINUTELY;
     struct tm tm;
     time_t tt;
     time(&tt);
@@ -248,10 +248,6 @@ time_t cron_next_timeout(int minute, int hour, int day, int week, int month) {
         }
     }
 
-    if (period_type == UNKOWN) {
-        return -1;
-    }
-
     tt_round = mktime(&tm);
     if (week >= 0) {
         tt_round = tt + (week-tm.tm_wday)*SECONDS_PER_DAY;
@@ -261,6 +257,9 @@ time_t cron_next_timeout(int minute, int hour, int day, int week, int month) {
     }
 
     switch(period_type) {
+    case MINUTELY:
+        tt_round += SECONDS_PER_MINUTE;
+        return tt_round;
     case HOURLY:
         tt_round += SECONDS_PER_HOUR;
         return tt_round;
