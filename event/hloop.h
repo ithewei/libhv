@@ -82,20 +82,33 @@ struct hevent_s {
 #define hevent_userdata(ev)     (((hevent_t*)(ev))->userdata)
 
 typedef enum {
-    HIO_TYPE_UNKNOWN = 0,
-    HIO_TYPE_STDIN   = 0x00000001,
-    HIO_TYPE_STDOUT  = 0x00000002,
-    HIO_TYPE_STDERR  = 0x00000004,
-    HIO_TYPE_STDIO   = 0x0000000F,
+    HIO_TYPE_UNKNOWN    = 0,
+    HIO_TYPE_STDIN      = 0x00000001,
+    HIO_TYPE_STDOUT     = 0x00000002,
+    HIO_TYPE_STDERR     = 0x00000004,
+    HIO_TYPE_STDIO      = 0x0000000F,
 
-    HIO_TYPE_FILE    = 0x00000010,
+    HIO_TYPE_FILE       = 0x00000010,
 
-    HIO_TYPE_IP      = 0x00000100,
-    HIO_TYPE_UDP     = 0x00001000,
-    HIO_TYPE_TCP     = 0x00010000,
-    HIO_TYPE_SSL     = 0x00020000,
-    HIO_TYPE_SOCKET  = 0x00FFFF00,
+    HIO_TYPE_IP         = 0x00000100,
+    HIO_TYPE_SOCK_RAW   = 0x00000F00,
+
+    HIO_TYPE_UDP        = 0x00001000,
+    HIO_TYPE_DTLS       = 0x00010000,
+    HIO_TYPE_SOCK_DGRAM = 0x000FF000,
+
+    HIO_TYPE_TCP        = 0x00100000,
+    HIO_TYPE_SSL        = 0x01000000,
+    HIO_TYPE_TLS        = HIO_TYPE_SSL,
+    HIO_TYPE_SOCK_STREAM= 0x0FF00000,
+
+    HIO_TYPE_SOCKET     = 0x0FFFFF00,
 } hio_type_e;
+
+typedef enum {
+    HIO_SERVER_SIDE  = 0,
+    HIO_CLIENT_SIDE  = 1,
+} hio_side_e;
 
 #define HIO_DEFAULT_CONNECT_TIMEOUT     5000    // ms
 #define HIO_DEFAULT_CLOSE_TIMEOUT       60000   // ms
@@ -332,27 +345,35 @@ HV_EXPORT hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hr
 HV_EXPORT hio_t* hsendto   (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb DEFAULT(NULL));
 
 //-----------------top-level apis---------------------------------------------
-// Resolver -> socket -> hio_get
-HV_EXPORT hio_t* hio_create(hloop_t* loop, const char* host, int port, int type DEFAULT(SOCK_STREAM));
+// @hio_create_socket: socket -> bind -> listen
+// sockaddr_set_ipport -> socket -> hio_get(loop, sockfd) ->
+// side == HIO_SERVER_SIDE ? bind ->
+// type & HIO_TYPE_SOCK_STREAM ? listen ->
+HV_EXPORT hio_t* hio_create_socket(hloop_t* loop, const char* host, int port,
+                            hio_type_e type DEFAULT(HIO_TYPE_TCP),
+                            hio_side_e side DEFAULT(HIO_SERVER_SIDE));
 
-// @tcp_server: socket -> bind -> listen -> haccept
+// @tcp_server: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // @see examples/tcp_echo_server.c
 HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
-// @tcp_client: hio_create(loop, host, port, SOCK_STREAM) -> hconnect
+
+// @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_connect
 // @see examples/nc.c
 HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 
-// @ssl_server: hloop_create_tcp_server -> hio_enable_ssl
+// @ssl_server: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // @see examples/tcp_echo_server.c => #define TEST_SSL 1
 HV_EXPORT hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
-// @ssl_client: hio_create(loop, host, port, SOCK_STREAM) -> hio_enable_ssl -> hconnect
+
+// @ssl_client: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_connect
 // @see examples/nc.c => #define TEST_SSL 1
 HV_EXPORT hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
 
-// @udp_server: socket -> bind -> hio_get
+// @udp_server: hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_SERVER_SIDE)
 // @see examples/udp_echo_server.c
 HV_EXPORT hio_t* hloop_create_udp_server (hloop_t* loop, const char* host, int port);
-// @udp_client: hio_create(loop, host, port, SOCK_DGRAM)
+
+// @udp_server: hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_CLIENT_SIDE)
 // @see examples/nc.c
 HV_EXPORT hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int port);
 

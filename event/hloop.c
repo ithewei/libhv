@@ -804,68 +804,85 @@ hio_t* hsendto (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_c
 }
 
 //-----------------top-level apis---------------------------------------------
-hio_t* hio_create(hloop_t* loop, const char* host, int port, int type) {
-    sockaddr_u peeraddr;
-    memset(&peeraddr, 0, sizeof(peeraddr));
-    int ret = sockaddr_set_ipport(&peeraddr, host, port);
+hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e type, hio_side_e side) {
+    int sock_type = type & HIO_TYPE_SOCK_STREAM ? SOCK_STREAM :
+                    type & HIO_TYPE_SOCK_DGRAM  ? SOCK_DGRAM :
+                    type & HIO_TYPE_SOCK_RAW    ? SOCK_RAW : -1;
+    if (sock_type == -1) return NULL;
+    sockaddr_u addr;
+    memset(&addr, 0, sizeof(addr));
+    int ret = sockaddr_set_ipport(&addr, host, port);
     if (ret != 0) {
-        //printf("unknown host: %s\n", host);
+        // fprintf(stderr, "unknown host: %s\n", host);
         return NULL;
     }
-    int connfd = socket(peeraddr.sa.sa_family, type, 0);
-    if (connfd < 0) {
+    int sockfd = socket(addr.sa.sa_family, sock_type, 0);
+    if (sockfd < 0) {
         perror("socket");
         return NULL;
     }
-
-    hio_t* io = hio_get(loop, connfd);
+    hio_t* io = NULL;
+    if (side == HIO_SERVER_SIDE) {
+        if (bind(sockfd, &addr.sa, sockaddr_len(&addr)) < 0) {
+            perror("bind");
+            closesocket(sockfd);
+            return NULL;
+        }
+        if (sock_type == SOCK_STREAM) {
+            if (listen(sockfd, SOMAXCONN) < 0) {
+                perror("listen");
+                closesocket(sockfd);
+                return NULL;
+            }
+        }
+    }
+    io = hio_get(loop, sockfd);
     assert(io != NULL);
-    hio_set_peeraddr(io, &peeraddr.sa, sockaddr_len(&peeraddr));
+    io->io_type = type;
+    if (side == HIO_SERVER_SIDE) {
+        hio_set_localaddr(io, &addr.sa, sockaddr_len(&addr));
+    } else {
+        hio_set_peeraddr(io, &addr.sa, sockaddr_len(&addr));
+    }
     return io;
 }
 
 hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb) {
-    int listenfd = Listen(port, host);
-    if (listenfd < 0) {
-        return NULL;
-    }
-    hio_t* io = haccept(loop, listenfd, accept_cb);
-    if (io == NULL) {
-        closesocket(listenfd);
-    }
+    hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_SERVER_SIDE);
+    if (io == NULL) return NULL;
+    hio_setcb_accept(io, accept_cb);
+    hio_accept(io);
     return io;
 }
 
 hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
-    hio_t* io = hio_create(loop, host, port, SOCK_STREAM);
+    hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) return NULL;
-    hconnect(loop, io->fd, connect_cb);
+    hio_setcb_connect(io, connect_cb);
+    hio_connect(io);
     return io;
 }
 
 hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb) {
-    hio_t* io = hloop_create_tcp_server(loop, host, port, accept_cb);
+    hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE);
     if (io == NULL) return NULL;
-    hio_enable_ssl(io);
+    hio_setcb_accept(io, accept_cb);
+    hio_accept(io);
     return io;
 }
 
 hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
-    hio_t* io = hio_create(loop, host, port, SOCK_STREAM);
+    hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE);
     if (io == NULL) return NULL;
-    hio_enable_ssl(io);
-    hconnect(loop, io->fd, connect_cb);
+    hio_setcb_connect(io, connect_cb);
+    hio_connect(io);
     return io;
 }
 
 hio_t* hloop_create_udp_server(hloop_t* loop, const char* host, int port) {
-    int bindfd = Bind(port, host, SOCK_DGRAM);
-    if (bindfd < 0) {
-        return NULL;
-    }
-    return hio_get(loop, bindfd);
+    return hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_SERVER_SIDE);
 }
 
 hio_t* hloop_create_udp_client(hloop_t* loop, const char* host, int port) {
-    return hio_create(loop, host, port, SOCK_DGRAM);
+    return hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_CLIENT_SIDE);
 }

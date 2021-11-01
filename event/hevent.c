@@ -56,7 +56,7 @@ static void hio_socket_init(hio_t* io) {
     // tcp_server peeraddr set by accept
     // udp_server peeraddr set by recvfrom
     // tcp_client/udp_client peeraddr set by hio_setpeeraddr
-    if (io->io_type == HIO_TYPE_TCP || io->io_type == HIO_TYPE_SSL) {
+    if (io->io_type & HIO_TYPE_SOCK_STREAM) {
         // tcp acceptfd
         addrlen = sizeof(sockaddr_u);
         ret = getpeername(io->fd, io->peeraddr, &addrlen);
@@ -581,7 +581,7 @@ hio_t* hio_get_upstream(hio_t* io) {
 }
 
 hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, int ssl) {
-    hio_t* upstream_io = hio_create(io->loop, host, port, SOCK_STREAM);
+    hio_t* upstream_io = hio_create_socket(io->loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (upstream_io == NULL) return NULL;
     if (ssl) hio_enable_ssl(upstream_io);
     hio_setup_upstream(io, upstream_io);
@@ -592,7 +592,7 @@ hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, int ssl) {
 }
 
 hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port) {
-    hio_t* upstream_io = hio_create(io->loop, host, port, SOCK_DGRAM);
+    hio_t* upstream_io = hio_create_socket(io->loop, host, port, HIO_TYPE_UDP, HIO_CLIENT_SIDE);
     if (upstream_io == NULL) return NULL;
     hio_setup_upstream(io, upstream_io);
     hio_read_upstream(io);

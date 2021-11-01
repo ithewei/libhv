@@ -102,7 +102,7 @@ static void on_connect(hio_t* io) {
 }
 
 static int jsonrpc_call(hloop_t* loop, const char* host, int port, const char* method, const char* param1, const char* param2) {
-    hio_t* connio = hio_create(loop, host, port, SOCK_STREAM);
+    hio_t* connio = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (connio == NULL) {
         return -1;
     }

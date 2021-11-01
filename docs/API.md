@@ -445,7 +445,7 @@
 - hio_setup_tcp_upstream
 - hio_setup_ssl_upstream
 - hio_setup_udp_upstream
-- hio_create
+- hio_create_socket
 - hio_context
 - hio_set_context
 - htimer_add
