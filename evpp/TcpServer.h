@@ -23,10 +23,20 @@ public:
     virtual ~TcpServer() {
     }
 
+    EventLoopPtr loop(int idx = -1) {
+        return loop_threads.loop(idx);
+    }
+
     //@retval >=0 listenfd, <0 error
     int createsocket(int port, const char* host = "0.0.0.0") {
         listenfd = Listen(port, host);
         return listenfd;
+    }
+    void closesocket() {
+        if (listenfd >= 0) {
+            ::closesocket(listenfd);
+            listenfd = -1;
+        }
     }
 
     void setMaxConnectionNum(uint32_t num) {
@@ -35,25 +45,23 @@ public:
     void setThreadNum(int num) {
         loop_threads.setThreadNum(num);
     }
+
+    void startAccept(const EventLoopPtr& loop) {
+        assert(listenfd >= 0);
+        hio_t* listenio = haccept(loop->loop(), listenfd, onAccept);
+        hevent_set_userdata(listenio, this);
+        if (tls) {
+            hio_enable_ssl(listenio);
+        }
+    }
+
     void start(bool wait_threads_started = true) {
         loop_threads.start(wait_threads_started, [this](const EventLoopPtr& loop){
-            assert(listenfd >= 0);
-            hio_t* listenio = haccept(loop->loop(), listenfd, onAccept);
-            hevent_set_userdata(listenio, this);
-            if (tls) {
-                hio_enable_ssl(listenio);
-            }
+            startAccept(loop);
         });
     }
     void stop(bool wait_threads_stopped = true) {
         loop_threads.stop(wait_threads_stopped);
-    }
-
-    EventLoopPtr loop(int idx = -1) {
-        return loop_threads.loop(idx);
-    }
-    hloop_t* hloop(int idx = -1) {
-        return loop_threads.hloop(idx);
     }
 
     int withTLS(const char* cert_file, const char* key_file) {

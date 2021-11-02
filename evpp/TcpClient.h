@@ -67,7 +67,6 @@ public:
         }
         return createsocket(&peeraddr.sa);
     }
-
     int createsocket(struct sockaddr* peeraddr) {
         int connfd = socket(peeraddr->sa_family, SOCK_STREAM, 0);
         // SOCKADDR_PRINT(peeraddr);
@@ -81,6 +80,12 @@ public:
         hio_set_peeraddr(io, peeraddr, SOCKADDR_LEN(peeraddr));
         channel.reset(new TSocketChannel(io));
         return connfd;
+    }
+    void closesocket() {
+        if (channel) {
+            channel->close();
+            channel = NULL;
+        }
     }
 
     int startConnect() {
@@ -166,15 +171,11 @@ public:
         if (!isConnected()) return -1;
         return channel->write(data, size);
     }
-
     int send(Buffer* buf) {
-        if (!isConnected()) return -1;
-        return channel->write(buf);
+        return send(buf->data(), buf->size());
     }
-
     int send(const std::string& str) {
-        if (!isConnected()) return -1;
-        return channel->write(str);
+        return send(str.data(), str.size());
     }
 
     int withTLS(const char* cert_file = NULL, const char* key_file = NULL, bool verify_peer = false) {
@@ -231,6 +232,7 @@ public:
     std::function<void(const TSocketChannelPtr&)>           onConnection;
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
+
 private:
     EventLoopThread         loop_thread;
 };

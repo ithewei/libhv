@@ -28,40 +28,45 @@ public:
         channel.reset(new SocketChannel(io));
         return channel->fd();
     }
+    void closesocket() {
+        if (channel) {
+            channel->close();
+            channel = NULL;
+        }
+    }
+
+    int startRecv() {
+        assert(channel != NULL);
+        channel->onread = [this](Buffer* buf) {
+            if (onMessage) {
+                onMessage(channel, buf);
+            }
+        };
+        channel->onwrite = [this](Buffer* buf) {
+            if (onWriteComplete) {
+                onWriteComplete(channel, buf);
+            }
+        };
+        return channel->startRead();
+    }
 
     void start(bool wait_threads_started = true) {
-        loop_thread.start(wait_threads_started,
-            [this]() {
-                assert(channel != NULL);
-                channel->onread = [this](Buffer* buf) {
-                    if (onMessage) {
-                        onMessage(channel, buf);
-                    }
-                };
-                channel->onwrite = [this](Buffer* buf) {
-                    if (onWriteComplete) {
-                        onWriteComplete(channel, buf);
-                    }
-                };
-                channel->startRead();
-                return 0;
-            }
-        );
+        loop_thread.start(wait_threads_started, std::bind(&UdpServer::startRecv, this));
     }
     void stop(bool wait_threads_stopped = true) {
         loop_thread.stop(wait_threads_stopped);
     }
 
-    int sendto(Buffer* buf, struct sockaddr* peeraddr = NULL) {
-        if (channel == NULL) return 0;
+    int sendto(const void* data, int size, struct sockaddr* peeraddr = NULL) {
+        if (channel == NULL) return -1;
         if (peeraddr) hio_set_peeraddr(channel->io(), peeraddr, SOCKADDR_LEN(peeraddr));
-        return channel->write(buf);
+        return channel->write(data, size);
     }
-
+    int sendto(Buffer* buf, struct sockaddr* peeraddr = NULL) {
+        return sendto(buf->data(), buf->size(), peeraddr);
+    }
     int sendto(const std::string& str, struct sockaddr* peeraddr = NULL) {
-        if (channel == NULL) return 0;
-        if (peeraddr) hio_set_peeraddr(channel->io(), peeraddr, SOCKADDR_LEN(peeraddr));
-        return channel->write(str);
+        return sendto(str.data(), str.size(), peeraddr);
     }
 
 public:
