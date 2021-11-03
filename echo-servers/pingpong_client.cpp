@@ -72,6 +72,18 @@ static void on_connect(hio_t* io) {
     hio_read_start(io);
 }
 
+static void start_connect(hloop_t* loop) {
+    hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (io == NULL) {
+        perror("socket");
+        exit(1);
+    }
+    tcp_nodelay(hio_fd(io), 1);
+    hio_setcb_connect(io, on_connect);
+    hio_setcb_close(io, on_close);
+    hio_connect(io);
+}
+
 int main(int argc, char** argv) {
     // parse cmdline
     main_ctx_init(argc, argv);
@@ -111,18 +123,7 @@ int main(int argc, char** argv) {
     loop_threads.start(true);
     for (int i = 0; i < connections; ++i) {
         EventLoopPtr loop = loop_threads.nextLoop();
-        hloop_t* hloop = loop->loop();
-        loop->runInLoop([hloop](){
-            hio_t* io = hio_create_socket(hloop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
-            if (io == NULL) {
-                perror("socket");
-                exit(1);
-            }
-            tcp_nodelay(hio_fd(io), 1);
-            hio_setcb_connect(io, on_connect);
-            hio_setcb_close(io, on_close);
-            hio_connect(io);
-        });
+        loop->runInLoop(std::bind(start_connect, loop->loop()));
     }
 
     // stop after seconds

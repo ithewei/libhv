@@ -35,6 +35,8 @@ static bool https = false;
 static char ip[64] = "127.0.0.1";
 static int  port = 80;
 
+static bool stop = false;
+
 static HttpRequestPtr   request;
 static std::string      request_msg;
 
@@ -43,6 +45,7 @@ typedef struct connection_s {
     HttpParserPtr   parser;
     HttpResponsePtr response;
     uint64_t request_cnt;
+    uint64_t response_cnt;
     uint64_t ok_cnt;
     uint64_t readbytes;
 
@@ -50,6 +53,7 @@ typedef struct connection_s {
         : parser(HttpParser::New(HTTP_CLIENT, HTTP_V1))
         , response(new HttpResponse)
         , request_cnt(0)
+        , response_cnt(0)
         , ok_cnt(0)
         , readbytes(0)
     {
@@ -73,6 +77,7 @@ typedef struct connection_s {
             return false;
         }
         if (parser->IsComplete()) {
+            ++response_cnt;
             if (response->status_code == HTTP_STATUS_OK) {
                 ++ok_cnt;
             }
@@ -98,12 +103,14 @@ static void print_cmd() {
 
 static void print_result() {
     uint64_t total_request_cnt = 0;
+    uint64_t total_response_cnt = 0;
     uint64_t total_ok_cnt = 0;
     uint64_t total_readbytes = 0;
     connection_t* conn = NULL;
     for (int i = 0; i < connections; ++i) {
         conn = conns[i];
         total_request_cnt += conn->request_cnt;
+        total_response_cnt += conn->response_cnt;
         total_ok_cnt += conn->ok_cnt;
         total_readbytes += conn->readbytes;
     }
@@ -112,15 +119,21 @@ static void print_result() {
             LLU(total_ok_cnt),
             LLU(total_readbytes >> 20),
             duration);
-    printf("Requests/sec: %8llu\n", LLU(total_request_cnt / duration));
+    printf("Requests/sec: %8llu\n", LLU(total_response_cnt / duration));
     printf("Transfer/sec: %8lluMB\n", LLU((total_readbytes / duration) >> 20));
 }
 
+static void start_reconnect(hio_t* io);
 static void on_close(hio_t* io) {
     if (++disconnected_num == connections) {
         if (verbose) {
             printf("all disconnected\n");
         }
+    }
+
+    if (!stop) {
+        // NOTE: nginx keepalive_requests = 100
+        start_reconnect(io);
     }
 }
 
@@ -143,6 +156,29 @@ static void on_connect(hio_t* io) {
 
     hio_setcb_read(io, on_recv);
     hio_read(io);
+}
+
+static void start_connect(hloop_t* loop, connection_t* conn) {
+    hio_t* io = hio_create_socket(loop, ip, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (io == NULL) {
+        perror("socket");
+        exit(1);
+    }
+    conn->io = io;
+    hevent_set_userdata(io, conn);
+    if (https) {
+        hio_enable_ssl(io);
+    }
+    tcp_nodelay(hio_fd(io), 1);
+    hio_setcb_connect(io, on_connect);
+    hio_setcb_close(io, on_close);
+    hio_connect(io);
+}
+
+static void start_reconnect(hio_t* io) {
+    hloop_t* loop = hevent_loop(io);
+    connection_t* conn = (connection_t*)hevent_userdata(io);
+    start_connect(loop, conn);
 }
 
 int main(int argc, char** argv) {
@@ -206,6 +242,7 @@ int main(int argc, char** argv) {
 
     // Dump request
     request->headers["User-Agent"] = std::string("libhv/") + hv_version();
+    request->headers["Connection"] = "keep-alive";
     request_msg = request->Dump(true, true);
     printf("%s", request_msg.c_str());
 
@@ -220,26 +257,12 @@ int main(int argc, char** argv) {
 
         EventLoopPtr loop = loop_threads.nextLoop();
         hloop_t* hloop = loop->loop();
-        loop->runInLoop([i, hloop](){
-            hio_t* io = hio_create_socket(hloop, ip, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
-            if (io == NULL) {
-                perror("socket");
-                exit(1);
-            }
-            conns[i]->io = io;
-            hevent_set_userdata(io, conns[i]);
-            if (https) {
-                hio_enable_ssl(io);
-            }
-            tcp_nodelay(hio_fd(io), 1);
-            hio_setcb_connect(io, on_connect);
-            hio_setcb_close(io, on_close);
-            hio_connect(io);
-        });
+        loop->runInLoop(std::bind(start_connect, loop->loop(), conns[i]));
     }
 
     // stop after duration
     loop_threads.loop()->setTimeout(duration * 1000, [&loop_threads](TimerID timerID){
+        stop = true;
         loop_threads.stop(false);
     });
 
