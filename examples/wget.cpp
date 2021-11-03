@@ -70,10 +70,12 @@ static int wget(const char* url, const char* filepath) {
         // print progress
         int cur_progress = from * 100 / content_length;
         if (cur_progress > last_progress) {
-            printf("progress: %ld/%ld = %d%%\n", (long)from, (long)content_length, (int)cur_progress);
+            printf("\rprogress: %ld/%ld = %d%%", (long)from, (long)content_length, (int)cur_progress);
+            fflush(stdout);
             last_progress = cur_progress;
         }
     }
+    printf("\n");
     http_client_del(cli);
 
     return 0;

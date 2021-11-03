@@ -140,7 +140,8 @@ int HttpHandler::defaultStaticHandler() {
     }
     if (!is_dir || is_index_of) {
         FileCache::OpenParam param;
-        param.need_read = req->method == HTTP_HEAD ? false : true;
+        bool has_range = req->headers.find("Range") != req->headers.end();
+        param.need_read = req->method == HTTP_HEAD || has_range ? false : true;
         param.path = req_path;
         fc = files->Open(filepath.c_str(), &param);
         if (fc == NULL) {
