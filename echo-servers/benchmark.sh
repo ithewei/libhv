@@ -2,16 +2,18 @@
 
 host=127.0.0.1
 port=2000
-client=2
-time=10
+connections=100
+duration=10
+threads=2
 
-while getopts 'h:p:c:t:' opt
+while getopts 'h:p:c:d:t:' opt
 do
     case $opt in
         h) host=$OPTARG;;
         p) port=$OPTARG;;
-        c) client=$OPTARG;;
-        t) time=$OPTARG;;
+        c) connections=$OPTARG;;
+        d) duration=$OPTARG;;
+        t) threads=$OPTARG;;
         *) exit -1;;
     esac
 done
@@ -78,8 +80,7 @@ sleep 1
 
 for ((p=$sport+1; p<=$port; ++p)); do
     echo -e "\n==============$p====================================="
-    # bin/webbench -q -c $client -t $time $host:$p
-    bin/pingpong_client -H $host -p $p
+    bin/pingpong_client -H $host -p $p -c $connections -d $duration -t $threads
     sleep 1
 done
 

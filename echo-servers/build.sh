@@ -32,4 +32,3 @@ fi
 cd ${ROOT_DIR}
 make libhv && sudo make install
 make echo-servers
-make webbench
