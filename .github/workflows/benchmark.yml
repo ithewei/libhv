@@ -22,18 +22,10 @@ jobs:
           sudo apt install libssl-dev
           sudo apt install nginx
 
-      - name: make wrk
-        run: |
-          git clone https://github.com/wg/wrk
-          pushd wrk
-          make WITH_OPENSSL=/usr
-          sudo cp wrk /usr/bin
-          popd
-
-      - name: make httpd
+      - name: make httpd wrk
         run: |
           ./configure
-          make httpd
+          make httpd wrk
 
       - name: build echo-servers
         run: |
@@ -50,5 +42,5 @@ jobs:
           bin/httpd -c etc/httpd.conf -d
           ps aux | grep nginx
           ps aux | grep httpd
-          wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/
-          wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/
+          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/
+          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/

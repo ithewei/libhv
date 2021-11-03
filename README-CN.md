@@ -99,6 +99,9 @@ bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":t
 bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
 # RESTful API: /group/:group_name/user/:user_id
 bin/curl -v -X DELETE localhost:8080/group/test/user/123
+
+# 压力测试
+bin/wrk -c 1000 -d 10 -t 4 http://127.0.0.1:8080/
 ```
 
 ### TCP
@@ -182,7 +185,6 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
 }
 
 static void on_connect(hio_t* io) {
-    hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_read(io);
 
@@ -190,12 +192,17 @@ static void on_connect(hio_t* io) {
 }
 
 int main() {
+    const char host[] = "127.0.0.1";
     int port = 1234;
     hloop_t* loop = hloop_new(0);
-    hio_t* connio = hloop_create_tcp_client(loop, "127.0.0.1", port, on_connect);
-    if (connio == NULL) {
-        return -1;
+    hio_t* io = hio_create_socket(hloop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (io == NULL) {
+        perror("socket");
+        exit(1);
     }
+    hio_setcb_connect(io, on_connect);
+    hio_setcb_close(io, on_close);
+    hio_connect(io);
     hloop_run(loop);
     hloop_free(&loop);
     return 0;
@@ -380,6 +387,7 @@ int main() {
 - 网络连接工具: [examples/nc](examples/nc.c)
 - 网络扫描工具: [examples/nmap](examples/nmap)
 - HTTP服务程序: [examples/httpd](examples/httpd)
+- HTTP压测工具: [examples/wrk](examples/wrk.cpp)
 - URL请求工具: [examples/curl](examples/curl.cpp)
 - 文件下载工具: [examples/wget](examples/wget.cpp)
 - 服务注册与发现: [examples/consul](examples/consul)

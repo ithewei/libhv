@@ -37,7 +37,7 @@ endif
 default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
-	nc nmap httpd curl wget consul \
+	nc nmap httpd curl wget wrk consul \
 	tcp_echo_server \
 	tcp_chat_server \
 	tcp_proxy_server \
@@ -109,6 +109,9 @@ nc: prepare
 
 nmap: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event cpputil examples/nmap" DEFINES="PRINT_DEBUG"
+
+wrk: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS=". base ssl event util cpputil evpp http" SRCS="examples/wrk.cpp"
 
 httpd: prepare
 	$(RM) examples/httpd/*.o

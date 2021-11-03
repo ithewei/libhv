@@ -55,6 +55,11 @@ if(WITH_EVPP)
     list(APPEND EXAMPLES hmain_test nmap)
 if(WITH_HTTP)
     include_directories(../http)
+
+    # wrk
+    add_executable(wrk wrk.cpp)
+    target_link_libraries(wrk ${HV_LIBRARIES})
+
 if(WITH_HTTP_SERVER)
     include_directories(../http/server)
 

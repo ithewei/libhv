@@ -96,6 +96,9 @@ bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":t
 bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
 # RESTful API: /group/:group_name/user/:user_id
 bin/curl -v -X DELETE localhost:8080/group/test/user/123
+
+# benchmark
+bin/wrk -c 1000 -d 10 -t 4 http://127.0.0.1:8080/
 ```
 
 ### TCP
@@ -179,7 +182,6 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
 }
 
 static void on_connect(hio_t* io) {
-    hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_read(io);
 
@@ -187,12 +189,17 @@ static void on_connect(hio_t* io) {
 }
 
 int main() {
+    const char host[] = "127.0.0.1";
     int port = 1234;
     hloop_t* loop = hloop_new(0);
-    hio_t* connio = hloop_create_tcp_client(loop, "127.0.0.1", port, on_connect);
-    if (connio == NULL) {
-        return -1;
+    hio_t* io = hio_create_socket(hloop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (io == NULL) {
+        perror("socket");
+        exit(1);
     }
+    hio_setcb_connect(io, on_connect);
+    hio_setcb_close(io, on_close);
+    hio_connect(io);
     hloop_run(loop);
     hloop_free(&loop);
     return 0;
@@ -376,6 +383,7 @@ int main() {
 - [examples/nc](examples/nc.c)
 - [examples/nmap](examples/nmap)
 - [examples/httpd](examples/httpd)
+- [examples/wrk](examples/wrk.cpp)
 - [examples/curl](examples/curl.cpp)
 - [examples/wget](examples/wget.cpp)
 - [examples/consul](examples/consul)
