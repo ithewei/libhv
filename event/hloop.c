@@ -811,7 +811,16 @@ hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e t
     if (sock_type == -1) return NULL;
     sockaddr_u addr;
     memset(&addr, 0, sizeof(addr));
-    int ret = sockaddr_set_ipport(&addr, host, port);
+    int ret = -1;
+#ifdef ENABLE_UDS
+    if (port <= 0) {
+        sockaddr_set_path(&addr, host);
+        ret = 0;
+    }
+#endif
+    if (port > 0) {
+        ret = sockaddr_set_ipport(&addr, host, port);
+    }
     if (ret != 0) {
         // fprintf(stderr, "unknown host: %s\n", host);
         return NULL;
