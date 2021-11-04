@@ -21,6 +21,10 @@ static int wget(const char* url, const char* filepath) {
         return -1;
     }
     printd("%s", resp->Dump(true, false).c_str());
+    if (resp->status_code == HTTP_STATUS_NOT_FOUND) {
+        fprintf(stderr, "404 Not Found\n");
+        return -1;
+    }
 
     bool use_range = false;
     int range_bytes = 1 << 20; // 1M

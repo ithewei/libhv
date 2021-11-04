@@ -110,7 +110,7 @@ int on_headers_complete(http_parser* parser) {
         HttpResponse* res = (HttpResponse*)hp->parsed;
         res->status_code = (http_status)parser->status_code;
         // response to HEAD
-        if (res->status_code == 200 && hp->flags & F_SKIPBODY) {
+        if (hp->flags & F_SKIPBODY) {
             skip_body = true;
         }
     }
