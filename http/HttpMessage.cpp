@@ -460,16 +460,15 @@ std::string HttpMessage::Dump(bool is_dump_headers, bool is_dump_body) {
 }
 
 void HttpRequest::DumpUrl() {
+    std::string str;
     if (url.size() != 0 && strstr(url.c_str(), "://") != NULL) {
         // have been complete url
-        return;
+        goto query;
     }
-    std::string str;
     // scheme://
     str = scheme;
     str += "://";
     // host:port
-    char c_str[256] = {0};
     if (url.size() != 0 && *url.c_str() != '/') {
         // url begin with host
         str += url;
@@ -481,8 +480,7 @@ void HttpRequest::DumpUrl() {
             str += Host();
         }
         else {
-            snprintf(c_str, sizeof(c_str), "%s:%d", host.c_str(), port);
-            str += c_str;
+            str += hv::asprintf("%s:%d", host.c_str(), port);
         }
     }
     // /path
@@ -496,13 +494,14 @@ void HttpRequest::DumpUrl() {
     else if (url.size() == 0) {
         str += '/';
     }
-    // ?query
-    if (strchr(str.c_str(), '?') == NULL &&
-        query_params.size() != 0) {
-        str += '?';
-        str += dump_query_params(query_params);
-    }
     url = str;
+query:
+    // ?query
+    if (strchr(url.c_str(), '?') == NULL &&
+        query_params.size() != 0) {
+        url += '?';
+        url += dump_query_params(query_params);
+    }
 }
 
 void HttpRequest::ParseUrl() {

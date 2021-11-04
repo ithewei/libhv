@@ -195,7 +195,7 @@ int main() {
     const char host[] = "127.0.0.1";
     int port = 1234;
     hloop_t* loop = hloop_new(0);
-    hio_t* io = hio_create_socket(hloop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) {
         perror("socket");
         exit(1);
