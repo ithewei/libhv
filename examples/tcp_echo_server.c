@@ -82,10 +82,16 @@ static void on_accept(hio_t* io) {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: %s port\n", argv[0]);
+        printf("Usage: %s port|path\n", argv[0]);
         return -10;
     }
+    const char* host = "0.0.0.0";
     int port = atoi(argv[1]);
+#if ENABLE_UDS
+    if (port == 0) {
+        host = argv[1];
+    }
+#endif
 
 #if TEST_SSL
     hssl_ctx_init_param_t ssl_param;
@@ -110,9 +116,9 @@ int main(int argc, char** argv) {
 
     hloop_t* loop = hloop_new(0);
 #if TEST_SSL
-    hio_t* listenio = hloop_create_ssl_server(loop, "0.0.0.0", port, on_accept);
+    hio_t* listenio = hloop_create_ssl_server(loop, host, port, on_accept);
 #else
-    hio_t* listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
+    hio_t* listenio = hloop_create_tcp_server(loop, host, port, on_accept);
 #endif
     if (listenio == NULL) {
         return -20;

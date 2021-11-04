@@ -26,13 +26,19 @@ static void on_recvfrom(hio_t* io, void* buf, int readbytes) {
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: %s port\n", argv[0]);
+        printf("Usage: %s port|path\n", argv[0]);
         return -10;
     }
+    const char* host = "0.0.0.0";
     int port = atoi(argv[1]);
+#if ENABLE_UDS
+    if (port == 0) {
+        host = argv[1];
+    }
+#endif
 
     hloop_t* loop = hloop_new(0);
-    hio_t* io = hloop_create_udp_server(loop, "0.0.0.0", port);
+    hio_t* io = hloop_create_udp_server(loop, host, port);
     if (io == NULL) {
         return -20;
     }
