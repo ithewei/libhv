@@ -3,6 +3,7 @@
 
 #include <string>
 #include <map>
+#include <unordered_map>
 #include <list>
 #include <memory>
 #include <functional>
@@ -47,9 +48,9 @@ struct http_method_handler {
     }
 };
 // method => http_method_handler
-typedef std::list<http_method_handler>                                  http_method_handlers;
+typedef std::list<http_method_handler>                                          http_method_handlers;
 // path => http_method_handlers
-typedef std::map<std::string, std::shared_ptr<http_method_handlers>>    http_api_handlers;
+typedef std::unordered_map<std::string, std::shared_ptr<http_method_handlers>>  http_api_handlers;
 
 namespace hv {
 

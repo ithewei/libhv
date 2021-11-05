@@ -12,11 +12,7 @@
 int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
     // printf("%s:%d\n", req->client_addr.ip.c_str(), req->client_addr.port);
     // printf("%s\n", req->Dump(true, true).c_str());
-    // if (req->content_type != APPLICATION_JSON) {
-    //     return response_status(resp, HTTP_STATUS_BAD_REQUEST);
-    // }
-    req->ParseBody();
-    resp->content_type = APPLICATION_JSON;
+
     // cors
     resp->headers["Access-Control-Allow-Origin"] = "*";
     if (req->method == HTTP_OPTIONS) {
@@ -25,6 +21,18 @@ int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
         resp->headers["Access-Control-Allow-Headers"] = req->GetHeader("Access-Control-Request-Headers", "Content-Type");
         return HTTP_STATUS_NO_CONTENT;
     }
+
+    // Unified verification request Content-Type?
+    // if (req->content_type != APPLICATION_JSON) {
+    //     return response_status(resp, HTTP_STATUS_BAD_REQUEST);
+    // }
+
+    // Deserialize request body to json, form, etc.
+    req->ParseBody();
+
+    // Unified setting response Content-Type?
+    resp->content_type = APPLICATION_JSON;
+
 #if 0
     // authentication sample code
     if (strcmp(req->path.c_str(), "/login") != 0) {
@@ -40,6 +48,7 @@ int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
         return HTTP_STATUS_UNFINISHED;
     }
 #endif
+
     return HTTP_STATUS_UNFINISHED;
 }
 
