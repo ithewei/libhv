@@ -5,6 +5,7 @@ port=2000
 connections=100
 duration=10
 threads=2
+sendbytes=1024
 
 while getopts 'h:p:c:d:t:' opt
 do
@@ -80,7 +81,7 @@ sleep 1
 
 for ((p=$sport+1; p<=$port; ++p)); do
     echo -e "\n==============$p====================================="
-    bin/pingpong_client -H $host -p $p -c $connections -d $duration -t $threads
+    bin/pingpong_client -H $host -p $p -c $connections -d $duration -t $threads -b $sendbytes
     sleep 1
 done
 

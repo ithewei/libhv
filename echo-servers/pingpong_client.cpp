@@ -15,7 +15,7 @@ static const char detail_options[] = R"(
   -c <connections>  Number of connections, default: 1000
   -d <duration>     Duration of test, default: 10s
   -t <threads>      Number of threads, default: 4
-  -b <bytes>        Bytes of send buffer, default: 1024
+  -b <bytes>        Bytes of send buffer, default: 4096
 )";
 
 static int connections = 1000;
@@ -25,7 +25,7 @@ static int threads = 4;
 static bool verbose = false;
 static const char* host = "127.0.0.1";
 static int port = 0;
-static int sendbytes = 1024;
+static int sendbytes = 4096;
 static void* sendbuf = NULL;
 
 static std::atomic<int> connected_num(0);
@@ -36,6 +36,11 @@ static std::atomic<uint64_t> total_readbytes(0);
 static void print_help() {
     printf("Usage: %s [%s]\n", g_main_ctx.program_name, options);
     printf("Options:\n%s\n", detail_options);
+}
+
+static void print_cmd() {
+    printf("Running %ds test @ %s:%d\n", duration, host, port);
+    printf("%d threads and %d connections, send %d bytes each time\n", threads, connections, sendbytes);
 }
 
 static void print_result() {
@@ -115,9 +120,7 @@ int main(int argc, char** argv) {
     }
     sendbuf = malloc(sendbytes);
 
-    printf("[%s:%d] %d threads %d connections run %ds\n",
-        host, port,
-        threads, connections, duration);
+    print_cmd();
 
     EventLoopThreadPool loop_threads(threads);
     loop_threads.start(true);
