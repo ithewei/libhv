@@ -218,6 +218,7 @@ typedef std::shared_ptr<EventLoop> EventLoopPtr;
 static inline EventLoop* tlsEventLoop() {
     return (EventLoop*)ThreadLocalStorage::get(ThreadLocalStorage::EVENT_LOOP);
 }
+#define currentThreadEventLoop tlsEventLoop()
 
 static inline TimerID setTimer(int timeout_ms, TimerCallback cb, int repeat = INFINITE) {
     EventLoop* loop = tlsEventLoop();
