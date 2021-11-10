@@ -220,6 +220,14 @@ void* hio_context(hio_t* io) {
     return io->ctx;
 }
 
+size_t hio_read_bufsize(hio_t* io) {
+    return io->readbuf.len;
+}
+
+size_t hio_write_bufsize(hio_t* io) {
+    return io->write_queue_bytes;
+}
+
 haccept_cb hio_getcb_accept(hio_t* io) {
     return io->accept_cb;
 }

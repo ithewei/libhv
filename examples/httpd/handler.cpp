@@ -93,16 +93,30 @@ int Handler::largeFileHandler(const HttpContextPtr& ctx) {
         SAFE_ALLOC(buf, len);
         size_t total_readbytes = 0;
         int last_progress = 0;
+        int sendbytes_per_ms = 1024; // 1KB/ms = 1MB/s = 8Mbps
+        int sleep_ms_per_send = len / sendbytes_per_ms; // 4ms
+        int sleep_ms = sleep_ms_per_send;
         auto start_time = std::chrono::steady_clock::now();
         auto end_time = start_time;
         while (total_readbytes < filesize) {
             size_t readbytes = file.read(buf, len);
             if (readbytes <= 0) {
+                // read file error!
                 ctx->writer->close();
                 break;
             }
-            if (ctx->writer->WriteBody(buf, readbytes) < 0) {
+            int nwrite = ctx->writer->WriteBody(buf, readbytes);
+            if (nwrite < 0) {
+                // disconnected!
                 break;
+            } else if (nwrite == 0) {
+                // send too fast or peer recv too slow
+                // reduce speed of send
+                sleep_ms *= 2;
+                // size_t write_backlog = hio_write_bufsize(ctx->writer->io());
+            } else {
+                // restore speed of send
+                sleep_ms = sleep_ms_per_send;
             }
             total_readbytes += readbytes;
             int cur_progress = total_readbytes * 100 / filesize;
@@ -111,7 +125,7 @@ int Handler::largeFileHandler(const HttpContextPtr& ctx) {
                 //     ctx->request->path.c_str(), (long)total_readbytes, (long)filesize, (int)cur_progress);
                 last_progress = cur_progress;
             }
-            end_time += std::chrono::milliseconds(len / 1024); // 1KB/ms = 1MB/s = 8Mbps
+            end_time += std::chrono::milliseconds(sleep_ms);
             std::this_thread::sleep_until(end_time);
         }
         ctx->writer->End();

@@ -255,6 +255,8 @@ HV_EXPORT void hio_set_context(hio_t* io, void* ctx);
 HV_EXPORT void* hio_context(hio_t* io);
 HV_EXPORT bool hio_is_opened(hio_t* io);
 HV_EXPORT bool hio_is_closed(hio_t* io);
+HV_EXPORT size_t hio_read_bufsize(hio_t* io);
+HV_EXPORT size_t hio_write_bufsize(hio_t* io);
 
 // set callbacks
 HV_EXPORT void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
