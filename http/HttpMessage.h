@@ -380,7 +380,8 @@ public:
     // client_addr
     HNetAddr            client_addr;    // for http server save client addr of request
     int                 timeout;        // for http client timeout
-    bool                redirect;       // for http_client redirect
+    unsigned            redirect: 1;    // for http_client redirect
+    unsigned            proxy   : 1;    // for http_client proxy
 
     HttpRequest() : HttpMessage() {
         type = HTTP_REQUEST;
@@ -396,7 +397,8 @@ public:
         port = DEFAULT_HTTP_PORT;
         path = "/";
         timeout = 0;
-        redirect = true;
+        redirect = 1;
+        proxy = 0;
     }
 
     virtual void Reset() {
@@ -450,6 +452,9 @@ public:
         auto iter = headers.find("Host");
         return iter == headers.end() ? host : iter->second;
     }
+    void FillHost(const char* host, int port = DEFAULT_HTTP_PORT);
+    void SetHost(const char* host, int port = DEFAULT_HTTP_PORT);
+    void SetProxy(const char* host, int port);
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1) {

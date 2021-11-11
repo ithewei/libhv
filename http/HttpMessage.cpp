@@ -510,13 +510,20 @@ void HttpRequest::ParseUrl() {
     http_parser_url_init(&parser);
     http_parser_parse_url(url.c_str(), url.size(), 0, &parser);
     // scheme
-    scheme = url.substr(parser.field_data[UF_SCHEMA].off, parser.field_data[UF_SCHEMA].len);
+    std::string scheme_ = url.substr(parser.field_data[UF_SCHEMA].off, parser.field_data[UF_SCHEMA].len);
     // host
+    std::string host_(host);
     if (parser.field_set & (1<<UF_HOST)) {
-        host = url.substr(parser.field_data[UF_HOST].off, parser.field_data[UF_HOST].len);
+        host_ = url.substr(parser.field_data[UF_HOST].off, parser.field_data[UF_HOST].len);
     }
     // port
-    port = parser.port ? parser.port : strcmp(scheme.c_str(), "https") ? DEFAULT_HTTP_PORT : DEFAULT_HTTPS_PORT;
+    int port_ = parser.port ? parser.port : strcmp(scheme_.c_str(), "https") ? DEFAULT_HTTP_PORT : DEFAULT_HTTPS_PORT;
+    if (!proxy) {
+        scheme = scheme_;
+        host = host_;
+        port = port_;
+    }
+    FillHost(host_.c_str(), port_);
     // path
     if (parser.field_set & (1<<UF_PATH)) {
         const char* sp = url.c_str() + parser.field_data[UF_PATH].off;
@@ -535,6 +542,31 @@ void HttpRequest::ParseUrl() {
     }
 }
 
+void HttpRequest::FillHost(const char* host, int port) {
+    if (headers.find("Host") == headers.end()) {
+        if (port == 0 ||
+            port == DEFAULT_HTTP_PORT ||
+            port == DEFAULT_HTTPS_PORT) {
+            headers["Host"] = host;
+        } else {
+            headers["Host"] = asprintf("%s:%d", host, port);
+        }
+    }
+}
+
+void HttpRequest::SetHost(const char* host, int port) {
+    this->host = host;
+    this->port = port;
+    FillHost(host, port);
+}
+
+void HttpRequest::SetProxy(const char* host, int port) {
+    this->scheme = "http";
+    this->host = host;
+    this->port = port;
+    proxy = 1;
+}
+
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     ParseUrl();
 
@@ -542,20 +574,10 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     str.reserve(MAX(512, path.size() + 128));
     // GET / HTTP/1.1\r\n
     str = asprintf("%s %s HTTP/%d.%d\r\n",
-            http_method_str(method), path.c_str(),
+            http_method_str(method),
+            proxy ? url.c_str() : path.c_str(),
             (int)http_major, (int)http_minor);
     if (is_dump_headers) {
-        // Host:
-        if (headers.find("Host") == headers.end()) {
-            if (port == 0 ||
-                port == DEFAULT_HTTP_PORT ||
-                port == DEFAULT_HTTPS_PORT) {
-                headers["Host"] = host;
-            }
-            else {
-                headers["Host"] = asprintf("%s:%d", host.c_str(), port);
-            }
-        }
         DumpHeaders(str);
     }
     str += "\r\n";

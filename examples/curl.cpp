@@ -26,6 +26,11 @@ static const char* data     = NULL;
 static const char* form     = NULL;
 static int send_count       = 1;
 
+static int lopt = 0;
+static const char* http_proxy   = NULL;
+static const char* https_proxy  = NULL;
+static const char* no_proxy     = NULL;
+
 static const char* options = "hVvX:H:r:d:F:n:";
 static const struct option long_options[] = {
     {"help",    no_argument,        NULL,   'h'},
@@ -36,9 +41,14 @@ static const struct option long_options[] = {
     {"range",   required_argument,  NULL,   'r'},
     {"data",    required_argument,  NULL,   'd'},
     {"form",    required_argument,  NULL,   'F'},
+    {"count",   required_argument,  NULL,   'n'},
     {"http2",   no_argument,        &http_version, 2},
     {"grpc",    no_argument,        &grpc,  1},
-    {"count",   required_argument,  NULL,   'n'},
+    \
+    {"http-proxy",  required_argument,  &lopt,  1},
+    {"https-proxy", required_argument,  &lopt,  2},
+    {"no-proxy",    required_argument,  &lopt,  3},
+    \
     {NULL,      0,                  NULL,   0}
 };
 static const char* help = R"(Options:
@@ -53,6 +63,10 @@ static const char* help = R"(Options:
     -n|--count          Send request count, used for test keep-alive
        --http2          Use http2
        --grpc           Use grpc over http2
+       --http-proxy     Set http proxy
+       --https-proxy    Set https proxy
+       --no-proxy       Set no proxy
+
 Examples:
     curl -v GET  httpbin.org/get
     curl -v POST httpbin.org/post   user=admin pswd=123456
@@ -99,6 +113,15 @@ int parse_cmdline(int argc, char* argv[]) {
         case 'd': data = optarg;    break;
         case 'F': form = optarg;    break;
         case 'n': send_count = atoi(optarg); break;
+        case  0 :
+        {
+            switch (lopt) {
+            case  1: http_proxy = optarg;   break;
+            case  2: https_proxy = optarg;  break;
+            case  3: no_proxy = optarg;     break;
+            default: break;
+            }
+        }
         default: break;
         }
     }
@@ -283,7 +306,35 @@ int main(int argc, char* argv[]) {
     res.chunked_cb = [](const char* data, size_t size){
         printf("%.*s", (int)size, data);
     };
+
     http_client_t* cli = http_client_new();
+    // http_proxy
+    if (http_proxy) {
+        hv::StringList ss = hv::split(http_proxy, ':');
+        const char* host = ss[0].c_str();
+        int port = ss.size() == 2 ? hv::from_string<int>(ss[1]) : DEFAULT_HTTP_PORT;
+        printf("* http_proxy=%s:%d\n", host, port);
+        http_client_set_http_proxy(cli, host, port);
+    }
+    // https_proxy
+    if (https_proxy) {
+        hv::StringList ss = hv::split(https_proxy, ':');
+        const char* host = ss[0].c_str();
+        int port = ss.size() == 2 ? hv::from_string<int>(ss[1]) : DEFAULT_HTTPS_PORT;
+        printf("* https_proxy=%s:%d\n", host, port);
+        http_client_set_https_proxy(cli, host, port);
+    }
+    // no_proxy
+    if (no_proxy) {
+        hv::StringList ss = hv::split(no_proxy, ',');
+        printf("* no_proxy=");
+        for (const auto& s : ss) {
+            printf("%s,", s.c_str());
+            http_client_add_no_proxy(cli, s.c_str());
+        }
+        printf("\n");
+    }
+
 send:
     if (verbose) {
         printf("%s\n", req.Dump(true,true).c_str());

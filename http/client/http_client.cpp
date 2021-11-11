@@ -24,6 +24,14 @@ struct http_client_s {
     int          https;
     int          timeout; // s
     http_headers headers;
+    // http_proxy
+    std::string  http_proxy_host;
+    int          http_proxy_port;
+    // https_proxy
+    std::string  https_proxy_host;
+    int          https_proxy_port;
+    // no_proxy
+    StringList   no_proxy_hosts;
 //private:
 #ifdef WITH_CURL
     CURL* curl;
@@ -118,6 +126,23 @@ const char* http_client_get_header(http_client_t* cli, const char* key) {
     return NULL;
 }
 
+int http_client_set_http_proxy(http_client_t* cli, const char* host, int port) {
+    cli->http_proxy_host = host;
+    cli->http_proxy_port = port;
+    return 0;
+}
+
+int http_client_set_https_proxy(http_client_t* cli, const char* host, int port) {
+    cli->https_proxy_host = host;
+    cli->https_proxy_port = port;
+    return 0;
+}
+
+int http_client_add_no_proxy(http_client_t* cli, const char* host) {
+    cli->no_proxy_hosts.push_back(host);
+    return 0;
+}
+
 static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
     std::string location = resp->headers["Location"];
     if (!location.empty()) {
@@ -131,24 +156,50 @@ static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
     return 0;
 }
 
-int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
-    if (!cli || !req || !resp) return ERR_NULL_POINTER;
-
+static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
     if (req->url.empty() || *req->url.c_str() == '/') {
         req->scheme = cli->https ? "https" : "http";
         req->host = cli->host;
         req->port = cli->port;
     }
 
+    bool https = strcmp(req->scheme.c_str(), "https") == 0 || strncmp(req->url.c_str(), "https", 5) == 0;
+    bool use_proxy = https ? (!cli->https_proxy_host.empty()) : (!cli->http_proxy_host.empty());
+    if (use_proxy) {
+        if (req->host == "127.0.0.1" || req->host == "localhost") {
+            use_proxy = false;
+        }
+    }
+    if (use_proxy) {
+        for (const auto& host : cli->no_proxy_hosts) {
+            if (req->host == host) {
+                use_proxy = false;
+                break;
+            }
+        }
+    }
+    if (use_proxy) {
+        req->SetProxy(https ? cli->https_proxy_host.c_str() : cli->http_proxy_host.c_str(),
+                      https ? cli->https_proxy_port         : cli->http_proxy_port);
+    }
+
     if (req->timeout == 0) {
         req->timeout = cli->timeout;
     }
 
-    for (auto& pair : cli->headers) {
+    for (const auto& pair : cli->headers) {
         if (req->headers.find(pair.first) == req->headers.end()) {
-            req->headers[pair.first] = pair.second;
+            req->headers.insert(pair);
         }
     }
+
+    return 0;
+}
+
+int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
+    if (!cli || !req || !resp) return ERR_NULL_POINTER;
+
+    http_client_make_request(cli, req);
 
     if (req->head_cb)    resp->head_cb = std::move(req->head_cb);
     if (req->body_cb)    resp->body_cb = std::move(req->body_cb);
@@ -353,6 +404,8 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
     const char* host = req->host.c_str();
     int connfd = ConnectTimeout(host, req->port, blocktime);
     if (connfd < 0) {
+        fprintf(stderr, "* connect %s:%d failed!\n", host, req->port);
+        hloge("connect %s:%d failed!", host, req->port);
         return connfd;
     }
     tcp_nodelay(connfd, 1);
@@ -373,7 +426,7 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
         }
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
-            fprintf(stderr, "ssl handshake failed: %d\n", ret);
+            fprintf(stderr, "* ssl handshake failed: %d\n", ret);
             hloge("ssl handshake failed: %d", ret);
             hssl_free(cli->ssl);
             cli->ssl = NULL;
@@ -507,23 +560,7 @@ static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, Http
 
 int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
     if (!cli || !req) return ERR_NULL_POINTER;
-
-    if (req->url.empty() || *req->url.c_str() == '/') {
-        req->scheme = cli->https ? "https" : "http";
-        req->host = cli->host;
-        req->port = cli->port;
-    }
-
-    if (req->timeout == 0) {
-        req->timeout = cli->timeout;
-    }
-
-    for (auto& pair : cli->headers) {
-        if (req->headers.find(pair.first) == req->headers.end()) {
-            req->headers[pair.first] = pair.second;
-        }
-    }
-
+    http_client_make_request(cli, req.get());
     return __http_client_send_async(cli, req, resp_cb);
 }
 
