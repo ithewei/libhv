@@ -548,6 +548,10 @@
 - http_client_del_header
 - http_client_get_header
 - http_client_clear_headers
+- http_client_set_http_proxy
+- http_client_set_https_proxy
+- http_client_add_no_proxy
+- class HttpClient
 
 ### requests.h
 - requests::request
@@ -572,6 +576,7 @@
 ### HttpServer.h
 - http_server_run
 - http_server_stop
+- class HttpServer
 
 ### WebSocketClient.h
 - class WebSocketClient
@@ -579,6 +584,7 @@
 ### WebSocketServer.h
 - websocket_server_run
 - websocket_server_stop
+- class WebSocketServer
 
 ## other
 - class HThreadPool
