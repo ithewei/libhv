@@ -117,8 +117,8 @@ public:
         task->req = req;
         task->cb = std::move(resp_cb);
         task->start_time = hloop_now_hrtime(loop_thread.hloop());
-        task->retry_cnt = DEFAULT_FAIL_RETRY_COUNT;
         task->retry_delay = DEFAULT_FAIL_RETRY_DELAY;
+        task->retry_cnt = MIN(DEFAULT_FAIL_RETRY_COUNT, req->timeout * 1000 / task->retry_delay - 1);
         return send(task);
     }
 

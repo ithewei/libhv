@@ -95,7 +95,8 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             if (task->retry_delay) {
                 // try again after delay
                 setTimeout(ctx->task->retry_delay, [this, task](TimerID timerID){
-                    doTask(task);
+                    hlogi("retry %s %s", http_method_str(task->req->method), task->req->url.c_str());
+                    sendInLoop(task);
                 });
             } else {
                 send(task);
