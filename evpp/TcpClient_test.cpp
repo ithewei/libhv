@@ -45,9 +45,6 @@ int main(int argc, char* argv[]) {
     cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
         printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
     };
-    cli.onWriteComplete = [](const SocketChannelPtr& channel, Buffer* buf) {
-        printf("> %.*s\n", (int)buf->size(), (char*)buf->data());
-    };
     // reconnect: 1,2,4,8,10,10,10...
     ReconnectInfo reconn;
     reconn.min_delay = 1000;

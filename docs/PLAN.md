@@ -7,7 +7,9 @@
 
 ## Improving
 
-- IOCP: fix bug, add SSL/TLS support
+- IOCP: fix bug, add SSL/TLS support, replace with wepoll?
+- wintls: SChannel is so hard :) need help
+- Path router: add filter chain, optimized matching via trie?
 
 ## Plan
 
@@ -17,3 +19,4 @@
 - js binding
 - hrpc = libhv + protobuf
 - reliable udp: FEC, ARQ, KCP, UDT, QUIC
+- have a taste of io_uring

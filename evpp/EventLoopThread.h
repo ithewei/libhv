@@ -67,6 +67,7 @@ public:
         loop_->stop();
 
         if (wait_thread_stopped) {
+            if (hv_gettid() == loop_->tid()) return;
             while (!isStopped()) {
                 hv_delay(1);
             }

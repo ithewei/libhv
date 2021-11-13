@@ -26,9 +26,6 @@ int main(int argc, char* argv[]) {
     cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
         printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
     };
-    cli.onWriteComplete = [](const SocketChannelPtr& channel, Buffer* buf) {
-        printf("> %.*s\n", (int)buf->size(), (char*)buf->data());
-    };
     cli.start();
 
     // sendto(time) every 3s

@@ -222,18 +222,21 @@ static inline EventLoop* tlsEventLoop() {
 
 static inline TimerID setTimer(int timeout_ms, TimerCallback cb, int repeat = INFINITE) {
     EventLoop* loop = tlsEventLoop();
+    assert(loop != NULL);
     if (loop == NULL) return INVALID_TIMER_ID;
     return loop->setTimer(timeout_ms, cb, repeat);
 }
 
 static inline void killTimer(TimerID timerID) {
     EventLoop* loop = tlsEventLoop();
+    assert(loop != NULL);
     if (loop == NULL) return;
     loop->killTimer(timerID);
 }
 
 static inline void resetTimer(TimerID timerID) {
     EventLoop* loop = tlsEventLoop();
+    assert(loop != NULL);
     if (loop == NULL) return;
     loop->resetTimer(timerID);
 }
