@@ -25,6 +25,8 @@
 #endif
 
 #ifdef __cplusplus
+namespace hv {
+
 class HV_EXPORT ThreadLocalStorage {
 public:
     enum {
@@ -48,23 +50,18 @@ public:
         return hthread_get_value(key);
     }
 
-    static void set(int idx, void* val) {
-        return tls[idx].set(val);
-    }
+    static void  set(int idx, void* val);
+    static void* get(int idx);
 
-    static void* get(int idx) {
-        return tls[idx].get();
-    }
-
-    static void setThreadName(const char* name) {
-        set(THREAD_NAME, (void*)name);
-    }
+    static void  setThreadName(const char* name);
     static const char* threadName();
 
 private:
     hthread_key_t key;
     static ThreadLocalStorage tls[MAX_NUM];
 };
+
+}
 #endif
 
 #endif // HV_THREAD_LOCAL_STORAGE_H_
