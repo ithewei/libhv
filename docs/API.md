@@ -252,6 +252,20 @@
 - class HVLBuf
 - class HRingBuf
 
+### hmain.h
+- main_ctx_init
+- parse_opt
+- parse_opt_long
+- get_arg
+- get_env
+- setproctitle
+- signal_init
+- signal_handle
+- create_pidfile
+- delete_pidfile
+- getpid_form_pidfile
+- master_workers_run
+
 ### hstring.h
 - to_string
 - from_string
@@ -327,21 +341,6 @@
 ### json.hpp
 - json::parse
 - json::dump
-
-### hmain.h
-- main_ctx_init
-- parse_opt
-- parse_opt_long
-- get_arg
-- get_env
-- setproctitle
-- signal_init
-- signal_handle
-- signal_handler
-- create_pidfile
-- delete_pidfile
-- getpid_form_pidfile
-- master_workers_run
 
 ### singleton.h
 - DISABLE_COPY

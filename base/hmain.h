@@ -1,14 +1,16 @@
 #ifndef HV_MAIN_H_
 #define HV_MAIN_H_
 
+#include "hexport.h"
 #include "hplatform.h"
 #include "hdef.h"
-#include "hstring.h"
 #include "hproc.h"
 
 #ifdef _MSC_VER
 #pragma comment(lib, "winmm.lib") // for timeSetEvent
 #endif
+
+BEGIN_EXTERN_C
 
 typedef struct main_ctx_s {
     char    run_dir[MAX_PATH];
@@ -27,19 +29,21 @@ typedef struct main_ctx_s {
     char**  os_argv;
     char**  save_argv;
     char*   cmdline;
-    keyval_t        arg_kv;
-    hv::StringList  arg_list;
+    // parsed arg
+    int     arg_kv_size;
+    char**  arg_kv;
+    int     arg_list_size;
+    char**  arg_list;
 
     // env
     int     envc;
     int     env_len;
     char**  os_envp;
     char**  save_envp;
-    keyval_t    env_kv;
 
     // signals
-    procedure_t reload_fn;
-    void*       reload_userdata;
+    procedure_t     reload_fn;
+    void*           reload_userdata;
     // master workers model
     int             worker_processes;
     int             worker_threads;
@@ -55,8 +59,8 @@ typedef struct main_ctx_s {
 // option define
 #define OPTION_PREFIX   '-'
 #define OPTION_DELIM    '='
-#define OPTION_ENABLE   "on"
-#define OPTION_DISABLE  "off"
+#define OPTION_ENABLE   "1"
+#define OPTION_DISABLE  "0"
 typedef struct option_s {
     char        short_opt;
     const char* long_opt;
@@ -84,7 +88,7 @@ HV_EXPORT void  delete_pidfile();
 HV_EXPORT pid_t getpid_from_pidfile();
 
 // signal=[start,stop,restart,status,reload]
-HV_EXPORT int  signal_init(procedure_t reload_fn = NULL, void* reload_userdata = NULL);
+HV_EXPORT int  signal_init(procedure_t reload_fn DEFAULT(NULL), void* reload_userdata DEFAULT(NULL));
 HV_EXPORT void signal_handle(const char* signal);
 #ifdef OS_UNIX
 // we use SIGTERM to quit process, SIGUSR1 to reload confile
@@ -101,9 +105,11 @@ HV_EXPORT extern main_ctx_t   g_main_ctx;
 // master-workers processes
 HV_EXPORT int master_workers_run(
         procedure_t worker_fn,
-        void* worker_userdata = NULL,
-        int worker_processes = DEFAULT_WORKER_PROCESSES,
-        int worker_threads = 0,
-        bool wait = true);
+        void* worker_userdata DEFAULT(NULL),
+        int worker_processes DEFAULT(DEFAULT_WORKER_PROCESSES),
+        int worker_threads DEFAULT(0),
+        bool wait DEFAULT(true));
+
+END_EXTERN_C
 
 #endif // HV_MAIN_H_

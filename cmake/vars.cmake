@@ -16,6 +16,7 @@ set(BASE_HEADERS
     base/hsocket.h
     base/hlog.h
     base/hbuf.h
+    base/hmain.h
     base/hendian.h
 )
 
@@ -41,7 +42,6 @@ set(CPPUTIL_HEADERS
     cpputil/hpath.h
     cpputil/hdir.h
     cpputil/hurl.h
-    cpputil/hmain.h
     cpputil/hscope.h
     cpputil/hthreadpool.h
     cpputil/hobjectpool.h

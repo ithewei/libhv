@@ -190,11 +190,11 @@ int main(int argc, char** argv) {
         exit(ret);
     }
 
-    if (get_arg("h") || g_main_ctx.arg_list.size() != 1) {
+    if (get_arg("h") || g_main_ctx.arg_list_size != 1) {
         print_help();
         exit(0);
     }
-    url = g_main_ctx.arg_list[0].c_str();
+    url = g_main_ctx.arg_list[0];
 
     if (get_arg("v")) {
         verbose = true;

@@ -203,26 +203,6 @@ int main(int argc, char** argv) {
         exit(ret);
     }
 
-    /*
-    printf("---------------arg------------------------------\n");
-    printf("%s\n", g_main_ctx.cmdline);
-    for (auto& pair : g_main_ctx.arg_kv) {
-        printf("%s=%s\n", pair.first.c_str(), pair.second.c_str());
-    }
-    for (auto& item : g_main_ctx.arg_list) {
-        printf("%s\n", item.c_str());
-    }
-    printf("================================================\n");
-    */
-
-    /*
-    printf("---------------env------------------------------\n");
-    for (auto& pair : g_main_ctx.env_kv) {
-        printf("%s=%s\n", pair.first.c_str(), pair.second.c_str());
-    }
-    printf("================================================\n");
-    */
-
     // help
     if (get_arg("h")) {
         print_help();

@@ -13,6 +13,58 @@
 
 main_ctx_t  g_main_ctx;
 
+static void init_arg_kv(int maxsize) {
+    g_main_ctx.arg_kv_size = 0;
+    SAFE_ALLOC(g_main_ctx.arg_kv, sizeof(char*) * maxsize);
+}
+
+static void save_arg_kv(const char* key, int key_len, const char* val, int val_len) {
+    if (key_len <= 0) key_len = strlen(key);
+    if (val_len <= 0) val_len = strlen(val);
+    char* arg = NULL;
+    SAFE_ALLOC(arg, key_len + val_len + 2);
+    memcpy(arg, key, key_len);
+    arg[key_len] = '=';
+    memcpy(arg + key_len + 1, val, val_len);
+    // printf("save_arg_kv: %s\n", arg);
+    g_main_ctx.arg_kv[g_main_ctx.arg_kv_size++] = arg;
+}
+
+static void init_arg_list(int maxsize) {
+    g_main_ctx.arg_list_size = 0;
+    SAFE_ALLOC(g_main_ctx.arg_list, sizeof(char*) * maxsize);
+}
+
+static void save_arg_list(const char* arg) {
+    // printf("save_arg_list: %s\n", arg);
+    g_main_ctx.arg_list[g_main_ctx.arg_list_size++] = strdup(arg);
+}
+
+static const char* get_val(char** kvs, const char* key) {
+    if (kvs == NULL) return NULL;
+    int key_len = strlen(key);
+    char* kv = NULL;
+    int kv_len = 0;
+    for (int i = 0; kvs[i]; ++i) {
+        kv = kvs[i];
+        kv_len = strlen(kv);
+        if (kv_len <= key_len) continue;
+        // key=val
+        if (memcmp(kv, key, key_len) == 0 && kv[key_len] == '=') {
+            return kv + key_len + 1;
+        }
+    }
+    return NULL;
+}
+
+const char* get_arg(const char* key) {
+    return get_val(g_main_ctx.arg_kv, key);
+}
+
+const char* get_env(const char* key) {
+    return get_val(g_main_ctx.save_envp, key);
+}
+
 int main_ctx_init(int argc, char** argv) {
     if (argc == 0 || argv == NULL) {
         argc = 1;
@@ -70,8 +122,8 @@ int main_ctx_init(int argc, char** argv) {
     SAFE_ALLOC(cmdline, g_main_ctx.arg_len);
     g_main_ctx.cmdline = cmdline;
     for (i = 0; argv[i]; ++i) {
+        strcpy(argp, argv[i]);
         g_main_ctx.save_argv[i] = argp;
-        strcpy(g_main_ctx.save_argv[i], argv[i]);
         argp += strlen(argv[i]) + 1;
 
         strcpy(cmdline, argv[i]);
@@ -100,16 +152,6 @@ int main_ctx_init(int argc, char** argv) {
         envp += strlen(environ[i]) + 1;
     }
     g_main_ctx.save_envp[g_main_ctx.envc] = NULL;
-
-    // parse env
-    for (i = 0; environ[i]; ++i) {
-        char* b = environ[i];
-        char* delim = strchr(b, '=');
-        if (delim == NULL) {
-            continue;
-        }
-        g_main_ctx.env_kv[std::string(b, delim-b)] = std::string(delim+1);
-    }
 #endif
 
     // signals
@@ -137,10 +179,14 @@ static int get_arg_type(int short_opt, const char* options) {
 }
 
 int parse_opt(int argc, char** argv, const char* options) {
+    if (argc < 1) return 0;
+    init_arg_kv(strlen(options) + 1);
+    init_arg_list(argc);
+
     for (int i = 1; argv[i]; ++i) {
         char* p = argv[i];
         if (*p != '-') {
-            g_main_ctx.arg_list.push_back(argv[i]);
+            save_arg_list(argv[i]);
             continue;
         }
         while (*++p) {
@@ -149,14 +195,14 @@ int parse_opt(int argc, char** argv, const char* options) {
                 printf("Invalid option '%c'\n", *p);
                 return -20;
             } else if (arg_type == NO_ARGUMENT) {
-                g_main_ctx.arg_kv[std::string(p, 1)] = OPTION_ENABLE;
+                save_arg_kv(p, 1, OPTION_ENABLE, 0);
                 continue;
             } else if (arg_type == REQUIRED_ARGUMENT) {
                 if (*(p+1) != '\0') {
-                    g_main_ctx.arg_kv[std::string(p, 1)] = p+1;
+                    save_arg_kv(p, 1, p+1, 0);
                     break;
                 } else if (argv[i+1] != NULL) {
-                    g_main_ctx.arg_kv[std::string(p, 1)] = argv[++i];
+                    save_arg_kv(p, 1, argv[++i], 0);
                     break;
                 } else {
                     printf("Option '%c' requires param\n", *p);
@@ -195,6 +241,10 @@ static const option_t* get_option(const char* opt, const option_t* long_options,
 #define SHORT_OPTION    -1
 #define LONG_OPTION     -2
 int parse_opt_long(int argc, char** argv, const option_t* long_options, int size) {
+    if (argc < 1) return 0;
+    init_arg_kv(size + 1);
+    init_arg_list(argc);
+
     char opt[MAX_OPTION+1] = {0};
     for (int i = 1; argv[i]; ++i) {
         char* arg = argv[i];
@@ -230,7 +280,7 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
         const option_t* pOption = get_option(opt, long_options, size);
         if (pOption == NULL) {
             if (delim == NULL && opt_type == NOPREFIX_OPTION) {
-                g_main_ctx.arg_list.push_back(arg);
+                save_arg_list(arg);
                 continue;
             } else {
                 printf("Invalid option: '%s'\n", argv[i]);
@@ -260,28 +310,12 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
         }
         // preferred to use short_opt as key
         if (pOption->short_opt > 0) {
-            g_main_ctx.arg_kv[std::string(1, pOption->short_opt)] = value;
+            save_arg_kv(&pOption->short_opt, 1, value, 0);
         } else if (pOption->long_opt) {
-            g_main_ctx.arg_kv[pOption->long_opt] = value;
+            save_arg_kv(pOption->long_opt, 0, value, 0);
         }
     }
     return 0;
-}
-
-const char* get_arg(const char* key) {
-    auto iter = g_main_ctx.arg_kv.find(key);
-    if (iter == g_main_ctx.arg_kv.end()) {
-        return NULL;
-    }
-    return iter->second.c_str();
-}
-
-const char* get_env(const char* key) {
-    auto iter = g_main_ctx.env_kv.find(key);
-    if (iter == g_main_ctx.env_kv.end()) {
-        return NULL;
-    }
-    return iter->second.c_str();
 }
 
 #ifdef OS_UNIX

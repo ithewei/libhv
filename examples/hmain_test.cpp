@@ -180,17 +180,17 @@ int main(int argc, char** argv) {
     /*
     printf("---------------arg------------------------------\n");
     printf("%s\n", g_main_ctx.cmdline);
-    for (auto& pair : g_main_ctx.arg_kv) {
-        printf("%s=%s\n", pair.first.c_str(), pair.second.c_str());
+    for (int i = 0; i < g_main_ctx.arg_kv_size; ++i) {
+        printf("%s\n", g_main_ctx.arg_kv[i]);
     }
-    for (auto& item : g_main_ctx.arg_list) {
-        printf("%s\n", item.c_str());
+    for (int i = 0; i < g_main_ctx.arg_list_size; ++i) {
+        printf("%s\n", g_main_ctx.arg_list[i]);
     }
     printf("================================================\n");
 
     printf("---------------env------------------------------\n");
-    for (auto& pair : g_main_ctx.env_kv) {
-        printf("%s=%s\n", pair.first.c_str(), pair.second.c_str());
+    for (int i = 0; i < g_main_ctx.envc; ++i) {
+        printf("%s\n", g_main_ctx.save_envp[i]);
     }
     printf("================================================\n");
     */

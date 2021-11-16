@@ -11,6 +11,7 @@
 ├── hendian.h       大小端
 ├── herr.h          错误码表
 ├── hlog.h          日志
+├── hmain.h         命令行解析
 ├── hmath.h         数学函数
 ├── hmutex.h        线程同步锁
 ├── hplatform.h     平台相关宏

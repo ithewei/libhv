@@ -7,7 +7,8 @@ list(APPEND EXAMPLES
     tcp_proxy_server
     udp_echo_server
     udp_proxy_server
-    jsonrpc
+    jsonrpc_client
+    jsonrpc_server
 )
 
 include_directories(.. ../base ../ssl ../event ../util)
@@ -44,9 +45,12 @@ target_link_libraries(jsonrpc_server ${HV_LIBRARIES})
 
 if(WITH_EVPP)
     include_directories(../cpputil ../evpp)
+
+    # hmain_test
     add_executable(hmain_test hmain_test.cpp)
     target_link_libraries(hmain_test ${HV_LIBRARIES})
 
+    # nmap
     glob_headers_and_sources(NMAP_FILES nmap)
     add_executable(nmap ${NMAP_FILES})
     target_compile_definitions(nmap PRIVATE PRINT_DEBUG)
@@ -60,6 +64,7 @@ if(WITH_HTTP)
     add_executable(wrk wrk.cpp)
     target_link_libraries(wrk ${HV_LIBRARIES})
 
+    list(APPEND EXAMPLES wrk)
 if(WITH_HTTP_SERVER)
     include_directories(../http/server)
 
@@ -120,5 +125,4 @@ endif()
 endif()
 endif()
 
-add_custom_target(jsonrpc DEPENDS jsonrpc_client jsonrpc_server)
 add_custom_target(examples DEPENDS ${EXAMPLES})
