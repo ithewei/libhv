@@ -832,6 +832,15 @@ hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e t
     }
     hio_t* io = NULL;
     if (side == HIO_SERVER_SIDE) {
+#ifdef SO_REUSEADDR
+        // NOTE: SO_REUSEADDR allow to reuse sockaddr of TIME_WAIT status
+        int reuseaddr = 1;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
+            perror("setsockopt");
+            closesocket(sockfd);
+            return NULL;
+        }
+#endif
         if (bind(sockfd, &addr.sa, sockaddr_len(&addr)) < 0) {
             perror("bind");
             closesocket(sockfd);
