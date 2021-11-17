@@ -115,7 +115,7 @@ struct hio_s {
     struct sockaddr*    peeraddr;
     offset_buf_t        readbuf;        // for read
     int                 read_until;     // for hio_read_until
-    uint32_t            small_readbytes_cnt;
+    uint32_t            small_readbytes_cnt; // for readbuf autosize
     struct write_queue  write_queue;    // for write
     hrecursive_mutex_t  write_mutex;    // lock write and write_queue
     uint32_t            write_queue_bytes;
@@ -127,13 +127,13 @@ struct hio_s {
     hconnect_cb connect_cb;
     // timers
     int         connect_timeout;    // ms
-    htimer_t*   connect_timer;
     int         close_timeout;      // ms
-    htimer_t*   close_timer;
     int         keepalive_timeout;  // ms
-    htimer_t*   keepalive_timer;
     int         heartbeat_interval; // ms
     hio_send_heartbeat_fn heartbeat_fn;
+    htimer_t*   connect_timer;
+    htimer_t*   close_timer;
+    htimer_t*   keepalive_timer;
     htimer_t*   heartbeat_timer;
     // upstream
     struct hio_s*       upstream_io;    // for hio_setup_upstream

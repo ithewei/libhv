@@ -64,8 +64,8 @@ typedef enum {
     hevent_cb           cb;             \
     void*               userdata;       \
     void*               privdata;       \
-    int                 priority;       \
     struct hevent_s*    pending_next;   \
+    int                 priority;       \
     HEVENT_FLAGS
 
 struct hevent_s {
