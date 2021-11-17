@@ -24,3 +24,4 @@ bin/hpath_test
 bin/socketpair_test
 # bin/threadpool_test
 # bin/objectpool_test
+bin/sizeof_test

@@ -430,25 +430,33 @@ typedef enum {
 typedef struct unpack_setting_s {
     unpack_mode_e   mode;
     unsigned int    package_max_length;
-    // UNPACK_BY_FIXED_LENGTH
-    unsigned int    fixed_length;
-    // UNPACK_BY_DELIMITER
-    unsigned char   delimiter[PACKAGE_MAX_DELIMITER_BYTES];
-    unsigned short  delimiter_bytes;
-    // UNPACK_BY_LENGTH_FIELD
-    /* package_len = head_len + body_len + length_adjustment
-     *
-     * if (length_field_coding == ENCODE_BY_VARINT) head_len = body_offset + varint_bytes - length_field_bytes;
-     * else head_len = body_offset;
-     *
-     * body_len calc by length_field
-     *
-     */
-    unsigned short  body_offset;
-    unsigned short  length_field_offset;
-    unsigned short  length_field_bytes;
-    unpack_coding_e length_field_coding;
-    int             length_adjustment;
+    union {
+        // UNPACK_BY_FIXED_LENGTH
+        struct {
+            unsigned int    fixed_length;
+        };
+        // UNPACK_BY_DELIMITER
+        struct {
+            unsigned char   delimiter[PACKAGE_MAX_DELIMITER_BYTES];
+            unsigned short  delimiter_bytes;
+        };
+        // UNPACK_BY_LENGTH_FIELD
+        /* package_len = head_len + body_len + length_adjustment
+         *
+         * if (length_field_coding == ENCODE_BY_VARINT) head_len = body_offset + varint_bytes - length_field_bytes;
+         * else head_len = body_offset;
+         *
+         * body_len calc by length_field
+         *
+         */
+        struct {
+            unsigned short  body_offset;
+            unsigned short  length_field_offset;
+            unsigned short  length_field_bytes;
+            unpack_coding_e length_field_coding;
+            int             length_adjustment;
+        };
+    };
 #ifdef __cplusplus
     unpack_setting_s() {
         // Recommended setting:

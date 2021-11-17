@@ -185,6 +185,7 @@ unittest: prepare
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/synchronized_test unittest/synchronized_test.cpp -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/threadpool_test   unittest/threadpool_test.cpp  -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/objectpool_test   unittest/objectpool_test.cpp  -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Ievpp -Icpputil -Ihttp -Ihttp/client -Ihttp/server -o bin/sizeof_test unittest/sizeof_test.cpp
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c

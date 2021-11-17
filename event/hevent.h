@@ -2,6 +2,8 @@
 #define HV_EVENT_H_
 
 #include "hloop.h"
+#include "iowatcher.h"
+
 #include "hbuf.h"
 #include "hmutex.h"
 
@@ -134,14 +136,19 @@ struct hio_s {
     hio_send_heartbeat_fn heartbeat_fn;
     htimer_t*   heartbeat_timer;
     // upstream
-    struct hio_s*   upstream_io;
+    struct hio_s*       upstream_io;    // for hio_setup_upstream
     // unpack
-    unpack_setting_t*   unpack_setting;
+    unpack_setting_t*   unpack_setting; // for hio_set_unpack
+    // ssl
+    void*       ssl; // for hio_enable_ssl / hio_set_ssl
+    void*       ctx; // for hio_context / hio_set_context
 // private:
+#if defined(EVENT_POLL) || defined(EVENT_KQUEUE)
     int         event_index[2]; // for poll,kqueue
+#endif
+#ifdef EVENT_IOCP
     void*       hovlp;          // for iocp/overlapio
-    void*       ssl;            // for SSL
-    void*       ctx;
+#endif
 };
 /*
  * hio lifeline:

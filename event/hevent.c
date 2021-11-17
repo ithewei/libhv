@@ -125,10 +125,15 @@ void hio_ready(hio_t* io) {
     io->upstream_io = NULL;
     // unpack
     io->unpack_setting = NULL;
-    // private:
-    io->event_index[0] = io->event_index[1] = -1;
-    io->hovlp = NULL;
+    // ssl
     io->ssl = NULL;
+    // private:
+#if defined(EVENT_POLL) || defined(EVENT_KQUEUE)
+    io->event_index[0] = io->event_index[1] = -1;
+#endif
+#ifdef EVENT_IOCP
+    io->hovlp = NULL;
+#endif
 
     // io_type
     fill_io_type(io);
