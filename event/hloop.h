@@ -411,8 +411,8 @@ HV_EXPORT hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port);
 //-----------------unpack---------------------------------------------
 typedef enum {
     UNPACK_BY_FIXED_LENGTH  = 1,    // Not recommended
-    UNPACK_BY_DELIMITER     = 2,
-    UNPACK_BY_LENGTH_FIELD  = 3,    // Recommended
+    UNPACK_BY_DELIMITER     = 2,    // Suitable for text protocol
+    UNPACK_BY_LENGTH_FIELD  = 3,    // Suitable for binary protocol
 } unpack_mode_e;
 
 #define DEFAULT_PACKAGE_MAX_LENGTH  (1 << 21)   // 2M
@@ -422,7 +422,7 @@ typedef enum {
 
 // UNPACK_BY_LENGTH_FIELD
 typedef enum {
-    ENCODE_BY_VARINT        = 1,
+    ENCODE_BY_VARINT        = 17,               // 1 MSB + 7 bits
     ENCODE_BY_LITTEL_ENDIAN = LITTLE_ENDIAN,    // 1234
     ENCODE_BY_BIG_ENDIAN    = BIG_ENDIAN,       // 4321
 } unpack_coding_e;
@@ -453,8 +453,8 @@ typedef struct unpack_setting_s {
             unsigned short  body_offset;
             unsigned short  length_field_offset;
             unsigned short  length_field_bytes;
+                     short  length_adjustment;
             unpack_coding_e length_field_coding;
-            int             length_adjustment;
         };
     };
 #ifdef __cplusplus
