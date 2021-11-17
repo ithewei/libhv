@@ -89,6 +89,7 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
+// sizeof(struct hio_s)=344 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
@@ -105,9 +106,9 @@ struct hio_s {
     unsigned    read_once   :1;     // for hio_read_once
     unsigned    alloced_readbuf :1; // for hio_read_until, hio_set_unpack
 // public:
+    hio_type_e  io_type;
     uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
     int         fd;
-    hio_type_e  io_type;
     int         error;
     int         events;
     int         revents;

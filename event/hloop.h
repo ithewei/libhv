@@ -68,6 +68,7 @@ typedef enum {
     int                 priority;       \
     HEVENT_FLAGS
 
+// sizeof(struct hevent_s)=64 on x64
 struct hevent_s {
     HEVENT_FIELDS
 };
