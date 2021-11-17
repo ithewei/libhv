@@ -174,7 +174,8 @@ private:
     int defaultRequestHandler();
     int defaultStaticHandler();
     int defaultErrorHandler();
-    int customHttpHandler(http_handler& fn);
+    int customHttpHandler(const http_handler& handler);
+    int invokeHttpHandler(const http_handler* handler);
 };
 
 #endif // HV_HTTP_HANDLER_H_
