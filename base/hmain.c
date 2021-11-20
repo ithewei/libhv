@@ -456,7 +456,7 @@ int signal_init(procedure_t reload_fn, void* reload_userdata) {
 //static HANDLE s_hEventTerm = NULL;
 static HANDLE s_hEventReload = NULL;
 
-void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
+static void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
     DWORD ret;
     /*
     ret = WaitForSingleObject(s_hEventTerm, 0);
@@ -478,7 +478,7 @@ void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, 
     }
 }
 
-void signal_cleanup() {
+static void signal_cleanup() {
     //CloseHandle(s_hEventTerm);
     //s_hEventTerm = NULL;
     CloseHandle(s_hEventReload);

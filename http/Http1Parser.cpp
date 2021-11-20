@@ -13,23 +13,20 @@ static int on_message_complete(http_parser* parser);
 static int on_chunk_header(http_parser* parser);
 static int on_chunk_complete(http_parser* parser);
 
-http_parser_settings* Http1Parser::cbs = NULL;
+http_parser_settings Http1Parser::cbs = {
+    on_message_begin,
+    on_url,
+    on_status,
+    on_header_field,
+    on_header_value,
+    on_headers_complete,
+    on_body,
+    on_message_complete,
+    on_chunk_header,
+    on_chunk_complete
+};
 
 Http1Parser::Http1Parser(http_session_type type) {
-    if (cbs == NULL) {
-        cbs = (http_parser_settings*)malloc(sizeof(http_parser_settings));
-        http_parser_settings_init(cbs);
-        cbs->on_message_begin    = on_message_begin;
-        cbs->on_url              = on_url;
-        cbs->on_status           = on_status;
-        cbs->on_header_field     = on_header_field;
-        cbs->on_header_value     = on_header_value;
-        cbs->on_headers_complete = on_headers_complete;
-        cbs->on_body             = on_body;
-        cbs->on_message_complete = on_message_complete;
-        cbs->on_chunk_header     = on_chunk_header;
-        cbs->on_chunk_complete   = on_chunk_complete;
-    }
     http_parser_init(&parser, HTTP_BOTH);
     parser.data = this;
     flags = 0;

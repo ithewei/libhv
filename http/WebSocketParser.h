@@ -19,7 +19,7 @@ struct websocket_parser_settings;
 struct websocket_parser;
 class HV_EXPORT WebSocketParser {
 public:
-    static websocket_parser_settings*   cbs;
+    static websocket_parser_settings    cbs;
     websocket_parser*                   parser;
     websocket_parser_state              state;
     int                                 opcode;

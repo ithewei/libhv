@@ -49,16 +49,13 @@ static int on_frame_end(websocket_parser* parser) {
     return 0;
 }
 
-websocket_parser_settings* WebSocketParser::cbs = NULL;
+websocket_parser_settings WebSocketParser::cbs = {
+    on_frame_header,
+    on_frame_body,
+    on_frame_end
+};
 
 WebSocketParser::WebSocketParser() {
-    if (cbs == NULL) {
-        cbs = (websocket_parser_settings*)malloc(sizeof(websocket_parser_settings));
-        websocket_parser_settings_init(cbs);
-        cbs->on_frame_header = on_frame_header;
-        cbs->on_frame_body = on_frame_body;
-        cbs->on_frame_end = on_frame_end;
-    }
     parser = (websocket_parser*)malloc(sizeof(websocket_parser));
     websocket_parser_init(parser);
     parser->data = this;
@@ -73,5 +70,5 @@ WebSocketParser::~WebSocketParser() {
 }
 
 int WebSocketParser::FeedRecvData(const char* data, size_t len) {
-    return websocket_parser_execute(parser, cbs, data, len);
+    return websocket_parser_execute(parser, &cbs, data, len);
 }

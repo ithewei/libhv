@@ -348,12 +348,20 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     return len;
 }
 
+static logger_t* s_logger = NULL;
 logger_t* hv_default_logger() {
-    static logger_t* s_logger = NULL;
     if (s_logger == NULL) {
         s_logger = logger_create();
+        atexit(hv_destroy_default_logger);
     }
     return s_logger;
+}
+void hv_destroy_default_logger() {
+    if (s_logger) {
+        logger_fsync(s_logger);
+        logger_destroy(s_logger);
+        s_logger = NULL;
+    }
 }
 
 void stdout_logger(int loglevel, const char* buf, int len) {

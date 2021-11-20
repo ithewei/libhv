@@ -20,7 +20,7 @@ enum http_parser_state {
 
 class Http1Parser : public HttpParser {
 public:
-    static http_parser_settings*    cbs;
+    static http_parser_settings     cbs;
     http_parser                     parser;
     int                             flags;
     http_parser_state               state;
@@ -64,7 +64,7 @@ public:
     }
 
     virtual int FeedRecvData(const char* data, size_t len) {
-        return http_parser_execute(&parser, cbs, data, len);
+        return http_parser_execute(&parser, &cbs, data, len);
     }
 
     virtual int  GetState() {
