@@ -62,8 +62,12 @@ HV_INLINE int nonblocking(int sockfd) {
 
 typedef int         SOCKET;
 #define INVALID_SOCKET  -1
-#define closesocket close
+#define closesocket(fd) close(fd)
 
+#endif
+
+#ifndef SAFE_CLOSESOCKET
+#define SAFE_CLOSESOCKET(fd)  do {if ((fd) >= 0) {closesocket(fd); (fd) = -1;}} while(0)
 #endif
 
 //-----------------------------sockaddr_u----------------------------------------------

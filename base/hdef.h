@@ -228,6 +228,10 @@ ASCII:
 #define SAFE_RELEASE(p) do {if (p) {(p)->release(); (p) = NULL;}} while(0)
 #endif
 
+#ifndef SAFE_CLOSE
+#define SAFE_CLOSE(fd)  do {if ((fd) >= 0) {close(fd); (fd) = -1;}} while(0)
+#endif
+
 #define STRINGIFY(x)    STRINGIFY_HELPER(x)
 #define STRINGIFY_HELPER(x)     #x
 
