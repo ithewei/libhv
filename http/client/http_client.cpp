@@ -71,10 +71,7 @@ struct http_client_s {
             hssl_free(ssl);
             ssl = NULL;
         }
-        if (fd > 0) {
-            closesocket(fd);
-            fd = -1;
-        }
+        SAFE_CLOSESOCKET(fd);
     }
 };
 
@@ -92,6 +89,12 @@ http_client_t* http_client_new(const char* host, int port, int https) {
 int http_client_del(http_client_t* cli) {
     if (cli == NULL) return 0;
     delete cli;
+    return 0;
+}
+
+int http_client_close(http_client_t* cli) {
+    if (cli == NULL) return 0;
+    cli->Close();
     return 0;
 }
 
@@ -163,7 +166,7 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
         req->port = cli->port;
     }
 
-    bool https = strcmp(req->scheme.c_str(), "https") == 0 || strncmp(req->url.c_str(), "https", 5) == 0;
+    bool https = req->isHttps();
     bool use_proxy = https ? (!cli->https_proxy_host.empty()) : (!cli->http_proxy_host.empty());
     if (use_proxy) {
         if (req->host == "127.0.0.1" || req->host == "localhost") {
@@ -410,7 +413,7 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
     }
     tcp_nodelay(connfd, 1);
 
-    if (strcmp(req->scheme.c_str(), "https") == 0) {
+    if (req->isHttps()) {
         hssl_ctx_t ssl_ctx = hssl_ctx_instance();
         if (ssl_ctx == NULL) {
             closesocket(connfd);
@@ -468,7 +471,7 @@ connect:
 send:
     char* data = NULL;
     size_t len  = 0;
-    bool https = strcmp(req->scheme.c_str(), "https") == 0;
+    bool https = req->isHttps();
     while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
         while (1) {

@@ -9,18 +9,19 @@
 
 #include "requests.h"
 #include "axios.h"
+using namespace hv;
 
 #include "hthread.h" // import hv_gettid
 
-static void test_http_async_client(http_client_t* cli, int* finished) {
+static void test_http_async_client(HttpClient* cli, int* resp_cnt) {
     printf("test_http_async_client request thread tid=%ld\n", hv_gettid());
     HttpRequestPtr req(new HttpRequest);
     req->method = HTTP_POST;
-    req->url = "127.0.0.1:8080/echo";
+    req->url = "http://127.0.0.1:8080/echo";
     req->headers["Connection"] = "keep-alive";
     req->body = "This is an async request.";
     req->timeout = 10;
-    http_client_send_async(cli, req, [finished](const HttpResponsePtr& resp) {
+    cli->sendAsync(req, [resp_cnt](const HttpResponsePtr& resp) {
         printf("test_http_async_client response thread tid=%ld\n", hv_gettid());
         if (resp == NULL) {
             printf("request failed!\n");
@@ -28,19 +29,19 @@ static void test_http_async_client(http_client_t* cli, int* finished) {
             printf("%d %s\r\n", resp->status_code, resp->status_message());
             printf("%s\n", resp->body.c_str());
         }
-        *finished = 1;
+        *resp_cnt += 1;
     });
 }
 
-static void test_http_sync_client(http_client_t* cli) {
+static void test_http_sync_client(HttpClient* cli) {
     HttpRequest req;
     req.method = HTTP_POST;
-    req.url = "127.0.0.1:8080/echo";
+    req.url = "http://127.0.0.1:8080/echo";
     req.headers["Connection"] = "keep-alive";
     req.body = "This is a sync request.";
     req.timeout = 10;
     HttpResponse resp;
-    int ret = http_client_send(cli, &req, &resp);
+    int ret = cli->send(&req, &resp);
     if (ret != 0) {
         printf("request failed!\n");
     } else {
@@ -69,7 +70,7 @@ static void test_requests() {
     jroot["pswd"] = "123456";
     http_headers headers;
     headers["Content-Type"] = "application/json";
-    resp = requests::post("127.0.0.1:8080/echo", jroot.dump(), headers);
+    resp = requests::post("http://127.0.0.1:8080/echo", jroot.dump(), headers);
     if (resp == NULL) {
         printf("request failed!\n");
     } else {
@@ -158,29 +159,27 @@ static void test_axios() {
 }
 
 int main(int argc, char* argv[]) {
-    int cnt = 0;
-    if (argc > 1) cnt = atoi(argv[1]);
-    if (cnt == 0) cnt = 1;
+    int req_cnt = 0;
+    if (argc > 1) req_cnt = atoi(argv[1]);
+    if (req_cnt == 0) req_cnt = 1;
 
-    http_client_t* sync_client = http_client_new();
-    http_client_t* async_client = http_client_new();
-    int finished = 0;
+    HttpClient sync_client;
+    HttpClient async_client;
+    int resp_cnt = 0;
 
-    for (int i = 0; i < cnt; ++i) {
-        test_http_async_client(async_client, &finished);
+    for (int i = 0; i < req_cnt; ++i) {
+        test_http_async_client(&async_client, &resp_cnt);
 
-        test_http_sync_client(sync_client);
+        test_http_sync_client(&sync_client);
 
         test_requests();
 
         test_axios();
     }
 
-    http_client_del(sync_client);
     // demo wait async finished
-    while (!finished) hv_delay(100);
+    while (resp_cnt < req_cnt) hv_delay(100);
     printf("finished!\n");
-    http_client_del(async_client);
 
     return 0;
 }

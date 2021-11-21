@@ -418,6 +418,12 @@ public:
         return http_method_str(method);
     }
 
+    // scheme
+    bool isHttps() {
+        return strncmp(scheme.c_str(), "https", 5) == 0 ||
+               strncmp(url.c_str(), "https://", 8) == 0;
+    }
+
     // url
     void SetUrl(const char* url) {
         this->url = url;
