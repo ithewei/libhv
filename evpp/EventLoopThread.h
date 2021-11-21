@@ -64,10 +64,11 @@ public:
         if (status() < kStarting || status() >= kStopping) return;
         setStatus(kStopping);
 
+        long loop_tid = loop_->tid();
         loop_->stop();
 
         if (wait_thread_stopped) {
-            if (hv_gettid() == loop_->tid()) return;
+            if (hv_gettid() == loop_tid) return;
             while (!isStopped()) {
                 hv_delay(1);
             }

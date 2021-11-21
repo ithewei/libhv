@@ -159,12 +159,12 @@ protected:
     }
 
 private:
-    EventLoopThread                         loop_thread;
     // NOTE: just one loop thread, no need mutex.
     // fd => SocketChannelPtr
     std::map<int, SocketChannelPtr>         channels;
     // peeraddr => ConnPool
     std::map<std::string, ConnPool<int>>    conn_pools;
+    EventLoopThread                         loop_thread;
 };
 
 }

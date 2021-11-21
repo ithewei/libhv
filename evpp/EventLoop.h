@@ -27,8 +27,10 @@ public:
         setStatus(kInitializing);
         if (loop) {
             loop_ = loop;
+            is_loop_owner = false;
         } else {
             loop_ = hloop_new(HLOOP_FLAG_AUTO_FREE);
+            is_loop_owner = true;
         }
         setStatus(kInitialized);
     }
@@ -52,7 +54,13 @@ public:
 
     void stop() {
         if (loop_ == NULL) return;
-        if (status() < kRunning) return;
+        if (status() < kRunning) {
+            if (is_loop_owner) {
+                hloop_free(&loop_);
+            }
+            loop_ = NULL;
+            return;
+        }
         setStatus(kStopping);
         hloop_stop(loop_);
         loop_ = NULL;
@@ -207,6 +215,7 @@ private:
 
 private:
     hloop_t*                    loop_;
+    bool                        is_loop_owner;
     std::mutex                  mutex_;
     std::queue<EventPtr>        customEvents;   // GUAREDE_BY(mutex_)
     std::map<TimerID, Timer>    timers;         // GUAREDE_BY(mutex_)
