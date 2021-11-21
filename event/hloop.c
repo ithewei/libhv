@@ -208,11 +208,6 @@ unlock:
 }
 
 void hloop_post_event(hloop_t* loop, hevent_t* ev) {
-    if (loop->sockpair[0] == -1 || loop->sockpair[1] == -1) {
-        hlogw("socketpair not created!");
-        return;
-    }
-
     if (ev->loop == NULL) {
         ev->loop = loop;
     }
@@ -224,8 +219,19 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
     }
 
     hmutex_lock(&loop->custom_events_mutex);
-    hwrite(loop, loop->sockpair[SOCKPAIR_WRITE_INDEX], "e", 1, NULL);
+    if (loop->sockpair[SOCKPAIR_WRITE_INDEX] == -1) {
+        if (Socketpair(AF_INET, SOCK_STREAM, 0, loop->sockpair) != 0) {
+            hloge("socketpair create failed!");
+            goto unlock;
+        }
+    }
+    int nsend = send(loop->sockpair[SOCKPAIR_WRITE_INDEX], "e", 1, 0);
+    if (nsend != 1) {
+        hloge("send failed!");
+        goto unlock;
+    }
     event_queue_push_back(&loop->custom_events, ev);
+unlock:
     hmutex_unlock(&loop->custom_events_mutex);
 }
 
@@ -266,10 +272,8 @@ static void hloop_init(hloop_t* loop) {
     // custom_events
     hmutex_init(&loop->custom_events_mutex);
     event_queue_init(&loop->custom_events, CUSTOM_EVENT_QUEUE_INIT_SIZE);
+    // NOTE: create socketpair when hloop_post_event or hloop_run
     loop->sockpair[0] = loop->sockpair[1] = -1;
-    if (Socketpair(AF_INET, SOCK_STREAM, 0, loop->sockpair) != 0) {
-        hloge("socketpair create failed!");
-    }
 
     // NOTE: init start_time here, because htimer_add use it.
     loop->start_ms = gettimeofday_ms();
@@ -281,17 +285,6 @@ static void hloop_cleanup(hloop_t* loop) {
     printd("cleanup pendings...\n");
     for (int i = 0; i < HEVENT_PRIORITY_SIZE; ++i) {
         loop->pendings[i] = NULL;
-    }
-
-    // sockpair
-    if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
-        if (!hio_exists(loop, loop->sockpair[0])) {
-            closesocket(loop->sockpair[0]);
-        }
-        if (!hio_exists(loop, loop->sockpair[1])) {
-            closesocket(loop->sockpair[1]);
-        }
-        loop->sockpair[0] = loop->sockpair[1] = -1;
     }
 
     // ios
@@ -337,6 +330,14 @@ static void hloop_cleanup(hloop_t* loop) {
 
     // custom_events
     hmutex_lock(&loop->custom_events_mutex);
+    if (loop->sockpair[SOCKPAIR_READ_INDEX] != -1) {
+        close(loop->sockpair[SOCKPAIR_READ_INDEX]);
+        loop->sockpair[SOCKPAIR_READ_INDEX] = -1;
+    }
+    if (loop->sockpair[SOCKPAIR_WRITE_INDEX] != -1) {
+        close(loop->sockpair[SOCKPAIR_WRITE_INDEX]);
+        loop->sockpair[SOCKPAIR_WRITE_INDEX] = -1;
+    }
     event_queue_cleanup(&loop->custom_events);
     hmutex_unlock(&loop->custom_events_mutex);
     hmutex_destroy(&loop->custom_events_mutex);
@@ -367,10 +368,19 @@ int hloop_run(hloop_t* loop) {
     loop->tid = hv_gettid();
 
     if (loop->intern_nevents == 0) {
-        if (loop->sockpair[0] != -1 && loop->sockpair[1] != -1) {
-            hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
-            ++loop->intern_nevents;
+        hmutex_lock(&loop->custom_events_mutex);
+        if (loop->sockpair[SOCKPAIR_WRITE_INDEX] == -1) {
+            if (Socketpair(AF_INET, SOCK_STREAM, 0, loop->sockpair) != 0) {
+                hloge("socketpair create failed!");
+            } else {
+                hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
+                // NOTE: Avoid duplication closesocket in hio_cleanup
+                loop->sockpair[SOCKPAIR_READ_INDEX] = -1;
+                ++loop->intern_nevents;
+            }
         }
+        hmutex_unlock(&loop->custom_events_mutex);
+
 #ifdef DEBUG
         htimer_add(loop, hloop_stat_timer_cb, HLOOP_STAT_TIMEOUT, INFINITE);
         ++loop->intern_nevents;

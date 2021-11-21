@@ -142,6 +142,7 @@ struct hio_s {
     unpack_setting_t*   unpack_setting; // for hio_set_unpack
     // ssl
     void*       ssl; // for hio_enable_ssl / hio_set_ssl
+    // context
     void*       ctx; // for hio_context / hio_set_context
 // private:
 #if defined(EVENT_POLL) || defined(EVENT_KQUEUE)

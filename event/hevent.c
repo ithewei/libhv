@@ -127,6 +127,8 @@ void hio_ready(hio_t* io) {
     io->unpack_setting = NULL;
     // ssl
     io->ssl = NULL;
+    // context
+    io->ctx = NULL;
     // private:
 #if defined(EVENT_POLL) || defined(EVENT_KQUEUE)
     io->event_index[0] = io->event_index[1] = -1;
@@ -165,9 +167,6 @@ void hio_done(hio_t* io) {
 
 void hio_free(hio_t* io) {
     if (io == NULL) return;
-    // NOTE: call hio_done to cleanup write_queue
-    hio_done(io);
-    // NOTE: call hio_close to call hclose_cb
     hio_close(io);
     hrecursive_mutex_destroy(&io->write_mutex);
     HV_FREE(io->localaddr);
