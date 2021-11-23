@@ -567,6 +567,28 @@ int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseC
     return __http_client_send_async(cli, req, resp_cb);
 }
 
+static http_client_t* __get_default_async_client();
+static void           __del_default_async_client();
+http_client_t* __get_default_async_client() {
+    static http_client_t* s_default_async_client = NULL;
+    static std::mutex     s_mutex;
+    if (s_default_async_client == NULL) {
+        s_mutex.lock();
+        if (s_default_async_client == NULL) {
+            hlogi("create default http async client");
+            s_default_async_client = http_client_new();
+            // NOTE: I have No better idea
+            atexit(__del_default_async_client);
+        }
+        s_mutex.unlock();
+    }
+    return s_default_async_client;
+}
+void __del_default_async_client() {
+    hlogi("destory default http async client");
+    http_client_del(__get_default_async_client());
+}
+
 int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
     if (req == NULL) return ERR_NULL_POINTER;
 
@@ -574,6 +596,5 @@ int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
         req->timeout = DEFAULT_HTTP_TIMEOUT;
     }
 
-    static http_client_t s_default_async_client;
-    return __http_client_send_async(&s_default_async_client, req, resp_cb);
+    return __http_client_send_async(__get_default_async_client(), req, resp_cb);
 }

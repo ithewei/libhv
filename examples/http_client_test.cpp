@@ -95,20 +95,18 @@ static void test_requests() {
 
     // async
     /*
-    int finished = 0;
-    Request req(new HttpRequest);
+    // Request req(new HttpRequest);
     req->url = "http://127.0.0.1:8080/echo";
     req->method = HTTP_POST;
     req->body = "This is an async request.";
     req->timeout = 10;
-    requests::async(req, [&finished](const HttpResponsePtr& resp) {
+    requests::async(req, [](const HttpResponsePtr& resp) {
         if (resp == NULL) {
             printf("request failed!\n");
         } else {
             printf("%d %s\r\n", resp->status_code, resp->status_message());
             printf("%s\n", resp->body.c_str());
         }
-        finished = 1;
     });
     */
 }
@@ -145,15 +143,13 @@ static void test_axios() {
 
     // async
     /*
-    int finished = 0;
-    axios::axios(strReq, [&finished](const HttpResponsePtr& resp) {
+    axios::axios(strReq, [](const HttpResponsePtr& resp) {
         if (resp == NULL) {
             printf("request failed!\n");
         } else {
             printf("%d %s\r\n", resp->status_code, resp->status_message());
             printf("%s\n", resp->body.c_str());
         }
-        finished = 1;
     });
     */
 }
