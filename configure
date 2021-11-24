@@ -36,6 +36,9 @@ dependencies:
   --with-gnutls         compile with gnutls?            (DEFAULT: $WITH_GNUTLS)
   --with-mbedtls        compile with mbedtls?           (DEFAULT: $WITH_MBEDTLS)
 
+rudp:
+  --with-kcp            compile with kcp?               (DEFAULT: $WITH_KCP)
+
 END
 }
 
@@ -250,6 +253,7 @@ option=WITH_GNUTLS && check_option
 option=WITH_MBEDTLS && check_option
 option=ENABLE_UDS && check_option
 option=USE_MULTIMAP && check_option
+option=WITH_KCP && check_option
 
 # end confile
 cat << END >> $confile

@@ -95,6 +95,7 @@ typedef enum {
     HIO_TYPE_SOCK_RAW   = 0x00000F00,
 
     HIO_TYPE_UDP        = 0x00001000,
+    HIO_TYPE_KCP        = 0x00002000,
     HIO_TYPE_DTLS       = 0x00010000,
     HIO_TYPE_SOCK_DGRAM = 0x000FF000,
 
@@ -506,6 +507,58 @@ unpack_setting_t grpc_unpack_setting = {
     .length_field_coding = ENCODE_BY_BIG_ENDIAN,
 };
 */
+
+//-----------------rudp---------------------------------------------
+#if WITH_KCP
+#define WITH_RUDP 1
+#endif
+
+#if WITH_RUDP
+// NOTE: hio_close_rudp is thread-safe.
+HV_EXPORT int hio_close_rudp(hio_t* io, struct sockaddr* peeraddr DEFAULT(NULL));
+#endif
+
+#if WITH_KCP
+typedef struct kcp_setting_s {
+    // ikcp_create(conv, ...)
+    int conv;
+    // ikcp_nodelay(kcp, nodelay, interval, fastresend, nocwnd)
+    int nodelay;
+    int interval;
+    int fastresend;
+    int nocwnd;
+    // ikcp_wndsize(kcp, sndwnd, rcvwnd)
+    int sndwnd;
+    int rcvwnd;
+    // ikcp_setmtu(kcp, mtu)
+    int mtu;
+    // ikcp_update
+    int update_interval;
+
+#ifdef __cplusplus
+    kcp_setting_s() {
+        conv = 0x11223344;
+        // normal mode
+        nodelay = 0;
+        interval = 40;
+        fastresend = 0;
+        nocwnd = 0;
+        // fast mode
+        // nodelay = 1;
+        // interval = 10;
+        // fastresend = 2;
+        // nocwnd = 1;
+
+        sndwnd = 0;
+        rcvwnd = 0;
+        mtu = 1400;
+        update_interval = 10; // ms
+    }
+#endif
+} kcp_setting_t;
+
+HV_EXPORT int hio_set_kcp(hio_t* io, kcp_setting_t* setting DEFAULT(NULL));
+#endif
 
 END_EXTERN_C
 

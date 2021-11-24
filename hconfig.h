@@ -70,5 +70,6 @@
 /* #undef WITH_MBEDTLS */
 /* #undef ENABLE_UDS */
 /* #undef USE_MULTIMAP */
+/* #undef WITH_KCP */
 
 #endif // HV_CONFIG_H_

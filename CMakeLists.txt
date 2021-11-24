@@ -28,6 +28,8 @@ option(WITH_OPENSSL "with openssl library" OFF)
 option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
 
+option(WITH_KCP "with kcp" OFF)
+
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 include(utils)
 include(vars)
@@ -148,8 +150,12 @@ if(APPLE)
 endif()
 
 # see Makefile
-set(ALL_SRCDIRS . base ssl event util cpputil evpp protocol http http/client http/server)
-set(LIBHV_SRCDIRS . base ssl event util)
+set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp protocol http http/client http/server)
+set(CORE_SRCDIRS . base ssl event)
+if(WITH_KCP)
+    set(CORE_SRCDIRS ${CORE_SRCDIRS} event/kcp)
+endif()
+set(LIBHV_SRCDIRS ${CORE_SRCDIRS} util)
 set(LIBHV_HEADERS hv.h hconfig.h hexport.h)
 set(LIBHV_HEADERS ${LIBHV_HEADERS} ${BASE_HEADERS} ${SSL_HEADERS} ${EVENT_HEADERS} ${UTIL_HEADERS})
 

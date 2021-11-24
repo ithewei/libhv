@@ -4,6 +4,8 @@ SCRIPT_DIR=$(cd `dirname $0`; pwd)
 ROOT_DIR=${SCRIPT_DIR}/..
 cd ${ROOT_DIR}
 
+bin/rbtree_test
+
 bin/date
 bin/ifconfig
 bin/mkdir_p 123/456

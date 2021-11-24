@@ -12,6 +12,9 @@ namespace hv {
 class UdpServer {
 public:
     UdpServer() {
+#if WITH_KCP
+        enable_kcp = false;
+#endif
     }
 
     virtual ~UdpServer() {
@@ -47,6 +50,11 @@ public:
                 onWriteComplete(channel, buf);
             }
         };
+#if WITH_KCP
+        if (enable_kcp) {
+            hio_set_kcp(channel->io(), &kcp_setting);
+        }
+#endif
         return channel->startRead();
     }
 
@@ -59,6 +67,7 @@ public:
 
     int sendto(const void* data, int size, struct sockaddr* peeraddr = NULL) {
         if (channel == NULL) return -1;
+        std::lock_guard<std::mutex> locker(sendto_mutex);
         if (peeraddr) hio_set_peeraddr(channel->io(), peeraddr, SOCKADDR_LEN(peeraddr));
         return channel->write(data, size);
     }
@@ -71,11 +80,16 @@ public:
 
 public:
     SocketChannelPtr        channel;
+#if WITH_KCP
+    bool                    enable_kcp;
+    kcp_setting_t           kcp_setting;
+#endif
     // Callback
     MessageCallback         onMessage;
     WriteCompleteCallback   onWriteComplete;
 
 private:
+    std::mutex              sendto_mutex;
     EventLoopThread         loop_thread;
 };
 

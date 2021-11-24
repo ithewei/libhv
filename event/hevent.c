@@ -40,8 +40,12 @@ static void fill_io_type(hio_t* io) {
 }
 
 static void hio_socket_init(hio_t* io) {
-    // nonblocking
-    nonblocking(io->fd);
+    if (io->io_type & HIO_TYPE_SOCK_RAW || io->io_type & HIO_TYPE_SOCK_DGRAM) {
+        // NOTE: sendto multiple peeraddr cannot use io->write_queue
+        blocking(io->fd);
+    } else {
+        nonblocking(io->fd);
+    }
     // fill io->localaddr io->peeraddr
     if (io->localaddr == NULL) {
         HV_ALLOC(io->localaddr, sizeof(sockaddr_u));
@@ -52,12 +56,8 @@ static void hio_socket_init(hio_t* io) {
     socklen_t addrlen = sizeof(sockaddr_u);
     int ret = getsockname(io->fd, io->localaddr, &addrlen);
     printd("getsockname fd=%d ret=%d errno=%d\n", io->fd, ret, socket_errno());
-    // NOTE:
-    // tcp_server peeraddr set by accept
-    // udp_server peeraddr set by recvfrom
-    // tcp_client/udp_client peeraddr set by hio_setpeeraddr
+    // NOTE: udp peeraddr set by recvfrom/sendto
     if (io->io_type & HIO_TYPE_SOCK_STREAM) {
-        // tcp acceptfd
         addrlen = sizeof(sockaddr_u);
         ret = getpeername(io->fd, io->peeraddr, &addrlen);
         printd("getpeername fd=%d ret=%d errno=%d\n", io->fd, ret, socket_errno());
@@ -142,6 +142,12 @@ void hio_ready(hio_t* io) {
     if (io->io_type & HIO_TYPE_SOCKET) {
         hio_socket_init(io);
     }
+
+#if WITH_RUDP
+    if (io->io_type & HIO_TYPE_SOCK_RAW || io->io_type & HIO_TYPE_SOCK_DGRAM) {
+        rudp_init(&io->rudp);
+    }
+#endif
 }
 
 void hio_done(hio_t* io) {
@@ -163,6 +169,12 @@ void hio_done(hio_t* io) {
     }
     write_queue_cleanup(&io->write_queue);
     hrecursive_mutex_unlock(&io->write_mutex);
+
+#if WITH_RUDP
+    if (io->io_type & HIO_TYPE_SOCK_RAW || io->io_type & HIO_TYPE_SOCK_DGRAM) {
+        rudp_cleanup(&io->rudp);
+    }
+#endif
 }
 
 void hio_free(hio_t* io) {
@@ -610,3 +622,122 @@ hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port) {
     hio_read_upstream(io);
     return upstream_io;
 }
+
+#if WITH_RUDP
+rudp_entry_t* hio_get_rudp(hio_t* io) {
+    rudp_entry_t* rudp = rudp_get(&io->rudp, io->peeraddr);
+    rudp->io = io;
+    return rudp;
+}
+
+static void hio_close_rudp_event_cb(hevent_t* ev) {
+    rudp_entry_t* entry = (rudp_entry_t*)ev->userdata;
+    rudp_del(&entry->io->rudp, (struct sockaddr*)&entry->addr);
+    // rudp_entry_free(entry);
+}
+
+int hio_close_rudp(hio_t* io, struct sockaddr* peeraddr) {
+    if (peeraddr == NULL) peeraddr = io->peeraddr;
+    // NOTE: do rudp_del for thread-safe
+    rudp_entry_t* entry = rudp_get(&io->rudp, peeraddr);
+    // NOTE: just rudp_remove first, do rudp_entry_free async for safe.
+    // rudp_entry_t* entry = rudp_remove(&io->rudp, peeraddr);
+    if (entry) {
+        hevent_t ev;
+        memset(&ev, 0, sizeof(ev));
+        ev.cb = hio_close_rudp_event_cb;
+        ev.userdata = entry;
+        ev.priority = HEVENT_HIGH_PRIORITY;
+        hloop_post_event(io->loop, &ev);
+    }
+    return 0;
+}
+#endif
+
+#if WITH_KCP
+static kcp_setting_t s_kcp_setting;
+static int __kcp_output(const char* buf, int len, ikcpcb* ikcp, void* userdata) {
+    // printf("ikcp_output len=%d\n", len);
+    rudp_entry_t* rudp = (rudp_entry_t*)userdata;
+    assert(rudp != NULL && rudp->io != NULL);
+    int nsend = sendto(rudp->io->fd, buf, len, 0, &rudp->addr.sa, SOCKADDR_LEN(&rudp->addr));
+    // printf("sendto nsend=%d\n", nsend);
+    return nsend;
+}
+
+static void __kcp_update_timer_cb(htimer_t* timer) {
+    rudp_entry_t* rudp = (rudp_entry_t*)timer->privdata;
+    assert(rudp != NULL && rudp->io != NULL && rudp->kcp.ikcp != NULL);
+    ikcp_update(rudp->kcp.ikcp, (IUINT32)(rudp->io->loop->cur_hrtime / 1000));
+}
+
+int hio_set_kcp(hio_t* io, kcp_setting_t* setting) {
+    io->io_type = HIO_TYPE_KCP;
+    io->kcp_setting = setting;
+    return 0;
+}
+
+kcp_t* hio_get_kcp(hio_t* io) {
+    rudp_entry_t* rudp = hio_get_rudp(io);
+    assert(rudp != NULL);
+    kcp_t* kcp = &rudp->kcp;
+    if (kcp->ikcp != NULL) return kcp;
+    if (io->kcp_setting == NULL) {
+        io->kcp_setting = &s_kcp_setting;
+    }
+    kcp_setting_t* setting = io->kcp_setting;
+    assert(io->kcp_setting != NULL);
+    kcp->ikcp = ikcp_create(setting->conv, rudp);
+    // printf("ikcp_create ikcp=%p\n", kcp->ikcp);
+    kcp->ikcp->output = __kcp_output;
+    if (setting->interval > 0) {
+        ikcp_nodelay(kcp->ikcp, setting->nodelay, setting->interval, setting->fastresend, setting->nocwnd);
+    }
+    if (setting->sndwnd > 0 && setting->rcvwnd > 0) {
+        ikcp_wndsize(kcp->ikcp, setting->sndwnd, setting->rcvwnd);
+    }
+    if (setting->mtu > 0) {
+        ikcp_setmtu(kcp->ikcp, setting->mtu);
+    }
+    if (kcp->update_timer == NULL) {
+        int update_interval = setting->update_interval;
+        if (update_interval == 0) {
+            update_interval = DEFAULT_KCP_UPDATE_INTERVAL;
+        }
+        kcp->update_timer = htimer_add(io->loop, __kcp_update_timer_cb, update_interval, INFINITE);
+        kcp->update_timer->privdata = rudp;
+    }
+    // NOTE: alloc kcp->readbuf when hio_read_kcp
+    return kcp;
+}
+
+int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
+    kcp_t* kcp = hio_get_kcp(io);
+    int nsend = ikcp_send(kcp->ikcp, (const char*)buf, len);
+    // printf("ikcp_send len=%d nsend=%d\n", (int)len, nsend);
+    if (nsend < 0) {
+        hio_close(io);
+    }
+    ikcp_update(kcp->ikcp, (IUINT32)io->loop->cur_hrtime / 1000);
+    return nsend;
+}
+
+int hio_read_kcp (hio_t* io, void* buf, int readbytes) {
+    kcp_t* kcp = hio_get_kcp(io);
+    // printf("ikcp_input len=%d\n", readbytes);
+    ikcp_input(kcp->ikcp, (const char*)buf, readbytes);
+    if (kcp->readbuf.base == NULL || kcp->readbuf.len == 0) {
+        kcp->readbuf.len = DEFAULT_KCP_READ_BUFSIZE;
+        HV_ALLOC(kcp->readbuf.base, kcp->readbuf.len);
+    }
+    int ret = 0;
+    while (1) {
+        int nrecv = ikcp_recv(kcp->ikcp, kcp->readbuf.base, kcp->readbuf.len);
+        // printf("ikcp_recv nrecv=%d\n", nrecv);
+        if (nrecv < 0) break;
+        hio_read_cb(io, kcp->readbuf.base, nrecv);
+        ret += nrecv;
+    }
+    return ret;
+}
+#endif

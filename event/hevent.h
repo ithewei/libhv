@@ -3,6 +3,7 @@
 
 #include "hloop.h"
 #include "iowatcher.h"
+#include "rudp.h"
 
 #include "hbuf.h"
 #include "hmutex.h"
@@ -148,8 +149,16 @@ struct hio_s {
 #if defined(EVENT_POLL) || defined(EVENT_KQUEUE)
     int         event_index[2]; // for poll,kqueue
 #endif
+
 #ifdef EVENT_IOCP
     void*       hovlp;          // for iocp/overlapio
+#endif
+
+#if WITH_RUDP
+    rudp_t          rudp;
+#if WITH_KCP
+    kcp_setting_t*  kcp_setting;
+#endif
 #endif
 };
 /*
@@ -188,6 +197,15 @@ static inline bool hio_is_alloced_readbuf(hio_t* io) {
 }
 void hio_alloc_readbuf(hio_t* io, int len);
 void hio_free_readbuf(hio_t* io);
+
+#if WITH_RUDP
+rudp_entry_t* hio_get_rudp(hio_t* io);
+#if WITH_KCP
+kcp_t*  hio_get_kcp(hio_t* io);
+int     hio_write_kcp(hio_t* io, const void* buf, size_t len);
+int     hio_read_kcp (hio_t* io, void* buf, int readbytes);
+#endif
+#endif
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)

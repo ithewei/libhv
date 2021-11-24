@@ -90,6 +90,12 @@ make libhv
 
 ## options
 
+### compile without c++
+```
+./configure --without-evpp
+make clean && make
+```
+
 ### compile WITH_OPENSSL
 Enable SSL in libhv is so easy, just only two apis:
 ```
@@ -125,4 +131,10 @@ sudo apt install libnghttp2-dev # ubuntu
 make clean && make
 bin/httpd -s restart -d
 bin/curl -v http://localhost:8080 --http2
+```
+
+### compile WITH_KCP
+```
+./configure --with-kcp
+make clean && make
 ```

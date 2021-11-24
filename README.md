@@ -24,9 +24,10 @@ but simpler api and richer protocols.
 ## ✨ Features
 
 - Cross-platform (Linux, Windows, MacOS, Solaris)
-- EventLoop (IO, timer, idle, custom)
+- High-performance EventLoop (IO, timer, idle, custom)
 - TCP/UDP client/server/proxy
 - TCP supports heartbeat, upstream, unpack, MultiThread-safe write and close, etc.
+- RUDP support: WITH_KCP
 - SSL/TLS support: (via WITH_OPENSSL or WITH_GNUTLS or WITH_MBEDTLS)
 - HTTP client/server (support https http1/x http2 grpc)
 - HTTP static file service, indexof service, sync/async API handler

@@ -26,6 +26,17 @@
  */
 #define TEST_SSL 0
 
+/*
+ * @test    kcp_client
+ * #define  TEST_KCP 1
+ *
+ * @build   ./configure --with-kcp && make clean && make
+ * @server  bin/udp_echo_server 1234
+ * @client  bin/nc -u 127.0.0.1 1234
+ *
+ */
+#define TEST_KCP 0
+
 #define RECV_BUFSIZE    8192
 static char recvbuf[RECV_BUFSIZE];
 
@@ -113,6 +124,13 @@ static void on_stdin(hio_t* io, void* buf, int readbytes) {
     }
 
     hio_write(sockio, buf, readbytes);
+
+#if TEST_KCP
+    if (strncmp(str, "CLOSE", 5) == 0) {
+        printf("call hio_close\n");
+        hio_close(sockio);
+    }
+#endif
 }
 
 static void on_close(hio_t* io) {
@@ -189,6 +207,9 @@ Examples: nc 127.0.0.1 80\n\
     else if (protocol == 2) {
         // udp
         sockio = hloop_create_udp_client(loop, host, port);
+#if TEST_KCP
+        hio_set_kcp(sockio, NULL);
+#endif
         hio_read(sockio);
     }
     if (sockio == NULL) {

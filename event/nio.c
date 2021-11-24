@@ -55,6 +55,12 @@ static void __read_cb(hio_t* io, void* buf, int readbytes) {
             hio_read_stop(io);
         }
 
+#if WITH_KCP
+        if (io->io_type == HIO_TYPE_KCP) {
+            hio_read_kcp(io, buf, readbytes);
+            return;
+        }
+#endif
         hio_read_cb(io, buf, readbytes);
     }
 
@@ -236,6 +242,7 @@ static int __nio_read(hio_t* io, void* buf, int len) {
 #endif
         break;
     case HIO_TYPE_UDP:
+    case HIO_TYPE_KCP:
     case HIO_TYPE_IP:
     {
         socklen_t addrlen = sizeof(sockaddr_u);
@@ -264,6 +271,7 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
 #endif
         break;
     case HIO_TYPE_UDP:
+    case HIO_TYPE_KCP:
     case HIO_TYPE_IP:
         nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
         break;
@@ -459,6 +467,11 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
         hloge("hio_write called but fd[%d] already closed!", io->fd);
         return -1;
     }
+#if WITH_KCP
+    if (io->io_type == HIO_TYPE_KCP) {
+        return hio_write_kcp(io, buf, len);
+    }
+#endif
     int nwrite = 0, err = 0;
     hrecursive_mutex_lock(&io->write_mutex);
     if (write_queue_empty(&io->write_queue)) {
