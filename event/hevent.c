@@ -717,8 +717,9 @@ int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
     // printf("ikcp_send len=%d nsend=%d\n", (int)len, nsend);
     if (nsend < 0) {
         hio_close(io);
+    } else {
+        ikcp_update(kcp->ikcp, (IUINT32)io->loop->cur_hrtime / 1000);
     }
-    ikcp_update(kcp->ikcp, (IUINT32)io->loop->cur_hrtime / 1000);
     return nsend;
 }
 

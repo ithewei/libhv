@@ -108,7 +108,8 @@ public:
         loop_thread.start(true);
     }
     ~AsyncHttpClient() {
-        loop_thread.stop(true);
+        // NOTE: ~EventLoopThread will stop and join
+        // loop_thread.stop(true);
     }
 
     // thread-safe

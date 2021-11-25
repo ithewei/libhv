@@ -83,7 +83,7 @@ struct HV_EXPORT HttpContext {
         return request->GetForm();
     }
     std::string form(const char* name, const std::string& defvalue = "") {
-        return request->GetFormData(name);
+        return request->GetFormData(name, defvalue);
     }
 
     // Content-Type: application/x-www-form-urlencoded
@@ -91,7 +91,7 @@ struct HV_EXPORT HttpContext {
         return request->GetUrlEncoded();
     }
     std::string urlencoded(const char* key, const std::string& defvalue = "") {
-        return request->GetUrlEncoded(key);
+        return request->GetUrlEncoded(key, defvalue);
     }
 
     // T=[bool, int, int64_t, float, double]
