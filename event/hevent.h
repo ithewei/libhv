@@ -201,7 +201,7 @@ void hio_free_readbuf(hio_t* io);
 #if WITH_RUDP
 rudp_entry_t* hio_get_rudp(hio_t* io);
 #if WITH_KCP
-kcp_t*  hio_get_kcp(hio_t* io);
+kcp_t*  hio_get_kcp(hio_t* io, uint32_t conv);
 int     hio_write_kcp(hio_t* io, const void* buf, size_t len);
 int     hio_read_kcp (hio_t* io, void* buf, int readbytes);
 #endif

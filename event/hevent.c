@@ -677,7 +677,7 @@ int hio_set_kcp(hio_t* io, kcp_setting_t* setting) {
     return 0;
 }
 
-kcp_t* hio_get_kcp(hio_t* io) {
+kcp_t* hio_get_kcp(hio_t* io, uint32_t conv) {
     rudp_entry_t* rudp = hio_get_rudp(io);
     assert(rudp != NULL);
     kcp_t* kcp = &rudp->kcp;
@@ -687,9 +687,10 @@ kcp_t* hio_get_kcp(hio_t* io) {
     }
     kcp_setting_t* setting = io->kcp_setting;
     assert(io->kcp_setting != NULL);
-    kcp->ikcp = ikcp_create(setting->conv, rudp);
-    // printf("ikcp_create ikcp=%p\n", kcp->ikcp);
+    kcp->ikcp = ikcp_create(conv, rudp);
+    printf("ikcp_create conv=%u ikcp=%p\n", conv, kcp->ikcp);
     kcp->ikcp->output = __kcp_output;
+    kcp->conv = conv;
     if (setting->interval > 0) {
         ikcp_nodelay(kcp->ikcp, setting->nodelay, setting->interval, setting->fastresend, setting->nocwnd);
     }
@@ -712,7 +713,8 @@ kcp_t* hio_get_kcp(hio_t* io) {
 }
 
 int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
-    kcp_t* kcp = hio_get_kcp(io);
+    IUINT32 conv = io->kcp_setting ? io->kcp_setting->conv : 0;
+    kcp_t* kcp = hio_get_kcp(io, conv);
     int nsend = ikcp_send(kcp->ikcp, (const char*)buf, len);
     // printf("ikcp_send len=%d nsend=%d\n", (int)len, nsend);
     if (nsend < 0) {
@@ -724,7 +726,13 @@ int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
 }
 
 int hio_read_kcp (hio_t* io, void* buf, int readbytes) {
-    kcp_t* kcp = hio_get_kcp(io);
+    IUINT32 conv = ikcp_getconv(buf);
+    kcp_t* kcp = hio_get_kcp(io, conv);
+    if (kcp->conv != conv) {
+        hloge("recv invalid kcp packet!");
+        hio_close_rudp(io, io->peeraddr);
+        return -1;
+    }
     // printf("ikcp_input len=%d\n", readbytes);
     ikcp_input(kcp->ikcp, (const char*)buf, readbytes);
     if (kcp->readbuf.base == NULL || kcp->readbuf.len == 0) {

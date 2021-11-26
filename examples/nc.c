@@ -208,7 +208,15 @@ Examples: nc 127.0.0.1 80\n\
         // udp
         sockio = hloop_create_udp_client(loop, host, port);
 #if TEST_KCP
-        hio_set_kcp(sockio, NULL);
+        static kcp_setting_t s_kcp_setting;
+        memset(&s_kcp_setting, 0, sizeof(kcp_setting_t));
+        s_kcp_setting.conv = 123456;
+        // fast mode
+        s_kcp_setting.nodelay = 1;
+        s_kcp_setting.interval = 10;
+        s_kcp_setting.fastresend = 2;
+        s_kcp_setting.nocwnd = 1;
+        hio_set_kcp(sockio, &s_kcp_setting);
 #endif
         hio_read(sockio);
     }

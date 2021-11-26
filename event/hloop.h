@@ -521,7 +521,7 @@ HV_EXPORT int hio_close_rudp(hio_t* io, struct sockaddr* peeraddr DEFAULT(NULL))
 #if WITH_KCP
 typedef struct kcp_setting_s {
     // ikcp_create(conv, ...)
-    int conv;
+    unsigned int conv;
     // ikcp_nodelay(kcp, nodelay, interval, fastresend, nocwnd)
     int nodelay;
     int interval;

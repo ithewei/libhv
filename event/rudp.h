@@ -17,6 +17,7 @@
 
 typedef struct kcp_s {
     ikcpcb*         ikcp;
+    uint32_t        conv;
     htimer_t*       update_timer;
     hbuf_t          readbuf;
 } kcp_t;
