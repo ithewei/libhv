@@ -688,7 +688,7 @@ kcp_t* hio_get_kcp(hio_t* io, uint32_t conv) {
     kcp_setting_t* setting = io->kcp_setting;
     assert(io->kcp_setting != NULL);
     kcp->ikcp = ikcp_create(conv, rudp);
-    printf("ikcp_create conv=%u ikcp=%p\n", conv, kcp->ikcp);
+    // printf("ikcp_create conv=%u ikcp=%p\n", conv, kcp->ikcp);
     kcp->ikcp->output = __kcp_output;
     kcp->conv = conv;
     if (setting->interval > 0) {
