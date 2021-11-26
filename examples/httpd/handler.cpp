@@ -181,10 +181,10 @@ int Handler::kv(HttpRequest* req, HttpResponse* resp) {
         return response_status(resp, HTTP_STATUS_BAD_REQUEST);
     }
     resp->content_type = APPLICATION_URLENCODED;
-    resp->kv = req->kv;
-    resp->kv["int"] = hv::to_string(123);
-    resp->kv["float"] = hv::to_string(3.14);
-    resp->kv["string"] = "hello";
+    resp->kv = req->GetUrlEncoded();
+    resp->SetUrlEncoded("int", 123);
+    resp->SetUrlEncoded("float", 3.14);
+    resp->SetUrlEncoded("string", "hello");
     return 200;
 }
 
@@ -193,7 +193,7 @@ int Handler::json(HttpRequest* req, HttpResponse* resp) {
         return response_status(resp, HTTP_STATUS_BAD_REQUEST);
     }
     resp->content_type = APPLICATION_JSON;
-    resp->json = req->json;
+    resp->json = req->GetJson();
     resp->json["int"] = 123;
     resp->json["float"] = 3.14;
     resp->json["string"] = "hello";
@@ -205,12 +205,11 @@ int Handler::form(HttpRequest* req, HttpResponse* resp) {
         return response_status(resp, HTTP_STATUS_BAD_REQUEST);
     }
     resp->content_type = MULTIPART_FORM_DATA;
-    resp->form = req->form;
-    resp->form["int"] = 123;
-    resp->form["float"] = 3.14;
-    resp->form["string"] = "hello";
-    // resp->form["file"] = FormFile("test.jpg");
-    // resp->FormFile("file", "test.jpg");
+    resp->form = req->GetForm();
+    resp->SetFormData("int", 123);
+    resp->SetFormData("float", 3.14);
+    resp->SetFormData("string", "hello");
+    // resp->SetFormFile("file", "test.jpg");
     return 200;
 }
 

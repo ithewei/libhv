@@ -218,12 +218,12 @@ int main(int argc, char** argv) {
     const char* host = request->host.c_str();
     port = request->port;
 
-    // Resolver
+    // ResolveAddr
     if (is_ipaddr(host)) {
         strcpy(ip, host);
     } else {
         sockaddr_u addr;
-        if (Resolver(host, &addr) != 0) {
+        if (ResolveAddr(host, &addr) != 0) {
             fprintf(stderr, "Could not resolve host: %s\n", host);
             exit(1);
         }

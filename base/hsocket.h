@@ -88,7 +88,7 @@ HV_INLINE bool is_ipaddr(const char* host) {
 
 // @param host: domain or ip
 // @retval 0:succeed
-HV_EXPORT int Resolver(const char* host, sockaddr_u* addr);
+HV_EXPORT int ResolveAddr(const char* host, sockaddr_u* addr);
 
 HV_EXPORT const char* sockaddr_ip(sockaddr_u* addr, char *ip, int len);
 HV_EXPORT uint16_t sockaddr_port(sockaddr_u* addr);
@@ -131,7 +131,7 @@ HV_EXPORT int Bind(int port, const char* host DEFAULT(ANYADDR), int type DEFAULT
 HV_EXPORT int Listen(int port, const char* host DEFAULT(ANYADDR));
 
 // @return connfd
-// Resolver -> socket -> nonblocking -> connect
+// ResolveAddr -> socket -> nonblocking -> connect
 HV_EXPORT int Connect(const char* host, int port, int nonblock DEFAULT(0));
 // Connect(host, port, 1)
 HV_EXPORT int ConnectNonblock(const char* host, int port);

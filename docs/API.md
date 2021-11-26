@@ -201,7 +201,7 @@
 - Connect
 - ConnectNonblock
 - ConnectTimeout
-- Resolver
+- ResolveAddr
 - Socketpair
 - socket_errno
 - socket_strerror

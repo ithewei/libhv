@@ -36,7 +36,7 @@ bool is_ipv6(const char* host) {
     return inet_pton(AF_INET6, host, &sin6) == 1;
 }
 
-int Resolver(const char* host, sockaddr_u* addr) {
+int ResolveAddr(const char* host, sockaddr_u* addr) {
     if (inet_pton(AF_INET, host, &addr->sin.sin_addr) == 1) {
         addr->sa.sa_family = AF_INET; // host is ipv4, so easy ;)
         return 0;
@@ -98,7 +98,7 @@ int sockaddr_set_ip(sockaddr_u* addr, const char* host) {
         addr->sin.sin_addr.s_addr = htonl(INADDR_ANY);
         return 0;
     }
-    return Resolver(host, addr);
+    return ResolveAddr(host, addr);
 }
 
 void sockaddr_set_port(sockaddr_u* addr, int port) {

@@ -36,7 +36,6 @@
 #include "hpath.h"
 #include "hdir.h"
 #include "hurl.h"
-#include "hscope.h"
 #endif
 
 #endif  // HV_H_

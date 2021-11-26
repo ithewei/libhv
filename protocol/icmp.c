@@ -32,7 +32,7 @@ int ping(const char* host, int cnt) {
     sockaddr_u peeraddr;
     socklen_t addrlen = sizeof(peeraddr);
     memset(&peeraddr, 0, addrlen);
-    int ret = Resolver(host, &peeraddr);
+    int ret = ResolveAddr(host, &peeraddr);
     if (ret != 0) return ret;
     sockaddr_ip(&peeraddr, ip, sizeof(ip));
     int sockfd = socket(peeraddr.sa.sa_family, SOCK_RAW, IPPROTO_ICMP);
