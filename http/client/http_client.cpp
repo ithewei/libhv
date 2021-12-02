@@ -239,10 +239,9 @@ int http_client_send(HttpRequest* req, HttpResponse* resp) {
 #ifdef WITH_CURL
 static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
     if (buf == NULL || userdata == NULL)    return 0;
-
+    size_t len = size * cnt;
+    std::string str(buf, len);
     HttpResponse* resp = (HttpResponse*)userdata;
-
-    std::string str(buf);
     std::string::size_type pos = str.find_first_of(':');
     if (pos == std::string::npos) {
         if (strncmp(buf, "HTTP/", 5) == 0) {
@@ -269,15 +268,23 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
         std::string value = trim(str.substr(pos+1));
         resp->headers[key] = value;
     }
-    return size*cnt;
+    return len;
 }
 
-static size_t s_body_cb(char *buf, size_t size, size_t cnt, void *userdata) {
+static size_t s_body_cb(char* buf, size_t size, size_t cnt, void *userdata) {
     if (buf == NULL || userdata == NULL)    return 0;
-
+    size_t len = size * cnt;
     HttpResponse* resp = (HttpResponse*)userdata;
-    resp->body.append(buf, size*cnt);
-    return size*cnt;
+    if (resp->head_cb) {
+        resp->head_cb(resp->headers);
+        resp->head_cb = NULL;
+    }
+    if (resp->body_cb) {
+        resp->body_cb(buf, len);
+    } else {
+        resp->body.append(buf, len);
+    }
+    return len;
 }
 
 int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
@@ -398,26 +405,24 @@ const char* http_client_strerror(int errcode) {
     return curl_easy_strerror((CURLcode)errcode);
 }
 #else
-static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
+static int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout) {
     int blocktime = DEFAULT_CONNECT_TIMEOUT;
-    if (req->timeout > 0) {
-        blocktime = MIN(req->timeout*1000, blocktime);
+    if (timeout > 0) {
+        blocktime = MIN(timeout*1000, blocktime);
     }
-    req->ParseUrl();
-    const char* host = req->host.c_str();
-    int connfd = ConnectTimeout(host, req->port, blocktime);
+    int connfd = ConnectTimeout(host, port, blocktime);
     if (connfd < 0) {
-        fprintf(stderr, "* connect %s:%d failed!\n", host, req->port);
-        hloge("connect %s:%d failed!", host, req->port);
+        fprintf(stderr, "* connect %s:%d failed!\n", host, port);
+        hloge("connect %s:%d failed!", host, port);
         return connfd;
     }
     tcp_nodelay(connfd, 1);
 
-    if (req->isHttps()) {
+    if (https) {
         hssl_ctx_t ssl_ctx = hssl_ctx_instance();
         if (ssl_ctx == NULL) {
             closesocket(connfd);
-            return ERR_INVALID_PROTOCOL;
+            return HSSL_ERROR;
         }
         cli->ssl = hssl_new(ssl_ctx, connfd);
         if (cli->ssl == NULL) {
@@ -434,16 +439,12 @@ static int __http_client_connect(http_client_t* cli, HttpRequest* req) {
             hssl_free(cli->ssl);
             cli->ssl = NULL;
             closesocket(connfd);
-            return ret;
+            return NABS(ret);
         }
     }
 
-    if (cli->parser == NULL) {
-        cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, (http_version)req->http_major));
-    }
-
     cli->fd = connfd;
-    return 0;
+    return connfd;
 }
 
 int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
@@ -451,19 +452,25 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
     int err = 0;
     int timeout = req->timeout;
     int connfd = cli->fd;
+    bool https = req->isHttps();
+    bool keepalive = true;
 
     time_t start_time = time(NULL);
     time_t cur_time;
     int fail_cnt = 0;
 connect:
     if (connfd <= 0) {
-        int ret = __http_client_connect(cli, req);
-        if (ret != 0) {
+        req->ParseUrl();
+        int ret = http_client_connect(cli, req->host.c_str(), req->port, https, req->timeout);
+        if (ret < 0) {
             return ret;
         }
         connfd = cli->fd;
     }
 
+    if (cli->parser == NULL) {
+        cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, (http_version)req->http_major));
+    }
     cli->parser->SubmitRequest(req);
     char recvbuf[1024] = {0};
     int total_nsend, nsend, nrecv;
@@ -471,7 +478,6 @@ connect:
 send:
     char* data = NULL;
     size_t len  = 0;
-    bool https = req->isHttps();
     while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
         while (1) {
@@ -538,6 +544,10 @@ recv:
         }
     } while(!cli->parser->IsComplete());
 
+    keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
+    if (!keepalive) {
+        cli->Close();
+    }
     return 0;
 disconnect:
     cli->Close();
