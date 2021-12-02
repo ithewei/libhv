@@ -17,6 +17,11 @@
 #define READ_BUFSIZE_HIGH_WATER     65536       // 64K
 #define WRITE_QUEUE_HIGH_WATER      (1U << 23)  // 8M
 
+// hio_read_flags
+#define HIO_READ_ONCE           0x1
+#define HIO_READ_UNTIL_LENGTH   0x2
+#define HIO_READ_UNTIL_DELIM    0x4
+
 ARRAY_DECL(hio_t*, io_array);
 QUEUE_DECL(hevent_t, event_queue);
 
@@ -90,7 +95,7 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=344 on linux-x64
+// sizeof(struct hio_s)=360 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
@@ -104,8 +109,7 @@ struct hio_s {
     unsigned    recvfrom    :1;
     unsigned    sendto      :1;
     unsigned    close       :1;
-    unsigned    read_once   :1;     // for hio_read_once
-    unsigned    alloced_readbuf :1; // for hio_read_until, hio_set_unpack
+    unsigned    alloced_readbuf :1; // for hio_alloc_readbuf
 // public:
     hio_type_e  io_type;
     uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
@@ -115,11 +119,18 @@ struct hio_s {
     int         revents;
     struct sockaddr*    localaddr;
     struct sockaddr*    peeraddr;
-    offset_buf_t        readbuf;        // for read
-    int                 read_until;     // for hio_read_until
+    // read
+    fifo_buf_t          readbuf;
+    unsigned int        read_flags;
+    // for hio_read_until
+    union {
+        unsigned int    read_until_length;
+        unsigned char   read_until_delim;
+    };
     uint32_t            small_readbytes_cnt; // for readbuf autosize
-    struct write_queue  write_queue;    // for write
-    hrecursive_mutex_t  write_mutex;    // lock write and write_queue
+    // write
+    struct write_queue  write_queue;
+    hrecursive_mutex_t  write_mutex; // lock write and write_queue
     uint32_t            write_queue_bytes;
     // callbacks
     hread_cb    read_cb;
@@ -180,6 +191,7 @@ uint32_t hio_next_id();
 
 void hio_accept_cb(hio_t* io);
 void hio_connect_cb(hio_t* io);
+void hio_handle_read(hio_t* io, void* buf, int readbytes);
 void hio_read_cb(hio_t* io, void* buf, int len);
 void hio_write_cb(hio_t* io, const void* buf, int len);
 void hio_close_cb(hio_t* io);

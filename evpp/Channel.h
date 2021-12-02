@@ -88,6 +88,26 @@ public:
         return hio_read_stop(io_);
     }
 
+    int readOnce() {
+        if (!isOpened()) return -1;
+        return hio_read_once(io_);
+    }
+
+    int readString() {
+        if (!isOpened()) return -1;
+        return hio_readstring(io_);
+    }
+
+    int readLine() {
+        if (!isOpened()) return -1;
+        return hio_readline(io_);
+    }
+
+    int readBytes(int len) {
+        if (!isOpened() || len <= 0) return -1;
+        return hio_readbytes(io_, len);
+    }
+
     int write(const void* data, int size) {
         if (!isOpened()) return -1;
         return hio_write(io_, data, size);

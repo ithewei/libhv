@@ -5,7 +5,6 @@
 #include "hssl.h"
 #include "hlog.h"
 #include "hthread.h"
-#include "unpack.h"
 
 static void __connect_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
@@ -47,30 +46,7 @@ static void __read_cb(hio_t* io, void* buf, int readbytes) {
     if (io->keepalive_timer) {
         htimer_reset(io->keepalive_timer);
     }
-
-    if (io->unpack_setting) {
-        hio_unpack(io, buf, readbytes);
-    } else {
-        if (io->read_once) {
-            hio_read_stop(io);
-        }
-
-#if WITH_KCP
-        if (io->io_type == HIO_TYPE_KCP) {
-            hio_read_kcp(io, buf, readbytes);
-            return;
-        }
-#endif
-        hio_read_cb(io, buf, readbytes);
-    }
-
-    // readbuf autosize
-    if (io->small_readbytes_cnt >= 3) {
-        io->small_readbytes_cnt = 0;
-        size_t small_size = io->readbuf.len / 2;
-        io->readbuf.base = (char*)safe_realloc(io->readbuf.base, small_size, io->readbuf.len);
-        io->readbuf.len = small_size;
-    }
+    hio_handle_read(io, buf, readbytes);
 }
 
 static void __write_cb(hio_t* io, const void* buf, int writebytes) {
@@ -288,12 +264,13 @@ static void nio_read(hio_t* io) {
     void* buf;
     int len = 0, nread = 0, err = 0;
 read:
-    buf = io->readbuf.base + io->readbuf.offset;
-    if (io->read_until) {
-        len = io->read_until;
+    buf = io->readbuf.base + io->readbuf.tail;
+    if (io->read_flags & HIO_READ_UNTIL_LENGTH) {
+        len = io->read_until_length - (io->readbuf.tail - io->readbuf.head);
     } else {
-        len = io->readbuf.len - io->readbuf.offset;
+        len = io->readbuf.len - io->readbuf.tail;
     }
+    assert(len > 0);
     nread = __nio_read(io, buf, len);
     // printd("read retval=%d\n", nread);
     if (nread < 0) {
@@ -313,19 +290,9 @@ read:
     if (nread == 0) {
         goto disconnect;
     }
-    if (io->read_until) {
-        io->readbuf.offset += nread;
-        io->read_until -= nread;
-        if (io->read_until == 0) {
-            __read_cb(io, io->readbuf.base, io->readbuf.offset);
-            io->readbuf.offset = 0;
-        }
-    } else {
-        __read_cb(io, buf, nread);
-        if (nread == len) {
-            goto read;
-        }
-    }
+    io->readbuf.tail += nread;
+    __read_cb(io, buf, nread);
+    // if (nread == len) goto read;
     return;
 read_error:
 disconnect:
@@ -542,8 +509,13 @@ enqueue:
 write_error:
 disconnect:
     hrecursive_mutex_unlock(&io->write_mutex);
-    hio_close(io);
-    return nwrite;
+    /* NOTE:
+     * We usually free resources in hclose_cb,
+     * if hio_close_sync, we have to be very careful to avoid using freed resources.
+     * But if hio_close_async, we do not have to worry about this.
+     */
+    hio_close_async(io);
+    return nwrite < 0 ? nwrite : -1;
 }
 
 int hio_close (hio_t* io) {

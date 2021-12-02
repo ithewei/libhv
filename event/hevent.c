@@ -3,6 +3,8 @@
 #include "hatomic.h"
 #include "hlog.h"
 
+#include "unpack.h"
+
 uint64_t hloop_next_event_id() {
     static hatomic_t s_id = HATOMIC_VAR_INIT(0);
     return ++s_id;
@@ -99,9 +101,9 @@ void hio_ready(hio_t* io) {
     io->alloced_readbuf = 0;
     io->readbuf.base = io->loop->readbuf.base;
     io->readbuf.len = io->loop->readbuf.len;
-    io->readbuf.offset = 0;
-    io->read_once = 0;
-    io->read_until = 0;
+    io->readbuf.head = io->readbuf.tail = 0;
+    io->read_flags = 0;
+    io->read_until_length = 0;
     io->small_readbytes_cnt = 0;
     // write_queue
     io->write_queue_bytes = 0;
@@ -314,7 +316,81 @@ void hio_connect_cb(hio_t* io) {
     }
 }
 
+void hio_handle_read(hio_t* io, void* buf, int readbytes) {
+#if WITH_KCP
+    if (io->io_type == HIO_TYPE_KCP) {
+        hio_read_kcp(io, buf, readbytes);
+        return;
+    }
+#endif
+
+    if (io->unpack_setting) {
+        // hio_set_unpack
+        hio_unpack(io, buf, readbytes);
+    } else {
+        const unsigned char* sp = (const unsigned char*)io->readbuf.base + io->readbuf.head;
+        const unsigned char* ep = (const unsigned char*)buf + readbytes;
+        if (io->read_flags & HIO_READ_UNTIL_LENGTH) {
+            // hio_read_until_length
+            if (ep - sp >= io->read_until_length) {
+                io->readbuf.head += io->read_until_length;
+                if (io->readbuf.head == io->readbuf.tail) {
+                    io->readbuf.head = io->readbuf.tail = 0;
+                }
+                io->readbuf.head = io->readbuf.tail = 0;
+                io->read_flags &= ~HIO_READ_UNTIL_LENGTH;
+                hio_read_cb(io, (void*)sp, io->read_until_length);
+            }
+        } else if (io->read_flags & HIO_READ_UNTIL_DELIM) {
+            // hio_read_until_delim
+            const unsigned char* p = (const unsigned char*)buf;
+            for (int i = 0; i < readbytes; ++i, ++p) {
+                if (*p == io->read_until_delim) {
+                    int len = p - sp + 1;
+                    io->readbuf.head += len;
+                    if (io->readbuf.head == io->readbuf.tail) {
+                        io->readbuf.head = io->readbuf.tail = 0;
+                    }
+                    io->read_flags &= ~HIO_READ_UNTIL_DELIM;
+                    hio_read_cb(io, (void*)sp, len);
+                    return;
+                }
+            }
+        } else {
+            // hio_read
+            io->readbuf.head = io->readbuf.tail = 0;
+            hio_read_cb(io, (void*)sp, ep - sp);
+        }
+    }
+
+    if (io->readbuf.head == io->readbuf.tail) {
+        io->readbuf.head = io->readbuf.tail = 0;
+    }
+    // readbuf autosize
+    if (io->readbuf.tail == io->readbuf.len) {
+        if (io->readbuf.head == 0) {
+            // scale up * 2
+            hio_alloc_readbuf(io, io->readbuf.len * 2);
+        } else {
+            // [head, tail] => [base, tail - head]
+            memmove(io->readbuf.base, io->readbuf.base + io->readbuf.head, io->readbuf.tail - io->readbuf.head);
+        }
+    } else {
+        size_t small_size = io->readbuf.len / 2;
+        if (io->readbuf.tail < small_size &&
+            io->small_readbytes_cnt >= 3) {
+            // scale down / 2
+            hio_alloc_readbuf(io, small_size);
+        }
+    }
+}
+
 void hio_read_cb(hio_t* io, void* buf, int len) {
+    if (io->read_flags & HIO_READ_ONCE) {
+        io->read_flags &= ~HIO_READ_ONCE;
+        hio_read_stop(io);
+    }
+
     if (io->read_cb) {
         // printd("read_cb------\n");
         io->read_cb(io, buf, len);
@@ -390,7 +466,7 @@ void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
     hio_free_readbuf(io);
     io->readbuf.base = (char*)buf;
     io->readbuf.len = len;
-    io->readbuf.offset = 0;
+    io->readbuf.head = io->readbuf.tail = 0;
     io->alloced_readbuf = 0;
 }
 
@@ -502,6 +578,7 @@ void hio_alloc_readbuf(hio_t* io, int len) {
     }
     io->readbuf.len = len;
     io->alloced_readbuf = 1;
+    io->small_readbytes_cnt = 0;
 }
 
 void hio_free_readbuf(hio_t* io) {
@@ -515,16 +592,55 @@ void hio_free_readbuf(hio_t* io) {
 }
 
 int hio_read_once (hio_t* io) {
-    io->read_once = 1;
+    io->read_flags |= HIO_READ_ONCE;
     return hio_read_start(io);
 }
 
-int hio_read_until(hio_t* io, int len) {
-    io->read_until = len;
+int hio_read_until_length(hio_t* io, unsigned int len) {
+    if (len == 0) return 0;
+    if (io->readbuf.tail - io->readbuf.head >= len) {
+        void* buf = io->readbuf.base + io->readbuf.head;
+        io->readbuf.head += len;
+        if (io->readbuf.head == io->readbuf.tail) {
+            io->readbuf.head = io->readbuf.tail = 0;
+        }
+        hio_read_cb(io, buf, len);
+        return len;
+    }
+    io->read_flags = HIO_READ_UNTIL_LENGTH;
+    io->read_until_length = len;
     // NOTE: prepare readbuf
     if (hio_is_loop_readbuf(io) ||
         io->readbuf.len < len) {
         hio_alloc_readbuf(io, len);
+    }
+    return hio_read_once(io);
+}
+
+int hio_read_until_delim(hio_t* io, unsigned char delim) {
+    if (io->readbuf.tail - io->readbuf.head > 0) {
+        const unsigned char* sp = (const unsigned char*)io->readbuf.base + io->readbuf.head;
+        const unsigned char* ep = (const unsigned char*)io->readbuf.base + io->readbuf.tail;
+        const unsigned char* p = sp;
+        while (p <= ep) {
+            if (*p == delim) {
+                int len = p - sp + 1;
+                io->readbuf.head += len;
+                if (io->readbuf.head == io->readbuf.tail) {
+                    io->readbuf.head = io->readbuf.tail = 0;
+                }
+                hio_read_cb(io, (void*)sp, len);
+                return len;
+            }
+            ++p;
+        }
+    }
+    io->read_flags = HIO_READ_UNTIL_DELIM;
+    io->read_until_length = delim;
+    // NOTE: prepare readbuf
+    if (hio_is_loop_readbuf(io) ||
+        io->readbuf.len < HLOOP_READ_BUFSIZE) {
+        hio_alloc_readbuf(io, HLOOP_READ_BUFSIZE);
     }
     return hio_read_once(io);
 }

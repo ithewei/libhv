@@ -21,12 +21,14 @@
  */
 #define TEST_SSL        0
 #define TEST_READ_ONCE  0
-#define TEST_READ_UNTIL 0
+#define TEST_READLINE   0
+#define TEST_READSTRING 0
+#define TEST_READBYTES  0
 #define TEST_READ_STOP  0
 #define TEST_UNPACK     0
 
 #if TEST_UNPACK
-unpack_setting_t unpack_setting;
+static unpack_setting_t unpack_setting;
 #endif
 
 // hloop_create_tcp_server -> on_accept -> hio_read -> on_recv -> hio_write
@@ -51,8 +53,12 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
     hio_read_stop(io);
 #elif TEST_READ_ONCE
     hio_read_once(io);
-#elif TEST_READ_UNTIL
-    hio_read_until(io, TEST_READ_UNTIL);
+#elif TEST_READLINE
+    hio_readline(io);
+#elif TEST_READSTRING
+    hio_readstring(io);
+#elif TEST_READBYTES
+    hio_readbytes(io, TEST_READBYTES);
 #endif
 }
 
@@ -73,8 +79,12 @@ static void on_accept(hio_t* io) {
 
 #if TEST_READ_ONCE
     hio_read_once(io);
-#elif TEST_READ_UNTIL
-    hio_read_until(io, TEST_READ_UNTIL);
+#elif TEST_READLINE
+    hio_readline(io);
+#elif TEST_READSTRING
+    hio_readstring(io);
+#elif TEST_READBYTES
+    hio_readbytes(io, TEST_READBYTES);
 #else
     hio_read_start(io);
 #endif

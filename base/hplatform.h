@@ -222,9 +222,10 @@
 
 // BYTE_ORDER
 #ifndef BYTE_ORDER
-#if defined(ARCH_X86) || defined(ARCH_X86_64) || defined(__ARMEL__)
+#if defined(ARCH_X86) || defined(ARCH_X86_64) || \
+    defined(__ARMEL__) || defined(__AARCH64EL__)
 #define BYTE_ORDER      LITTLE_ENDIAN
-#elif defined(__ARMEB__)
+#elif defined(__ARMEB__) || defined(__AARCH64EB__)
 #define BYTE_ORDER      BIG_ENDIAN
 #endif
 #endif

@@ -78,6 +78,7 @@ HV_EXPORT bool hv_exists(const char* path);
 HV_EXPORT bool hv_isdir(const char* path);
 HV_EXPORT bool hv_isfile(const char* path);
 HV_EXPORT bool hv_islink(const char* path);
+HV_EXPORT size_t hv_filesize(const char* filepath);
 
 // 1 y on yes true enable
 HV_EXPORT bool getboolean(const char* str);

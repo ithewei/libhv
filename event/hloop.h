@@ -302,18 +302,30 @@ HV_EXPORT void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_
 // Nonblocking, poll IO events in the loop to call corresponding callback.
 // hio_add(io, HV_READ) => accept => haccept_cb
 HV_EXPORT int hio_accept (hio_t* io);
+
 // connect => hio_add(io, HV_WRITE) => hconnect_cb
 HV_EXPORT int hio_connect(hio_t* io);
+
 // hio_add(io, HV_READ) => read => hread_cb
 HV_EXPORT int hio_read   (hio_t* io);
 #define hio_read_start(io) hio_read(io)
 #define hio_read_stop(io)  hio_del(io, HV_READ)
+
 // hio_read_start => hread_cb => hio_read_stop
 HV_EXPORT int hio_read_once (hio_t* io);
-HV_EXPORT int hio_read_until(hio_t* io, int len);
+// hio_read_once => hread_cb(len)
+HV_EXPORT int hio_read_until_length(hio_t* io, unsigned int len);
+// hio_read_once => hread_cb(...delim)
+HV_EXPORT int hio_read_until_delim (hio_t* io, unsigned char delim);
+#define hio_readline(io)        hio_read_until_delim(io, '\n')
+#define hio_readstring(io)      hio_read_until_delim(io, '\0')
+#define hio_readbytes(io, len)  hio_read_until_length(io, len)
+#define hio_read_until(io, len) hio_read_until_length(io, len)
+
 // NOTE: hio_write is thread-safe, locked by recursive_mutex, allow to be called by other threads.
 // hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
+
 // NOTE: hio_close is thread-safe, hio_close_async will be called actually in other thread.
 // hio_del(io, HV_RDWR) => close => hclose_cb
 HV_EXPORT int hio_close  (hio_t* io);
