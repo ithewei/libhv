@@ -360,6 +360,7 @@ int main() {
 - [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
+- [examples/tinyhttpd.c](examples/tinyhttpd.c)
 - [examples/jsonrpc](examples/jsonrpc)
 - [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
 - [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)

@@ -364,6 +364,7 @@ int main() {
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
+- TinyHttpd示例:[examples/tinyhttpd.c](examples/tinyhttpd.c)
 - jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
 - 多accept进程模式: [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
 - 多accept线程模式: [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
