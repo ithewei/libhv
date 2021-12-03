@@ -2,20 +2,7 @@
 
 #if WITH_RUDP
 
-#if WITH_KCP
-void kcp_release(kcp_t* kcp) {
-    if (kcp->ikcp == NULL) return;
-    if (kcp->update_timer) {
-        htimer_del(kcp->update_timer);
-        kcp->update_timer = NULL;
-    }
-    HV_FREE(kcp->readbuf.base);
-    kcp->readbuf.len = 0;
-    // printf("ikcp_release ikcp=%p\n", kcp->ikcp);
-    ikcp_release(kcp->ikcp);
-    kcp->ikcp = NULL;
-}
-#endif
+#include "hevent.h"
 
 void rudp_entry_free(rudp_entry_t* entry) {
 #if WITH_KCP
@@ -146,6 +133,35 @@ void rudp_del(rudp_t* rudp, struct sockaddr* addr) {
         rudp_entry_free(e);
     }
     hmutex_unlock(&rudp->mutex);
+}
+
+rudp_entry_t* hio_get_rudp(hio_t* io) {
+    rudp_entry_t* rudp = rudp_get(&io->rudp, io->peeraddr);
+    rudp->io = io;
+    return rudp;
+}
+
+static void hio_close_rudp_event_cb(hevent_t* ev) {
+    rudp_entry_t* entry = (rudp_entry_t*)ev->userdata;
+    rudp_del(&entry->io->rudp, (struct sockaddr*)&entry->addr);
+    // rudp_entry_free(entry);
+}
+
+int hio_close_rudp(hio_t* io, struct sockaddr* peeraddr) {
+    if (peeraddr == NULL) peeraddr = io->peeraddr;
+    // NOTE: do rudp_del for thread-safe
+    rudp_entry_t* entry = rudp_get(&io->rudp, peeraddr);
+    // NOTE: just rudp_remove first, do rudp_entry_free async for safe.
+    // rudp_entry_t* entry = rudp_remove(&io->rudp, peeraddr);
+    if (entry) {
+        hevent_t ev;
+        memset(&ev, 0, sizeof(ev));
+        ev.cb = hio_close_rudp_event_cb;
+        ev.userdata = entry;
+        ev.priority = HEVENT_HIGH_PRIORITY;
+        hloop_post_event(io->loop, &ev);
+    }
+    return 0;
 }
 
 #endif
