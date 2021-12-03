@@ -30,8 +30,8 @@
 #define HTTP_KEEPALIVE_TIMEOUT  60000 // ms
 #define HTTP_HEAD_MAX_LENGTH    1024
 
-#define HTML_TAG_BEGIN  "<html><body><h1>"
-#define HTML_TAG_END    "</h1></body></html>"
+#define HTML_TAG_BEGIN  "<html><body><center><h1>"
+#define HTML_TAG_END    "</h1></center></body></html>"
 
 // status_message
 #define HTTP_OK         "OK"
@@ -84,6 +84,12 @@ typedef struct {
     http_msg_t      response;
 } http_conn_t;
 
+static char s_date[32] = {0};
+static void update_date(htimer_t* timer) {
+    uint64_t now = hloop_now(hevent_loop(timer));
+    gmtime_fmt(now, s_date);
+}
+
 static int http_response_dump(http_msg_t* msg, char* buf, int len) {
     int offset = 0;
     // status line
@@ -96,11 +102,15 @@ static int http_response_dump(http_msg_t* msg, char* buf, int len) {
     if (*msg->content_type) {
         offset += snprintf(buf + offset, len - offset, "Content-Type: %s\r\n", msg->content_type);
     }
+    if (*s_date) {
+        offset += snprintf(buf + offset, len - offset, "Date: %s\r\n", s_date);
+    }
     // TODO: Add your headers
     offset += snprintf(buf + offset, len - offset, "\r\n");
     // body
     if (msg->body && msg->content_length > 0) {
-        offset += snprintf(buf + offset, len - offset, "%.*s\n", msg->content_length, msg->body);
+        memcpy(buf + offset, msg->body, msg->content_length);
+        offset += msg->content_length;
     }
     return offset;
 }
@@ -376,6 +386,8 @@ int main(int argc, char** argv) {
         return -20;
     }
     printf("listenfd=%d\n", hio_fd(listenio));
+    // NOTE: add timer to update date every 1s
+    htimer_add(loop, update_date, 1000, INFINITE);
     hloop_run(loop);
     hloop_free(&loop);
     return 0;
