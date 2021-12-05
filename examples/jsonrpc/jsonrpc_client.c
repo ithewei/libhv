@@ -12,7 +12,6 @@
 #include "hbase.h"
 #include "hsocket.h"
 
-#include "jsonrpc.h"
 #include "cJSON.h"
 
 // hloop_create_tcp_client -> on_connect -> hio_write -> hio_read -> on_recv
@@ -41,19 +40,10 @@ static void on_recv(hio_t* io, void* readbuf, int readbytes) {
                 SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     }
 
-    // unpack
-    jsonrpc_message msg;
-    memset(&msg, 0, sizeof(msg));
-    int packlen = jsonrpc_unpack(&msg, readbuf, readbytes);
-    if (packlen < 0) {
-        printf("jsonrpc_unpack failed!\n");
-        return;
-    }
-    assert(packlen == readbytes);
-
-    printf("< %.*s\n", msg.head.length, msg.body);
+    char* resp_str = (char*)readbuf;
+    printf("< %s\n", resp_str);
     // cJSON_Parse
-    cJSON* jres = cJSON_ParseWithLength(msg.body, msg.head.length);
+    cJSON* jres = cJSON_Parse(resp_str);
     cJSON* jerror = cJSON_GetObjectItem(jres, "error");
     cJSON* jresult = cJSON_GetObjectItem(jres, "result");
     // ...
@@ -80,25 +70,14 @@ static void on_connect(hio_t* io) {
     hevent_set_userdata(io, NULL);
     assert(jreq != NULL);
 
-    // cJSON_Print -> pack -> hio_write
-    jsonrpc_message msg;
-    memset(&msg, 0, sizeof(msg));
-    msg.body = cJSON_PrintUnformatted(jreq);
-    msg.head.length = strlen(msg.body);
-    printf("> %.*s\n", msg.head.length, msg.body);
-
-    // pack
-    unsigned int packlen = jsonrpc_package_length(&msg.head);
-    unsigned char* writebuf = NULL;
-    HV_ALLOC(writebuf, packlen);
-    packlen = jsonrpc_pack(&msg, writebuf, packlen);
-    if (packlen > 0) {
-        hio_write(io, writebuf, packlen);
-    }
+    // cJSON_Print -> hio_write
+    char* req_str = cJSON_PrintUnformatted(jreq);
+    printf("> %s\n", req_str);
+    // NOTE: +1 for \0
+    hio_write(io, req_str, strlen(req_str) + 1);
 
     cJSON_Delete(jreq);
-    cJSON_free((void*)msg.body);
-    HV_FREE(writebuf);
+    cJSON_free(req_str);
 }
 
 static int jsonrpc_call(hloop_t* loop, const char* host, int port, const char* method, const char* param1, const char* param2) {
@@ -142,12 +121,10 @@ int main(int argc, char** argv) {
 
     // init jsonrpc_unpack_setting
     memset(&jsonrpc_unpack_setting, 0, sizeof(unpack_setting_t));
-    jsonrpc_unpack_setting.mode = UNPACK_BY_LENGTH_FIELD;
+    jsonrpc_unpack_setting.mode = UNPACK_BY_DELIMITER;
     jsonrpc_unpack_setting.package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
-    jsonrpc_unpack_setting.body_offset = JSONRPC_HEAD_LENGTH;
-    jsonrpc_unpack_setting.length_field_offset = 1;
-    jsonrpc_unpack_setting.length_field_bytes = 4;
-    jsonrpc_unpack_setting.length_field_coding = ENCODE_BY_BIG_ENDIAN;
+    jsonrpc_unpack_setting.delimiter[0] = '\0';
+    jsonrpc_unpack_setting.delimiter_bytes = 1;
 
     hloop_t* loop = hloop_new(0);
 

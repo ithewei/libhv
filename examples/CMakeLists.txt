@@ -41,10 +41,10 @@ target_link_libraries(udp_echo_server ${HV_LIBRARIES})
 add_executable(udp_proxy_server udp_proxy_server.c)
 target_link_libraries(udp_proxy_server ${HV_LIBRARIES})
 
-add_executable(jsonrpc_client jsonrpc/jsonrpc_client.c jsonrpc/jsonrpc.c jsonrpc/cJSON.c)
+add_executable(jsonrpc_client jsonrpc/jsonrpc_client.c jsonrpc/cJSON.c)
 target_link_libraries(jsonrpc_client ${HV_LIBRARIES})
 
-add_executable(jsonrpc_server jsonrpc/jsonrpc_server.c jsonrpc/jsonrpc.c jsonrpc/cJSON.c)
+add_executable(jsonrpc_server jsonrpc/jsonrpc_server.c jsonrpc/cJSON.c)
 target_link_libraries(jsonrpc_server ${HV_LIBRARIES})
 
 if(WITH_EVPP)

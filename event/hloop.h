@@ -317,6 +317,7 @@ HV_EXPORT int hio_read_once (hio_t* io);
 HV_EXPORT int hio_read_until_length(hio_t* io, unsigned int len);
 // hio_read_once => hread_cb(...delim)
 HV_EXPORT int hio_read_until_delim (hio_t* io, unsigned char delim);
+// @see examples/tinyhttpd.c
 #define hio_readline(io)        hio_read_until_delim(io, '\n')
 #define hio_readstring(io)      hio_read_until_delim(io, '\0')
 #define hio_readbytes(io, len)  hio_read_until_length(io, len)
@@ -413,13 +414,13 @@ HV_EXPORT hio_t* hio_get_upstream(hio_t* io);
 
 // @tcp_upstream: hio_create -> hio_setup_upstream -> hio_setcb_close(hio_close_upstream) -> hconnect -> on_connect -> hio_read_upstream
 // @return upstream_io
-// @see examples/tcp_proxy_server
+// @see examples/tcp_proxy_server.c
 HV_EXPORT hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, int ssl DEFAULT(0));
 #define hio_setup_ssl_upstream(io, host, port) hio_setup_tcp_upstream(io, host, port, 1)
 
 // @udp_upstream: hio_create -> hio_setup_upstream -> hio_read_upstream
 // @return upstream_io
-// @see examples/udp_proxy_server
+// @see examples/udp_proxy_server.c
 HV_EXPORT hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port);
 
 //-----------------unpack---------------------------------------------
@@ -488,6 +489,7 @@ typedef struct unpack_setting_s {
 #endif
 } unpack_setting_t;
 
+// @see examples/jsonrpc examples/protorpc
 HV_EXPORT void hio_set_unpack(hio_t* io, unpack_setting_t* setting);
 HV_EXPORT void hio_unset_unpack(hio_t* io);
 
@@ -569,6 +571,7 @@ typedef struct kcp_setting_s {
 #endif
 } kcp_setting_t;
 
+// @see examples/udp_echo_server.c => #define TEST_KCP 1
 HV_EXPORT int hio_set_kcp(hio_t* io, kcp_setting_t* setting DEFAULT(NULL));
 #endif
 

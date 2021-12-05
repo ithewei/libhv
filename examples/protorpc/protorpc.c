@@ -11,8 +11,14 @@ int protorpc_pack(const protorpc_message* msg, void* buf, int len) {
         return -2;
     }
     unsigned char* p = (unsigned char*)buf;
-    // flags
+    *p++ = head->protocol[0];
+    *p++ = head->protocol[1];
+    *p++ = head->protocol[2];
+    *p++ = head->protocol[3];
+    *p++ = head->version;
     *p++ = head->flags;
+    *p++ = head->reserved[0];
+    *p++ = head->reserved[1];
     // hton length
     unsigned int length = head->length;
     *p++ = (length >> 24) & 0xFF;
@@ -32,8 +38,14 @@ int protorpc_unpack(protorpc_message* msg, const void* buf, int len) {
     if (len < PROTORPC_HEAD_LENGTH) return -2;
     protorpc_head* head = &(msg->head);
     const unsigned char* p = (const unsigned char*)buf;
-    // flags
+    head->protocol[0] = *p++;
+    head->protocol[1] = *p++;
+    head->protocol[2] = *p++;
+    head->protocol[3] = *p++;
+    head->version = *p++;
     head->flags = *p++;
+    head->reserved[0] = *p++;
+    head->reserved[1] = *p++;
     // ntoh length
     head->length  = ((unsigned int)*p++) << 24;
     head->length |= ((unsigned int)*p++) << 16;
