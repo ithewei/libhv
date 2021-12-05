@@ -23,7 +23,7 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
         ctx->response = resp;
         ctx->writer = writer;
         status_code = handler->ctx_handler(ctx);
-        if (writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
+        if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
             status_code = HTTP_STATUS_UNFINISHED;
         }
     }
