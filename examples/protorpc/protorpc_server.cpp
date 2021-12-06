@@ -17,6 +17,17 @@ using namespace hv;
 #include "handler/calc.h"
 #include "handler/login.h"
 
+// valgrind --leak-check=full --show-leak-kinds=all
+class ProtobufRAII {
+public:
+    ProtobufRAII() {
+    }
+    ~ProtobufRAII() {
+        google::protobuf::ShutdownProtobufLibrary();
+    }
+};
+static ProtobufRAII s_protobuf;
+
 protorpc_router router[] = {
     {"add", calc_add},
     {"sub", calc_sub},

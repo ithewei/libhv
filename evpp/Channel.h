@@ -71,7 +71,7 @@ public:
     }
 
     bool isOpened() {
-        if (io_ == NULL) return false;
+        if (io_ == NULL || status >= DISCONNECTED) return false;
         return id_ == hio_id(io_) && hio_is_opened(io_);
     }
     bool isClosed() {
@@ -135,13 +135,11 @@ public:
     uint32_t    id_;
     void*       ctx_;
     enum Status {
-        // Channel::Status
         OPENED,
-        CLOSED,
-        // SocketChannel::Status
         CONNECTING,
         CONNECTED,
         DISCONNECTED,
+        CLOSED,
     } status;
     std::function<void(Buffer*)> onread;
     std::function<void(Buffer*)> onwrite;
@@ -240,7 +238,7 @@ public:
     }
 
     bool isConnected() {
-        return isOpened() && status == CONNECTED;
+        return status == CONNECTED && isOpened();
     }
 
     std::string localaddr() {

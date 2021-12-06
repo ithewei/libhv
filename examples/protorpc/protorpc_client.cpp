@@ -19,6 +19,17 @@ using namespace hv;
 #include "generated/calc.pb.h"
 #include "generated/login.pb.h"
 
+// valgrind --leak-check=full --show-leak-kinds=all
+class ProtobufRAII {
+public:
+    ProtobufRAII() {
+    }
+    ~ProtobufRAII() {
+        google::protobuf::ShutdownProtobufLibrary();
+    }
+};
+static ProtobufRAII s_protobuf;
+
 namespace protorpc {
 typedef std::shared_ptr<protorpc::Request>  RequestPtr;
 typedef std::shared_ptr<protorpc::Response> ResponsePtr;
