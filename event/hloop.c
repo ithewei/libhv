@@ -212,7 +212,8 @@ static int hloop_create_sockpair(hloop_t* loop) {
         hloge("socketpair create failed!");
         return -1;
     }
-    hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
+    hio_t* io = hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
+    io->priority = HEVENT_HIGH_PRIORITY;
     // NOTE: Avoid duplication closesocket in hio_cleanup
     loop->sockpair[SOCKPAIR_READ_INDEX] = -1;
     ++loop->intern_nevents;
@@ -235,13 +236,14 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
         ev->event_id = hloop_next_event_id();
     }
 
+    int nsend = 0;
     hmutex_lock(&loop->custom_events_mutex);
     if (loop->sockpair[SOCKPAIR_WRITE_INDEX] == -1) {
         if (hloop_create_sockpair(loop) != 0) {
             goto unlock;
         }
     }
-    int nsend = send(loop->sockpair[SOCKPAIR_WRITE_INDEX], "e", 1, 0);
+    nsend = send(loop->sockpair[SOCKPAIR_WRITE_INDEX], "e", 1, 0);
     if (nsend != 1) {
         hloge("send failed!");
         goto unlock;
@@ -372,6 +374,7 @@ void hloop_free(hloop_t** pp) {
 int hloop_run(hloop_t* loop) {
     if (loop == NULL) return -1;
     if (loop->status == HLOOP_STATUS_RUNNING) return -2;
+
     loop->status = HLOOP_STATUS_RUNNING;
     loop->pid = hv_getpid();
     loop->tid = hv_gettid();
@@ -396,7 +399,8 @@ int hloop_run(hloop_t* loop) {
             continue;
         }
         ++loop->loop_cnt;
-        if (loop->nactives <= loop->intern_nevents && loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) {
+        if ((loop->flags & HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS) &&
+            loop->nactives <= loop->intern_nevents) {
             break;
         }
         hloop_process_events(loop);
@@ -404,6 +408,7 @@ int hloop_run(hloop_t* loop) {
             break;
         }
     }
+
     loop->status = HLOOP_STATUS_STOP;
     loop->end_hrtime = gethrtime_us();
 
@@ -465,6 +470,16 @@ uint64_t hloop_now_ms(hloop_t* loop) {
 
 uint64_t hloop_now_hrtime(hloop_t* loop) {
     return loop->start_ms * 1000 + (loop->cur_hrtime - loop->start_hrtime);
+}
+
+uint64_t hio_last_read_time(hio_t* io) {
+    hloop_t* loop = io->loop;
+    return loop->start_ms + (io->last_read_hrtime - loop->start_hrtime) / 1000;
+}
+
+uint64_t hio_last_write_time(hio_t* io) {
+    hloop_t* loop = io->loop;
+    return loop->start_ms + (io->last_write_hrtime - loop->start_hrtime) / 1000;
 }
 
 long hloop_pid(hloop_t* loop) {
@@ -723,7 +738,6 @@ int hio_close_async(hio_t* io) {
     ev.cb = hio_close_event_cb;
     ev.userdata = io;
     ev.privdata = (void*)(uintptr_t)io->id;
-    ev.priority = HEVENT_HIGH_PRIORITY;
     hloop_post_event(io->loop, &ev);
     return 0;
 }

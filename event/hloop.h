@@ -259,6 +259,8 @@ HV_EXPORT bool hio_is_opened(hio_t* io);
 HV_EXPORT bool hio_is_closed(hio_t* io);
 HV_EXPORT size_t hio_read_bufsize(hio_t* io);
 HV_EXPORT size_t hio_write_bufsize(hio_t* io);
+HV_EXPORT uint64_t hio_last_read_time(hio_t* io); // ms
+HV_EXPORT uint64_t hio_last_write_time(hio_t* io); // ms
 
 // set callbacks
 HV_EXPORT void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
@@ -286,6 +288,10 @@ HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
 // close timeout => hclose_cb
 HV_EXPORT void hio_set_close_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CLOSE_TIMEOUT));
+// read timeout => hclose_cb
+HV_EXPORT void hio_set_read_timeout(hio_t* io, int timeout_ms);
+// write timeout => hclose_cb
+HV_EXPORT void hio_set_write_timeout(hio_t* io, int timeout_ms);
 // keepalive timeout => hclose_cb
 HV_EXPORT void hio_set_keepalive_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_KEEPALIVE_TIMEOUT));
 /*

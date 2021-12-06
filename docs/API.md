@@ -438,6 +438,8 @@
 - hio_set_readbuf
 - hio_set_connect_timeout
 - hio_set_close_timeout
+- hio_set_read_timeout
+- hio_set_write_timeout
 - hio_set_keepalive_timeout
 - hio_set_heartbeat
 - hio_set_unpack

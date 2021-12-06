@@ -42,7 +42,7 @@ static void fill_io_type(hio_t* io) {
 }
 
 static void hio_socket_init(hio_t* io) {
-    if (io->io_type & HIO_TYPE_SOCK_RAW || io->io_type & HIO_TYPE_SOCK_DGRAM) {
+    if ((io->io_type & HIO_TYPE_SOCK_DGRAM) || (io->io_type & HIO_TYPE_SOCK_RAW)) {
         // NOTE: sendto multiple peeraddr cannot use io->write_queue
         blocking(io->fd);
     } else {
@@ -97,6 +97,7 @@ void hio_ready(hio_t* io) {
     io->io_type = HIO_TYPE_UNKNOWN;
     io->error = 0;
     io->events = io->revents = 0;
+    io->last_read_hrtime = io->last_write_hrtime = io->loop->cur_hrtime;
     // readbuf
     io->alloced_readbuf = 0;
     io->readbuf.base = io->loop->readbuf.base;
@@ -118,6 +119,10 @@ void hio_ready(hio_t* io) {
     io->connect_timer = NULL;
     io->close_timeout = 0;
     io->close_timer = NULL;
+    io->read_timeout = 0;
+    io->read_timer = NULL;
+    io->write_timeout = 0;
+    io->write_timer = NULL;
     io->keepalive_timeout = 0;
     io->keepalive_timer = NULL;
     io->heartbeat_interval = 0;
@@ -146,7 +151,7 @@ void hio_ready(hio_t* io) {
     }
 
 #if WITH_RUDP
-    if (io->io_type & HIO_TYPE_SOCK_RAW || io->io_type & HIO_TYPE_SOCK_DGRAM) {
+    if ((io->io_type & HIO_TYPE_SOCK_DGRAM) || (io->io_type & HIO_TYPE_SOCK_RAW)) {
         rudp_init(&io->rudp);
     }
 #endif
@@ -173,7 +178,7 @@ void hio_done(hio_t* io) {
     hrecursive_mutex_unlock(&io->write_mutex);
 
 #if WITH_RUDP
-    if (io->io_type & HIO_TYPE_SOCK_RAW || io->io_type & HIO_TYPE_SOCK_DGRAM) {
+    if ((io->io_type & HIO_TYPE_SOCK_DGRAM) || (io->io_type & HIO_TYPE_SOCK_RAW)) {
         rudp_cleanup(&io->rudp);
     }
 #endif
@@ -486,6 +491,22 @@ void hio_del_close_timer(hio_t* io) {
     }
 }
 
+void hio_del_read_timer(hio_t* io) {
+    if (io->read_timer) {
+        htimer_del(io->read_timer);
+        io->read_timer = NULL;
+        io->read_timeout = 0;
+    }
+}
+
+void hio_del_write_timer(hio_t* io) {
+    if (io->write_timer) {
+        htimer_del(io->write_timer);
+        io->write_timer = NULL;
+        io->write_timeout = 0;
+    }
+}
+
 void hio_del_keepalive_timer(hio_t* io) {
     if (io->keepalive_timer) {
         htimer_del(io->keepalive_timer);
@@ -511,9 +532,87 @@ void hio_set_close_timeout(hio_t* io, int timeout_ms) {
     io->close_timeout = timeout_ms;
 }
 
+static void __read_timeout_cb(htimer_t* timer) {
+    hio_t* io = (hio_t*)timer->privdata;
+    uint64_t inactive_ms = (io->loop->cur_hrtime - io->last_read_hrtime) / 1000;
+    if (inactive_ms + 100 < io->read_timeout) {
+        ((struct htimeout_s*)io->read_timer)->timeout = io->read_timeout - inactive_ms;
+        htimer_reset(io->read_timer);
+    } else {
+        char localaddrstr[SOCKADDR_STRLEN] = {0};
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
+        hlogw("read timeout [%s] <=> [%s]",
+                SOCKADDR_STR(io->localaddr, localaddrstr),
+                SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        io->error = ETIMEDOUT;
+        hio_close(io);
+    }
+}
+
+void hio_set_read_timeout(hio_t* io, int timeout_ms) {
+    if (timeout_ms <= 0) {
+        // del
+        hio_del_read_timer(io);
+        return;
+    }
+
+    if (io->read_timer) {
+        // reset
+        ((struct htimeout_s*)io->read_timer)->timeout = timeout_ms;
+        htimer_reset(io->read_timer);
+    } else {
+        // add
+        io->read_timer = htimer_add(io->loop, __read_timeout_cb, timeout_ms, 1);
+        io->read_timer->privdata = io;
+    }
+    io->read_timeout = timeout_ms;
+}
+
+static void __write_timeout_cb(htimer_t* timer) {
+    hio_t* io = (hio_t*)timer->privdata;
+    uint64_t inactive_ms = (io->loop->cur_hrtime - io->last_write_hrtime) / 1000;
+    if (inactive_ms + 100 < io->write_timeout) {
+        ((struct htimeout_s*)io->write_timer)->timeout = io->write_timeout - inactive_ms;
+        htimer_reset(io->write_timer);
+    } else {
+        char localaddrstr[SOCKADDR_STRLEN] = {0};
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
+        hlogw("write timeout [%s] <=> [%s]",
+                SOCKADDR_STR(io->localaddr, localaddrstr),
+                SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        io->error = ETIMEDOUT;
+        hio_close(io);
+    }
+}
+
+void hio_set_write_timeout(hio_t* io, int timeout_ms) {
+    if (timeout_ms <= 0) {
+        // del
+        hio_del_write_timer(io);
+        return;
+    }
+
+    if (io->write_timer) {
+        // reset
+        ((struct htimeout_s*)io->write_timer)->timeout = timeout_ms;
+        htimer_reset(io->write_timer);
+    } else {
+        // add
+        io->write_timer = htimer_add(io->loop, __write_timeout_cb, timeout_ms, 1);
+        io->write_timer->privdata = io;
+    }
+    io->write_timeout = timeout_ms;
+}
+
 static void __keepalive_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
-    if (io) {
+    uint64_t last_rw_hrtime = MAX(io->last_read_hrtime, io->last_write_hrtime);
+    uint64_t inactive_ms = (io->loop->cur_hrtime - last_rw_hrtime) / 1000;
+    printf("inactive_ms=%lu\n", inactive_ms);
+    if (inactive_ms + 100 < io->keepalive_timeout) {
+        ((struct htimeout_s*)io->keepalive_timer)->timeout = io->keepalive_timeout - inactive_ms;
+        htimer_reset(io->keepalive_timer);
+    } else {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
         hlogw("keepalive timeout [%s] <=> [%s]",
@@ -525,7 +624,7 @@ static void __keepalive_timeout_cb(htimer_t* timer) {
 }
 
 void hio_set_keepalive_timeout(hio_t* io, int timeout_ms) {
-    if (timeout_ms == 0) {
+    if (timeout_ms <= 0) {
         // del
         hio_del_keepalive_timer(io);
         return;
@@ -551,7 +650,7 @@ static void __heartbeat_timer_cb(htimer_t* timer) {
 }
 
 void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
-    if (interval_ms == 0) {
+    if (interval_ms <= 0) {
         // del
         hio_del_heartbeat_timer(io);
         return;

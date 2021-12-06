@@ -175,8 +175,7 @@ private:
 
 class SocketChannel : public Channel {
 public:
-    // for TcpClient
-    std::function<void()>   onconnect;
+    std::function<void()>   onconnect; // only for TcpClient
     std::function<void()>   heartbeat;
 
     SocketChannel(hio_t* io) : Channel(io) {
@@ -195,6 +194,16 @@ public:
     void setCloseTimeout(int timeout_ms) {
         if (io_ == NULL) return;
         hio_set_close_timeout(io_, timeout_ms);
+    }
+
+    void setReadTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
+        hio_set_read_timeout(io_, timeout_ms);
+    }
+
+    void setWriteTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
+        hio_set_write_timeout(io_, timeout_ms);
     }
 
     void setKeepaliveTimeout(int timeout_ms) {

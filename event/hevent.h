@@ -95,7 +95,7 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=360 on linux-x64
+// sizeof(struct hio_s)=400 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
@@ -119,6 +119,8 @@ struct hio_s {
     int         revents;
     struct sockaddr*    localaddr;
     struct sockaddr*    peeraddr;
+    uint64_t            last_read_hrtime;
+    uint64_t            last_write_hrtime;
     // read
     fifo_buf_t          readbuf;
     unsigned int        read_flags;
@@ -141,11 +143,15 @@ struct hio_s {
     // timers
     int         connect_timeout;    // ms
     int         close_timeout;      // ms
+    int         read_timeout;       // ms
+    int         write_timeout;      // ms
     int         keepalive_timeout;  // ms
     int         heartbeat_interval; // ms
     hio_send_heartbeat_fn heartbeat_fn;
     htimer_t*   connect_timer;
     htimer_t*   close_timer;
+    htimer_t*   read_timer;
+    htimer_t*   write_timer;
     htimer_t*   keepalive_timer;
     htimer_t*   heartbeat_timer;
     // upstream
@@ -198,6 +204,8 @@ void hio_close_cb(hio_t* io);
 
 void hio_del_connect_timer(hio_t* io);
 void hio_del_close_timer(hio_t* io);
+void hio_del_read_timer(hio_t* io);
+void hio_del_write_timer(hio_t* io);
 void hio_del_keepalive_timer(hio_t* io);
 void hio_del_heartbeat_timer(hio_t* io);
 
