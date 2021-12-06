@@ -6,7 +6,6 @@
 #include "hlog.h"
 
 #include "EventLoopThread.h"
-#include "Callback.h"
 #include "Channel.h"
 
 namespace hv {

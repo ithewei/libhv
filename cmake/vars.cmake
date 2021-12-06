@@ -54,7 +54,6 @@ set(CPPUTIL_HEADERS
 
 set(EVPP_HEADERS
     evpp/Buffer.h
-    evpp/Callback.h
     evpp/Channel.h
     evpp/Event.h
     evpp/EventLoop.h
