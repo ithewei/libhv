@@ -25,6 +25,10 @@ ifeq ($(WITH_HTTP), yes)
 LIBHV_HEADERS += $(HTTP_HEADERS)
 LIBHV_SRCDIRS += http
 
+ifeq ($(WITH_NGHTTP2), yes)
+LIBHV_HEADERS += $(HTTP2_HEADERS)
+endif
+
 ifeq ($(WITH_HTTP_SERVER), yes)
 LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
