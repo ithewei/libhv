@@ -19,11 +19,15 @@ public:
         fd_ = -1;
         id_ = 0;
         ctx_ = NULL;
+        status = CLOSED;
         if (io) {
             fd_ = hio_fd(io);
             id_ = hio_id(io);
             ctx_ = hio_context(io);
             hio_set_context(io, this);
+            if (hio_is_opened(io)) {
+                status = OPENED;
+            }
             if (hio_getcb_read(io) == NULL) {
                 hio_setcb_read(io_, on_read);
             }
@@ -34,7 +38,6 @@ public:
                 hio_setcb_close(io_, on_close);
             }
         }
-        status = isOpened() ? OPENED : CLOSED;
     }
 
     virtual ~Channel() {
