@@ -4,7 +4,7 @@
 
 #ifdef OS_WIN
 #include "hatomic.h"
-static hatomic_flag s_wsa_initialized = HATOMIC_FLAG_INIT;
+static hatomic_flag_t s_wsa_initialized = HATOMIC_FLAG_INIT;
 void WSAInit() {
     if (!hatomic_flag_test_and_set(&s_wsa_initialized)) {
         WSADATA wsadata;
