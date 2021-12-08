@@ -27,6 +27,12 @@
  *
  */
 
+static const char* host = "0.0.0.0";
+static int port = 8000;
+static int thread_num = 1;
+static hloop_t*  accept_loop = NULL;
+static hloop_t** worker_loops = NULL;
+
 #define HTTP_KEEPALIVE_TIMEOUT  60000 // ms
 #define HTTP_HEAD_MAX_LENGTH    1024
 
@@ -96,6 +102,7 @@ static int http_response_dump(http_msg_t* msg, char* buf, int len) {
     offset += snprintf(buf + offset, len - offset, "HTTP/%d.%d %d %s\r\n", msg->major_version, msg->minor_version, msg->status_code, msg->status_message);
     // headers
     offset += snprintf(buf + offset, len - offset, "Server: libhv/%s\r\n", hv_version());
+    offset += snprintf(buf + offset, len - offset, "Connection: %s\r\n", msg->keepalive ? "keep-alive" : "close");
     if (msg->content_length > 0) {
         offset += snprintf(buf + offset, len - offset, "Content-Length: %d\r\n", msg->content_length);
     }
@@ -129,6 +136,7 @@ static int http_reply(http_conn_t* conn,
     resp->status_code = status_code;
     if (status_message) strcpy(resp->status_message, status_message);
     if (content_type)   strcpy(resp->content_type, content_type);
+    resp->keepalive = req->keepalive;
     if (body) {
         if (body_len <= 0) body_len = strlen(body);
         resp->content_length = body_len;
@@ -192,6 +200,7 @@ static bool parse_http_request_line(http_conn_t* conn, char* buf, int len) {
     http_msg_t* req = &conn->request;
     sscanf(buf, "%s %s HTTP/%d.%d", req->method, req->path, &req->major_version, &req->minor_version);
     if (req->major_version != 1) return false;
+    if (req->minor_version == 1) req->keepalive = 1;
     // printf("%s %s HTTP/%d.%d\r\n", req->method, req->path, req->major_version, req->minor_version);
     return true;
 }
@@ -213,9 +222,7 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
     } else if (stricmp(key, "Content-Type") == 0) {
         strcpy(req->content_type, val);
     } else if (stricmp(key, "Connection") == 0) {
-        if (stricmp(val, "keep-alive") == 0) {
-            req->keepalive = 1;
-        } else {
+        if (stricmp(val, "close") == 0) {
             req->keepalive = 0;
         }
     } else {
@@ -349,12 +356,17 @@ s_end:
     }
 }
 
-static void on_accept(hio_t* io) {
-    // printf("on_accept connfd=%d\n", hio_fd(io));
+static void new_conn_event(hevent_t* ev) {
+    hloop_t* loop = ev->loop;
+    hio_t* io = (hio_t*)hevent_userdata(ev);
+    hio_attach(loop, io);
+
     /*
     char localaddrstr[SOCKADDR_STRLEN] = {0};
     char peeraddrstr[SOCKADDR_STRLEN] = {0};
-    printf("accept connfd=%d [%s] <= [%s]\n", hio_fd(io),
+    printf("tid=%ld connfd=%d [%s] <= [%s]\n",
+            (long)hv_gettid(),
+            (int)hio_fd(io),
             SOCKADDR_STR(hio_localaddr(io), localaddrstr),
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
@@ -372,23 +384,66 @@ static void on_accept(hio_t* io) {
     hio_readline(io);
 }
 
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        printf("Usage: %s port\n", argv[0]);
-        return -10;
+static hloop_t* get_next_loop() {
+    static int s_cur_index = 0;
+    if (s_cur_index == thread_num) {
+        s_cur_index = 0;
     }
-    const char* host = "0.0.0.0";
-    int port = atoi(argv[1]);
+    return worker_loops[s_cur_index++];
+}
 
-    hloop_t* loop = hloop_new(0);
+static void on_accept(hio_t* io) {
+    hio_detach(io);
+
+    hloop_t* worker_loop = get_next_loop();
+    hevent_t ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.loop = worker_loop;
+    ev.cb = new_conn_event;
+    ev.userdata = io;
+    hloop_post_event(worker_loop, &ev);
+}
+
+static HTHREAD_RETTYPE worker_thread(void* userdata) {
+    hloop_t* loop = (hloop_t*)userdata;
+    hloop_run(loop);
+    return 0;
+}
+
+static HTHREAD_RETTYPE accept_thread(void* userdata) {
+    hloop_t* loop = (hloop_t*)userdata;
     hio_t* listenio = hloop_create_tcp_server(loop, host, port, on_accept);
     if (listenio == NULL) {
-        return -20;
+        exit(1);
     }
-    printf("listenfd=%d\n", hio_fd(listenio));
+    printf("tinyhttpd listening on %s:%d, listenfd=%d, thread_num=%d\n",
+            host, port, hio_fd(listenio), thread_num);
     // NOTE: add timer to update date every 1s
     htimer_add(loop, update_date, 1000, INFINITE);
     hloop_run(loop);
-    hloop_free(&loop);
+    return 0;
+}
+
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        printf("Usage: %s port [thread_num]\n", argv[0]);
+        return -10;
+    }
+    port = atoi(argv[1]);
+    if (argc > 2) {
+        thread_num = atoi(argv[2]);
+    } else {
+        thread_num = get_ncpu();
+    }
+    if (thread_num == 0) thread_num = 1;
+
+    worker_loops = (hloop_t**)malloc(sizeof(hloop_t*) * thread_num);
+    for (int i = 0; i < thread_num; ++i) {
+        worker_loops[i] = hloop_new(HLOOP_FLAG_AUTO_FREE);
+        hthread_create(worker_thread, worker_loops[i]);
+    }
+
+    accept_loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
+    accept_thread(accept_loop);
     return 0;
 }

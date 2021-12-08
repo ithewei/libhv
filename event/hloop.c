@@ -880,6 +880,7 @@ hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e t
     io->io_type = type;
     if (side == HIO_SERVER_SIDE) {
         hio_set_localaddr(io, &addr.sa, sockaddr_len(&addr));
+        io->priority = HEVENT_HIGH_PRIORITY;
     } else {
         hio_set_peeraddr(io, &addr.sa, sockaddr_len(&addr));
     }
