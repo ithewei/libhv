@@ -30,6 +30,9 @@ HV_EXPORT const char* socket_strerror(int err);
 
 typedef int socklen_t;
 
+void WSAInit();
+void WSADeinit();
+
 HV_INLINE int blocking(int sockfd) {
     unsigned long nb = 0;
     return ioctlsocket(sockfd, FIONBIO, &nb);

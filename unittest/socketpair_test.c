@@ -3,11 +3,6 @@
 #include "hsocket.h"
 
 int main(int argc, char* argv[]) {
-#ifdef OS_WIN
-    WSADATA wsadata;
-    WSAStartup(MAKEWORD(2,2), &wsadata);
-#endif
-
     int sockfds[2];
     if (Socketpair(AF_INET, SOCK_STREAM, 0, sockfds) != 0) {
         printf("socketpair failed!\n");

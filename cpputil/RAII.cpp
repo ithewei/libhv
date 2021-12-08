@@ -28,17 +28,17 @@ static LONG UnhandledException(EXCEPTION_POINTERS *pException) {
 }
 #endif
 
+#include "hsocket.h"
 class WsaRAII {
 public:
     WsaRAII() {
-        WSADATA wsadata;
-        WSAStartup(MAKEWORD(2,2), &wsadata);
+        WSAInit();
 #ifdef ENABLE_WINDUMP
         SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)UnhandledException);
 #endif
     }
     ~WsaRAII() {
-        WSACleanup();
+        WSADeinit();
     }
 };
 static WsaRAII s_wsa;

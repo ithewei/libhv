@@ -8,11 +8,6 @@ int main(int argc, char* argv[]) {
         return -10;
     }
 
-#ifdef OS_WIN
-    WSADATA wsadata;
-    WSAStartup(MAKEWORD(2,2), &wsadata);
-#endif
-
     char* host = argv[1];
     int ping_cnt = 4;
     int ok_cnt = ping(host, ping_cnt);
