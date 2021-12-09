@@ -332,9 +332,9 @@ write:
     if (nwrite == 0) {
         goto disconnect;
     }
-    __write_cb(io, buf, nwrite);
     pbuf->offset += nwrite;
     io->write_bufsize -= nwrite;
+    __write_cb(io, buf, nwrite);
     if (nwrite == len) {
         HV_FREE(pbuf->base);
         write_queue_pop_front(&io->write_queue);
@@ -450,11 +450,8 @@ try_write:
         if (nwrite == 0) {
             goto disconnect;
         }
-        __write_cb(io, buf, nwrite);
         if (nwrite == len) {
-            //goto write_done;
-            hrecursive_mutex_unlock(&io->write_mutex);
-            return nwrite;
+            goto write_done;
         }
 enqueue:
         hio_add(io, hio_handle_events, HV_WRITE);
@@ -484,6 +481,10 @@ enqueue:
                 (unsigned int)io->write_bufsize,
                 (unsigned int)WRITE_BUFSIZE_HIGH_WATER);
         }
+    }
+write_done:
+    if (nwrite > 0) {
+        __write_cb(io, buf, nwrite);
     }
     hrecursive_mutex_unlock(&io->write_mutex);
     return nwrite;
