@@ -243,8 +243,8 @@ void* hio_context(hio_t* io) {
     return io->ctx;
 }
 
-size_t hio_read_bufsize(hio_t* io) {
-    return io->readbuf.len;
+hio_readbuf_t* hio_get_readbuf(hio_t* io) {
+    return &io->readbuf;
 }
 
 size_t hio_write_bufsize(hio_t* io) {
@@ -342,7 +342,6 @@ void hio_handle_read(hio_t* io, void* buf, int readbytes) {
                 if (io->readbuf.head == io->readbuf.tail) {
                     io->readbuf.head = io->readbuf.tail = 0;
                 }
-                io->readbuf.head = io->readbuf.tail = 0;
                 io->read_flags &= ~HIO_READ_UNTIL_LENGTH;
                 hio_read_cb(io, (void*)sp, io->read_until_length);
             }

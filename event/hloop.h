@@ -257,10 +257,13 @@ HV_EXPORT void hio_set_context(hio_t* io, void* ctx);
 HV_EXPORT void* hio_context(hio_t* io);
 HV_EXPORT bool hio_is_opened(hio_t* io);
 HV_EXPORT bool hio_is_closed(hio_t* io);
-HV_EXPORT size_t hio_read_bufsize(hio_t* io);
-HV_EXPORT size_t hio_write_bufsize(hio_t* io);
-HV_EXPORT uint64_t hio_last_read_time(hio_t* io); // ms
-HV_EXPORT uint64_t hio_last_write_time(hio_t* io); // ms
+// #include "hbuf.h"
+typedef struct fifo_buf_s hio_readbuf_t;
+HV_EXPORT hio_readbuf_t* hio_get_readbuf(hio_t* io);
+HV_EXPORT size_t   hio_write_bufsize(hio_t* io);
+#define hio_write_queue_is_empty(io) (hio_write_bufsize(io) == 0)
+HV_EXPORT uint64_t hio_last_read_time(hio_t* io);   // ms
+HV_EXPORT uint64_t hio_last_write_time(hio_t* io);  // ms
 
 // set callbacks
 HV_EXPORT void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);

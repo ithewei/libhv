@@ -460,8 +460,7 @@ enqueue:
         if (io->write_bufsize + len - nwrite > MAX_WRITE_BUFSIZE) {
             if (io->write_bufsize > MAX_WRITE_BUFSIZE) {
                 hloge("write bufsize > %u, close it!", (unsigned int)MAX_WRITE_BUFSIZE);
-                hio_close_async(io);
-                return -1;
+                goto write_error;
             }
         }
         offset_buf_t remain;
