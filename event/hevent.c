@@ -107,7 +107,7 @@ void hio_ready(hio_t* io) {
     io->read_until_length = 0;
     io->small_readbytes_cnt = 0;
     // write_queue
-    io->write_queue_bytes = 0;
+    io->write_bufsize = 0;
     // callbacks
     io->read_cb = NULL;
     io->write_cb = NULL;
@@ -248,7 +248,7 @@ size_t hio_read_bufsize(hio_t* io) {
 }
 
 size_t hio_write_bufsize(hio_t* io) {
-    return io->write_queue_bytes;
+    return io->write_bufsize;
 }
 
 haccept_cb hio_getcb_accept(hio_t* io) {
@@ -669,6 +669,11 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
 }
 
 void hio_alloc_readbuf(hio_t* io, int len) {
+    if (len > MAX_READ_BUFSIZE) {
+        hloge("read bufsize > %u, close it!", (unsigned int)MAX_READ_BUFSIZE);
+        hio_close_async(io);
+        return;
+    }
     if (hio_is_alloced_readbuf(io)) {
         io->readbuf.base = (char*)safe_realloc(io->readbuf.base, len, io->readbuf.len);
     } else {

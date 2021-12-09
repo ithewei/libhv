@@ -15,7 +15,9 @@
 
 #define HLOOP_READ_BUFSIZE          8192        // 8K
 #define READ_BUFSIZE_HIGH_WATER     65536       // 64K
-#define WRITE_QUEUE_HIGH_WATER      (1U << 23)  // 8M
+#define WRITE_BUFSIZE_HIGH_WATER    (1U << 23)  // 8M
+#define MAX_READ_BUFSIZE            (1U << 24)  // 16M
+#define MAX_WRITE_BUFSIZE           (1U << 26)  // 64M
 
 // hio_read_flags
 #define HIO_READ_ONCE           0x1
@@ -133,7 +135,7 @@ struct hio_s {
     // write
     struct write_queue  write_queue;
     hrecursive_mutex_t  write_mutex; // lock write and write_queue
-    uint32_t            write_queue_bytes;
+    uint32_t            write_bufsize;
     // callbacks
     hread_cb    read_cb;
     hwrite_cb   write_cb;

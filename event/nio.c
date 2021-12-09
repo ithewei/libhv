@@ -334,7 +334,7 @@ write:
     }
     __write_cb(io, buf, nwrite);
     pbuf->offset += nwrite;
-    io->write_queue_bytes -= nwrite;
+    io->write_bufsize -= nwrite;
     if (nwrite == len) {
         HV_FREE(pbuf->base);
         write_queue_pop_front(&io->write_queue);
@@ -460,22 +460,29 @@ enqueue:
         hio_add(io, hio_handle_events, HV_WRITE);
     }
     if (nwrite < len) {
+        if (io->write_bufsize + len - nwrite > MAX_WRITE_BUFSIZE) {
+            if (io->write_bufsize > MAX_WRITE_BUFSIZE) {
+                hloge("write bufsize > %u, close it!", (unsigned int)MAX_WRITE_BUFSIZE);
+                hio_close_async(io);
+                return -1;
+            }
+        }
         offset_buf_t remain;
-        remain.len = len;
-        remain.offset = nwrite;
+        remain.len = len - nwrite;
+        remain.offset = 0;
         // NOTE: free in nio_write
         HV_ALLOC(remain.base, remain.len);
-        memcpy(remain.base, buf, remain.len);
+        memcpy(remain.base, ((char*)buf) + nwrite, remain.len);
         if (io->write_queue.maxsize == 0) {
             write_queue_init(&io->write_queue, 4);
         }
         write_queue_push_back(&io->write_queue, &remain);
-        io->write_queue_bytes += remain.len - remain.offset;
-        if (io->write_queue_bytes > WRITE_QUEUE_HIGH_WATER) {
-            hlogw("write queue %u, total %u, over high water %u",
-                (unsigned int)(remain.len - remain.offset),
-                (unsigned int)io->write_queue_bytes,
-                (unsigned int)WRITE_QUEUE_HIGH_WATER);
+        io->write_bufsize += remain.len;
+        if (io->write_bufsize > WRITE_BUFSIZE_HIGH_WATER) {
+            hlogw("write len=%d enqueue %u, bufsize=%u over high water %u",
+                len, (unsigned int)(remain.len - remain.offset),
+                (unsigned int)io->write_bufsize,
+                (unsigned int)WRITE_BUFSIZE_HIGH_WATER);
         }
     }
     hrecursive_mutex_unlock(&io->write_mutex);
