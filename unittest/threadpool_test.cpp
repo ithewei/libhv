@@ -10,7 +10,7 @@ void print_task(int i) {
 }
 
 int main(int argc, char** argv) {
-    HThreadPool tp(4);
+    HThreadPool tp(1, 4);
     tp.start();
 
     int i = 0;

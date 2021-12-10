@@ -44,6 +44,7 @@ set(CPPUTIL_HEADERS
     cpputil/hurl.h
     cpputil/hscope.h
     cpputil/hthreadpool.h
+    cpputil/hasync.h
     cpputil/hobjectpool.h
     cpputil/ifconfig.h
     cpputil/iniparser.h

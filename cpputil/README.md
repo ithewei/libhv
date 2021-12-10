@@ -2,6 +2,7 @@
 
 ```
 .
+├── hasync.h        hv::async实现
 ├── hdir.h          目录(ls实现)
 ├── hfile.h         文件类
 ├── hobjectpool.h   对象池
