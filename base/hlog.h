@@ -63,6 +63,7 @@ typedef enum {
 
 #define DEFAULT_LOG_FILE            "libhv"
 #define DEFAULT_LOG_LEVEL           LOG_LEVEL_INFO
+#define DEFAULT_LOG_FORMAT          "%y-%m-%d %H:%M:%S.%Z %L %s"
 #define DEFAULT_LOG_REMAIN_DAYS     1
 #define DEFAULT_LOG_MAX_BUFSIZE     (1<<14)  // 16k
 #define DEFAULT_LOG_MAX_FILESIZE    (1<<24)  // 16M
@@ -85,6 +86,7 @@ HV_EXPORT void logger_set_handler(logger_t* logger, logger_handler fn);
 HV_EXPORT void logger_set_level(logger_t* logger, int level);
 // level = [VERBOSE,DEBUG,INFO,WARN,ERROR,FATAL,SILENT]
 HV_EXPORT void logger_set_level_by_str(logger_t* logger, const char* level);
+HV_EXPORT void logger_set_format(logger_t* logger, const char* format);
 HV_EXPORT void logger_set_max_bufsize(logger_t* logger, unsigned int bufsize);
 HV_EXPORT void logger_enable_color(logger_t* logger, int on);
 HV_EXPORT int  logger_print(logger_t* logger, int level, const char* fmt, ...);
@@ -110,6 +112,8 @@ HV_EXPORT void      hv_destroy_default_logger();
 #define hlog_set_file(filepath)         logger_set_file(hlog, filepath)
 #define hlog_set_level(level)           logger_set_level(hlog, level)
 #define hlog_set_level_by_str(level)    logger_set_level_by_str(hlog, level)
+#define hlog_set_handler(fn)            logger_set_handler(hlog, fn)
+#define hlog_set_format(format)         logger_set_format(hlog, format)
 #define hlog_set_max_filesize(filesize) logger_set_max_filesize(hlog, filesize)
 #define hlog_set_max_filesize_by_str(filesize) logger_set_max_filesize_by_str(hlog, filesize)
 #define hlog_set_remain_days(days)      logger_set_remain_days(hlog, days)
