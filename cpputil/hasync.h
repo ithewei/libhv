@@ -11,6 +11,7 @@ class HV_EXPORT GlobalThreadPool : public HThreadPool {
     SINGLETON_DECL(GlobalThreadPool)
 protected:
     GlobalThreadPool() : HThreadPool() {}
+    ~GlobalThreadPool() {}
 };
 
 /*

@@ -73,12 +73,15 @@ struct hevent_s {
     HEVENT_FIELDS
 };
 
+#define hevent_set_id(ev, id)           ((hevent_t*)(ev))->event_id = id
+#define hevent_set_cb(ev, cb)           ((hevent_t*)(ev))->cb = cb
 #define hevent_set_priority(ev, prio)   ((hevent_t*)(ev))->priority = prio
 #define hevent_set_userdata(ev, udata)  ((hevent_t*)(ev))->userdata = (void*)udata
 
 #define hevent_loop(ev)         (((hevent_t*)(ev))->loop)
 #define hevent_type(ev)         (((hevent_t*)(ev))->event_type)
 #define hevent_id(ev)           (((hevent_t*)(ev))->event_id)
+#define hevent_cb(ev)           (((hevent_t*)(ev))->cb)
 #define hevent_priority(ev)     (((hevent_t*)(ev))->priority)
 #define hevent_userdata(ev)     (((hevent_t*)(ev))->userdata)
 

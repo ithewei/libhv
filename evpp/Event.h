@@ -30,9 +30,9 @@ struct Event {
 struct Timer {
     htimer_t*       timer;
     TimerCallback   cb;
-    int             repeat;
+    uint32_t        repeat;
 
-    Timer(htimer_t* timer = NULL, TimerCallback cb = NULL, int repeat = INFINITE) {
+    Timer(htimer_t* timer = NULL, TimerCallback cb = NULL, uint32_t repeat = INFINITE) {
         this->timer = timer;
         this->cb = std::move(cb);
         this->repeat = repeat;
