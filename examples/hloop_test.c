@@ -89,8 +89,9 @@ int main() {
 
     // test network_logger
     htimer_add(loop, timer_write_log, 1000, INFINITE);
-    logger_set_handler(hlog, mylogger);
+    hlog_set_handler(mylogger);
     hlog_set_file("loop.log");
+    hlog_set_format(DEFAULT_LOG_FORMAT);
 #ifndef _MSC_VER
     logger_enable_color(hlog, 1);
 #endif

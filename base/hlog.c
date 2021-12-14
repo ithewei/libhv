@@ -389,6 +389,9 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
                     va_end(ap);
                 }
                     break;
+                case '%':
+                    buf[len++] = '%';
+                    break;
                 default: break;
                 }
             } else {

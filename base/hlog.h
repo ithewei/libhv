@@ -86,6 +86,21 @@ HV_EXPORT void logger_set_handler(logger_t* logger, logger_handler fn);
 HV_EXPORT void logger_set_level(logger_t* logger, int level);
 // level = [VERBOSE,DEBUG,INFO,WARN,ERROR,FATAL,SILENT]
 HV_EXPORT void logger_set_level_by_str(logger_t* logger, const char* level);
+/*
+ * format  = "%y-%m-%d %H:%M:%S.%Z %L %s"
+ * message = "2020-01-02 03:04:05.067 DEBUG message"
+ * %y year
+ * %m month
+ * %d day
+ * %H hour
+ * %M min
+ * %S sec
+ * %Z ms
+ * %l First character of level
+ * %L All characters of level
+ * %s message
+ * %% %
+ */
 HV_EXPORT void logger_set_format(logger_t* logger, const char* format);
 HV_EXPORT void logger_set_max_bufsize(logger_t* logger, unsigned int bufsize);
 HV_EXPORT void logger_enable_color(logger_t* logger, int on);
