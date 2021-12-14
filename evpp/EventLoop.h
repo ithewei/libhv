@@ -52,6 +52,7 @@ public:
         setStatus(kStopped);
     }
 
+    // stop thread-safe
     void stop() {
         if (loop_ == NULL) return;
         if (status() < kRunning) {

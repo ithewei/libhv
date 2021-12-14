@@ -33,10 +33,10 @@ public:
         channel.reset(new TSocketChannel(io));
         return channel->fd();
     }
+    // closesocket thread-safe
     void closesocket() {
         if (channel) {
-            channel->close();
-            channel = NULL;
+            channel->close(true);
         }
     }
 
@@ -63,10 +63,12 @@ public:
     void start(bool wait_threads_started = true) {
         loop_thread.start(wait_threads_started, std::bind(&UdpClientTmpl::startRecv, this));
     }
+    // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         loop_thread.stop(wait_threads_stopped);
     }
 
+    // sendto thread-safe
     int sendto(const void* data, int size, struct sockaddr* peeraddr = NULL) {
         if (channel == NULL) return -1;
         std::lock_guard<std::mutex> locker(sendto_mutex);

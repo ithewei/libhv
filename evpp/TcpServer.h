@@ -34,9 +34,10 @@ public:
         listenfd = Listen(port, host);
         return listenfd;
     }
+    // closesocket thread-safe
     void closesocket() {
         if (listenfd >= 0) {
-            ::closesocket(listenfd);
+            hio_close_async(hio_get(acceptor_thread.hloop(), listenfd));
             listenfd = -1;
         }
     }
@@ -62,6 +63,7 @@ public:
         worker_threads.start(wait_threads_started);
         acceptor_thread.start(wait_threads_started, std::bind(&TcpServerTmpl::startAccept, this));
     }
+    // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         acceptor_thread.stop(wait_threads_stopped);
         worker_threads.stop(wait_threads_stopped);
@@ -120,6 +122,7 @@ public:
         return channels.size();
     }
 
+    // broadcast thread-safe
     int broadcast(const void* data, int size) {
         return foreachChannel([data, size](const TSocketChannelPtr& channel) {
             channel->write(data, size);

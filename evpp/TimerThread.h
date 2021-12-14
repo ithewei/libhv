@@ -19,6 +19,7 @@ public:
     }
 
 public:
+    // setTimer, setTimeout, killTimer, resetTimer thread-safe
     TimerID setTimer(int timeout_ms, TimerCallback cb, uint32_t repeat = INFINITE) {
         printf("TimerThread::setTimer\n");
         TimerID timerID = ++nextTimerID;
