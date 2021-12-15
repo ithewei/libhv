@@ -60,8 +60,9 @@ static void logger_init(logger_t* logger) {
 
     logger->level = DEFAULT_LOG_LEVEL;
     logger->enable_color = 0;
-    logger->format[0] = '\0';
-    // strncpy(logger->format, DEFAULT_LOG_FORMAT, sizeof(logger->format));
+    // NOTE: format is faster 6% than snprintf
+    // logger->format[0] = '\0';
+    strncpy(logger->format, DEFAULT_LOG_FORMAT, sizeof(logger->format) - 1);
 
     logger->fp_ = NULL;
     logger->max_filesize = DEFAULT_LOG_MAX_FILESIZE;
@@ -134,7 +135,7 @@ void logger_set_level_by_str(logger_t* logger, const char* szLoglevel) {
 
 void logger_set_format(logger_t* logger, const char* format) {
     if (format) {
-        strncpy(logger->format, format, sizeof(logger->format));
+        strncpy(logger->format, format, sizeof(logger->format) - 1);
     } else {
         logger->format[0] = '\0';
     }
@@ -154,7 +155,7 @@ void logger_enable_color(logger_t* logger, int on) {
 }
 
 void logger_set_file(logger_t* logger, const char* filepath) {
-    strncpy(logger->filepath, filepath, sizeof(logger->filepath));
+    strncpy(logger->filepath, filepath, sizeof(logger->filepath) - 1);
     // remove suffix .log
     char* suffix = strrchr(logger->filepath, '.');
     if (suffix && strcmp(suffix, ".log") == 0) {
@@ -300,7 +301,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     if (level < logger->level)
         return -10;
 
-    int year,month,day,hour,min,sec,ms;
+    int year,month,day,hour,min,sec,us;
 #ifdef _WIN32
     SYSTEMTIME tm;
     GetLocalTime(&tm);
@@ -310,7 +311,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     hour     = tm.wHour;
     min      = tm.wMinute;
     sec      = tm.wSecond;
-    ms       = tm.wMilliseconds;
+    us       = tm.wMilliseconds * 1000;
 #else
     struct timeval tv;
     struct tm* tm = NULL;
@@ -323,7 +324,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     hour     = tm->tm_hour;
     min      = tm->tm_min;
     sec      = tm->tm_sec;
-    ms       = tv.tv_usec/1000;
+    us       = tv.tv_usec;
 #endif
 
     const char* pcolor = "";
@@ -370,8 +371,11 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
                 case 'S':
                     len += i2a(sec, buf + len, 2);
                     break;
+                case 'z':
+                    len += i2a(us/1000, buf + len, 3);
+                    break;
                 case 'Z':
-                    len += i2a(ms, buf + len, 3);
+                    len += i2a(us, buf + len, 6);
                     break;
                 case 'l':
                     buf[len++] = *plevel;
@@ -401,7 +405,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
         }
     } else {
         len += snprintf(buf + len, bufsize - len, "%04d-%02d-%02d %02d:%02d:%02d.%03d %s ",
-            year, month, day, hour, min, sec, ms,
+            year, month, day, hour, min, sec, us/1000,
             plevel);
 
         va_list ap;

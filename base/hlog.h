@@ -63,7 +63,7 @@ typedef enum {
 
 #define DEFAULT_LOG_FILE            "libhv"
 #define DEFAULT_LOG_LEVEL           LOG_LEVEL_INFO
-#define DEFAULT_LOG_FORMAT          "%y-%m-%d %H:%M:%S.%Z %L %s"
+#define DEFAULT_LOG_FORMAT          "%y-%m-%d %H:%M:%S.%z %L %s"
 #define DEFAULT_LOG_REMAIN_DAYS     1
 #define DEFAULT_LOG_MAX_BUFSIZE     (1<<14)  // 16k
 #define DEFAULT_LOG_MAX_FILESIZE    (1<<24)  // 16M
@@ -87,7 +87,7 @@ HV_EXPORT void logger_set_level(logger_t* logger, int level);
 // level = [VERBOSE,DEBUG,INFO,WARN,ERROR,FATAL,SILENT]
 HV_EXPORT void logger_set_level_by_str(logger_t* logger, const char* level);
 /*
- * format  = "%y-%m-%d %H:%M:%S.%Z %L %s"
+ * format  = "%y-%m-%d %H:%M:%S.%z %L %s"
  * message = "2020-01-02 03:04:05.067 DEBUG message"
  * %y year
  * %m month
@@ -95,7 +95,8 @@ HV_EXPORT void logger_set_level_by_str(logger_t* logger, const char* level);
  * %H hour
  * %M min
  * %S sec
- * %Z ms
+ * %z ms
+ * %Z us
  * %l First character of level
  * %L All characters of level
  * %s message
