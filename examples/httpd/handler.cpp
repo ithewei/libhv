@@ -136,30 +136,36 @@ int Handler::largeFileHandler(const HttpContextPtr& ctx) {
     return HTTP_STATUS_UNFINISHED;
 }
 
-int Handler::sleep(const HttpContextPtr& ctx) {
-    ctx->set("start_ms", gettimeofday_ms());
-    std::string strTime = ctx->param("t", "1000");
+int Handler::sleep(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
+    writer->WriteHeader("X-Response-tid", hv_gettid());
+    unsigned long long start_ms = gettimeofday_ms();
+    writer->response->Set("start_ms", start_ms);
+    std::string strTime = req->GetParam("t", "1000");
     if (!strTime.empty()) {
         int ms = atoi(strTime.c_str());
         if (ms > 0) {
             hv_delay(ms);
         }
     }
-    ctx->set("end_ms", gettimeofday_ms());
-    response_status(ctx, 0, "OK");
+    unsigned long long end_ms = gettimeofday_ms();
+    writer->response->Set("end_ms", end_ms);
+    writer->response->Set("cost_ms", end_ms - start_ms);
+    response_status(writer, 0, "OK");
     return 200;
 }
 
 int Handler::setTimeout(const HttpContextPtr& ctx) {
-    ctx->set("start_ms", gettimeofday_ms());
+    unsigned long long start_ms = gettimeofday_ms();
+    ctx->set("start_ms", start_ms);
     std::string strTime = ctx->param("t", "1000");
     if (!strTime.empty()) {
         int ms = atoi(strTime.c_str());
         if (ms > 0) {
-            hv::setTimeout(ms, [ctx](hv::TimerID timerID){
-                ctx->set("end_ms", gettimeofday_ms());
+            hv::setTimeout(ms, [ctx, start_ms](hv::TimerID timerID){
+                unsigned long long end_ms = gettimeofday_ms();
+                ctx->set("end_ms", end_ms);
+                ctx->set("cost_ms", end_ms - start_ms);
                 response_status(ctx, 0, "OK");
-                ctx->send();
             });
         }
     }

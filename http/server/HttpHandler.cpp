@@ -3,6 +3,7 @@
 #include "hbase.h"
 #include "herr.h"
 #include "hlog.h"
+#include "hasync.h" // import hv::async for http_async_handler
 #include "http_page.h"
 
 int HttpHandler::customHttpHandler(const http_handler& handler) {
@@ -14,7 +15,7 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
     if (handler->sync_handler) {
         status_code = handler->sync_handler(req.get(), resp.get());
     } else if (handler->async_handler) {
-        handler->async_handler(req, writer);
+        hv::async(std::bind(handler->async_handler, req, writer));
         status_code = HTTP_STATUS_UNFINISHED;
     } else if (handler->ctx_handler) {
         HttpContextPtr ctx(new hv::HttpContext);

@@ -67,13 +67,11 @@ void Router::Register(hv::HttpService& router) {
 
     // curl -v http://ip:port/async
     router.GET("/async", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
-        writer->WriteHeader("X-Request-tid", hv_gettid());
-        hv::async([req, writer](){
-            writer->WriteHeader("X-Response-tid", hv_gettid());
-            writer->WriteHeader("Content-Type", "text/plain");
-            writer->WriteBody("This is an async response.\n");
-            writer->End();
-        });
+        writer->Begin();
+        writer->WriteHeader("X-Response-tid", hv_gettid());
+        writer->WriteHeader("Content-Type", "text/plain");
+        writer->WriteBody("This is an async response.\n");
+        writer->End();
     });
 
     // curl -v http://ip:port/www.*
