@@ -46,6 +46,7 @@ public:
     // @brief Run loop forever
     void run() {
         if (loop_ == NULL) return;
+        if (status() == kRunning) return;
         ThreadLocalStorage::set(ThreadLocalStorage::EVENT_LOOP, this);
         setStatus(kRunning);
         hloop_run(loop_);
