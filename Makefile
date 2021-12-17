@@ -45,7 +45,7 @@ endif
 default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
-	nc nmap tinyhttpd httpd curl wget wrk consul \
+	nc nmap tinyhttpd tinyproxyd httpd curl wget wrk consul \
 	tcp_echo_server \
 	tcp_chat_server \
 	tcp_proxy_server \
@@ -117,6 +117,9 @@ nc: prepare
 
 tinyhttpd: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/tinyhttpd.c"
+
+tinyproxyd: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/tinyproxyd.c"
 
 nmap: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil examples/nmap" DEFINES="PRINT_DEBUG"

@@ -416,7 +416,13 @@ int hio_read (hio_t* io) {
         hloge("hio_read called but fd[%d] already closed!", io->fd);
         return -1;
     }
-    return hio_add(io, hio_handle_events, HV_READ);
+    hio_add(io, hio_handle_events, HV_READ);
+    if (io->readbuf.tail > io->readbuf.head &&
+        io->unpack_setting == NULL &&
+        io->read_flags == 0) {
+        hio_read_remain(io);
+    }
+    return 0;
 }
 
 int hio_write (hio_t* io, const void* buf, size_t len) {

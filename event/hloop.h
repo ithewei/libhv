@@ -329,7 +329,8 @@ HV_EXPORT int hio_read_once (hio_t* io);
 HV_EXPORT int hio_read_until_length(hio_t* io, unsigned int len);
 // hio_read_once => hread_cb(...delim)
 HV_EXPORT int hio_read_until_delim (hio_t* io, unsigned char delim);
-// @see examples/tinyhttpd.c
+HV_EXPORT int hio_read_remain(hio_t* io);
+// @see examples/tinyhttpd.c examples/tinyproxyd.c
 #define hio_readline(io)        hio_read_until_delim(io, '\n')
 #define hio_readstring(io)      hio_read_until_delim(io, '\0')
 #define hio_readbytes(io, len)  hio_read_until_length(io, len)

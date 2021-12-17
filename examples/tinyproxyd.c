@@ -1,15 +1,15 @@
 /*
- * tinyhttpd tiny http server
+ * tinyproxyd       tiny http proxy server
  *
- * @build    make examples
+ * @build           make examples
  *
- * @server   bin/tinyhttpd 8000
+ * @http_server     bin/tinyhttpd  8000
+ * @proxy_server    bin/tinyproxyd 1080
  *
- * @client   bin/curl -v http://127.0.0.1:8000/
- *           bin/curl -v http://127.0.0.1:8000/ping
- *           bin/curl -v http://127.0.0.1:8000/echo -d "hello,world!"
- *
- * @webbench bin/wrk  http://127.0.0.1:8000/ping
+ * @proxy_client    bin/curl -v www.httpbin.org/get --http-proxy 127.0.0.1:1080
+ *                  bin/curl -v www.httpbin.org/post -d hello --http-proxy 127.0.0.1:1080
+ *                      curl -v www.httpbin.org/get --proxy http://127.0.0.1:1080
+ *                      curl -v www.httpbin.org/post -d hello --proxy http://127.0.0.1:1080
  *
  */
 
@@ -21,14 +21,19 @@
  * hloop_new -> hloop_create_tcp_server -> hloop_run ->
  * on_accept -> HV_ALLOC(http_conn_t) -> hio_readline ->
  * on_recv -> parse_http_request_line -> hio_readline ->
- * on_recv -> parse_http_head -> ...  -> hio_readbytes(content_length) ->
- * on_recv -> on_request -> http_reply-> hio_write -> hio_close ->
+ * on_recv -> parse_http_head -> ...  -> hio_readline ->
+ * on_head_end -> hio_setup_upstream ->
+ * on_upstream_connect -> hio_write_upstream(head) ->
+ * on_body -> hio_write_upstream(body) ->
+ * on_upstream_close -> hio_close ->
  * on_close -> HV_FREE(http_conn_t)
  *
  */
 
-static const char* host = "0.0.0.0";
-static int port = 8000;
+static char proxy_host[64] = "0.0.0.0";
+static int  proxy_port = 1080;
+static int  proxy_ssl = 0;
+
 static int thread_num = 1;
 static hloop_t*  accept_loop = NULL;
 static hloop_t** worker_loops = NULL;
@@ -36,18 +41,6 @@ static hloop_t** worker_loops = NULL;
 #define HTTP_KEEPALIVE_TIMEOUT  60000 // ms
 #define HTTP_MAX_URL_LENGTH     256
 #define HTTP_MAX_HEAD_LENGTH    1024
-
-#define HTML_TAG_BEGIN  "<html><body><center><h1>"
-#define HTML_TAG_END    "</h1></center></body></html>"
-
-// status_message
-#define HTTP_OK         "OK"
-#define NOT_FOUND       "Not Found"
-#define NOT_IMPLEMENTED "Not Implemented"
-
-// Content-Type
-#define TEXT_PLAIN      "text/plain"
-#define TEXT_HTML       "text/html"
 
 typedef enum {
     s_begin,
@@ -81,8 +74,8 @@ typedef struct {
     int         content_length;
     char        content_type[64];
     unsigned    keepalive:  1;
-//  char        head[HTTP_MAX_HEAD_LENGTH];
-//  int         head_len;
+    char        head[HTTP_MAX_HEAD_LENGTH];
+    int         head_len;
     // body
     char*       body;
     int         body_len; // body_len = content_length
@@ -92,21 +85,20 @@ typedef struct {
     hio_t*          io;
     http_state_e    state;
     http_msg_t      request;
-    http_msg_t      response;
+//  http_msg_t      response;
 } http_conn_t;
 
-static char s_date[32] = {0};
-static void update_date(htimer_t* timer) {
-    uint64_t now = hloop_now(hevent_loop(timer));
-    gmtime_fmt(now, s_date);
-}
-
-static int http_response_dump(http_msg_t* msg, char* buf, int len) {
+static int http_request_dump(http_conn_t* conn, char* buf, int len) {
+    http_msg_t* msg = &conn->request;
     int offset = 0;
-    // status line
-    offset += snprintf(buf + offset, len - offset, "HTTP/%d.%d %d %s\r\n", msg->major_version, msg->minor_version, msg->status_code, msg->status_message);
+    // request line
+    const char* pos = strstr(msg->path, "://");
+    pos = pos ? pos + 3 : msg->path;
+    const char* path = strchr(pos, '/');
+    if (path == NULL) path = "/";
+    offset += snprintf(buf + offset, len - offset, "%s %s HTTP/%d.%d\r\n", msg->method, path, msg->major_version, msg->minor_version);
     // headers
-    offset += snprintf(buf + offset, len - offset, "Server: libhv/%s\r\n", hv_version());
+    /*
     offset += snprintf(buf + offset, len - offset, "Connection: %s\r\n", msg->keepalive ? "keep-alive" : "close");
     if (msg->content_length > 0) {
         offset += snprintf(buf + offset, len - offset, "Content-Length: %d\r\n", msg->content_length);
@@ -114,9 +106,14 @@ static int http_response_dump(http_msg_t* msg, char* buf, int len) {
     if (*msg->content_type) {
         offset += snprintf(buf + offset, len - offset, "Content-Type: %s\r\n", msg->content_type);
     }
-    if (*s_date) {
-        offset += snprintf(buf + offset, len - offset, "Date: %s\r\n", s_date);
+    */
+    if (msg->head_len) {
+        memcpy(buf + offset, msg->head, msg->head_len);
+        offset += msg->head_len;
     }
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
+    SOCKADDR_STR(hio_peeraddr(conn->io), peeraddrstr);
+    offset += snprintf(buf + offset, len - offset, "X-Origin-IP: %s\r\n", peeraddrstr);
     // TODO: Add your headers
     offset += snprintf(buf + offset, len - offset, "\r\n");
     // body
@@ -125,79 +122,6 @@ static int http_response_dump(http_msg_t* msg, char* buf, int len) {
         offset += msg->content_length;
     }
     return offset;
-}
-
-static int http_reply(http_conn_t* conn,
-            int status_code, const char* status_message,
-            const char* content_type,
-            const char* body, int body_len) {
-    char stackbuf[HTTP_MAX_HEAD_LENGTH + 1024] = {0};
-    char* buf = stackbuf;
-    int buflen = sizeof(stackbuf);
-    http_msg_t* req  = &conn->request;
-    http_msg_t* resp = &conn->response;
-    resp->major_version = req->major_version;
-    resp->minor_version = req->minor_version;
-    resp->status_code = status_code;
-    if (status_message) strncpy(resp->status_message, status_message, sizeof(req->status_message) - 1);
-    if (content_type)   strncpy(resp->content_type, content_type, sizeof(req->content_type) - 1);
-    resp->keepalive = req->keepalive;
-    if (body) {
-        if (body_len <= 0) body_len = strlen(body);
-        resp->content_length = body_len;
-        resp->body = (char*)body;
-    }
-    if (resp->content_length > buflen - HTTP_MAX_HEAD_LENGTH) {
-        HV_ALLOC(buf, HTTP_MAX_HEAD_LENGTH + resp->content_length);
-    }
-    int msglen = http_response_dump(resp, buf, buflen);
-    int nwrite = hio_write(conn->io, buf, msglen);
-    if (buf != stackbuf) HV_FREE(buf);
-    return nwrite < 0 ? nwrite : msglen;
-}
-
-static int http_serve_file(http_conn_t* conn) {
-    http_msg_t* req = &conn->request;
-    http_msg_t* resp = &conn->response;
-    // GET / HTTP/1.1\r\n
-    const char* filepath = req->path + 1;
-    // homepage
-    if (*filepath == '\0') {
-        filepath = "index.html";
-    }
-    FILE* fp = fopen(filepath, "rb");
-    if (!fp) {
-        http_reply(conn, 404, NOT_FOUND, TEXT_HTML, HTML_TAG_BEGIN NOT_FOUND HTML_TAG_END, 0);
-        return 404;
-    }
-    char buf[4096] = {0};
-    // send head
-    size_t filesize = hv_filesize(filepath);
-    resp->content_length = filesize;
-    const char* suffix = hv_suffixname(filepath);
-    const char* content_type = NULL;
-    if (strcmp(suffix, "html") == 0) {
-        content_type = TEXT_HTML;
-    } else {
-        // TODO: set content_type by suffix
-    }
-    int nwrite = http_reply(conn, 200, "OK", content_type, NULL, 0);
-    if (nwrite < 0) return nwrite; // disconnected
-    // send file
-    int nread = 0;
-    while (1) {
-        nread = fread(buf, 1, sizeof(buf), fp);
-        if (nread <= 0) break;
-        nwrite = hio_write(conn->io, buf, nread);
-        if (nwrite < 0) return nwrite; // disconnected
-        if (nwrite == 0) {
-            // send too fast or peer recv too slow
-            // WARN: too large file should control sending rate, just delay a while in the demo!
-            hv_delay(10);
-        }
-    }
-    fclose(fp);
-    return 200;
 }
 
 static bool parse_http_request_line(http_conn_t* conn, char* buf, int len) {
@@ -222,45 +146,92 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
     // trim space
     while (*val == ' ') ++val;
     // printf("%s: %s\r\n", key, val);
-    if (stricmp(key, "Content-Length") == 0) {
+    if (stricmp(key, "Host") == 0) {
+        strncpy(req->host, val, sizeof(req->host) - 1);
+    } else if (stricmp(key, "Content-Length") == 0) {
         req->content_length = atoi(val);
     } else if (stricmp(key, "Content-Type") == 0) {
         strncpy(req->content_type, val, sizeof(req->content_type) - 1);
-    } else if (stricmp(key, "Connection") == 0) {
+    } else if (stricmp(key, "Proxy-Connection") == 0) {
         if (stricmp(val, "close") == 0) {
             req->keepalive = 0;
         }
-    } else {
-        // TODO: save other head
     }
     return true;
 }
 
-static int on_request(http_conn_t* conn) {
+static void on_upstream_connect(hio_t* upstream_io) {
+    // printf("on_upstream_connect\n");
+    http_conn_t* conn = (http_conn_t*)hevent_userdata(upstream_io);
     http_msg_t* req = &conn->request;
-    // TODO: router
-    if (strcmp(req->method, "GET") == 0) {
-        // GET /ping HTTP/1.1\r\n
-        if (strcmp(req->path, "/ping") == 0) {
-            http_reply(conn, 200, "OK", TEXT_PLAIN, "pong", 4);
-            return 200;
-        } else {
-            // TODO: Add handler for your path
-        }
-        return http_serve_file(conn);
-    } else if (strcmp(req->method, "POST") == 0) {
-        // POST /echo HTTP/1.1\r\n
-        if (strcmp(req->path, "/echo") == 0) {
-            http_reply(conn, 200, "OK", req->content_type, req->body, req->content_length);
-            return 200;
-        } else {
-            // TODO: Add handler for your path
-        }
+    // send head
+    char stackbuf[HTTP_MAX_HEAD_LENGTH + 1024] = {0};
+    char* buf = stackbuf;
+    int buflen = sizeof(stackbuf);
+    int msglen = http_request_dump(conn, buf, buflen);
+    hio_write(upstream_io, buf, msglen);
+    if (conn->state != s_end) {
+        // start recv body then upstream
+        hio_read_start(conn->io);
     } else {
-        // TODO: handle other method
+        if (req->keepalive) {
+            // Connection: keep-alive\r\n
+            // reset and receive next request
+            memset(&conn->request,  0, sizeof(http_msg_t));
+            // memset(&conn->response, 0, sizeof(http_msg_t));
+            conn->state = s_first_line;
+            hio_readline(conn->io);
+        }
     }
-    http_reply(conn, 501, NOT_IMPLEMENTED, TEXT_HTML, HTML_TAG_BEGIN NOT_IMPLEMENTED HTML_TAG_END, 0);
-    return 501;
+    // start recv response
+    hio_read_start(upstream_io);
+}
+
+static int on_head_end(http_conn_t* conn) {
+    http_msg_t* req = &conn->request;
+    if (req->host[0] == '\0') {
+        fprintf(stderr, "No Host header!\n");
+        return -1;
+    }
+    char backend_host[64] = {0};
+    strcpy(backend_host, req->host);
+    int backend_port = 80;
+    int backend_ssl = strncmp(req->path, "https", 5) == 0 ? 1 : 0;
+    char* pos = strchr(backend_host, ':');
+    if (pos) {
+        *pos = '\0';
+        backend_port = atoi(pos + 1);
+    }
+    // printf("upstream %s:%d\n", backend_host, backend_port);
+    if (backend_port == proxy_port &&
+        (strcmp(backend_host, proxy_host) == 0 ||
+         strcmp(backend_host, "localhost") == 0 ||
+         strcmp(backend_host, "127.0.0.1") == 0)) {
+        fprintf(stderr, "Cound not to upstream proxy server itself!\n");
+        return -2;
+    }
+    hloop_t* loop = hevent_loop(conn->io);
+    // hio_t* upstream_io = hio_setup_tcp_upstream(conn->io, backend_host, backend_port, backend_ssl);
+    hio_t* upstream_io = hio_create_socket(loop, backend_host, backend_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (upstream_io == NULL) {
+        fprintf(stderr, "Failed to upstream %s:%d!\n", backend_host, backend_port);
+        return -3;
+    }
+    if (backend_ssl) {
+        hio_enable_ssl(upstream_io);
+    }
+    hevent_set_userdata(upstream_io, conn);
+    hio_setup_upstream(conn->io, upstream_io);
+    hio_setcb_read(upstream_io, hio_write_upstream);
+    hio_setcb_close(upstream_io, hio_close_upstream);
+    hio_setcb_connect(upstream_io, on_upstream_connect);
+    hio_connect(upstream_io);
+    return 0;
+}
+
+static int on_body(http_conn_t* conn, void* buf, int readbytes) {
+    hio_write_upstream(conn->io, buf, readbytes);
+    return 0;
 }
 
 static void on_close(hio_t* io) {
@@ -270,6 +241,7 @@ static void on_close(hio_t* io) {
         HV_FREE(conn);
         hevent_set_userdata(io, NULL);
     }
+    hio_close_upstream(io);
 }
 
 static void on_recv(hio_t* io, void* buf, int readbytes) {
@@ -309,6 +281,13 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
         if (readbytes == 2 && str[0] == '\r' && str[1] == '\n') {
             conn->state = s_head_end;
         } else {
+            // NOTE: save head
+            if (strnicmp(str, "Proxy-", 6) != 0) {
+                if (req->head_len + readbytes < HTTP_MAX_HEAD_LENGTH) {
+                    memcpy(req->head + req->head_len, buf, readbytes);
+                    req->head_len += readbytes;
+                }
+            }
             str[readbytes - 2] = '\0';
             if (parse_http_head(conn, str, readbytes - 2) == false) {
                 fprintf(stderr, "Failed to parse http head:\n%s\n", str);
@@ -320,42 +299,45 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
         }
     case s_head_end:
         // printf("s_head_end\n");
+        if (on_head_end(conn) < 0) {
+            hio_close(io);
+            return;
+        }
         if (req->content_length == 0) {
             conn->state = s_end;
-            goto s_end;
         } else {
-            // start read body
             conn->state = s_body;
-            // WARN: too large content_length should read multiple times!
-            hio_readbytes(io, req->content_length);
+            // NOTE: start read body on_upstream_connect
+            // hio_read_start(io);
             break;
         }
     case s_body:
         // printf("s_body\n");
+        if (on_body(conn, buf, readbytes) < 0) {
+            hio_close(io);
+            return;
+        }
         req->body = str;
         req->body_len += readbytes;
-        if (req->body_len == req->content_length) {
+        if (readbytes == req->content_length) {
             conn->state = s_end;
         } else {
-            // WARN: too large content_length should be handled by streaming!
+            // Not end
             break;
         }
     case s_end:
-s_end:
         // printf("s_end\n");
-        // received complete request
-        on_request(conn);
-        if (hio_is_closed(io)) return;
         if (req->keepalive) {
             // Connection: keep-alive\r\n
             // reset and receive next request
             memset(&conn->request,  0, sizeof(http_msg_t));
-            memset(&conn->response, 0, sizeof(http_msg_t));
+            // memset(&conn->response, 0, sizeof(http_msg_t));
             conn->state = s_first_line;
             hio_readline(io);
         } else {
             // Connection: close\r\n
-            hio_close(io);
+            // NOTE: wait upstream close!
+            // hio_close(io);
         }
         break;
     default: break;
@@ -418,26 +400,27 @@ static HTHREAD_RETTYPE worker_thread(void* userdata) {
 
 static HTHREAD_RETTYPE accept_thread(void* userdata) {
     hloop_t* loop = (hloop_t*)userdata;
-    hio_t* listenio = hloop_create_tcp_server(loop, host, port, on_accept);
+    hio_t* listenio = hloop_create_tcp_server(loop, proxy_host, proxy_port, on_accept);
     if (listenio == NULL) {
         exit(1);
     }
-    printf("tinyhttpd listening on %s:%d, listenfd=%d, thread_num=%d\n",
-            host, port, hio_fd(listenio), thread_num);
-    // NOTE: add timer to update date every 1s
-    htimer_add(loop, update_date, 1000, INFINITE);
+    if (proxy_ssl) {
+        hio_enable_ssl(listenio);
+    }
+    printf("tinyproxyd listening on %s:%d, listenfd=%d, thread_num=%d\n",
+            proxy_host, proxy_port, hio_fd(listenio), thread_num);
     hloop_run(loop);
     return 0;
 }
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: %s port [thread_num]\n", argv[0]);
+        printf("Usage: %s proxy_port [thread_num]\n", argv[0]);
         return -10;
     }
-    port = atoi(argv[1]);
+    proxy_port = atoi(argv[1]);
     if (argc > 2) {
-        thread_num = atoi(argv[2]);
+        thread_num = atoi(argv[3]);
     } else {
         thread_num = get_ncpu();
     }

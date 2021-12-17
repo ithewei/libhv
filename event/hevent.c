@@ -747,6 +747,16 @@ int hio_read_until_delim(hio_t* io, unsigned char delim) {
     return hio_read_once(io);
 }
 
+int hio_read_remain(hio_t* io) {
+    int remain = io->readbuf.tail - io->readbuf.head;
+    if (remain > 0) {
+        void* buf = io->readbuf.base + io->readbuf.head;
+        io->readbuf.head = io->readbuf.tail = 0;
+        hio_read_cb(io, buf, remain);
+    }
+    return remain;
+}
+
 //-----------------unpack---------------------------------------------
 void hio_set_unpack(hio_t* io, unpack_setting_t* setting) {
     hio_unset_unpack(io);
@@ -814,8 +824,6 @@ void hio_close_upstream(hio_t* io) {
 void hio_setup_upstream(hio_t* io1, hio_t* io2) {
     io1->upstream_io = io2;
     io2->upstream_io = io1;
-    hio_setcb_read(io1, hio_write_upstream);
-    hio_setcb_read(io2, hio_write_upstream);
 }
 
 hio_t* hio_get_upstream(hio_t* io) {
@@ -827,9 +835,12 @@ hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, int ssl) {
     if (upstream_io == NULL) return NULL;
     if (ssl) hio_enable_ssl(upstream_io);
     hio_setup_upstream(io, upstream_io);
+    hio_setcb_read(io, hio_write_upstream);
+    hio_setcb_read(upstream_io, hio_write_upstream);
     hio_setcb_close(io, hio_close_upstream);
     hio_setcb_close(upstream_io, hio_close_upstream);
-    hconnect(io->loop, upstream_io->fd, hio_read_upstream);
+    hio_setcb_connect(upstream_io, hio_read_upstream);
+    hio_connect(upstream_io);
     return upstream_io;
 }
 
@@ -837,7 +848,8 @@ hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port) {
     hio_t* upstream_io = hio_create_socket(io->loop, host, port, HIO_TYPE_UDP, HIO_CLIENT_SIDE);
     if (upstream_io == NULL) return NULL;
     hio_setup_upstream(io, upstream_io);
+    hio_setcb_read(io, hio_write_upstream);
+    hio_setcb_read(upstream_io, hio_write_upstream);
     hio_read_upstream(io);
     return upstream_io;
 }
-

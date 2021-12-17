@@ -3,6 +3,7 @@ list(APPEND EXAMPLES
     htimer_test
     nc
     tinyhttpd
+    tinyproxyd
     tcp_echo_server
     tcp_chat_server
     tcp_proxy_server
@@ -25,6 +26,9 @@ target_link_libraries(nc ${HV_LIBRARIES})
 
 add_executable(tinyhttpd tinyhttpd.c)
 target_link_libraries(tinyhttpd ${HV_LIBRARIES})
+
+add_executable(tinyproxyd tinyproxyd.c)
+target_link_libraries(tinyproxyd ${HV_LIBRARIES})
 
 add_executable(tcp_echo_server tcp_echo_server.c)
 target_link_libraries(tcp_echo_server ${HV_LIBRARIES})
