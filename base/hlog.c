@@ -330,7 +330,13 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
 
     va_list ap;
     va_start(ap, fmt);
+
+    const char* file_name = va_arg(ap, char*);
+    unsigned int line_number = va_arg(ap, unsigned int);
+    const char* func_name = va_arg(ap, char*);
+
     len += vsnprintf(buf + len, bufsize - len, fmt, ap);
+    len += snprintf(buf + len, bufsize - len, "[%s:%d:%s]\n", file_name, line_number, func_name);
     va_end(ap);
 
     if (logger->enable_color) {
