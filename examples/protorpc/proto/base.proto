@@ -15,6 +15,6 @@ message Request {
 
 message Response {
     uint64  id      = 1;
-    optional bytes  result  = 2;
-    optional Error  error   = 3;
+    bytes   result  = 2;
+    Error   error   = 3;
 }

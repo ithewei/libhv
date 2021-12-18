@@ -20,9 +20,8 @@ int hio_unpack(hio_t* io, void* buf, int readbytes) {
 }
 
 int hio_unpack_by_fixed_length(hio_t* io, void* buf, int readbytes) {
-    const unsigned char* sp = (const unsigned char*)io->readbuf.base;
-    assert(buf == sp + io->readbuf.offset);
-    const unsigned char* ep = sp + io->readbuf.offset + readbytes;
+    const unsigned char* sp = (const unsigned char*)io->readbuf.base + io->readbuf.head;
+    const unsigned char* ep = (const unsigned char*)buf + readbytes;
     unpack_setting_t* setting = io->unpack_setting;
 
     int fixed_length = setting->fixed_length;
@@ -38,7 +37,8 @@ int hio_unpack_by_fixed_length(hio_t* io, void* buf, int readbytes) {
         remain -= fixed_length;
     }
 
-    io->readbuf.offset = remain;
+    io->readbuf.head = 0;
+    io->readbuf.tail = remain;
     if (remain) {
         // [p, p+remain] => [base, base+remain]
         if (p != (unsigned char*)io->readbuf.base) {
@@ -50,16 +50,14 @@ int hio_unpack_by_fixed_length(hio_t* io, void* buf, int readbytes) {
 }
 
 int hio_unpack_by_delimiter(hio_t* io, void* buf, int readbytes) {
-    const unsigned char* sp = (const unsigned char*)io->readbuf.base;
-    assert(buf == sp + io->readbuf.offset);
-    const unsigned char* ep = sp + io->readbuf.offset + readbytes;
+    const unsigned char* sp = (const unsigned char*)io->readbuf.base + io->readbuf.head;
+    const unsigned char* ep = (const unsigned char*)buf + readbytes;
     unpack_setting_t* setting = io->unpack_setting;
 
     unsigned char* delimiter = setting->delimiter;
     int delimiter_bytes = setting->delimiter_bytes;
 
-    // [offset - package_eof_bytes + 1, offset + readbytes]
-    const unsigned char* p = sp + io->readbuf.offset - delimiter_bytes + 1;
+    const unsigned char* p = (const unsigned char*)buf - delimiter_bytes + 1;
     if (p < sp) p = sp;
     int remain = ep - p;
     int handled = 0;
@@ -83,21 +81,22 @@ not_match:
     }
 
     remain = ep - sp;
-    io->readbuf.offset = remain;
+    io->readbuf.head = 0;
+    io->readbuf.tail = remain;
     if (remain) {
         // [sp, sp+remain] => [base, base+remain]
         if (sp != (unsigned char*)io->readbuf.base) {
             memmove(io->readbuf.base, sp, remain);
         }
-        if (io->readbuf.offset == io->readbuf.len) {
+        if (io->readbuf.tail == io->readbuf.len) {
             if (io->readbuf.len >= setting->package_max_length) {
                 hloge("recv package over %d bytes!", (int)setting->package_max_length);
                 io->error = ERR_OVER_LIMIT;
                 hio_close(io);
                 return -1;
             }
-            io->readbuf.len = MIN(io->readbuf.len * 2, setting->package_max_length);
-            io->readbuf.base = (char*)safe_realloc(io->readbuf.base, io->readbuf.len, io->readbuf.offset);
+            int newsize = MIN(io->readbuf.len * 2, setting->package_max_length);
+            hio_alloc_readbuf(io, newsize);
         }
     }
 
@@ -105,9 +104,8 @@ not_match:
 }
 
 int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
-    const unsigned char* sp = (const unsigned char*)io->readbuf.base;
-    assert(buf == sp + io->readbuf.offset);
-    const unsigned char* ep = sp + io->readbuf.offset + readbytes;
+    const unsigned char* sp = (const unsigned char*)io->readbuf.base + io->readbuf.head;
+    const unsigned char* ep = (const unsigned char*)buf + readbytes;
     unpack_setting_t* setting = io->unpack_setting;
 
     const unsigned char* p = sp;
@@ -153,7 +151,8 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
         }
     }
 
-    io->readbuf.offset = remain;
+    io->readbuf.head = 0;
+    io->readbuf.tail = remain;
     if (remain) {
         // [p, p+remain] => [base, base+remain]
         if (p != (unsigned char*)io->readbuf.base) {
@@ -166,9 +165,8 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
                 hio_close(io);
                 return -1;
             }
-            io->readbuf.len *= 2;
-            io->readbuf.len = LIMIT(package_len, io->readbuf.len, setting->package_max_length);
-            io->readbuf.base = (char*)safe_realloc(io->readbuf.base, io->readbuf.len, io->readbuf.offset);
+            int newsize = LIMIT(package_len, io->readbuf.len * 2, setting->package_max_length);
+            hio_alloc_readbuf(io, newsize);
         }
     }
 

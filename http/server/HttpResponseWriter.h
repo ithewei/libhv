@@ -159,7 +159,7 @@ public:
 
         state = SEND_END;
         if (!response->IsKeepAlive()) {
-            close();
+            close(true);
         }
         return ret;
     }

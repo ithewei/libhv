@@ -73,12 +73,15 @@ struct hevent_s {
     HEVENT_FIELDS
 };
 
+#define hevent_set_id(ev, id)           ((hevent_t*)(ev))->event_id = id
+#define hevent_set_cb(ev, cb)           ((hevent_t*)(ev))->cb = cb
 #define hevent_set_priority(ev, prio)   ((hevent_t*)(ev))->priority = prio
 #define hevent_set_userdata(ev, udata)  ((hevent_t*)(ev))->userdata = (void*)udata
 
 #define hevent_loop(ev)         (((hevent_t*)(ev))->loop)
 #define hevent_type(ev)         (((hevent_t*)(ev))->event_type)
 #define hevent_id(ev)           (((hevent_t*)(ev))->event_id)
+#define hevent_cb(ev)           (((hevent_t*)(ev))->cb)
 #define hevent_priority(ev)     (((hevent_t*)(ev))->priority)
 #define hevent_userdata(ev)     (((hevent_t*)(ev))->userdata)
 
@@ -257,8 +260,13 @@ HV_EXPORT void hio_set_context(hio_t* io, void* ctx);
 HV_EXPORT void* hio_context(hio_t* io);
 HV_EXPORT bool hio_is_opened(hio_t* io);
 HV_EXPORT bool hio_is_closed(hio_t* io);
-HV_EXPORT size_t hio_read_bufsize(hio_t* io);
-HV_EXPORT size_t hio_write_bufsize(hio_t* io);
+// #include "hbuf.h"
+typedef struct fifo_buf_s hio_readbuf_t;
+HV_EXPORT hio_readbuf_t* hio_get_readbuf(hio_t* io);
+HV_EXPORT size_t   hio_write_bufsize(hio_t* io);
+#define hio_write_queue_is_empty(io) (hio_write_bufsize(io) == 0)
+HV_EXPORT uint64_t hio_last_read_time(hio_t* io);   // ms
+HV_EXPORT uint64_t hio_last_write_time(hio_t* io);  // ms
 
 // set callbacks
 HV_EXPORT void hio_setcb_accept   (hio_t* io, haccept_cb  accept_cb);
@@ -286,6 +294,10 @@ HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
 // close timeout => hclose_cb
 HV_EXPORT void hio_set_close_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CLOSE_TIMEOUT));
+// read timeout => hclose_cb
+HV_EXPORT void hio_set_read_timeout(hio_t* io, int timeout_ms);
+// write timeout => hclose_cb
+HV_EXPORT void hio_set_write_timeout(hio_t* io, int timeout_ms);
 // keepalive timeout => hclose_cb
 HV_EXPORT void hio_set_keepalive_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_KEEPALIVE_TIMEOUT));
 /*
@@ -302,18 +314,32 @@ HV_EXPORT void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_
 // Nonblocking, poll IO events in the loop to call corresponding callback.
 // hio_add(io, HV_READ) => accept => haccept_cb
 HV_EXPORT int hio_accept (hio_t* io);
+
 // connect => hio_add(io, HV_WRITE) => hconnect_cb
 HV_EXPORT int hio_connect(hio_t* io);
+
 // hio_add(io, HV_READ) => read => hread_cb
 HV_EXPORT int hio_read   (hio_t* io);
 #define hio_read_start(io) hio_read(io)
 #define hio_read_stop(io)  hio_del(io, HV_READ)
+
 // hio_read_start => hread_cb => hio_read_stop
 HV_EXPORT int hio_read_once (hio_t* io);
-HV_EXPORT int hio_read_until(hio_t* io, int len);
+// hio_read_once => hread_cb(len)
+HV_EXPORT int hio_read_until_length(hio_t* io, unsigned int len);
+// hio_read_once => hread_cb(...delim)
+HV_EXPORT int hio_read_until_delim (hio_t* io, unsigned char delim);
+HV_EXPORT int hio_read_remain(hio_t* io);
+// @see examples/tinyhttpd.c examples/tinyproxyd.c
+#define hio_readline(io)        hio_read_until_delim(io, '\n')
+#define hio_readstring(io)      hio_read_until_delim(io, '\0')
+#define hio_readbytes(io, len)  hio_read_until_length(io, len)
+#define hio_read_until(io, len) hio_read_until_length(io, len)
+
 // NOTE: hio_write is thread-safe, locked by recursive_mutex, allow to be called by other threads.
 // hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
+
 // NOTE: hio_close is thread-safe, hio_close_async will be called actually in other thread.
 // hio_del(io, HV_RDWR) => close => hclose_cb
 HV_EXPORT int hio_close  (hio_t* io);
@@ -401,13 +427,13 @@ HV_EXPORT hio_t* hio_get_upstream(hio_t* io);
 
 // @tcp_upstream: hio_create -> hio_setup_upstream -> hio_setcb_close(hio_close_upstream) -> hconnect -> on_connect -> hio_read_upstream
 // @return upstream_io
-// @see examples/tcp_proxy_server
+// @see examples/tcp_proxy_server.c
 HV_EXPORT hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, int ssl DEFAULT(0));
 #define hio_setup_ssl_upstream(io, host, port) hio_setup_tcp_upstream(io, host, port, 1)
 
 // @udp_upstream: hio_create -> hio_setup_upstream -> hio_read_upstream
 // @return upstream_io
-// @see examples/udp_proxy_server
+// @see examples/udp_proxy_server.c
 HV_EXPORT hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port);
 
 //-----------------unpack---------------------------------------------
@@ -476,6 +502,7 @@ typedef struct unpack_setting_s {
 #endif
 } unpack_setting_t;
 
+// @see examples/jsonrpc examples/protorpc
 HV_EXPORT void hio_set_unpack(hio_t* io, unpack_setting_t* setting);
 HV_EXPORT void hio_unset_unpack(hio_t* io);
 
@@ -557,6 +584,7 @@ typedef struct kcp_setting_s {
 #endif
 } kcp_setting_t;
 
+// @see examples/udp_echo_server.c => #define TEST_KCP 1
 HV_EXPORT int hio_set_kcp(hio_t* io, kcp_setting_t* setting DEFAULT(NULL));
 #endif
 

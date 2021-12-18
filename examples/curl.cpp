@@ -82,10 +82,10 @@ Examples:
 )";
 
 static void print_usage() {
-    printf("Usage: curl [%s] [METHOD] url [header_field:header_value] [body_key=body_value]\n", options);
+    fprintf(stderr, "Usage: curl [%s] [METHOD] url [header_field:header_value] [body_key=body_value]\n", options);
 }
 static void print_version() {
-    printf("curl version 1.0.0\n");
+    fprintf(stderr, "curl version 1.0.0\n");
 }
 static void print_help() {
     print_usage();
@@ -127,7 +127,7 @@ int parse_cmdline(int argc, char* argv[]) {
     }
 
     if (optind == argc) {
-        printf("Missing url\n");
+        fprintf(stderr, "Missing url\n");
         print_usage();
         exit(-1);
     }
@@ -245,7 +245,7 @@ int main(int argc, char* argv[]) {
                 ++p;
             }
             if (key_len && value_len) {
-                // printf("key=%.*s value=%.*s\n", key_len, key, value_len, value);
+                // fprintf(stderr, "key=%.*s value=%.*s\n", key_len, key, value_len, value);
                 FormData data;
                 if (*value == '@') {
                     data.filename = std::string(value+1, value_len-1);
@@ -294,10 +294,12 @@ int main(int argc, char* argv[]) {
     HttpResponse res;
     /*
     res.head_cb = [](const http_headers& headers){
-        for (auto& header : headers) {
-            printf("%s: %s\r\n", header.first.c_str(), header.second.c_str());
+        if (verbose) {
+            for (auto& header : headers) {
+                fprintf(stderr, "%s: %s\r\n", header.first.c_str(), header.second.c_str());
+            }
+            fprintf(stderr, "\r\n");
         }
-        printf("\r\n");
     };
     res.body_cb = [](const char* data, size_t size){
         printf("%.*s", (int)size, data);
@@ -313,7 +315,7 @@ int main(int argc, char* argv[]) {
         hv::StringList ss = hv::split(http_proxy, ':');
         const char* host = ss[0].c_str();
         int port = ss.size() == 2 ? hv::from_string<int>(ss[1]) : DEFAULT_HTTP_PORT;
-        printf("* http_proxy=%s:%d\n", host, port);
+        fprintf(stderr, "* http_proxy=%s:%d\n", host, port);
         http_client_set_http_proxy(cli, host, port);
     }
     // https_proxy
@@ -321,37 +323,35 @@ int main(int argc, char* argv[]) {
         hv::StringList ss = hv::split(https_proxy, ':');
         const char* host = ss[0].c_str();
         int port = ss.size() == 2 ? hv::from_string<int>(ss[1]) : DEFAULT_HTTPS_PORT;
-        printf("* https_proxy=%s:%d\n", host, port);
+        fprintf(stderr, "* https_proxy=%s:%d\n", host, port);
         http_client_set_https_proxy(cli, host, port);
     }
     // no_proxy
     if (no_proxy) {
         hv::StringList ss = hv::split(no_proxy, ',');
-        printf("* no_proxy=");
+        fprintf(stderr, "* no_proxy=");
         for (const auto& s : ss) {
-            printf("%s,", s.c_str());
+            fprintf(stderr, "%s,", s.c_str());
             http_client_add_no_proxy(cli, s.c_str());
         }
-        printf("\n");
+        fprintf(stderr, "\n");
     }
 
 send:
     if (verbose) {
-        printf("%s\n", req.Dump(true,true).c_str());
+        fprintf(stderr, "%s\n", req.Dump(true, true).c_str());
     }
     ret = http_client_send(cli, &req, &res);
     if (ret != 0) {
-        printf("* Failed:%s:%d\n", http_client_strerror(ret), ret);
+        fprintf(stderr, "* Failed:%s:%d\n", http_client_strerror(ret), ret);
     } else {
         if (verbose) {
-            printf("%s\n", res.Dump(true,true).c_str());
+            fprintf(stderr, "%s", res.Dump(true, false).c_str());
         }
-        else {
-            printf("%s\n", res.body.c_str());
-        }
+        printf("%s", res.body.c_str());
     }
     if (--send_count > 0) {
-        printf("send again later...%d\n", send_count);
+        fprintf(stderr, "send again later...%d\n", send_count);
 #ifdef _WIN32
         Sleep(3*1000);
 #else

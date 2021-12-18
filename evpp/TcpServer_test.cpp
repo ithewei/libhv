@@ -16,6 +16,8 @@ int main(int argc, char* argv[]) {
     }
     int port = atoi(argv[1]);
 
+    hlog_set_level(LOG_LEVEL_DEBUG);
+
     TcpServer srv;
     int listenfd = srv.createsocket(port);
     if (listenfd < 0) {
@@ -38,6 +40,8 @@ int main(int argc, char* argv[]) {
     srv.setThreadNum(4);
     srv.start();
 
-    while (1) hv_sleep(1);
+    // press Enter to stop
+    while (getchar() != '\n');
+
     return 0;
 }

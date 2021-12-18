@@ -22,10 +22,10 @@ jobs:
           sudo apt install libssl-dev
           sudo apt install nginx
 
-      - name: make httpd wrk
+      - name: make tinyhttpd httpd wrk
         run: |
           ./configure
-          make httpd wrk
+          make tinyhttpd httpd wrk
 
       - name: build echo-servers
         run: |
@@ -38,9 +38,17 @@ jobs:
       - name: webbench
         run: |
           sudo nginx -c /etc/nginx/nginx.conf
+          sudo cp html/index.html index.html
           sudo cp html/index.html /var/www/html/index.html
           bin/httpd -c etc/httpd.conf -d
           ps aux | grep nginx
           ps aux | grep httpd
+          bin/tinyhttpd 9090 &
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/
+          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/
+          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/404
+          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/404
+          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/404
+          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/ping
+          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/ping

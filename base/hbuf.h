@@ -28,15 +28,37 @@ typedef struct offset_buf_s {
 #ifdef __cplusplus
     offset_buf_s() {
         base = NULL;
-        len = offset = 0;
+        len = 0;
+        offset = 0;
     }
 
     offset_buf_s(void* data, size_t len) {
         this->base = (char*)data;
         this->len = len;
+        offset = 0;
     }
 #endif
 } offset_buf_t;
+
+typedef struct fifo_buf_s {
+    char*  base;
+    size_t len;
+    size_t head;
+    size_t tail;
+#ifdef __cplusplus
+    fifo_buf_s() {
+        base = NULL;
+        len = 0;
+        head = tail = 0;
+    }
+
+    fifo_buf_s(void* data, size_t len) {
+        this->base = (char*)data;
+        this->len = len;
+        head = tail = 0;
+    }
+#endif
+} fifo_buf_t;
 
 #ifdef __cplusplus
 class HBuf : public hbuf_t {

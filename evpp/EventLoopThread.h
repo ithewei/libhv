@@ -60,6 +60,7 @@ public:
     }
 
     // @param wait_thread_started: if ture this method will block until loop_thread stopped.
+    // stop thread-safe
     void stop(bool wait_thread_stopped = false) {
         if (status() < kStarting || status() >= kStopping) return;
         setStatus(kStopping);

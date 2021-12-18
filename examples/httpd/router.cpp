@@ -1,10 +1,9 @@
 #include "router.h"
 
-#include <future> // import std::async
-
 #include "handler.h"
 #include "hthread.h"
-#include "requests.h"
+#include "hasync.h"     // import hv::async
+#include "requests.h"   // import requests::async
 
 void Router::Register(hv::HttpService& router) {
     // preprocessor => Handler => postprocessor
@@ -68,13 +67,11 @@ void Router::Register(hv::HttpService& router) {
 
     // curl -v http://ip:port/async
     router.GET("/async", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
-        writer->WriteHeader("X-Request-tid", hv_gettid());
-        std::async([req, writer](){
-            writer->WriteHeader("X-Response-tid", hv_gettid());
-            writer->WriteHeader("Content-Type", "text/plain");
-            writer->WriteBody("This is an async response.\n");
-            writer->End();
-        });
+        writer->Begin();
+        writer->WriteHeader("X-Response-tid", hv_gettid());
+        writer->WriteHeader("Content-Type", "text/plain");
+        writer->WriteBody("This is an async response.\n");
+        writer->End();
     });
 
     // curl -v http://ip:port/www.*

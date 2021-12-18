@@ -303,8 +303,10 @@ void HttpMessage::FillContentLength() {
         DumpBody();
         content_length = body.size();
     }
-    if (iter == headers.end() && content_length != 0 && !IsChunked()) {
-        headers["Content-Length"] = hv::to_string(content_length);
+    if (iter == headers.end() && !IsChunked()) {
+        if (content_length != 0 || type == HTTP_RESPONSE) {
+            headers["Content-Length"] = hv::to_string(content_length);
+        }
     }
 }
 

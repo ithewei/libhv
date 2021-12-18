@@ -6,7 +6,6 @@
 #include "hlog.h"
 
 #include "EventLoopThread.h"
-#include "Callback.h"
 #include "Channel.h"
 
 namespace hv {
@@ -81,10 +80,11 @@ public:
         channel.reset(new TSocketChannel(io));
         return connfd;
     }
+    // closesocket thread-safe
     void closesocket() {
+        enable_reconnect = false;
         if (channel) {
-            channel->close();
-            channel = NULL;
+            channel->close(true);
         }
     }
 
@@ -157,6 +157,7 @@ public:
     void start(bool wait_threads_started = true) {
         loop_thread.start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
     }
+    // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         enable_reconnect = false;
         loop_thread.stop(wait_threads_stopped);
@@ -167,6 +168,7 @@ public:
         return channel->isConnected();
     }
 
+    // send thread-safe
     int send(const void* data, int size) {
         if (!isConnected()) return -1;
         return channel->write(data, size);

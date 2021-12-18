@@ -19,6 +19,17 @@ using namespace hv;
 #include "generated/calc.pb.h"
 #include "generated/login.pb.h"
 
+// valgrind --leak-check=full --show-leak-kinds=all
+class ProtobufRAII {
+public:
+    ProtobufRAII() {
+    }
+    ~ProtobufRAII() {
+        google::protobuf::ShutdownProtobufLibrary();
+    }
+};
+static ProtobufRAII s_protobuf;
+
 namespace protorpc {
 typedef std::shared_ptr<protorpc::Request>  RequestPtr;
 typedef std::shared_ptr<protorpc::Response> ResponsePtr;
@@ -71,8 +82,8 @@ public:
         protorpc_unpack_setting.mode = UNPACK_BY_LENGTH_FIELD;
         protorpc_unpack_setting.package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
         protorpc_unpack_setting.body_offset = PROTORPC_HEAD_LENGTH;
-        protorpc_unpack_setting.length_field_offset = 1;
-        protorpc_unpack_setting.length_field_bytes = 4;
+        protorpc_unpack_setting.length_field_offset = PROTORPC_HEAD_LENGTH_FIELD_OFFSET;
+        protorpc_unpack_setting.length_field_bytes = PROTORPC_HEAD_LENGTH_FIELD_BYTES;
         protorpc_unpack_setting.length_field_coding = ENCODE_BY_BIG_ENDIAN;
         setUnpack(&protorpc_unpack_setting);
 
@@ -97,6 +108,10 @@ public:
                 return;
             }
             assert(packlen == buf->size());
+            if (protorpc_head_check(&msg.head) != 0) {
+                printf("protorpc_head_check failed!\n");
+                return;
+            }
             // Response::ParseFromArray
             protorpc::ResponsePtr res(new protorpc::Response);
             if (!res->ParseFromArray(msg.body, msg.head.length)) {
@@ -134,8 +149,8 @@ public:
         calls[req->id()] = protorpc::ContextPtr(ctx);
         // Request::SerializeToArray + protorpc_pack
         protorpc_message msg;
-        memset(&msg, 0, sizeof(msg));
-        msg.head.length = req->ByteSizeLong();
+        protorpc_message_init(&msg);
+        msg.head.length = req->ByteSize();
         int packlen = protorpc_package_length(&msg.head);
         unsigned char* writebuf = NULL;
         HV_ALLOC(writebuf, packlen);
@@ -175,7 +190,7 @@ public:
 
         if (res == NULL) return kRpcTimeout;
         if (res->has_error()) return kRpcError;
-        if (!res->has_result()) return kRpcNoResult;
+        if (res->result().empty()) return kRpcNoResult;
         protorpc::CalcResult result;
         if (!result.ParseFromString(res->result())) return kRpcParseError;
         out = result.num();
@@ -193,7 +208,7 @@ public:
 
         if (res == NULL) return kRpcTimeout;
         if (res->has_error()) return kRpcError;
-        if (!res->has_result()) return kRpcNoResult;
+        if (res->result().empty()) return kRpcNoResult;
         if (!result->ParseFromString(res->result())) return kRpcParseError;
         return kRpcSuccess;
     }

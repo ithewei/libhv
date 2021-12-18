@@ -15,7 +15,14 @@
 
 #define HLOOP_READ_BUFSIZE          8192        // 8K
 #define READ_BUFSIZE_HIGH_WATER     65536       // 64K
-#define WRITE_QUEUE_HIGH_WATER      (1U << 23)  // 8M
+#define WRITE_BUFSIZE_HIGH_WATER    (1U << 23)  // 8M
+#define MAX_READ_BUFSIZE            (1U << 24)  // 16M
+#define MAX_WRITE_BUFSIZE           (1U << 26)  // 64M
+
+// hio_read_flags
+#define HIO_READ_ONCE           0x1
+#define HIO_READ_UNTIL_LENGTH   0x2
+#define HIO_READ_UNTIL_DELIM    0x4
 
 ARRAY_DECL(hio_t*, io_array);
 QUEUE_DECL(hevent_t, event_queue);
@@ -90,7 +97,7 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=344 on linux-x64
+// sizeof(struct hio_s)=400 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
@@ -104,8 +111,7 @@ struct hio_s {
     unsigned    recvfrom    :1;
     unsigned    sendto      :1;
     unsigned    close       :1;
-    unsigned    read_once   :1;     // for hio_read_once
-    unsigned    alloced_readbuf :1; // for hio_read_until, hio_set_unpack
+    unsigned    alloced_readbuf :1; // for hio_alloc_readbuf
 // public:
     hio_type_e  io_type;
     uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
@@ -115,12 +121,21 @@ struct hio_s {
     int         revents;
     struct sockaddr*    localaddr;
     struct sockaddr*    peeraddr;
-    offset_buf_t        readbuf;        // for read
-    int                 read_until;     // for hio_read_until
+    uint64_t            last_read_hrtime;
+    uint64_t            last_write_hrtime;
+    // read
+    fifo_buf_t          readbuf;
+    unsigned int        read_flags;
+    // for hio_read_until
+    union {
+        unsigned int    read_until_length;
+        unsigned char   read_until_delim;
+    };
     uint32_t            small_readbytes_cnt; // for readbuf autosize
-    struct write_queue  write_queue;    // for write
-    hrecursive_mutex_t  write_mutex;    // lock write and write_queue
-    uint32_t            write_queue_bytes;
+    // write
+    struct write_queue  write_queue;
+    hrecursive_mutex_t  write_mutex; // lock write and write_queue
+    uint32_t            write_bufsize;
     // callbacks
     hread_cb    read_cb;
     hwrite_cb   write_cb;
@@ -130,11 +145,15 @@ struct hio_s {
     // timers
     int         connect_timeout;    // ms
     int         close_timeout;      // ms
+    int         read_timeout;       // ms
+    int         write_timeout;      // ms
     int         keepalive_timeout;  // ms
     int         heartbeat_interval; // ms
     hio_send_heartbeat_fn heartbeat_fn;
     htimer_t*   connect_timer;
     htimer_t*   close_timer;
+    htimer_t*   read_timer;
+    htimer_t*   write_timer;
     htimer_t*   keepalive_timer;
     htimer_t*   heartbeat_timer;
     // upstream
@@ -180,12 +199,15 @@ uint32_t hio_next_id();
 
 void hio_accept_cb(hio_t* io);
 void hio_connect_cb(hio_t* io);
+void hio_handle_read(hio_t* io, void* buf, int readbytes);
 void hio_read_cb(hio_t* io, void* buf, int len);
 void hio_write_cb(hio_t* io, const void* buf, int len);
 void hio_close_cb(hio_t* io);
 
 void hio_del_connect_timer(hio_t* io);
 void hio_del_close_timer(hio_t* io);
+void hio_del_read_timer(hio_t* io);
+void hio_del_write_timer(hio_t* io);
 void hio_del_keepalive_timer(hio_t* io);
 void hio_del_heartbeat_timer(hio_t* io);
 
@@ -197,15 +219,6 @@ static inline bool hio_is_alloced_readbuf(hio_t* io) {
 }
 void hio_alloc_readbuf(hio_t* io, int len);
 void hio_free_readbuf(hio_t* io);
-
-#if WITH_RUDP
-rudp_entry_t* hio_get_rudp(hio_t* io);
-#if WITH_KCP
-kcp_t*  hio_get_kcp(hio_t* io, uint32_t conv);
-int     hio_write_kcp(hio_t* io, const void* buf, size_t len);
-int     hio_read_kcp (hio_t* io, void* buf, int readbytes);
-#endif
-#endif
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)

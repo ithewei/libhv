@@ -272,6 +272,13 @@ bool hv_islink(const char* path) {
 #endif
 }
 
+size_t hv_filesize(const char* filepath) {
+    struct stat st;
+    memset(&st, 0, sizeof(st));
+    stat(filepath, &st);
+    return st.st_size;
+}
+
 bool getboolean(const char* str) {
     if (str == NULL) return false;
     int len = strlen(str);

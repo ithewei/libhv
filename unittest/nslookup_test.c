@@ -11,12 +11,6 @@ int main(int argc, char* argv[]) {
 
     const char* domain = argv[1];
     const char* nameserver = "127.0.1.1";
-
-#ifdef OS_WIN
-    WSADATA wsadata;
-    WSAStartup(MAKEWORD(2,2), &wsadata);
-#endif
-
 #ifndef OS_LINUX
     nameserver = "114.114.114.114";
     // nameserver = "8.8.8.8";

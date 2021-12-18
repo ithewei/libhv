@@ -4,20 +4,22 @@
 #include "hsocket.h"
 
 #include "EventLoopThreadPool.h"
-#include "Callback.h"
 #include "Channel.h"
 
 namespace hv {
 
-class UdpServer {
+template<class TSocketChannel = SocketChannel>
+class UdpServerTmpl {
 public:
-    UdpServer() {
+    typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
+
+    UdpServerTmpl() {
 #if WITH_KCP
         enable_kcp = false;
 #endif
     }
 
-    virtual ~UdpServer() {
+    virtual ~UdpServerTmpl() {
     }
 
     const EventLoopPtr& loop() {
@@ -28,13 +30,13 @@ public:
     int createsocket(int port, const char* host = "0.0.0.0") {
         hio_t* io = hloop_create_udp_server(loop_thread.hloop(), host, port);
         if (io == NULL) return -1;
-        channel.reset(new SocketChannel(io));
+        channel.reset(new TSocketChannel(io));
         return channel->fd();
     }
+    // closesocket thread-safe
     void closesocket() {
         if (channel) {
-            channel->close();
-            channel = NULL;
+            channel->close(true);
         }
     }
 
@@ -59,12 +61,14 @@ public:
     }
 
     void start(bool wait_threads_started = true) {
-        loop_thread.start(wait_threads_started, std::bind(&UdpServer::startRecv, this));
+        loop_thread.start(wait_threads_started, std::bind(&UdpServerTmpl::startRecv, this));
     }
+    // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         loop_thread.stop(wait_threads_stopped);
     }
 
+    // sendto thread-safe
     int sendto(const void* data, int size, struct sockaddr* peeraddr = NULL) {
         if (channel == NULL) return -1;
         std::lock_guard<std::mutex> locker(sendto_mutex);
@@ -79,19 +83,21 @@ public:
     }
 
 public:
-    SocketChannelPtr        channel;
+    TSocketChannelPtr       channel;
 #if WITH_KCP
     bool                    enable_kcp;
     kcp_setting_t           kcp_setting;
 #endif
     // Callback
-    MessageCallback         onMessage;
-    WriteCompleteCallback   onWriteComplete;
+    std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
+    std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
 private:
     std::mutex              sendto_mutex;
     EventLoopThread         loop_thread;
 };
+
+typedef UdpServerTmpl<SocketChannel> UdpServer;
 
 }
 

@@ -17,6 +17,17 @@ using namespace hv;
 #include "handler/calc.h"
 #include "handler/login.h"
 
+// valgrind --leak-check=full --show-leak-kinds=all
+class ProtobufRAII {
+public:
+    ProtobufRAII() {
+    }
+    ~ProtobufRAII() {
+        google::protobuf::ShutdownProtobufLibrary();
+    }
+};
+static ProtobufRAII s_protobuf;
+
 protorpc_router router[] = {
     {"add", calc_add},
     {"sub", calc_sub},
@@ -45,8 +56,8 @@ public:
         protorpc_unpack_setting.mode = UNPACK_BY_LENGTH_FIELD;
         protorpc_unpack_setting.package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
         protorpc_unpack_setting.body_offset = PROTORPC_HEAD_LENGTH;
-        protorpc_unpack_setting.length_field_offset = 1;
-        protorpc_unpack_setting.length_field_bytes = 4;
+        protorpc_unpack_setting.length_field_offset = PROTORPC_HEAD_LENGTH_FIELD_OFFSET;
+        protorpc_unpack_setting.length_field_bytes = PROTORPC_HEAD_LENGTH_FIELD_BYTES;
         protorpc_unpack_setting.length_field_coding = ENCODE_BY_BIG_ENDIAN;
         setUnpack(&protorpc_unpack_setting);
     }
@@ -65,6 +76,10 @@ private:
             return;
         }
         assert(packlen == buf->size());
+        if (protorpc_head_check(&msg.head) != 0) {
+            printf("protorpc_head_check failed!\n");
+            return;
+        }
 
         // Request::ParseFromArray
         protorpc::Request req;
@@ -90,8 +105,8 @@ private:
         }
 
         // Response::SerializeToArray + protorpc_pack
-        memset(&msg, 0, sizeof(msg));
-        msg.head.length = res.ByteSizeLong();
+        protorpc_message_init(&msg);
+        msg.head.length = res.ByteSize();
         packlen = protorpc_package_length(&msg.head);
         unsigned char* writebuf = NULL;
         HV_ALLOC(writebuf, packlen);

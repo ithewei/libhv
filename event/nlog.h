@@ -20,7 +20,7 @@ void timer_write_log(htimer_t* timer) {
 
 int main() {
     hloop_t* loop = hloop_new(0);
-    hlog_set_logger(network_logger);
+    hlog_set_handler(network_logger);
     nlog_listen(loop, DEFAULT_LOG_PORT);
     htimer_add(loop, timer_write_log, 1000, INFINITE);
     hloop_run(loop);

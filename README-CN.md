@@ -172,6 +172,14 @@ int main() {
 }
 ```
 
+**注意**:
+
+以上示例只是简单的`echo`服务，TCP是流式协议，实际应用中请务必添加边界进行拆包。<br>
+文本协议建议加上`\0`或者`\r\n`分隔符，可参考 [examples/jsonrpc](examples/jsonrpc);<br>
+二进制协议建议加上自定义协议头，通过头部长度字段表明负载长度，可参考 [examples/protorpc](examples/protorpc);<br>
+然后通过`hio_set_unpack`、`TcpServer::setUnpack`设置拆包规则。<br>
+不想自定义协议和拆包组包的可直接使用现成的`HTTP/WebSocket`协议。<br>
+
 #### TCP客户端
 **c版本**: [examples/nc.c](examples/nc.c)
 ```c
@@ -364,6 +372,8 @@ int main() {
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
+- TinyHttpd示例:[examples/tinyhttpd.c](examples/tinyhttpd.c)
+- TinyProxyd示例:[examples/tinyproxyd.c](examples/tinyproxyd.c)
 - jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
 - 多accept进程模式: [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
 - 多accept线程模式: [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
@@ -478,6 +488,7 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - [libhv教程15--200行实现一个C++版protorpc框架](https://hewei.blog.csdn.net/article/details/119966701)
 - [libhv教程16--多线程/多进程服务端编程](https://hewei.blog.csdn.net/article/details/120366024)
 - [libhv教程17--Qt中使用libhv](https://hewei.blog.csdn.net/article/details/120699890)
+- [libhv教程18--动手写一个tinyhttpd](https://hewei.blog.csdn.net/article/details/121706604)
 
 ## 💎 用户案例
 

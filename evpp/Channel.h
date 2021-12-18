@@ -19,11 +19,15 @@ public:
         fd_ = -1;
         id_ = 0;
         ctx_ = NULL;
+        status = CLOSED;
         if (io) {
             fd_ = hio_fd(io);
             id_ = hio_id(io);
             ctx_ = hio_context(io);
             hio_set_context(io, this);
+            if (hio_is_opened(io)) {
+                status = OPENED;
+            }
             if (hio_getcb_read(io) == NULL) {
                 hio_setcb_read(io_, on_read);
             }
@@ -34,7 +38,6 @@ public:
                 hio_setcb_close(io_, on_close);
             }
         }
-        status = isOpened() ? OPENED : CLOSED;
     }
 
     virtual ~Channel() {
@@ -71,7 +74,7 @@ public:
     }
 
     bool isOpened() {
-        if (io_ == NULL) return false;
+        if (io_ == NULL || status >= DISCONNECTED) return false;
         return id_ == hio_id(io_) && hio_is_opened(io_);
     }
     bool isClosed() {
@@ -88,6 +91,27 @@ public:
         return hio_read_stop(io_);
     }
 
+    int readOnce() {
+        if (!isOpened()) return -1;
+        return hio_read_once(io_);
+    }
+
+    int readString() {
+        if (!isOpened()) return -1;
+        return hio_readstring(io_);
+    }
+
+    int readLine() {
+        if (!isOpened()) return -1;
+        return hio_readline(io_);
+    }
+
+    int readBytes(int len) {
+        if (!isOpened() || len <= 0) return -1;
+        return hio_readbytes(io_, len);
+    }
+
+    // write thread-safe
     int write(const void* data, int size) {
         if (!isOpened()) return -1;
         return hio_write(io_, data, size);
@@ -101,6 +125,7 @@ public:
         return write(str.data(), str.size());
     }
 
+    // close thread-safe
     int close(bool async = false) {
         if (!isOpened()) return -1;
         if (async) {
@@ -115,13 +140,11 @@ public:
     uint32_t    id_;
     void*       ctx_;
     enum Status {
-        // Channel::Status
         OPENED,
-        CLOSED,
-        // SocketChannel::Status
         CONNECTING,
         CONNECTED,
         DISCONNECTED,
+        CLOSED,
     } status;
     std::function<void(Buffer*)> onread;
     std::function<void(Buffer*)> onwrite;
@@ -157,8 +180,7 @@ private:
 
 class SocketChannel : public Channel {
 public:
-    // for TcpClient
-    std::function<void()>   onconnect;
+    std::function<void()>   onconnect; // only for TcpClient
     std::function<void()>   heartbeat;
 
     SocketChannel(hio_t* io) : Channel(io) {
@@ -177,6 +199,16 @@ public:
     void setCloseTimeout(int timeout_ms) {
         if (io_ == NULL) return;
         hio_set_close_timeout(io_, timeout_ms);
+    }
+
+    void setReadTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
+        hio_set_read_timeout(io_, timeout_ms);
+    }
+
+    void setWriteTimeout(int timeout_ms) {
+        if (io_ == NULL) return;
+        hio_set_write_timeout(io_, timeout_ms);
     }
 
     void setKeepaliveTimeout(int timeout_ms) {
@@ -220,7 +252,7 @@ public:
     }
 
     bool isConnected() {
-        return isOpened() && status == CONNECTED;
+        return status == CONNECTED && isOpened();
     }
 
     std::string localaddr() {

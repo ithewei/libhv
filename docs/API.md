@@ -118,6 +118,7 @@
 - hv_isdir
 - hv_isfile
 - hv_islink
+- hv_filesize
 - getboolean
 - get_executable_path
 - get_executable_dir
@@ -398,6 +399,11 @@
 - hio_read_stop
 - hio_read_once
 - hio_read_until
+- hio_read_until_length
+- hio_read_until_delim
+- hio_read_readline
+- hio_read_readstring
+- hio_read_readbytes
 - hio_write
 - hio_close
 - hio_accept
@@ -432,6 +438,8 @@
 - hio_set_readbuf
 - hio_set_connect_timeout
 - hio_set_close_timeout
+- hio_set_read_timeout
+- hio_set_write_timeout
 - hio_set_keepalive_timeout
 - hio_set_heartbeat
 - hio_set_unpack

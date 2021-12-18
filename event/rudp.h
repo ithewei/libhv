@@ -8,22 +8,8 @@
 #include "rbtree.h"
 #include "hsocket.h"
 #include "hmutex.h"
-
 #if WITH_KCP
-#include "kcp/ikcp.h"
-#include "hbuf.h"
-#define DEFAULT_KCP_UPDATE_INTERVAL 10 // ms
-#define DEFAULT_KCP_READ_BUFSIZE    1400
-
-typedef struct kcp_s {
-    ikcpcb*         ikcp;
-    uint32_t        conv;
-    htimer_t*       update_timer;
-    hbuf_t          readbuf;
-} kcp_t;
-
-// NOTE: kcp_create in hio_get_kcp
-void kcp_release(kcp_t* kcp);
+#include "kcp/hkcp.h"
 #endif
 
 typedef struct rudp_s {
@@ -40,6 +26,7 @@ typedef struct rudp_entry_s {
     kcp_t           kcp;
 #endif
 } rudp_entry_t;
+
 // NOTE: rudp_entry_t alloc when rudp_get
 void rudp_entry_free(rudp_entry_t* entry);
 
@@ -56,6 +43,9 @@ rudp_entry_t* rudp_search(rudp_t* rudp, struct sockaddr* addr);
 rudp_entry_t* rudp_get(rudp_t* rudp, struct sockaddr* addr);
 // rudp_remove + free
 void          rudp_del(rudp_t* rudp, struct sockaddr* addr);
+
+// rudp_get(&io->rudp, io->peeraddr)
+rudp_entry_t* hio_get_rudp(hio_t* io);
 
 #endif // WITH_RUDP
 

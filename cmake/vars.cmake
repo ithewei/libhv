@@ -44,6 +44,7 @@ set(CPPUTIL_HEADERS
     cpputil/hurl.h
     cpputil/hscope.h
     cpputil/hthreadpool.h
+    cpputil/hasync.h
     cpputil/hobjectpool.h
     cpputil/ifconfig.h
     cpputil/iniparser.h
@@ -54,7 +55,6 @@ set(CPPUTIL_HEADERS
 
 set(EVPP_HEADERS
     evpp/Buffer.h
-    evpp/Callback.h
     evpp/Channel.h
     evpp/Event.h
     evpp/EventLoop.h
@@ -76,14 +76,17 @@ set(PROTOCOL_HEADERS
 
 set(HTTP_HEADERS
     http/httpdef.h
-    http/http2def.h
-    http/grpcdef.h
     http/wsdef.h
     http/http_content.h
     http/HttpMessage.h
     http/HttpParser.h
     http/WebSocketParser.h
     http/WebSocketChannel.h
+)
+
+set(HTTP2_HEADERS
+    http/http2def.h
+    http/grpcdef.h
 )
 
 set(HTTP_CLIENT_HEADERS

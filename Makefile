@@ -25,6 +25,10 @@ ifeq ($(WITH_HTTP), yes)
 LIBHV_HEADERS += $(HTTP_HEADERS)
 LIBHV_SRCDIRS += http
 
+ifeq ($(WITH_NGHTTP2), yes)
+LIBHV_HEADERS += $(HTTP2_HEADERS)
+endif
+
 ifeq ($(WITH_HTTP_SERVER), yes)
 LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
@@ -41,7 +45,7 @@ endif
 default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
-	nc nmap httpd curl wget wrk consul \
+	nc nmap tinyhttpd tinyproxyd httpd curl wget wrk consul \
 	tcp_echo_server \
 	tcp_chat_server \
 	tcp_proxy_server \
@@ -111,6 +115,12 @@ one-acceptor-multi-workers: prepare
 nc: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/nc.c"
 
+tinyhttpd: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/tinyhttpd.c"
+
+tinyproxyd: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/tinyproxyd.c"
+
 nmap: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil examples/nmap" DEFINES="PRINT_DEBUG"
 
@@ -146,11 +156,11 @@ websocket_client_test: prepare
 jsonrpc: jsonrpc_client jsonrpc_server
 
 jsonrpc_client: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/jsonrpc/jsonrpc_client.c examples/jsonrpc/jsonrpc.c examples/jsonrpc/cJSON.c"
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/jsonrpc/jsonrpc_client.c examples/jsonrpc/cJSON.c"
 
 jsonrpc_server: prepare
 	$(RM) examples/jsonrpc/*.o
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/jsonrpc/jsonrpc_server.c examples/jsonrpc/jsonrpc.c examples/jsonrpc/cJSON.c"
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/jsonrpc/jsonrpc_server.c examples/jsonrpc/cJSON.c"
 
 protorpc: protorpc_client protorpc_server
 
@@ -191,7 +201,7 @@ unittest: prepare
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/threadpool_test   unittest/threadpool_test.cpp  -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/objectpool_test   unittest/objectpool_test.cpp  -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Ievpp -Icpputil -Ihttp -Ihttp/client -Ihttp/server -o bin/sizeof_test unittest/sizeof_test.cpp
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c  base/hsocket.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c util/base64.c
@@ -206,6 +216,7 @@ evpp: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/EventLoop_test           evpp/EventLoop_test.cpp           -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/EventLoopThread_test     evpp/EventLoopThread_test.cpp     -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/EventLoopThreadPool_test evpp/EventLoopThreadPool_test.cpp -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/TimerThread_test         evpp/TimerThread_test.cpp         -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/TcpServer_test           evpp/TcpServer_test.cpp           -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/TcpClient_test           evpp/TcpClient_test.cpp           -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/UdpServer_test           evpp/UdpServer_test.cpp           -Llib -lhv -pthread

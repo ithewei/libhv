@@ -17,6 +17,7 @@ static void onTimer(TimerID timerID, int n) {
 
 int main(int argc, char* argv[]) {
     HV_MEMCHECK;
+    hlog_set_level(LOG_LEVEL_DEBUG);
 
     printf("main tid=%ld\n", hv_gettid());
 

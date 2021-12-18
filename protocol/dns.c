@@ -235,6 +235,9 @@ int dns_query(dns_t* query, dns_t* response, const char* nameserver) {
     if (buflen < 0) {
         return buflen;
     }
+#ifdef OS_WIN
+    WSAInit();
+#endif
     int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
         perror("socket");

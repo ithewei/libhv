@@ -12,7 +12,7 @@ public:
     static int errorHandler(const HttpContextPtr& ctx);
     static int largeFileHandler(const HttpContextPtr& ctx);
 
-    static int sleep(const HttpContextPtr& ctx);
+    static int sleep(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer);
     static int setTimeout(const HttpContextPtr& ctx);
     static int query(const HttpContextPtr& ctx);
 
@@ -34,10 +34,14 @@ private:
         resp->Set("message", message);
         return code;
     }
+    static int response_status(const HttpResponseWriterPtr& writer, int code = 200, const char* message = NULL) {
+        response_status(writer->response.get(), code, message);
+        writer->End();
+        return code;
+    }
     static int response_status(const HttpContextPtr& ctx, int code = 200, const char* message = NULL) {
-        if (message == NULL) message = http_status_str((enum http_status)code);
-        ctx->set("code", code);
-        ctx->set("message", message);
+        response_status(ctx->response.get(), code, message);
+        ctx->send();
         return code;
     }
 };

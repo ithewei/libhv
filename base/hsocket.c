@@ -3,7 +3,21 @@
 #include "hdef.h"
 
 #ifdef OS_WIN
-static int s_wsa_initialized = 0;
+#include "hatomic.h"
+static hatomic_flag_t s_wsa_initialized = HATOMIC_FLAG_INIT;
+void WSAInit() {
+    if (!hatomic_flag_test_and_set(&s_wsa_initialized)) {
+        WSADATA wsadata;
+        WSAStartup(MAKEWORD(2, 2), &wsadata);
+    }
+}
+
+void WSADeinit() {
+    if (hatomic_flag_test_and_set(&s_wsa_initialized)) {
+        hatomic_flag_clear(&s_wsa_initialized);
+        WSACleanup();
+    }
+}
 #endif
 
 static inline int socket_errno_negative() {
@@ -37,6 +51,9 @@ bool is_ipv6(const char* host) {
 }
 
 int ResolveAddr(const char* host, sockaddr_u* addr) {
+#ifdef OS_WIN
+    WSAInit();
+#endif
     if (inet_pton(AF_INET, host, &addr->sin.sin_addr) == 1) {
         addr->sa.sa_family = AF_INET; // host is ipv4, so easy ;)
         return 0;
@@ -267,11 +284,7 @@ error:
 
 int Bind(int port, const char* host, int type) {
 #ifdef OS_WIN
-    if (s_wsa_initialized == 0) {
-        s_wsa_initialized = 1;
-        WSADATA wsadata;
-        WSAStartup(MAKEWORD(2,2), &wsadata);
-    }
+    WSAInit();
 #endif
     sockaddr_u localaddr;
     memset(&localaddr, 0, sizeof(localaddr));
@@ -290,11 +303,7 @@ int Listen(int port, const char* host) {
 
 int Connect(const char* host, int port, int nonblock) {
 #ifdef OS_WIN
-    if (s_wsa_initialized == 0) {
-        s_wsa_initialized = 1;
-        WSADATA wsadata;
-        WSAStartup(MAKEWORD(2,2), &wsadata);
-    }
+    WSAInit();
 #endif
     sockaddr_u peeraddr;
     memset(&peeraddr, 0, sizeof(peeraddr));
@@ -356,6 +365,9 @@ int Socketpair(int family, int type, int protocol, int sv[2]) {
     if (family != AF_INET || type != SOCK_STREAM) {
         return -1;
     }
+#ifdef OS_WIN
+    WSAInit();
+#endif
     int listenfd, connfd, acceptfd;
     listenfd = connfd = acceptfd = INVALID_SOCKET;
     struct sockaddr_in localaddr;

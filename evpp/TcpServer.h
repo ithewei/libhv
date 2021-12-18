@@ -6,21 +6,23 @@
 #include "hlog.h"
 
 #include "EventLoopThreadPool.h"
-#include "Callback.h"
 #include "Channel.h"
 
 namespace hv {
 
-class TcpServer {
+template<class TSocketChannel = SocketChannel>
+class TcpServerTmpl {
 public:
-    TcpServer() {
+    typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
+
+    TcpServerTmpl() {
         listenfd = -1;
         tls = false;
         enable_unpack = false;
         max_connections = 0xFFFFFFFF;
     }
 
-    virtual ~TcpServer() {
+    virtual ~TcpServerTmpl() {
     }
 
     EventLoopPtr loop(int idx = -1) {
@@ -32,9 +34,10 @@ public:
         listenfd = Listen(port, host);
         return listenfd;
     }
+    // closesocket thread-safe
     void closesocket() {
         if (listenfd >= 0) {
-            ::closesocket(listenfd);
+            hio_close_async(hio_get(acceptor_thread.hloop(), listenfd));
             listenfd = -1;
         }
     }
@@ -58,8 +61,9 @@ public:
 
     void start(bool wait_threads_started = true) {
         worker_threads.start(wait_threads_started);
-        acceptor_thread.start(wait_threads_started, std::bind(&TcpServer::startAccept, this));
+        acceptor_thread.start(wait_threads_started, std::bind(&TcpServerTmpl::startAccept, this));
     }
+    // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         acceptor_thread.stop(wait_threads_stopped);
         worker_threads.stop(wait_threads_stopped);
@@ -91,15 +95,15 @@ public:
     }
 
     // channel
-    const SocketChannelPtr& addChannel(hio_t* io) {
+    const TSocketChannelPtr& addChannel(hio_t* io) {
         int fd = hio_fd(io);
-        auto channel = SocketChannelPtr(new SocketChannel(io));
+        auto channel = TSocketChannelPtr(new TSocketChannel(io));
         std::lock_guard<std::mutex> locker(mutex_);
         channels[fd] = channel;
         return channels[fd];
     }
 
-    void removeChannel(const SocketChannelPtr& channel) {
+    void removeChannel(const TSocketChannelPtr& channel) {
         int fd = channel->fd();
         std::lock_guard<std::mutex> locker(mutex_);
         channels.erase(fd);
@@ -110,7 +114,7 @@ public:
         return channels.size();
     }
 
-    int foreachChannel(std::function<void(const SocketChannelPtr& channel)> fn) {
+    int foreachChannel(std::function<void(const TSocketChannelPtr& channel)> fn) {
         std::lock_guard<std::mutex> locker(mutex_);
         for (auto& pair : channels) {
             fn(pair.second);
@@ -118,8 +122,9 @@ public:
         return channels.size();
     }
 
+    // broadcast thread-safe
     int broadcast(const void* data, int size) {
-        return foreachChannel([data, size](const SocketChannelPtr& channel) {
+        return foreachChannel([data, size](const TSocketChannelPtr& channel) {
             channel->write(data, size);
         });
     }
@@ -130,7 +135,7 @@ public:
 
 private:
     static void newConnEvent(hio_t* connio) {
-        TcpServer* server = (TcpServer*)hevent_userdata(connio);
+        TcpServerTmpl* server = (TcpServerTmpl*)hevent_userdata(connio);
         if (server->connectionNum() >= server->max_connections) {
             hlogw("over max_connections");
             hio_close(connio);
@@ -142,7 +147,7 @@ private:
         assert(worker_loop != NULL);
         hio_attach(worker_loop->loop(), connio);
 
-        const SocketChannelPtr& channel = server->addChannel(connio);
+        const TSocketChannelPtr& channel = server->addChannel(connio);
         channel->status = SocketChannel::CONNECTED;
 
         channel->onread = [server, &channel](Buffer* buf) {
@@ -175,12 +180,12 @@ private:
     }
 
     static void onAccept(hio_t* connio) {
-        TcpServer* server = (TcpServer*)hevent_userdata(connio);
+        TcpServerTmpl* server = (TcpServerTmpl*)hevent_userdata(connio);
         // NOTE: detach from acceptor loop
         hio_detach(connio);
         // Load Banlance: Round-Robin
         EventLoopPtr worker_loop = server->worker_threads.nextLoop();
-        worker_loop->queueInLoop(std::bind(&TcpServer::newConnEvent, connio));
+        worker_loop->queueInLoop(std::bind(&TcpServerTmpl::newConnEvent, connio));
     }
 
 public:
@@ -189,20 +194,22 @@ public:
     bool                    enable_unpack;
     unpack_setting_t        unpack_setting;
     // Callback
-    ConnectionCallback      onConnection;
-    MessageCallback         onMessage;
-    WriteCompleteCallback   onWriteComplete;
+    std::function<void(const TSocketChannelPtr&)>           onConnection;
+    std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
+    std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
     uint32_t                max_connections;
 
 private:
-    // fd => SocketChannelPtr
-    std::map<int, SocketChannelPtr> channels; // GUAREDE_BY(mutex_)
-    std::mutex                      mutex_;
+    // fd => TSocketChannelPtr
+    std::map<int, TSocketChannelPtr> channels; // GUAREDE_BY(mutex_)
+    std::mutex                       mutex_;
 
     EventLoopThread                 acceptor_thread;
     EventLoopThreadPool             worker_threads;
 };
+
+typedef TcpServerTmpl<SocketChannel> TcpServer;
 
 }
 
