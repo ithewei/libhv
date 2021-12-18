@@ -74,6 +74,7 @@ typedef struct {
     int         content_length;
     char        content_type[64];
     unsigned    keepalive:  1;
+    unsigned    proxy:      1;
     char        head[HTTP_MAX_HEAD_LENGTH];
     int         head_len;
     // body
@@ -92,28 +93,32 @@ static int http_request_dump(http_conn_t* conn, char* buf, int len) {
     http_msg_t* msg = &conn->request;
     int offset = 0;
     // request line
-    const char* pos = strstr(msg->path, "://");
-    pos = pos ? pos + 3 : msg->path;
-    const char* path = strchr(pos, '/');
+    const char* path = msg->path;
+    if (msg->proxy) {
+        const char* pos = strstr(msg->path, "://");
+        pos = pos ? pos + 3 : msg->path;
+        path = strchr(pos, '/');
+    }
     if (path == NULL) path = "/";
     offset += snprintf(buf + offset, len - offset, "%s %s HTTP/%d.%d\r\n", msg->method, path, msg->major_version, msg->minor_version);
     // headers
-    /*
-    offset += snprintf(buf + offset, len - offset, "Connection: %s\r\n", msg->keepalive ? "keep-alive" : "close");
-    if (msg->content_length > 0) {
-        offset += snprintf(buf + offset, len - offset, "Content-Length: %d\r\n", msg->content_length);
+    if (msg->proxy) {
+        if (msg->head_len) {
+            memcpy(buf + offset, msg->head, msg->head_len);
+            offset += msg->head_len;
+        }
+        char peeraddrstr[SOCKADDR_STRLEN] = {0};
+        SOCKADDR_STR(hio_peeraddr(conn->io), peeraddrstr);
+        offset += snprintf(buf + offset, len - offset, "X-Origin-IP: %s\r\n", peeraddrstr);
+    } else {
+        offset += snprintf(buf + offset, len - offset, "Connection: %s\r\n", msg->keepalive ? "keep-alive" : "close");
+        if (msg->content_length > 0) {
+            offset += snprintf(buf + offset, len - offset, "Content-Length: %d\r\n", msg->content_length);
+        }
+        if (*msg->content_type) {
+            offset += snprintf(buf + offset, len - offset, "Content-Type: %s\r\n", msg->content_type);
+        }
     }
-    if (*msg->content_type) {
-        offset += snprintf(buf + offset, len - offset, "Content-Type: %s\r\n", msg->content_type);
-    }
-    */
-    if (msg->head_len) {
-        memcpy(buf + offset, msg->head, msg->head_len);
-        offset += msg->head_len;
-    }
-    char peeraddrstr[SOCKADDR_STRLEN] = {0};
-    SOCKADDR_STR(hio_peeraddr(conn->io), peeraddrstr);
-    offset += snprintf(buf + offset, len - offset, "X-Origin-IP: %s\r\n", peeraddrstr);
     // TODO: Add your headers
     offset += snprintf(buf + offset, len - offset, "\r\n");
     // body
@@ -152,7 +157,7 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
         req->content_length = atoi(val);
     } else if (stricmp(key, "Content-Type") == 0) {
         strncpy(req->content_type, val, sizeof(req->content_type) - 1);
-    } else if (stricmp(key, "Proxy-Connection") == 0) {
+    } else if (stricmp(key, "Connection") == 0 || stricmp(key, "Proxy-Connection") == 0) {
         if (stricmp(val, "close") == 0) {
             req->keepalive = 0;
         }
@@ -196,20 +201,22 @@ static int on_head_end(http_conn_t* conn) {
     char backend_host[64] = {0};
     strcpy(backend_host, req->host);
     int backend_port = 80;
-    int backend_ssl = strncmp(req->path, "https", 5) == 0 ? 1 : 0;
     char* pos = strchr(backend_host, ':');
     if (pos) {
         *pos = '\0';
         backend_port = atoi(pos + 1);
     }
-    // printf("upstream %s:%d\n", backend_host, backend_port);
     if (backend_port == proxy_port &&
         (strcmp(backend_host, proxy_host) == 0 ||
          strcmp(backend_host, "localhost") == 0 ||
          strcmp(backend_host, "127.0.0.1") == 0)) {
-        fprintf(stderr, "Cound not to upstream proxy server itself!\n");
-        return -2;
+        req->proxy = 0;
+        return 0;
     }
+    // NOTE: blew for proxy
+    req->proxy = 1;
+    int backend_ssl = strncmp(req->path, "https", 5) == 0 ? 1 : 0;
+    // printf("upstream %s:%d\n", backend_host, backend_port);
     hloop_t* loop = hevent_loop(conn->io);
     // hio_t* upstream_io = hio_setup_tcp_upstream(conn->io, backend_host, backend_port, backend_ssl);
     hio_t* upstream_io = hio_create_socket(loop, backend_host, backend_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
@@ -230,8 +237,21 @@ static int on_head_end(http_conn_t* conn) {
 }
 
 static int on_body(http_conn_t* conn, void* buf, int readbytes) {
-    hio_write_upstream(conn->io, buf, readbytes);
+    http_msg_t* req = &conn->request;
+    if (req->proxy) {
+        hio_write_upstream(conn->io, buf, readbytes);
+    }
     return 0;
+}
+
+static int on_request(http_conn_t* conn) {
+    // NOTE: just reply 403, please refer to examples/tinyhttpd if you want to reply other.
+    http_msg_t* req = &conn->request;
+    char buf[256] = {0};
+    int len = snprintf(buf, sizeof(buf), "HTTP/%d.%d %d %s\r\nContent-Length: 0\r\n\r\n",
+            req->major_version, req->minor_version, 403, "Forbidden");
+    hio_write(conn->io, buf, len);
+    return 403;
 }
 
 static void on_close(hio_t* io) {
@@ -305,10 +325,20 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
         }
         if (req->content_length == 0) {
             conn->state = s_end;
+            if (req->proxy) {
+                // NOTE: wait upstream connect!
+            } else {
+                goto s_end;
+            }
         } else {
             conn->state = s_body;
-            // NOTE: start read body on_upstream_connect
-            // hio_read_start(io);
+            if (req->proxy) {
+                // NOTE: start read body on_upstream_connect
+                // hio_read_start(io);
+            } else {
+                // WARN: too large content_length should read multiple times!
+                hio_readbytes(io, req->content_length);
+            }
             break;
         }
     case s_body:
@@ -326,7 +356,15 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
             break;
         }
     case s_end:
+s_end:
         // printf("s_end\n");
+        // received complete request
+        if (req->proxy) {
+            // NOTE: reply by upstream
+        } else {
+            on_request(conn);
+        }
+        if (hio_is_closed(io)) return;
         if (req->keepalive) {
             // Connection: keep-alive\r\n
             // reset and receive next request
@@ -336,8 +374,11 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
             hio_readline(io);
         } else {
             // Connection: close\r\n
-            // NOTE: wait upstream close!
-            // hio_close(io);
+            if (req->proxy) {
+                // NOTE: wait upstream close!
+            } else {
+                hio_close(io);
+            }
         }
         break;
     default: break;
