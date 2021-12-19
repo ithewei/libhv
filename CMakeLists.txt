@@ -216,6 +216,7 @@ install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
 if(BUILD_SHARED)
     set(HV_LIBRARIES hv CACHE INTERNAL "link hv libraries")
 else()
+    add_definitions(-DHV_STATICLIB)
     set(HV_LIBRARIES hv_static ${LIBS} CACHE INTERNAL "link hv libraries")
 endif()
 
