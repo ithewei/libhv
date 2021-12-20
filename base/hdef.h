@@ -27,6 +27,7 @@
 #define BITGET(i, n) ((i) & (1u << (n)))
 #endif
 
+/*
 #ifndef CR
 #define CR      '\r'
 #endif
@@ -38,6 +39,7 @@
 #ifndef CRLF
 #define CRLF    "\r\n"
 #endif
+*/
 
 #define FLOAT_PRECISION     1e-6
 #define FLOAT_EQUAL_ZERO(f) (ABS(f) < FLOAT_PRECISION)

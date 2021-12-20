@@ -4,7 +4,6 @@
 #include <string> // for std::string
 
 #include "hplatform.h" // for stat
-#include "hdef.h" // for LF, CR
 #include "hbuf.h" // for HBuf
 
 class HFile {
@@ -86,14 +85,14 @@ public:
         str.clear();
         char ch;
         while (fread(&ch, 1, 1, fp)) {
-            if (ch == LF) {
+            if (ch == '\n') {
                 // unix: LF
                 return true;
             }
-            if (ch == CR) {
+            if (ch == '\r') {
                 // dos: CRLF
                 // read LF
-                if (fread(&ch, 1, 1, fp) && ch != LF) {
+                if (fread(&ch, 1, 1, fp) && ch != '\n') {
                     // mac: CR
                     fseek(fp, -1, SEEK_CUR);
                 }

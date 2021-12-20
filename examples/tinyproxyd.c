@@ -461,7 +461,7 @@ int main(int argc, char** argv) {
     }
     proxy_port = atoi(argv[1]);
     if (argc > 2) {
-        thread_num = atoi(argv[3]);
+        thread_num = atoi(argv[2]);
     } else {
         thread_num = get_ncpu();
     }
