@@ -51,6 +51,11 @@ int main(int argc, char** argv) {
     }
     int port = atoi(argv[1]);
 
+    HttpService http;
+    http.GET("/ping", [](const HttpContextPtr& ctx) {
+        return ctx->send("pong");
+    });
+
     WebSocketService ws;
     ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
         printf("onopen: GET %s\n", url.c_str());
@@ -90,7 +95,12 @@ int main(int argc, char** argv) {
         return -20;
     }
 #endif
+    server.service = &http;
     server.ws = &ws;
-    websocket_server_run(&server);
+    websocket_server_run(&server, 0);
+
+    // press Enter to stop
+    while (getchar() != '\n');
+    websocket_server_stop(&server);
     return 0;
 }

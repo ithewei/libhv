@@ -78,13 +78,10 @@ int main(int argc, char** argv) {
     // uncomment to test multi-threads
     // server.worker_threads = 4;
 
-#if 1
-    http_server_run(&server);
-#else
-    // test http_server_stop
     http_server_run(&server, 0);
-    hv_sleep(10);
+
+    // press Enter to stop
+    while (getchar() != '\n');
     http_server_stop(&server);
-#endif
     return 0;
 }
