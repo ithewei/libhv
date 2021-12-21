@@ -39,7 +39,7 @@ static void on_accept(hio_t* io) {
     hio_read(io);
 }
 
-static HTHREAD_RETTYPE loop_thread(void* userdata) {
+static HTHREAD_ROUTINE(loop_thread) {
     hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
     haccept(loop, listenfd, on_accept);
     hloop_run(loop);

@@ -433,13 +433,13 @@ static void on_accept(hio_t* io) {
     hloop_post_event(worker_loop, &ev);
 }
 
-static HTHREAD_RETTYPE worker_thread(void* userdata) {
+static HTHREAD_ROUTINE(worker_thread) {
     hloop_t* loop = (hloop_t*)userdata;
     hloop_run(loop);
     return 0;
 }
 
-static HTHREAD_RETTYPE accept_thread(void* userdata) {
+static HTHREAD_ROUTINE(accept_thread) {
     hloop_t* loop = (hloop_t*)userdata;
     hio_t* listenio = hloop_create_tcp_server(loop, proxy_host, proxy_port, on_accept);
     if (listenio == NULL) {
