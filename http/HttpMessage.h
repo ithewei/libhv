@@ -445,8 +445,9 @@ public:
     }
 
     // ?query_params
-    void SetParam(const char* key, const std::string& value) {
-        query_params[key] = value;
+    template<typename T>
+    void SetParam(const char* key, const T& t) {
+        query_params[key] = hv::to_string(t);
     }
     std::string GetParam(const char* key, const std::string& defvalue = "") {
         auto iter = query_params.find(key);

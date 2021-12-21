@@ -71,12 +71,14 @@ public:
 
     size_t readall(HBuf& buf) {
         size_t filesize = size();
+        if (filesize == 0) return 0;
         buf.resize(filesize);
         return fread(buf.base, 1, filesize, fp);
     }
 
     size_t readall(std::string& str) {
         size_t filesize = size();
+        if (filesize == 0) return 0;
         str.resize(filesize);
         return fread((void*)str.data(), 1, filesize, fp);
     }
@@ -105,6 +107,7 @@ public:
 
     int readrange(std::string& str, size_t from = 0, size_t to = 0) {
         size_t filesize = size();
+        if (filesize == 0) return 0;
         if (to == 0 || to >= filesize) to = filesize - 1;
         size_t readbytes = to - from + 1;
         str.resize(readbytes);
