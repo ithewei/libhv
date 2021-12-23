@@ -54,20 +54,29 @@ struct HNetAddr {
     }
 };
 
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
 // Cookie: sessionid=1; domain=.example.com; path=/; max-age=86400; secure; httponly
 struct HV_EXPORT HttpCookie {
     std::string name;
     std::string value;
     std::string domain;
     std::string path;
+    std::string expires;
     int         max_age;
     bool        secure;
     bool        httponly;
+    enum SameSite {
+        Default,
+        Strict,
+        Lax,
+        None
+    } samesite;
 
     HttpCookie() {
-        max_age = 86400;
+        max_age = 0;
         secure = false;
         httponly = false;
+        samesite = Default;
     }
 
     bool parse(const std::string& str);

@@ -30,20 +30,29 @@ bool HttpCookie::parse(const std::string& str) {
         }
 
         const char* pkey = key.c_str();
-        if (stricmp(pkey, "domain") == 0) {
+        if (stricmp(pkey, "Domain") == 0) {
             domain = val;
         }
-        else if (stricmp(pkey, "path") == 0) {
+        else if (stricmp(pkey, "Path") == 0) {
             path = val;
         }
-        else if (stricmp(pkey, "max-age") == 0) {
+        else if (stricmp(pkey, "Expires") == 0) {
+            expires = val;
+        }
+        else if (stricmp(pkey, "Max-Age") == 0) {
             max_age = atoi(val.c_str());
         }
-        else if (stricmp(pkey, "secure") == 0) {
+        else if (stricmp(pkey, "Secure") == 0) {
             secure = true;
         }
-        else if (stricmp(pkey, "httponly") == 0) {
+        else if (stricmp(pkey, "HttpOnly") == 0) {
             httponly = true;
+        }
+        else if (stricmp(pkey, "SameSite") == 0) {
+            samesite =  stricmp(val.c_str(), "Strict") == 0 ? HttpCookie::SameSite::Strict :
+                        stricmp(val.c_str(), "Lax")    == 0 ? HttpCookie::SameSite::Lax    :
+                        stricmp(val.c_str(), "None")   == 0 ? HttpCookie::SameSite::None   :
+                                                              HttpCookie::SameSite::Default;
         }
         else if (val.size() > 0) {
             name = key;
@@ -64,26 +73,36 @@ std::string HttpCookie::dump() const {
     res += value;
 
     if (!domain.empty()) {
-        res += "; domain=";
+        res += "; Domain=";
         res += domain;
     }
 
     if (!path.empty()) {
-        res += "; path=";
+        res += "; Path=";
         res += path;
     }
 
     if (max_age > 0) {
-        res += "; max-age=";
+        res += "; Max-Age=";
         res += hv::to_string(max_age);
+    } else if (!expires.empty()) {
+        res += "; Expires=";
+        res += expires;
+    }
+
+    if (samesite != HttpCookie::SameSite::Default) {
+        res += "; SameSite=";
+        res += samesite == HttpCookie::SameSite::Strict ? "Strict" :
+               samesite == HttpCookie::SameSite::Lax    ? "Lax"    :
+                                                          "None"   ;
     }
 
     if (secure) {
-        res += "; secure";
+        res += "; Secure";
     }
 
     if (httponly) {
-        res += "; httponly";
+        res += "; HttpOnly";
     }
 
     return res;
