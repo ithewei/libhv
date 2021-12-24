@@ -360,6 +360,7 @@ int main() {
 - [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
+- [examples/socks5_proxy_server.c](examples/socks5_proxy_server.c)
 - [examples/tinyhttpd.c](examples/tinyhttpd.c)
 - [examples/tinyproxyd.c](examples/tinyproxyd.c)
 - [examples/jsonrpc](examples/jsonrpc)

@@ -9,6 +9,7 @@ list(APPEND EXAMPLES
     tcp_proxy_server
     udp_echo_server
     udp_proxy_server
+    socks5_proxy_server
     jsonrpc_client
     jsonrpc_server
 )
@@ -44,6 +45,9 @@ target_link_libraries(udp_echo_server ${HV_LIBRARIES})
 
 add_executable(udp_proxy_server udp_proxy_server.c)
 target_link_libraries(udp_proxy_server ${HV_LIBRARIES})
+
+add_executable(socks5_proxy_server socks5_proxy_server.c)
+target_link_libraries(socks5_proxy_server ${HV_LIBRARIES})
 
 add_executable(jsonrpc_client jsonrpc/jsonrpc_client.c jsonrpc/cJSON.c)
 target_link_libraries(jsonrpc_client ${HV_LIBRARIES})

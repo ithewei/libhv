@@ -372,6 +372,7 @@ int main() {
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
+- SOCKS5代理服务: [examples/socks5_proxy_server.c](examples/socks5_proxy_server.c)
 - TinyHttpd示例:[examples/tinyhttpd.c](examples/tinyhttpd.c)
 - TinyProxyd示例:[examples/tinyproxyd.c](examples/tinyproxyd.c)
 - jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
