@@ -418,20 +418,19 @@ HV_EXPORT void   hio_close_upstream(hio_t* io);
 
 // io1->upstream_io = io2;
 // io2->upstream_io = io1;
-// hio_setcb_read(io1, hio_write_upstream);
-// hio_setcb_read(io2, hio_write_upstream);
+// @see examples/socks5_proxy_server.c
 HV_EXPORT void   hio_setup_upstream(hio_t* io1, hio_t* io2);
 
 // @return io->upstream_io
 HV_EXPORT hio_t* hio_get_upstream(hio_t* io);
 
-// @tcp_upstream: hio_create -> hio_setup_upstream -> hio_setcb_close(hio_close_upstream) -> hconnect -> on_connect -> hio_read_upstream
+// @tcp_upstream: hio_create_socket -> hio_setup_upstream -> hio_connect -> on_connect -> hio_read_upstream
 // @return upstream_io
 // @see examples/tcp_proxy_server.c
 HV_EXPORT hio_t* hio_setup_tcp_upstream(hio_t* io, const char* host, int port, int ssl DEFAULT(0));
 #define hio_setup_ssl_upstream(io, host, port) hio_setup_tcp_upstream(io, host, port, 1)
 
-// @udp_upstream: hio_create -> hio_setup_upstream -> hio_read_upstream
+// @udp_upstream: hio_create_socket -> hio_setup_upstream -> hio_read_upstream
 // @return upstream_io
 // @see examples/udp_proxy_server.c
 HV_EXPORT hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port);
