@@ -40,7 +40,7 @@ struct HV_EXPORT HttpContext {
         return request->headers;
     }
 
-    std::string header(const char* key, const std::string& defvalue = "") {
+    std::string header(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetHeader(key, defvalue);
     }
 
@@ -48,7 +48,7 @@ struct HV_EXPORT HttpContext {
         return request->query_params;
     }
 
-    std::string param(const char* key, const std::string& defvalue = "") {
+    std::string param(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetParam(key, defvalue);
     }
 
@@ -82,7 +82,7 @@ struct HV_EXPORT HttpContext {
     const MultiPart& form() {
         return request->GetForm();
     }
-    std::string form(const char* name, const std::string& defvalue = "") {
+    std::string form(const char* name, const std::string& defvalue = hv::empty_string) {
         return request->GetFormData(name, defvalue);
     }
 
@@ -90,7 +90,7 @@ struct HV_EXPORT HttpContext {
     const hv::KeyValue& urlencoded() {
         return request->GetUrlEncoded();
     }
-    std::string urlencoded(const char* key, const std::string& defvalue = "") {
+    std::string urlencoded(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetUrlEncoded(key, defvalue);
     }
 
@@ -99,7 +99,7 @@ struct HV_EXPORT HttpContext {
     T get(const char* key, T defvalue = 0) {
         return request->Get(key, defvalue);
     }
-    std::string get(const char* key, const std::string& defvalue = "") {
+    std::string get(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetString(key, defvalue);
     }
 #endif

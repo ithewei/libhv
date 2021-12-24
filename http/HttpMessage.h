@@ -194,7 +194,7 @@ public:
         }
         return form;
     }
-    std::string GetFormData(const char* name, const std::string& defvalue = "") {
+    std::string GetFormData(const char* name, const std::string& defvalue = hv::empty_string) {
         if (form.empty() && ContentType() == MULTIPART_FORM_DATA) {
             ParseBody();
         }
@@ -232,7 +232,7 @@ public:
         }
         return kv;
     }
-    std::string GetUrlEncoded(const char* key, const std::string& defvalue = "") {
+    std::string GetUrlEncoded(const char* key, const std::string& defvalue = hv::empty_string) {
         if (kv.empty() && ContentType() == X_WWW_FORM_URLENCODED) {
             ParseBody();
         }
@@ -279,7 +279,7 @@ public:
     void SetHeader(const char* key, const std::string& value) {
         headers[key] = value;
     }
-    std::string GetHeader(const char* key, const std::string& defvalue = "") {
+    std::string GetHeader(const char* key, const std::string& defvalue = hv::empty_string) {
         auto iter = headers.find(key);
         return iter == headers.end() ? defvalue : iter->second;
     }
@@ -458,7 +458,7 @@ public:
     void SetParam(const char* key, const T& t) {
         query_params[key] = hv::to_string(t);
     }
-    std::string GetParam(const char* key, const std::string& defvalue = "") {
+    std::string GetParam(const char* key, const std::string& defvalue = hv::empty_string) {
         auto iter = query_params.find(key);
         return iter == query_params.end() ? defvalue : iter->second;
     }

@@ -54,7 +54,7 @@ bool HttpCookie::parse(const std::string& str) {
                         stricmp(val.c_str(), "None")   == 0 ? HttpCookie::SameSite::None   :
                                                               HttpCookie::SameSite::Default;
         }
-        else if (val.size() > 0) {
+        else if (value.empty() && !val.empty()) {
             name = key;
             value = val;
         }
