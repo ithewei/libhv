@@ -92,12 +92,13 @@ bin/curl -v localhost:8080/echo -d "hello,world!"
 bin/curl -v localhost:8080/query?page_no=1\&page_size=10
 bin/curl -v localhost:8080/kv   -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
 bin/curl -v localhost:8080/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
-bin/curl -v localhost:8080/form -F "user=admin pswd=123456"
+bin/curl -v localhost:8080/form -F 'user=admin' -F 'pswd=123456'
+bin/curl -v localhost:8080/upload -d "@LICENSE"
 bin/curl -v localhost:8080/upload -F "file=@LICENSE"
 
 bin/curl -v localhost:8080/test -H "Content-Type:application/x-www-form-urlencoded" -d 'bool=1&int=123&float=3.14&string=hello'
 bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
-bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
+bin/curl -v localhost:8080/test -F 'bool=1' -F 'int=123' -F 'float=3.14' -F 'string=hello'
 # RESTful API: /group/:group_name/user/:user_id
 bin/curl -v -X DELETE localhost:8080/group/test/user/123
 

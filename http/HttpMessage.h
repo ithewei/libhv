@@ -205,6 +205,10 @@ public:
         if (ContentType() != MULTIPART_FORM_DATA) {
             return HTTP_STATUS_BAD_REQUEST;
         }
+        if (form.empty()) {
+            ParseBody();
+            if (form.empty()) return HTTP_STATUS_BAD_REQUEST;
+        }
         const FormData& formdata = form[name];
         if (formdata.content.empty()) {
             return HTTP_STATUS_BAD_REQUEST;

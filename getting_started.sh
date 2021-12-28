@@ -62,8 +62,11 @@ cmd="bin/curl -v localhost:8080/kv   -H 'Content-Type:application/x-www-form-url
 cmd="bin/curl -v localhost:8080/json -H 'Content-Type:application/json' -d '{\"user\":\"admin\",\"pswd\":\"123456\"}'" && echo_cmd
      bin/curl -v localhost:8080/json -H 'Content-Type:application/json' -d '{"user":"admin","pswd":"123456"}'
 
-cmd="bin/curl -v localhost:8080/form -F 'user=admin pswd=123456'" && echo_cmd
-     bin/curl -v localhost:8080/form -F 'user=admin pswd=123456'
+cmd="bin/curl -v localhost:8080/form -F 'user=admin' -F 'pswd=123456'" && echo_cmd
+     bin/curl -v localhost:8080/form -F 'user=admin' -F 'pswd=123456'
+
+cmd="bin/curl -v localhost:8080/upload -d '@LICENSE'" && echo_cmd
+     bin/curl -v localhost:8080/upload -d '@LICENSE'
 
 cmd="bin/curl -v localhost:8080/upload -F 'file=@LICENSE'" && echo_cmd
      bin/curl -v localhost:8080/upload -F 'file=@LICENSE'
@@ -74,8 +77,8 @@ cmd="bin/curl -v localhost:8080/test -H 'Content-Type:application/x-www-form-url
 cmd="bin/curl -v localhost:8080/test -H 'Content-Type:application/json' -d '{\"bool\":true,\"int\":123,\"float\":3.14,\"string\":\"hello\"}'" && echo_cmd
      bin/curl -v localhost:8080/test -H 'Content-Type:application/json' -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
 
-cmd="bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'" && echo_cmd
-     bin/curl -v localhost:8080/test -F 'bool=1 int=123 float=3.14 string=hello'
+cmd="bin/curl -v localhost:8080/test -F 'bool=1' -F 'int=123' -F 'float=3.14' -F 'string=hello'" && echo_cmd
+     bin/curl -v localhost:8080/test -F 'bool=1' -F 'int=123' -F 'float=3.14' -F 'string=hello'
 
 # RESTful API: /group/:group_name/user/:user_id
 cmd="bin/curl -v -X DELETE localhost:8080/group/test/user/123" && run_cmd
