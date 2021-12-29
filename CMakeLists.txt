@@ -129,6 +129,7 @@ endif()
 
 if(WIN32)
     add_definitions(-D_WIN32_WINNT=0x0600)
+    add_definitions(-DUNICODE -D_UNICODE)
     set(LIBS ${LIBS} winmm iphlpapi ws2_32)
     if(ENABLE_WINDUMP)
         add_definitions(-DENABLE_WINDUMP)
