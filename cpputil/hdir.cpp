@@ -61,8 +61,8 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
 #elif defined(OS_WIN)
     // FindFirstFile -> FindNextFile -> FindClose
     strcat(path, "*");
-    WIN32_FIND_DATA data;
-    HANDLE h = FindFirstFile(path, &data);
+    WIN32_FIND_DATAA data;
+    HANDLE h = FindFirstFileA(path, &data);
     if (h == NULL) {
         return -1;
     }
@@ -80,7 +80,7 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
         tmp.mtime = FileTime2Epoch(data.ftLastWriteTime);
         tmp.ctime = FileTime2Epoch(data.ftCreationTime);
         dirs.push_back(tmp);
-    } while (FindNextFile(h, &data));
+    } while (FindNextFileA(h, &data));
     FindClose(h);
 #endif
     dirs.sort(less);
