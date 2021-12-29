@@ -24,7 +24,7 @@ bool HPath::isfile(const char* path) {
 
 bool HPath::islink(const char* path) {
 #ifdef OS_WIN
-    return HPath::isdir(path) && (GetFileAttributes(path) & FILE_ATTRIBUTE_REPARSE_POINT);
+    return HPath::isdir(path) && (GetFileAttributesA(path) & FILE_ATTRIBUTE_REPARSE_POINT);
 #else
     if (access(path, 0) != 0) return false;
     struct stat st;
