@@ -149,6 +149,7 @@ enum http_method {
     XX(TEXT_PLAIN,              text/plain,               txt)          \
     XX(TEXT_HTML,               text/html,                html)         \
     XX(TEXT_CSS,                text/css,                 css)          \
+    XX(TEXT_EVENT_STREAM,       text/event-stream,        sse)          \
     XX(IMAGE_JPEG,              image/jpeg,               jpg)          \
     XX(IMAGE_PNG,               image/png,                png)          \
     XX(IMAGE_GIF,               image/gif,                gif)          \

@@ -110,12 +110,12 @@ void Router::Register(hv::HttpService& router) {
     router.POST("/json", Handler::json);
 
     // Content-Type: multipart/form-data
-    // bin/curl -v http://ip:port/form -F "user=admin pswd=123456"
+    // bin/curl -v http://ip:port/form -F 'user=admin' -F 'pswd=123456'
     router.POST("/form", Handler::form);
 
     // curl -v http://ip:port/test -H "Content-Type:application/x-www-form-urlencoded" -d 'bool=1&int=123&float=3.14&string=hello'
     // curl -v http://ip:port/test -H "Content-Type:application/json" -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
-    // bin/curl -v http://ip:port/test -F 'bool=1 int=123 float=3.14 string=hello'
+    // bin/curl -v http://ip:port/test -F 'bool=1' -F 'int=123' -F 'float=3.14' -F 'string=hello'
     router.POST("/test", Handler::test);
 
     // Content-Type: application/grpc
@@ -130,7 +130,10 @@ void Router::Register(hv::HttpService& router) {
     // curl -v http://ip:port/login -H "Content-Type:application/json" -d '{"username":"admin","password":"123456"}'
     router.POST("/login", Handler::login);
 
-    // curl -v http://ip:port/upload -d "hello,world!"
-    // curl -v http://ip:port/upload -F "file=@LICENSE"
+    // curl -v http://ip:port/upload -d '@LICENSE'
+    // curl -v http://ip:port/upload -F 'file=@LICENSE'
     router.POST("/upload", Handler::upload);
+
+    // SSE: Server Send Events
+    router.GET("/SSE", Handler::sse);
 }

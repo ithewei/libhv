@@ -26,6 +26,8 @@ public:
 
     static int login(const HttpContextPtr& ctx);
     static int upload(const HttpContextPtr& ctx);
+    // SSE: Server Send Events
+    static int sse(const HttpContextPtr& ctx);
 
 private:
     static int response_status(HttpResponse* resp, int code = 200, const char* message = NULL) {

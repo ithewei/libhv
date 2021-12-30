@@ -27,6 +27,7 @@ public:
     // Begin -> End
     // Begin -> WriteResponse -> End
     // Begin -> WriteStatus -> WriteHeader -> WriteBody -> End
+    // Begin -> EndHeaders("Content-Type", "text/event-stream") -> write -> write -> ... -> close
     // Begin -> EndHeaders("Content-Length", content_length) -> WriteBody -> WriteBody -> ... -> End
     // Begin -> EndHeaders("Transfer-Encoding", "chunked") -> WriteChunked -> WriteChunked -> ... -> End
 

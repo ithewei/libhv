@@ -432,7 +432,7 @@ public:
     }
 
     // scheme
-    bool isHttps() {
+    bool IsHttps() {
         return strncmp(scheme.c_str(), "https", 5) == 0 ||
                strncmp(url.c_str(), "https://", 8) == 0;
     }

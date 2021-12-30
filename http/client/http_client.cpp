@@ -166,7 +166,7 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
         req->port = cli->port;
     }
 
-    bool https = req->isHttps();
+    bool https = req->IsHttps();
     bool use_proxy = https ? (!cli->https_proxy_host.empty()) : (!cli->http_proxy_host.empty());
     if (use_proxy) {
         if (req->host == "127.0.0.1" || req->host == "localhost") {
@@ -452,7 +452,7 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
     int err = 0;
     int timeout = req->timeout;
     int connfd = cli->fd;
-    bool https = req->isHttps();
+    bool https = req->IsHttps();
     bool keepalive = true;
 
     time_t start_time = time(NULL);
