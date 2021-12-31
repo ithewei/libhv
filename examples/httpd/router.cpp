@@ -135,5 +135,5 @@ void Router::Register(hv::HttpService& router) {
     router.POST("/upload", Handler::upload);
 
     // SSE: Server Send Events
-    router.GET("/SSE", Handler::sse);
+    router.GET("/sse", Handler::sse);
 }

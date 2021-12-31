@@ -1,0 +1,50 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+<meta charset="utf-8">
+<title>EventSource客户端</title>
+
+<script type="text/javascript">
+function EventSourceTest(url)
+{
+  if (typeof(EventSource) !== "undefined")
+  {
+    var es = new EventSource(url);
+
+    es.onopen = function()
+    {
+      alert("连接已建立");
+    };
+
+    es.onmessage = function(ev)
+    {
+      console.log("received event: " + ev.data);
+      var li=document.createElement("li");
+      li.innerHTML=ev.data;
+      document.getElementById("msg_list").appendChild(li);
+    };
+
+    es.onerror = function(e)
+    {
+      alert("连接断开");
+    };
+  }
+  else
+  {
+    alert("您的浏览器不支持 EventSource!");
+  }
+}
+</script>
+</head>
+
+<body>
+  URL: <input type="text" id="url" value="http://127.0.0.1:8080/sse" style="width:300px;">
+  <button onclick="EventSourceTest(document.getElementById('url').value)">运行 EventSource</button>
+  <div>
+    <ul id="msg_list" style="height:500px;overflow-y:scroll;">
+    </ul>
+  <div>
+</body>
+
+</html>

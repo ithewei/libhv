@@ -287,13 +287,17 @@ int Handler::upload(const HttpContextPtr& ctx) {
 
 int Handler::sse(const HttpContextPtr& ctx) {
     ctx->writer->EndHeaders("Content-Type", "text/event-stream");
-    // send(time) every 1s
+    // send(message) every 1s
     hv::setInterval(1000, [ctx](hv::TimerID timerID) {
         char szTime[DATETIME_FMT_BUFLEN] = {0};
         datetime_t now = datetime_now();
         datetime_fmt(&now, szTime);
-        ctx->writer->write("event: timeout\n");
-        ctx->writer->write(hv::asprintf("data: %s\n\n", szTime));
+        // @test html/EventSource.html EventSource.onmessage
+        std::string msg("event: message\n");
+        msg += "data: ";
+        msg += szTime;
+        msg += "\n\n";
+        ctx->writer->write(msg);
     });
     return HTTP_STATUS_UNFINISHED;
 }
