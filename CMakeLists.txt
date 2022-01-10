@@ -57,6 +57,8 @@ check_function("gettimeofday" "sys/time.h")
 check_function("pthread_spin_lock" "pthread.h")
 check_function("pthread_mutex_timedlock" "pthread.h")
 check_function("sem_timedwait" "semaphore.h")
+check_function("pipe" "unistd.h")
+check_function("socketpair" "sys/socket.h")
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hconfig.h.in ${CMAKE_CURRENT_SOURCE_DIR}/hconfig.h)
 

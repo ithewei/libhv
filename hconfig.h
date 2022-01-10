@@ -65,6 +65,14 @@
 #define HAVE_SEM_TIMEDWAIT 0
 #endif
 
+#ifndef HAVE_PIPE
+#define HAVE_PIPE 1
+#endif
+
+#ifndef HAVE_SOCKETPAIR
+#define HAVE_SOCKETPAIR 1
+#endif
+
 /* #undef WITH_OPENSSL */
 /* #undef WITH_GNUTLS */
 /* #undef WITH_MBEDTLS */

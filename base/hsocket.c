@@ -357,10 +357,8 @@ int ConnectUnixTimeout(const char* path, int ms) {
 #endif
 
 int Socketpair(int family, int type, int protocol, int sv[2]) {
-#ifdef OS_UNIX
-    if (family == AF_UNIX) {
-        return socketpair(family, type, protocol, sv);
-    }
+#if defined(OS_UNIX) && HAVE_SOCKETPAIR
+    return socketpair(family, type, protocol, sv);
 #endif
     if (family != AF_INET || type != SOCK_STREAM) {
         return -1;

@@ -17,8 +17,8 @@
 #define IO_ARRAY_INIT_SIZE              1024
 #define CUSTOM_EVENT_QUEUE_INIT_SIZE    16
 
-#define SOCKPAIR_WRITE_INDEX    0
-#define SOCKPAIR_READ_INDEX     1
+#define SOCKPAIR_READ_INDEX     0
+#define SOCKPAIR_WRITE_INDEX    1
 
 static void __hidle_del(hidle_t* idle);
 static void __htimer_del(htimer_t* timer);
@@ -208,10 +208,17 @@ unlock:
 }
 
 static int hloop_create_sockpair(hloop_t* loop) {
+#if defined(OS_UNIX) && HAVE_PIPE
+    if (pipe(loop->sockpair) != 0) {
+        hloge("pipe create failed!");
+        return -1;
+    }
+#else
     if (Socketpair(AF_INET, SOCK_STREAM, 0, loop->sockpair) != 0) {
         hloge("socketpair create failed!");
         return -1;
     }
+#endif
     hio_t* io = hread(loop, loop->sockpair[SOCKPAIR_READ_INDEX], loop->readbuf.base, loop->readbuf.len, sockpair_read_cb);
     io->priority = HEVENT_HIGH_PRIORITY;
     // NOTE: Avoid duplication closesocket in hio_cleanup
@@ -243,7 +250,11 @@ void hloop_post_event(hloop_t* loop, hevent_t* ev) {
             goto unlock;
         }
     }
-    nsend = send(loop->sockpair[SOCKPAIR_WRITE_INDEX], "e", 1, 0);
+#if defined(OS_UNIX) && HAVE_PIPE
+    nsend = write(loop->sockpair[SOCKPAIR_WRITE_INDEX], "e", 1);
+#else
+    nsend =  send(loop->sockpair[SOCKPAIR_WRITE_INDEX], "e", 1, 0);
+#endif
     if (nsend != 1) {
         hloge("send failed!");
         goto unlock;

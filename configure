@@ -245,6 +245,8 @@ function=gettimeofday && header=sys/time.h && check_function
 function=pthread_spin_lock && header=pthread.h && check_function
 function=pthread_mutex_timedlock && header=pthread.h && check_function
 function=sem_timedwait && header=semaphore.h && check_function
+function=pipe && header=unistd.h && check_function
+function=socketpair && header=sys/socket.h && check_function
 
 # Checks for options
 source config.mk 2>/dev/null
