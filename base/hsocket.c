@@ -129,7 +129,7 @@ void sockaddr_set_port(sockaddr_u* addr, int port) {
 
 int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port) {
 #ifdef ENABLE_UDS
-    if (port <= 0) {
+    if (port < 0) {
         sockaddr_set_path(addr, host);
         return 0;
     }
