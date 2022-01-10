@@ -7,9 +7,9 @@
  * HttpResponse extends HttpMessage
  *
  * @member
- * request-line: GET / HTTP/1.1\r\n => method path
- * response-line: 200 OK\r\n => status_code
- * headers
+ * request-line:  GET / HTTP/1.1\r\n => method path
+ * response-line: HTTP/1.1 200 OK\r\n => status_code
+ * headers, cookies
  * body
  *
  * content, content_length, content_type
@@ -19,10 +19,11 @@
  * Content, ContentLength, ContentType
  * ParseUrl, ParseBody
  * DumpUrl, DumpHeaders, DumpBody, Dump
- * GetJson, GetForm, GetUrlEncoded
- * GetHeader, GetParam, GetString, GetBool, GetInt, GetFloat
- * String, Data, File, Json, FormFile, SetFormData, SetUrlEncoded
- * Get, Set
+ * GetHeader, GetParam, GetJson, GetFormData, GetUrlEncoded
+ * SetHeader, SetParam, SetBody, SetFormData, SetUrlEncoded
+ * Get<T>, Set<T>
+ * GetString, GetBool, GetInt, GetFloat
+ * String, Data, Json, File, FormFile
  *
  * @example
  * examples/http_server_test.cpp
