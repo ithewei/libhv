@@ -434,13 +434,15 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
         hloge("hio_write called but fd[%d] already closed!", io->fd);
         return -1;
     }
-#if WITH_KCP
-    if (io->io_type == HIO_TYPE_KCP) {
-        return hio_write_kcp(io, buf, len);
-    }
-#endif
     int nwrite = 0, err = 0;
     hrecursive_mutex_lock(&io->write_mutex);
+#if WITH_KCP
+    if (io->io_type == HIO_TYPE_KCP) {
+        nwrite = hio_write_kcp(io, buf, len);
+        if (nwrite < 0) goto write_error;
+        goto write_done;
+    }
+#endif
     if (write_queue_empty(&io->write_queue)) {
 try_write:
         nwrite = __nio_write(io, buf, len);

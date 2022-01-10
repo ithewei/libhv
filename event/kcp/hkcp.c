@@ -80,12 +80,9 @@ int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
     kcp_t* kcp = hio_get_kcp(io, conv);
     int nsend = ikcp_send(kcp->ikcp, (const char*)buf, len);
     // printf("ikcp_send len=%d nsend=%d\n", (int)len, nsend);
-    if (nsend < 0) {
-        hio_close(io);
-    } else {
-        ikcp_update(kcp->ikcp, (IUINT32)io->loop->cur_hrtime / 1000);
-    }
-    return nsend;
+    if (nsend < 0) return nsend;
+    ikcp_update(kcp->ikcp, (IUINT32)io->loop->cur_hrtime / 1000);
+    return len;
 }
 
 int hio_read_kcp (hio_t* io, void* buf, int readbytes) {
