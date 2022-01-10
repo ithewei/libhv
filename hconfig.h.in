@@ -65,6 +65,14 @@
 #define HAVE_SEM_TIMEDWAIT @HAVE_SEM_TIMEDWAIT@
 #endif
 
+#ifndef HAVE_PIPE
+#define HAVE_PIPE @HAVE_PIPE@
+#endif
+
+#ifndef HAVE_SOCKETPAIR
+#define HAVE_SOCKETPAIR @HAVE_SOCKETPAIR@
+#endif
+
 #cmakedefine WITH_OPENSSL   1
 #cmakedefine WITH_GNUTLS    1
 #cmakedefine WITH_MBEDTLS   1
