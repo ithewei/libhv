@@ -160,8 +160,7 @@ cat << END >> hconfig.h
 END
 }
 
-check_header() {
-echo -n "checking for $header... "
+CheckHeaderExists() {
 rm tmp/check 2>/dev/null
 cat << END > tmp/check.c
 #include <$header>
@@ -174,17 +173,16 @@ END
 $CC -o tmp/check tmp/check.c 2>/dev/null
 if [ -x tmp/check ]; then
     value=1
-    echo "yes"
 else
     value=0
-    echo "no"
 fi
-macro=HAVE_$(echo $header | tr a-z./ A-Z__)
-write_define
 }
 
-check_function() {
-echo -n "checking for $function... "
+CheckSymbolExists() {
+CheckHeaderExists
+if [ $value -eq 0 ]; then
+    return;
+fi
 rm tmp/check 2>/dev/null
 cat << END > tmp/check.c
 #include <$header>
@@ -199,9 +197,29 @@ END
 $CC -o tmp/check tmp/check.c 2>/dev/null
 if [ -x tmp/check ]; then
     value=0
-    echo "no"
 else
     value=1
+fi
+}
+
+check_header() {
+echo -n "checking for $header... "
+CheckHeaderExists
+if [ $value -eq 0 ]; then
+    echo "no"
+else
+    echo "yes"
+fi
+macro=HAVE_$(echo $header | tr a-z./ A-Z__)
+write_define
+}
+
+check_function() {
+echo -n "checking for $function... "
+CheckSymbolExists
+if [ $value -eq 0 ]; then
+    echo "no"
+else
     echo "yes"
 fi
 macro=HAVE_$(echo $function | tr a-z A-Z)
@@ -247,6 +265,7 @@ function=pthread_mutex_timedlock && header=pthread.h && check_function
 function=sem_timedwait && header=semaphore.h && check_function
 function=pipe && header=unistd.h && check_function
 function=socketpair && header=sys/socket.h && check_function
+function=eventfd && header=sys/eventfd.h && check_function
 
 # Checks for options
 source config.mk 2>/dev/null

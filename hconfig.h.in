@@ -73,6 +73,10 @@
 #define HAVE_SOCKETPAIR @HAVE_SOCKETPAIR@
 #endif
 
+#ifndef HAVE_EVENTFD
+#define HAVE_EVENTFD @HAVE_EVENTFD@
+#endif
+
 #cmakedefine WITH_OPENSSL   1
 #cmakedefine WITH_GNUTLS    1
 #cmakedefine WITH_MBEDTLS   1

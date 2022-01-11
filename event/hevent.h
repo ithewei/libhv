@@ -58,7 +58,7 @@ struct hloop_s {
     hbuf_t                      readbuf;
     void*                       iowatcher;
     // custom_events
-    int                         sockpair[2];
+    int                         eventfds[2];
     event_queue                 custom_events;
     hmutex_t                    custom_events_mutex;
 };

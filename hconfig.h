@@ -73,6 +73,10 @@
 #define HAVE_SOCKETPAIR 1
 #endif
 
+#ifndef HAVE_EVENTFD
+#define HAVE_EVENTFD 1
+#endif
+
 /* #undef WITH_OPENSSL */
 /* #undef WITH_GNUTLS */
 /* #undef WITH_MBEDTLS */
