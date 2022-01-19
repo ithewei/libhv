@@ -388,8 +388,7 @@ static void hio_handle_events(hio_t* io) {
 
 int hio_accept(hio_t* io) {
     io->accept = 1;
-    hio_add(io, hio_handle_events, HV_READ);
-    return 0;
+    return hio_add(io, hio_handle_events, HV_READ);
 }
 
 int hio_connect(hio_t* io) {

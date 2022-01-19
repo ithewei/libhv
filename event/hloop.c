@@ -806,7 +806,7 @@ hio_t* haccept(hloop_t* loop, int listenfd, haccept_cb accept_cb) {
     if (accept_cb) {
         io->accept_cb = accept_cb;
     }
-    hio_accept(io);
+    if (hio_accept(io) != 0) return NULL;
     return io;
 }
 
@@ -816,7 +816,7 @@ hio_t* hconnect (hloop_t* loop, int connfd, hconnect_cb connect_cb) {
     if (connect_cb) {
         io->connect_cb = connect_cb;
     }
-    hio_connect(io);
+    if (hio_connect(io) != 0) return NULL;
     return io;
 }
 
@@ -929,7 +929,7 @@ hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, hacce
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_SERVER_SIDE);
     if (io == NULL) return NULL;
     hio_setcb_accept(io, accept_cb);
-    hio_accept(io);
+    if (hio_accept(io) != 0) return NULL;
     return io;
 }
 
@@ -937,7 +937,7 @@ hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconn
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) return NULL;
     hio_setcb_connect(io, connect_cb);
-    hio_connect(io);
+    if (hio_connect(io) != 0) return NULL;
     return io;
 }
 
@@ -945,7 +945,7 @@ hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, hacce
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE);
     if (io == NULL) return NULL;
     hio_setcb_accept(io, accept_cb);
-    hio_accept(io);
+    if (hio_accept(io) != 0) return NULL;
     return io;
 }
 
@@ -953,7 +953,7 @@ hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconn
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE);
     if (io == NULL) return NULL;
     hio_setcb_connect(io, connect_cb);
-    hio_connect(io);
+    if (hio_connect(io) != 0) return NULL;
     return io;
 }
 
