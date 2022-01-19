@@ -18,7 +18,6 @@ option(WITH_HTTP_CLIENT "compile http/client" ON)
 
 option(ENABLE_IPV6 "ipv6" OFF)
 option(ENABLE_UDS "Unix Domain Socket" OFF)
-option(ENABLE_WINDUMP "Windows MiniDumpWriteDump" OFF)
 option(USE_MULTIMAP "MultiMap" OFF)
 
 option(WITH_CURL "with curl library" OFF)
@@ -29,6 +28,17 @@ option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
 
 option(WITH_KCP "with kcp" OFF)
+
+if(WIN32)
+    option(ENABLE_WINDUMP "Windows MiniDumpWriteDump" OFF)
+    option(BUILD_FOR_MT "build for /MT" OFF)
+    if(BUILD_FOR_MT)
+        set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MTd")
+        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+        set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
+        set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
+    endif()
+endif()
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 include(utils)
