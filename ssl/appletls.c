@@ -890,9 +890,10 @@ static int hssl_init(hssl_t ssl, int endpoint) {
         return HSSL_ERROR;
     }
 
-    ret = SSLSetProtocolVersionEnabled(appletls->session, kSSLProtocolAll, true);
+    // ret = SSLSetProtocolVersionEnabled(appletls->session, kSSLProtocolAll, true);
+    ret = SSLSetProtocolVersionMin(appletls->session, kTLSProtocol12);
     if (ret != noErr) {
-        fprintf(stderr, "SSLSetProtocolVersionEnabled failed!\n");
+        fprintf(stderr, "SSLSetProtocolVersionMin failed!\n");
         return HSSL_ERROR;
     }
 

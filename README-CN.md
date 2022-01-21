@@ -21,7 +21,7 @@
 
 ## ✨ 特征
 
-- 跨平台（Linux, Windows, MacOS, Solaris）
+- 跨平台（Linux, Windows, MacOS, Solaris, Android, iOS）
 - 高性能事件循环（网络IO事件、定时器事件、空闲事件、自定义事件）
 - TCP/UDP服务端/客户端/代理
 - TCP支持心跳、转发、拆包、多线程安全write和close等特性

@@ -62,7 +62,7 @@ make clean
 make libhv
 ```
 
-### android
+### Android
 see CROSS_COMPILE
 ```
 #https://developer.android.com/ndk/downloads
@@ -75,6 +75,14 @@ export CROSS_COMPILE=aarch64-linux-android-
 ./configure
 make clean
 make libhv
+```
+
+### iOS
+```
+mkdir build
+cd build
+cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS
+cmake --build . --target hv_static --config Release
 ```
 
 ## targets
