@@ -105,13 +105,13 @@ make clean && make
 ```
 
 ### compile WITH_OPENSSL
-Enable SSL in libhv is so easy, just only two apis:
+Enable SSL/TLS in libhv is so easy :)
 ```
-// init ssl_ctx, see ssl/hssl.h
-hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param);
+// see ssl/hssl.h
+hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt);
 
-// enable ssl, see event/hloop.h
-int hio_enable_ssl(hio_t* io);
+// see event/hloop.h
+int hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt);
 ```
 
 https is the best example.

@@ -103,18 +103,6 @@ int main(int argc, char** argv) {
     }
 #endif
 
-#if TEST_SSL
-    hssl_ctx_init_param_t ssl_param;
-    memset(&ssl_param, 0, sizeof(ssl_param));
-    ssl_param.crt_file = "cert/server.crt";
-    ssl_param.key_file = "cert/server.key";
-    ssl_param.endpoint = HSSL_SERVER;
-    if (hssl_ctx_init(&ssl_param) == NULL) {
-        fprintf(stderr, "hssl_ctx_init failed!\n");
-        return -30;
-    }
-#endif
-
 #if TEST_UNPACK
     memset(&unpack_setting, 0, sizeof(unpack_setting_t));
     unpack_setting.package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
@@ -133,6 +121,18 @@ int main(int argc, char** argv) {
     if (listenio == NULL) {
         return -20;
     }
+#if TEST_SSL
+    hssl_ctx_opt_t ssl_param;
+    memset(&ssl_param, 0, sizeof(ssl_param));
+    ssl_param.crt_file = "cert/server.crt";
+    ssl_param.key_file = "cert/server.key";
+    ssl_param.endpoint = HSSL_SERVER;
+    if (hio_new_ssl_ctx(listenio, &ssl_param) != 0) {
+        fprintf(stderr, "hssl_ctx_new failed!\n");
+        return -30;
+    }
+#endif
+
     printf("listenfd=%d\n", hio_fd(listenio));
     hloop_run(loop);
     hloop_free(&loop);
