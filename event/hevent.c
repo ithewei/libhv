@@ -134,6 +134,8 @@ void hio_ready(hio_t* io) {
     io->unpack_setting = NULL;
     // ssl
     io->ssl = NULL;
+    io->ssl_ctx = NULL;
+    io->alloced_ssl_ctx = 0;
     // context
     io->ctx = NULL;
     // private:
@@ -459,10 +461,27 @@ hssl_t hio_get_ssl(hio_t* io) {
     return io->ssl;
 }
 
+hssl_ctx_t hio_get_ssl_ctx(hio_t* io) {
+    return io->ssl_ctx;
+}
+
 int hio_set_ssl(hio_t* io, hssl_t ssl) {
     io->io_type = HIO_TYPE_SSL;
     io->ssl = ssl;
     return 0;
+}
+
+int hio_set_ssl_ctx(hio_t* io, hssl_ctx_t ssl_ctx) {
+    io->io_type = HIO_TYPE_SSL;
+    io->ssl_ctx = ssl_ctx;
+    return 0;
+}
+
+int hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt) {
+    hssl_ctx_t ssl_ctx = hssl_ctx_new(opt);
+    if (ssl_ctx == NULL) return HSSL_ERROR;
+    io->alloced_ssl_ctx = 1;
+    return hio_set_ssl_ctx(io, ssl_ctx);
 }
 
 void hio_set_readbuf(hio_t* io, void* buf, size_t len) {

@@ -112,6 +112,7 @@ struct hio_s {
     unsigned    sendto      :1;
     unsigned    close       :1;
     unsigned    alloced_readbuf :1; // for hio_alloc_readbuf
+    unsigned    alloced_ssl_ctx :1; // for hio_new_ssl_ctx
 // public:
     hio_type_e  io_type;
     uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
@@ -161,7 +162,8 @@ struct hio_s {
     // unpack
     unpack_setting_t*   unpack_setting; // for hio_set_unpack
     // ssl
-    void*       ssl; // for hio_enable_ssl / hio_set_ssl
+    void*       ssl;        // for hio_set_ssl
+    void*       ssl_ctx;    // for hio_set_ssl_ctx
     // context
     void*       ctx; // for hio_context / hio_set_context
 // private:

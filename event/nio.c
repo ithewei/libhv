@@ -138,7 +138,16 @@ static void nio_accept(hio_t* io) {
 
         if (io->io_type == HIO_TYPE_SSL) {
             if (connio->ssl == NULL) {
-                hssl_ctx_t ssl_ctx = hssl_ctx_instance();
+                // io->ssl_ctx > g_ssl_ctx > hssl_ctx_new
+                hssl_ctx_t ssl_ctx = NULL;
+                if (io->ssl_ctx) {
+                    ssl_ctx = io->ssl_ctx;
+                } else if (g_ssl_ctx) {
+                    ssl_ctx = g_ssl_ctx;
+                } else {
+                    io->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
+                    io->alloced_ssl_ctx = 1;
+                }
                 if (ssl_ctx == NULL) {
                     io->error = HSSL_ERROR;
                     goto accept_error;
@@ -180,7 +189,16 @@ static void nio_connect(hio_t* io) {
 
         if (io->io_type == HIO_TYPE_SSL) {
             if (io->ssl == NULL) {
-                hssl_ctx_t ssl_ctx = hssl_ctx_instance();
+                // io->ssl_ctx > g_ssl_ctx > hssl_ctx_new
+                hssl_ctx_t ssl_ctx = NULL;
+                if (io->ssl_ctx) {
+                    ssl_ctx = io->ssl_ctx;
+                } else if (g_ssl_ctx) {
+                    ssl_ctx = g_ssl_ctx;
+                } else {
+                    io->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
+                    io->alloced_ssl_ctx = 1;
+                }
                 if (ssl_ctx == NULL) {
                     goto connect_failed;
                 }
@@ -538,6 +556,10 @@ int hio_close (hio_t* io) {
     if (io->ssl) {
         hssl_free(io->ssl);
         io->ssl = NULL;
+    }
+    if (io->ssl_ctx && io->alloced_ssl_ctx) {
+        hssl_ctx_free(io->ssl_ctx);
+        io->ssl_ctx = NULL;
     }
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);

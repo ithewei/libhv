@@ -2,6 +2,7 @@
 #define HV_HTTP_CLIENT_H_
 
 #include "hexport.h"
+#include "hssl.h"
 #include "HttpMessage.h"
 
 /*
@@ -35,6 +36,11 @@ HV_EXPORT int http_client_del(http_client_t* cli);
 HV_EXPORT const char* http_client_strerror(int errcode);
 
 HV_EXPORT int http_client_set_timeout(http_client_t* cli, int timeout);
+
+// SSL/TLS
+HV_EXPORT int http_client_set_ssl_ctx(http_client_t* cli, hssl_ctx_t ssl_ctx);
+// hssl_ctx_new(opt) -> http_client_set_ssl_ctx
+HV_EXPORT int http_client_new_ssl_ctx(http_client_t* cli, hssl_ctx_opt_t* opt);
 
 // common headers
 HV_EXPORT int http_client_clear_headers(http_client_t* cli);

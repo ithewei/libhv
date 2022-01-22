@@ -180,6 +180,7 @@ public:
         return send(str.data(), str.size());
     }
 
+    // deprecated: use withTLS(opt) after createsocket
     int withTLS(const char* cert_file = NULL, const char* key_file = NULL, bool verify_peer = false) {
         if (cert_file) {
             hssl_ctx_init_param_t param;
@@ -195,6 +196,10 @@ public:
         }
         tls = true;
         return 0;
+    }
+    int withTLS(hssl_ctx_opt_t* opt) {
+        if (!channel) return -1;
+        return channel->newSslCtx(opt);
     }
 
     void setConnectTimeout(int ms) {

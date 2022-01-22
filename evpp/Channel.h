@@ -187,8 +187,26 @@ public:
     }
     virtual ~SocketChannel() {}
 
+    // SSL/TLS
     int enableSSL() {
+        if (io_ == NULL) return -1;
         return hio_enable_ssl(io_);
+    }
+    bool isSSL() {
+        if (io_ == NULL) return false;
+        return hio_is_ssl(io_);
+    }
+    int setSSL(hssl_t ssl) {
+        if (io_ == NULL) return -1;
+        return hio_set_ssl(io_, ssl);
+    }
+    int setSslCtx(hssl_ctx_t ssl_ctx) {
+        if (io_ == NULL) return -1;
+        return hio_set_ssl_ctx(io_, ssl_ctx);
+    }
+    int newSslCtx(hssl_ctx_opt_t* opt) {
+        if (io_ == NULL) return -1;
+        return hio_new_ssl_ctx(io_, opt);
     }
 
     void setConnectTimeout(int timeout_ms) {

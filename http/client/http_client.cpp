@@ -39,6 +39,8 @@ struct http_client_s {
     // for sync
     int             fd;
     hssl_t          ssl;
+    hssl_ctx_t      ssl_ctx;
+    bool            alloced_ssl_ctx;
     HttpParserPtr   parser;
     // for async
     std::mutex                              mutex_;
@@ -54,10 +56,16 @@ struct http_client_s {
 #endif
         fd = -1;
         ssl = NULL;
+        ssl_ctx = NULL;
+        alloced_ssl_ctx = false;
     }
 
     ~http_client_s() {
         Close();
+        if (ssl_ctx && alloced_ssl_ctx) {
+            hssl_ctx_free(ssl_ctx);
+            ssl_ctx = NULL;
+        }
     }
 
     void Close() {
@@ -101,6 +109,19 @@ int http_client_close(http_client_t* cli) {
 int http_client_set_timeout(http_client_t* cli, int timeout) {
     cli->timeout = timeout;
     return 0;
+}
+
+int http_client_set_ssl_ctx(http_client_t* cli, hssl_ctx_t ssl_ctx) {
+    cli->ssl_ctx = ssl_ctx;
+    return 0;
+}
+
+int http_client_new_ssl_ctx(http_client_t* cli, hssl_ctx_opt_t* opt) {
+    opt->endpoint = HSSL_CLIENT;
+    hssl_ctx_t ssl_ctx = hssl_ctx_new(opt);
+    if (ssl_ctx == NULL) return HSSL_ERROR;
+    cli->alloced_ssl_ctx = true;
+    return http_client_set_ssl_ctx(cli, ssl_ctx);
 }
 
 int http_client_clear_headers(http_client_t* cli) {
@@ -418,8 +439,17 @@ static int http_client_connect(http_client_t* cli, const char* host, int port, i
     }
     tcp_nodelay(connfd, 1);
 
-    if (https) {
-        hssl_ctx_t ssl_ctx = hssl_ctx_instance();
+    if (https && cli->ssl == NULL) {
+        // cli->ssl_ctx > g_ssl_ctx > hssl_ctx_new
+        hssl_ctx_t ssl_ctx = NULL;
+        if (cli->ssl_ctx) {
+            ssl_ctx = cli->ssl_ctx;
+        } else if (g_ssl_ctx) {
+            ssl_ctx = g_ssl_ctx;
+        } else {
+            cli->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
+            cli->alloced_ssl_ctx = true;
+        }
         if (ssl_ctx == NULL) {
             closesocket(connfd);
             return HSSL_ERROR;

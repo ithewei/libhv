@@ -285,8 +285,13 @@ HV_EXPORT hclose_cb   hio_getcb_close(hio_t* io);
 // Enable SSL/TLS is so easy :)
 HV_EXPORT int  hio_enable_ssl(hio_t* io);
 HV_EXPORT bool hio_is_ssl(hio_t* io);
-HV_EXPORT hssl_t hio_get_ssl(hio_t* io);
-HV_EXPORT int  hio_set_ssl(hio_t* io, hssl_t ssl);
+HV_EXPORT int  hio_set_ssl    (hio_t* io, hssl_t ssl);
+HV_EXPORT int  hio_set_ssl_ctx(hio_t* io, hssl_ctx_t ssl_ctx);
+// hssl_ctx_new(opt) -> hio_set_ssl_ctx
+HV_EXPORT int  hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt);
+HV_EXPORT hssl_t     hio_get_ssl(hio_t* io);
+HV_EXPORT hssl_ctx_t hio_get_ssl_ctx(hio_t* io);
+
 // NOTE: One loop per thread, one readbuf per loop.
 // But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
 HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
