@@ -422,6 +422,9 @@
 - hio_is_ssl
 - hio_get_ssl
 - hio_set_ssl
+- hio_get_ssl_ctx
+- hio_set_ssl_ctx
+- hio_new_ssl_ctx
 - hio_setcb_accept
 - hio_setcb_connect
 - hio_setcb_read
@@ -466,11 +469,6 @@
 - network_logger
 - nlog_listen
 
-### nmap.h
-- nmap_discover
-- segment_discover
-- host_discover
-
 ## evpp
 - class Buffer
 - class Channel
@@ -482,6 +480,21 @@
 - class TcpServer
 - class UdpClient
 - class UdpServer
+
+## ssl
+- hssl_ctx_init
+- hssl_ctx_cleanup
+- hssl_ctx_instance
+- hssl_ctx_new
+- hssl_ctx_free
+- hssl_new
+- hssl_free
+- hssl_accept
+- hssl_connnect
+- hssl_read
+- hssl_write
+- hssl_close
+- hssl_set_sni_hostname
 
 ## protocol
 

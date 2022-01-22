@@ -13,7 +13,7 @@ const char* hssl_backend() {
     return "openssl";
 }
 
-hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
+hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
     static int s_initialized = 0;
     if (s_initialized == 0) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -74,19 +74,14 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
         SSL_CTX_set_default_verify_paths(ctx);
     }
     SSL_CTX_set_verify(ctx, mode, NULL);
-
-    g_ssl_ctx = ctx;
     return ctx;
 error:
     SSL_CTX_free(ctx);
     return NULL;
 }
 
-void hssl_ctx_cleanup(hssl_ctx_t ssl_ctx) {
+void hssl_ctx_free(hssl_ctx_t ssl_ctx) {
     if (!ssl_ctx) return;
-    if (g_ssl_ctx == ssl_ctx) {
-        g_ssl_ctx = NULL;
-    }
     SSL_CTX_free((SSL_CTX*)ssl_ctx);
 }
 

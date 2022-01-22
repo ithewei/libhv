@@ -10,7 +10,7 @@ const char* hssl_backend() {
 
 typedef gnutls_certificate_credentials_t gnutls_ctx_t;
 
-hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
+hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
     static int s_initialized = 0;
     if (s_initialized == 0) {
         gnutls_global_init();
@@ -70,19 +70,14 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
             gnutls_certificate_set_x509_system_trust(ctx);
         }
     }
-
-    g_ssl_ctx = ctx;
     return ctx;
 error:
     gnutls_certificate_free_credentials(ctx);
     return NULL;
 }
 
-void hssl_ctx_cleanup(hssl_ctx_t ssl_ctx) {
+void hssl_ctx_free(hssl_ctx_t ssl_ctx) {
     if (!ssl_ctx) return;
-    if (g_ssl_ctx == ssl_ctx) {
-        g_ssl_ctx = NULL;
-    }
     gnutls_ctx_t ctx = (gnutls_ctx_t)ssl_ctx;
     gnutls_certificate_free_credentials(ctx);
 }

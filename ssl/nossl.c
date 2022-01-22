@@ -6,12 +6,12 @@ const char* hssl_backend() {
     return "nossl";
 }
 
-hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
+hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt) {
     fprintf(stderr, "Please recompile WITH_SSL.\n");
     return NULL;
 }
 
-void hssl_ctx_cleanup(hssl_ctx_t ssl_ctx) {
+void hssl_ctx_free(hssl_ctx_t ssl_ctx) {
 }
 
 hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd) {

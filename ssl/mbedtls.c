@@ -36,7 +36,7 @@ struct mbedtls_ctx {
 #endif
 };
 
-hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
+hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
     struct mbedtls_ctx* ctx = (struct mbedtls_ctx*)malloc(sizeof(struct mbedtls_ctx));
     if (ctx == NULL) return NULL;
 
@@ -93,19 +93,14 @@ hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
             goto error;
         }
     }
-
-    g_ssl_ctx = ctx;
     return ctx;
 error:
     free(ctx);
     return NULL;
 }
 
-void hssl_ctx_cleanup(hssl_ctx_t ssl_ctx) {
+void hssl_ctx_free(hssl_ctx_t ssl_ctx) {
     if (!ssl_ctx) return;
-    if (g_ssl_ctx == ssl_ctx) {
-        g_ssl_ctx = NULL;
-    }
     struct mbedtls_ctx *mctx = (struct mbedtls_ctx *)ssl_ctx;
     mbedtls_x509_crt_free(&mctx->cert);
     mbedtls_pk_free(&mctx->pkey);
