@@ -2,12 +2,12 @@
 
 #ifdef WITH_MBEDTLS
 
+#include "mbedtls/version.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
-#include "mbedtls/certs.h"
 #include "mbedtls/x509.h"
 #include "mbedtls/ssl.h"
-#include "mbedtls/net.h"
+#include "mbedtls/net_sockets.h"
 #include "mbedtls/error.h"
 #include "mbedtls/debug.h"
 
@@ -60,7 +60,11 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
             }
         }
         if (param->key_file && *param->key_file) {
+#if MBEDTLS_VERSION_MAJOR >= 3
+            if (mbedtls_pk_parse_keyfile(&ctx->pkey, param->key_file, NULL, NULL, NULL) != 0) {
+#else
             if (mbedtls_pk_parse_keyfile(&ctx->pkey, param->key_file, NULL) != 0) {
+#endif
                 fprintf(stderr, "ssl key_file error!\n");
                 goto error;
             }
