@@ -456,7 +456,7 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
 #if WITH_KCP
     if (io->io_type == HIO_TYPE_KCP) {
         nwrite = hio_write_kcp(io, buf, len);
-        if (nwrite < 0) goto write_error;
+        // if (nwrite < 0) goto write_error;
         goto write_done;
     }
 #endif

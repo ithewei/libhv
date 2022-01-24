@@ -97,7 +97,7 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=400 on linux-x64
+// sizeof(struct hio_s)=408 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
