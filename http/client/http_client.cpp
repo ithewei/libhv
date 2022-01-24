@@ -488,14 +488,13 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
     time_t start_time = time(NULL);
     time_t cur_time;
     int fail_cnt = 0;
-connect:
     if (connfd <= 0) {
         req->ParseUrl();
-        int ret = http_client_connect(cli, req->host.c_str(), req->port, https, req->timeout);
-        if (ret < 0) {
-            return ret;
+connect:
+        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, req->timeout);
+        if (connfd < 0) {
+            return connfd;
         }
-        connfd = cli->fd;
     }
 
     if (cli->parser == NULL) {
