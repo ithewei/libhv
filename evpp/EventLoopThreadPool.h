@@ -50,13 +50,9 @@ public:
     void start(bool wait_threads_started = false,
                std::function<void(const EventLoopPtr&)> pre = NULL,
                std::function<void(const EventLoopPtr&)> post = NULL) {
+        if (thread_num_ == 0) return;
         if (status() >= kStarting && status() < kStopped) return;
         setStatus(kStarting);
-
-        if (thread_num_ == 0) {
-            setStatus(kRunning);
-            return;
-        }
 
         std::shared_ptr<std::atomic<int>> started_cnt(new std::atomic<int>(0));
         std::shared_ptr<std::atomic<int>> exited_cnt(new std::atomic<int>(0));

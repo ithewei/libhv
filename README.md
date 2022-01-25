@@ -165,7 +165,8 @@ int main() {
     srv.setThreadNum(4);
     srv.start();
 
-    while (1) hv_sleep(1);
+    // press Enter to stop
+    while (getchar() != '\n');
     return 0;
 }
 ```
@@ -234,7 +235,8 @@ int main() {
     };
     cli.start();
 
-    while (1) hv_sleep(1);
+    // press Enter to stop
+    while (getchar() != '\n');
     return 0;
 }
 ```

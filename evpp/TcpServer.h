@@ -45,6 +45,8 @@ public:
     void setMaxConnectionNum(uint32_t num) {
         max_connections = num;
     }
+
+    // NOTE: totalThreadNum = 1 acceptor_thread + N worker_threads (N can be 0)
     void setThreadNum(int num) {
         worker_threads.setThreadNum(num);
     }
@@ -60,13 +62,17 @@ public:
     }
 
     void start(bool wait_threads_started = true) {
-        worker_threads.start(wait_threads_started);
+        if (worker_threads.threadNum() > 0) {
+            worker_threads.start(wait_threads_started);
+        }
         acceptor_thread.start(wait_threads_started, std::bind(&TcpServerTmpl::startAccept, this));
     }
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         acceptor_thread.stop(wait_threads_stopped);
-        worker_threads.stop(wait_threads_stopped);
+        if (worker_threads.threadNum() > 0) {
+            worker_threads.stop(wait_threads_stopped);
+        }
     }
 
     int withTLS(const char* cert_file, const char* key_file) {
@@ -185,7 +191,10 @@ private:
         hio_detach(connio);
         // Load Banlance: Round-Robin
         EventLoopPtr worker_loop = server->worker_threads.nextLoop();
-        worker_loop->queueInLoop(std::bind(&TcpServerTmpl::newConnEvent, connio));
+        if (worker_loop == NULL) {
+            worker_loop = server->acceptor_thread.loop();
+        }
+        worker_loop->runInLoop(std::bind(&TcpServerTmpl::newConnEvent, connio));
     }
 
 public:
