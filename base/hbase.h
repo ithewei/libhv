@@ -31,6 +31,23 @@ HV_EXPORT void  safe_free(void* ptr);
         }\
     } while(0)
 
+#define STACK_OR_HEAP_ALLOC(ptr, size, stack_size)\
+    unsigned char _stackbuf_[stack_size] = { 0 };\
+    if ((size) > (stack_size)) {\
+        HV_ALLOC(ptr, size);\
+    } else {\
+        *(unsigned char**)&(ptr) = _stackbuf_;\
+    }
+
+#define STACK_OR_HEAP_FREE(ptr)\
+    if ((unsigned char*)(ptr) != _stackbuf_) {\
+        HV_FREE(ptr);\
+    }
+
+#define HV_DEFAULT_STACKBUF_SIZE    1024
+#define HV_STACK_ALLOC(ptr, size)   STACK_OR_HEAP_ALLOC(ptr, size, HV_DEFAULT_STACKBUF_SIZE)
+#define HV_STACK_FREE(ptr)          STACK_OR_HEAP_FREE(ptr)
+
 HV_EXPORT long hv_alloc_cnt();
 HV_EXPORT long hv_free_cnt();
 HV_INLINE void hv_memcheck() {

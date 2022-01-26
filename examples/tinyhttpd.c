@@ -131,9 +131,6 @@ static int http_reply(http_conn_t* conn,
             int status_code, const char* status_message,
             const char* content_type,
             const char* body, int body_len) {
-    char stackbuf[HTTP_MAX_HEAD_LENGTH + 1024] = {0};
-    char* buf = stackbuf;
-    int buflen = sizeof(stackbuf);
     http_msg_t* req  = &conn->request;
     http_msg_t* resp = &conn->response;
     resp->major_version = req->major_version;
@@ -147,12 +144,11 @@ static int http_reply(http_conn_t* conn,
         resp->content_length = body_len;
         resp->body = (char*)body;
     }
-    if (resp->content_length > buflen - HTTP_MAX_HEAD_LENGTH) {
-        HV_ALLOC(buf, HTTP_MAX_HEAD_LENGTH + resp->content_length);
-    }
-    int msglen = http_response_dump(resp, buf, buflen);
+    char* buf = NULL;
+    STACK_OR_HEAP_ALLOC(buf, HTTP_MAX_HEAD_LENGTH + resp->content_length, HTTP_MAX_HEAD_LENGTH + 1024);
+    int msglen = http_response_dump(resp, buf, HTTP_MAX_HEAD_LENGTH + resp->content_length);
     int nwrite = hio_write(conn->io, buf, msglen);
-    if (buf != stackbuf) HV_FREE(buf);
+    STACK_OR_HEAP_FREE(buf);
     return nwrite < 0 ? nwrite : msglen;
 }
 

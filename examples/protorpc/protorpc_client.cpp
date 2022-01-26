@@ -153,14 +153,14 @@ public:
         msg.head.length = req->ByteSize();
         int packlen = protorpc_package_length(&msg.head);
         unsigned char* writebuf = NULL;
-        HV_ALLOC(writebuf, packlen);
+        HV_STACK_ALLOC(writebuf, packlen);
         packlen = protorpc_pack(&msg, writebuf, packlen);
         if (packlen > 0) {
             printf("%s\n", req->DebugString().c_str());
             req->SerializeToArray(writebuf + PROTORPC_HEAD_LENGTH, msg.head.length);
             channel->write(writebuf, packlen);
         }
-        HV_FREE(writebuf);
+        HV_STACK_FREE(writebuf);
         // wait until response come or timeout
         ctx->wait(timeout_ms);
         auto res = ctx->res;
