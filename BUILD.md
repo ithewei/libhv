@@ -146,3 +146,9 @@ bin/curl -v http://localhost:8080 --http2
 ./configure --with-kcp
 make clean && make
 ```
+
+### compile WITH_MQTT
+```
+./configure --with-mqtt
+make clean && make
+```

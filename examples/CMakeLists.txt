@@ -137,4 +137,16 @@ endif()
 endif()
 endif()
 
+if(WITH_MQTT)
+    include_directories(../mqtt)
+
+    add_executable(mqtt_sub mqtt/mqtt_sub.c)
+    target_link_libraries(mqtt_sub ${HV_LIBRARIES})
+
+    add_executable(mqtt_pub mqtt/mqtt_pub.c)
+    target_link_libraries(mqtt_pub ${HV_LIBRARIES})
+
+    list(APPEND EXAMPLES mqtt_sub mqtt_pub)
+endif()
+
 add_custom_target(examples DEPENDS ${EXAMPLES})

@@ -102,3 +102,8 @@ set(HTTP_SERVER_HEADERS
     http/server/HttpResponseWriter.h
     http/server/WebSocketServer.h
 )
+
+set(MQTT_HEADERS
+    mqtt/mqtt_protocol.h
+    mqtt/mqtt_client.h
+)

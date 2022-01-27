@@ -606,6 +606,26 @@
 - websocket_server_stop
 - class WebSocketServer
 
+## mqtt
+- mqtt_client_new
+- mqtt_client_free
+- mqtt_client_run
+- mqtt_client_stop
+- mqtt_client_set_id
+- mqtt_client_set_will
+- mqtt_client_set_auth
+- mqtt_client_set_callback
+- mqtt_client_set_userdata
+- mqtt_client_get_userdata
+- mqtt_client_get_last_error
+- mqtt_client_set_ssl_ctx
+- mqtt_client_new_ssl_ctx
+- mqtt_client_connect
+- mqtt_client_disconnect
+- mqtt_client_publish
+- mqtt_client_subscribe
+- mqtt_client_unsubscribe
+
 ## other
 - class HThreadPool
 - class HObjectPool

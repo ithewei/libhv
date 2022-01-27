@@ -26,6 +26,7 @@
 ├── lib         库文件安装目录
 ├── logs        日志生成目录
 ├── misc        杂项
+├── mqtt        MQTT协议
 ├── protocol    包含icmp、dns、ftp、smtp等协议的实现
 ├── scripts     shell脚本存放目录
 ├── ssl         SSL/TLS加密通信

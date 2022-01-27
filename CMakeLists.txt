@@ -15,6 +15,7 @@ option(WITH_EVPP "compile evpp" ON)
 option(WITH_HTTP "compile http" ON)
 option(WITH_HTTP_SERVER "compile http/server" ON)
 option(WITH_HTTP_CLIENT "compile http/client" ON)
+option(WITH_MQTT "compile mqtt" OFF)
 
 option(ENABLE_IPV6 "ipv6" OFF)
 option(ENABLE_UDS "Unix Domain Socket" OFF)
@@ -163,7 +164,7 @@ if(APPLE)
 endif()
 
 # see Makefile
-set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp protocol http http/client http/server)
+set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp protocol http http/client http/server mqtt)
 set(CORE_SRCDIRS . base ssl event)
 if(WITH_KCP)
     set(CORE_SRCDIRS ${CORE_SRCDIRS} event/kcp)
@@ -199,6 +200,11 @@ if(WITH_EVPP)
     if(CMAKE_SYSTEM_NAME MATCHES "Linux" AND CMAKE_COMPILER_IS_GNUCC)
         set(LIBS ${LIBS} stdc++)
     endif()
+endif()
+
+if(WITH_MQTT)
+    set(LIBHV_HEADERS ${LIBHV_HEADERS} ${MQTT_HEADERS})
+    set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} mqtt)
 endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})

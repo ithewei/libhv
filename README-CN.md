@@ -31,6 +31,7 @@
 - HTTP支持静态文件服务、目录服务、同步/异步API处理函数
 - HTTP支持RESTful风格、URI路由、keep-alive长连接、chunked分块等特性
 - WebSocket服务端/客户端
+- MQTT客户端
 
 ## ⌛️ 构建
 
@@ -379,6 +380,7 @@ int main() {
 - TinyHttpd示例:[examples/tinyhttpd.c](examples/tinyhttpd.c)
 - TinyProxyd示例:[examples/tinyproxyd.c](examples/tinyproxyd.c)
 - jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
+- MQTT示例: [examples/mqtt](examples/mqtt)
 - 多accept进程模式: [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
 - 多accept线程模式: [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
 - 一个accept线程+多worker线程: [examples/multi-thread/one-acceptor-multi-workers.c](examples/multi-thread/one-acceptor-multi-workers.c)

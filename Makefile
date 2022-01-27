@@ -2,7 +2,7 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp protocol http http/client http/server
+ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp protocol http http/client http/server mqtt
 CORE_SRCDIRS=. base ssl event
 ifeq ($(WITH_KCP), yes)
 CORE_SRCDIRS += event/kcp
@@ -42,6 +42,11 @@ endif
 endif
 endif
 
+ifeq ($(WITH_MQTT), yes)
+LIBHV_HEADERS += $(MQTT_HEADERS)
+LIBHV_SRCDIRS += mqtt
+endif
+
 default: all
 all: libhv examples
 examples: hmain_test htimer_test hloop_test \
@@ -58,6 +63,8 @@ examples: hmain_test htimer_test hloop_test \
 	http_server_test http_client_test \
 	websocket_server_test \
 	websocket_client_test \
+	mqtt_sub \
+	mqtt_pub \
 	jsonrpc \
 
 clean:
@@ -156,6 +163,12 @@ websocket_server_test: prepare
 
 websocket_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client" SRCS="examples/websocket_client_test.cpp"
+
+mqtt_sub: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) mqtt" SRCS="examples/mqtt/mqtt_sub.c"
+
+mqtt_pub: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) mqtt" SRCS="examples/mqtt/mqtt_pub.c"
 
 jsonrpc: jsonrpc_client jsonrpc_server
 

@@ -33,6 +33,7 @@ but simpler api and richer protocols.
 - HTTP static file service, indexof service, sync/async API handler
 - HTTP supports RESTful, URI router, keep-alive, chunked, etc.
 - WebSocket client/server
+- MQTT client
 
 ## ⌛️ Build
 
@@ -367,6 +368,7 @@ int main() {
 - [examples/tinyhttpd.c](examples/tinyhttpd.c)
 - [examples/tinyproxyd.c](examples/tinyproxyd.c)
 - [examples/jsonrpc](examples/jsonrpc)
+- [examples/mqtt](examples/mqtt)
 - [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
 - [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
 - [examples/multi-thread/one-acceptor-multi-workers.c](examples/multi-thread/one-acceptor-multi-workers.c)
