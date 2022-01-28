@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
     };
 
     // reconnect: 1,2,4,8,10,10,10...
-    ReconnectInfo reconn;
+    reconn_setting_t reconn;
     reconn.min_delay = 1000;
     reconn.max_delay = 10000;
     reconn.delay_policy = 2;

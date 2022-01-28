@@ -18,6 +18,8 @@ struct mqtt_client_s {
     // connect: host:port
     char host[256];
     int  port;
+    // reconnect
+    reconn_setting_t* reconn_setting;
     // login: flags + keepalive + client_id + will + username + password
     // flags
     unsigned short clean_session:   1;
@@ -40,8 +42,9 @@ struct mqtt_client_s {
     // userdata
     void* userdata;
     // privdata
-    hloop_t* loop;
-    hio_t*   io;
+    hloop_t*    loop;
+    hio_t*      io;
+    htimer_t*   reconn_timer;
     // SSL/TLS
     hssl_ctx_t ssl_ctx;
     // thread-safe
@@ -84,6 +87,11 @@ HV_EXPORT int mqtt_client_get_last_error(mqtt_client_t* cli);
 HV_EXPORT int mqtt_client_set_ssl_ctx(mqtt_client_t* cli, hssl_ctx_t ssl_ctx);
 // hssl_ctx_new(opt) -> mqtt_client_set_ssl_ctx
 HV_EXPORT int mqtt_client_new_ssl_ctx(mqtt_client_t* cli, hssl_ctx_opt_t* opt);
+
+// reconnect
+HV_EXPORT int mqtt_client_set_reconnect(mqtt_client_t* cli,
+        reconn_setting_t* reconn);
+HV_EXPORT int mqtt_client_reconnect(mqtt_client_t* cli);
 
 // connect
 // hio_create_socket -> hio_connect ->

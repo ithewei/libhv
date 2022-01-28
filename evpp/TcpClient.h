@@ -10,33 +10,7 @@
 
 namespace hv {
 
-struct ReconnectInfo {
-    uint32_t min_delay;  // ms
-    uint32_t max_delay;  // ms
-    uint32_t cur_delay;  // ms
-    /*
-     * @delay_policy
-     * 0: fixed
-     * min_delay=3s => 3,3,3...
-     * 1: linear
-     * min_delay=3s max_delay=10s => 3,6,9,10,10...
-     * other: exponential
-     * min_delay=3s max_delay=60s delay_policy=2 => 3,6,12,24,48,60,60...
-     */
-    uint32_t delay_policy;
-    uint32_t max_retry_cnt;
-    uint32_t cur_retry_cnt;
-
-    ReconnectInfo() {
-        min_delay = 1000;
-        max_delay = 60000;
-        cur_delay = 0;
-        // 1,2,4,8,16,32,60,60...
-        delay_policy = 2;
-        max_retry_cnt = INFINITE;
-        cur_retry_cnt = 0;
-    }
-};
+typedef struct reconn_setting_s ReconnectInfo; // Deprecated
 
 template<class TSocketChannel = SocketChannel>
 class TcpClientTmpl {
@@ -46,11 +20,13 @@ public:
     TcpClientTmpl() {
         tls = false;
         connect_timeout = 5000;
-        enable_reconnect = false;
-        enable_unpack = false;
+        reconn_setting = NULL;
+        unpack_setting = NULL;
     }
 
     virtual ~TcpClientTmpl() {
+        HV_FREE(reconn_setting);
+        HV_FREE(unpack_setting);
     }
 
     const EventLoopPtr& loop() {
@@ -82,7 +58,7 @@ public:
     }
     // closesocket thread-safe
     void closesocket() {
-        enable_reconnect = false;
+        setReconnect(NULL);
         if (channel) {
             channel->close(true);
         }
@@ -97,12 +73,15 @@ public:
             channel->setConnectTimeout(connect_timeout);
         }
         channel->onconnect = [this]() {
-            if (enable_unpack) {
-                channel->setUnpack(&unpack_setting);
+            if (unpack_setting) {
+                channel->setUnpack(unpack_setting);
             }
             channel->startRead();
             if (onConnection) {
                 onConnection(channel);
+            }
+            if (reconn_setting) {
+                reconn_setting_reset(reconn_setting);
             }
         };
         channel->onread = [this](Buffer* buf) {
@@ -120,7 +99,7 @@ public:
                 onConnection(channel);
             }
             // reconnect
-            if (enable_reconnect) {
+            if (reconn_setting) {
                 startReconnect();
             } else {
                 channel = NULL;
@@ -132,22 +111,11 @@ public:
     }
 
     int startReconnect() {
-        if (++reconnect_info.cur_retry_cnt > reconnect_info.max_retry_cnt) return 0;
-        if (reconnect_info.delay_policy == 0) {
-            // fixed
-            reconnect_info.cur_delay = reconnect_info.min_delay;
-        } else if (reconnect_info.delay_policy == 1) {
-            // linear
-            reconnect_info.cur_delay += reconnect_info.min_delay;
-        } else {
-            // exponential
-            reconnect_info.cur_delay *= reconnect_info.delay_policy;
-        }
-        reconnect_info.cur_delay = MAX(reconnect_info.cur_delay, reconnect_info.min_delay);
-        reconnect_info.cur_delay = MIN(reconnect_info.cur_delay, reconnect_info.max_delay);
-        loop_thread.loop()->setTimeout(reconnect_info.cur_delay, [this](TimerID timerID){
-            hlogi("reconnect... cnt=%d, delay=%d", reconnect_info.cur_retry_cnt, reconnect_info.cur_delay);
-            // printf("reconnect... cnt=%d, delay=%d\n", reconnect_info.cur_retry_cnt, reconnect_info.cur_delay);
+        if (!reconn_setting) return -1;
+        if (!reconn_setting_can_retry(reconn_setting)) return -2;
+        uint32_t delay = reconn_setting_calc_delay(reconn_setting);
+        loop_thread.loop()->setTimeout(delay, [this](TimerID timerID){
+            hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
             createsocket(&peeraddr.sa);
             startConnect();
         });
@@ -159,7 +127,7 @@ public:
     }
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
-        enable_reconnect = false;
+        setReconnect(NULL);
         loop_thread.stop(wait_threads_stopped);
     }
 
@@ -206,22 +174,29 @@ public:
         connect_timeout = ms;
     }
 
-    void setReconnect(ReconnectInfo* info) {
-        if (info) {
-            enable_reconnect = true;
-            reconnect_info = *info;
-        } else {
-            enable_reconnect = false;
+    void setReconnect(reconn_setting_t* setting) {
+        if (setting == NULL) {
+            HV_FREE(reconn_setting);
+            return;
         }
+        if (reconn_setting == NULL) {
+            HV_ALLOC_SIZEOF(reconn_setting);
+        }
+        *reconn_setting = *setting;
+    }
+    bool isReconnect() {
+        return reconn_setting && reconn_setting->cur_retry_cnt > 0;
     }
 
     void setUnpack(unpack_setting_t* setting) {
-        if (setting) {
-            enable_unpack = true;
-            unpack_setting = *setting;
-        } else {
-            enable_unpack = false;
+        if (setting == NULL) {
+            HV_FREE(unpack_setting);
+            return;
         }
+        if (unpack_setting == NULL) {
+            HV_ALLOC_SIZEOF(unpack_setting);
+        }
+        *unpack_setting = *setting;
     }
 
 public:
@@ -230,10 +205,8 @@ public:
     sockaddr_u              peeraddr;
     bool                    tls;
     int                     connect_timeout;
-    bool                    enable_reconnect;
-    ReconnectInfo           reconnect_info;
-    bool                    enable_unpack;
-    unpack_setting_t        unpack_setting;
+    reconn_setting_t*       reconn_setting;
+    unpack_setting_t*       unpack_setting;
 
     // Callback
     std::function<void(const TSocketChannelPtr&)>           onConnection;

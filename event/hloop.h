@@ -539,6 +539,78 @@ unpack_setting_t grpc_unpack_setting = {
 };
 */
 
+//-----------------reconnect----------------------------------------
+#define DEFAULT_RECONNECT_MIN_DELAY     1000    // ms
+#define DEFAULT_RECONNECT_MAX_DELAY     60000   // ms
+#define DEFAULT_RECONNECT_DELAY_POLICY  2       // exponential
+#define DEFAULT_RECONNECT_MAX_RETRY_CNT INFINITE
+typedef struct reconn_setting_s {
+    uint32_t min_delay;  // ms
+    uint32_t max_delay;  // ms
+    uint32_t cur_delay;  // ms
+    /*
+     * @delay_policy
+     * 0: fixed
+     * min_delay=3s => 3,3,3...
+     * 1: linear
+     * min_delay=3s max_delay=10s => 3,6,9,10,10...
+     * other: exponential
+     * min_delay=3s max_delay=60s delay_policy=2 => 3,6,12,24,48,60,60...
+     */
+    uint32_t delay_policy;
+    uint32_t max_retry_cnt;
+    uint32_t cur_retry_cnt;
+
+#ifdef __cplusplus
+    reconn_setting_s() {
+        min_delay = DEFAULT_RECONNECT_MIN_DELAY;
+        max_delay = DEFAULT_RECONNECT_MAX_DELAY;
+        cur_delay = 0;
+        // 1,2,4,8,16,32,60,60...
+        delay_policy = DEFAULT_RECONNECT_DELAY_POLICY;
+        max_retry_cnt = DEFAULT_RECONNECT_MAX_RETRY_CNT;
+        cur_retry_cnt = 0;
+    }
+#endif
+} reconn_setting_t;
+
+HV_INLINE void reconn_setting_init(reconn_setting_t* reconn) {
+    reconn->min_delay = DEFAULT_RECONNECT_MIN_DELAY;
+    reconn->max_delay = DEFAULT_RECONNECT_MAX_DELAY;
+    reconn->cur_delay = 0;
+    // 1,2,4,8,16,32,60,60...
+    reconn->delay_policy = DEFAULT_RECONNECT_DELAY_POLICY;
+    reconn->max_retry_cnt = DEFAULT_RECONNECT_MAX_RETRY_CNT;
+    reconn->cur_retry_cnt = 0;
+}
+
+HV_INLINE void reconn_setting_reset(reconn_setting_t* reconn) {
+    reconn->cur_delay = 0;
+    reconn->cur_retry_cnt = 0;
+}
+
+HV_INLINE bool reconn_setting_can_retry(reconn_setting_t* reconn) {
+    ++reconn->cur_retry_cnt;
+    return reconn->max_retry_cnt == INFINITE ||
+           reconn->cur_retry_cnt < reconn->max_retry_cnt;
+}
+
+HV_INLINE uint32_t reconn_setting_calc_delay(reconn_setting_t* reconn) {
+    if (reconn->delay_policy == 0) {
+        // fixed
+        reconn->cur_delay = reconn->min_delay;
+    } else if (reconn->delay_policy == 1) {
+        // linear
+        reconn->cur_delay += reconn->min_delay;
+    } else {
+        // exponential
+        reconn->cur_delay *= reconn->delay_policy;
+    }
+    reconn->cur_delay = MAX(reconn->cur_delay, reconn->min_delay);
+    reconn->cur_delay = MIN(reconn->cur_delay, reconn->max_delay);
+    return reconn->cur_delay;
+}
+
 //-----------------rudp---------------------------------------------
 #if WITH_KCP
 #define WITH_RUDP 1

@@ -19,6 +19,7 @@
  */
 #define TEST_SSL        0
 #define TEST_AUTH       0
+#define TEST_RECONNECT  1
 
 /*
  * workflow:
@@ -41,10 +42,15 @@ static void on_mqtt(mqtt_client_t* cli, int type) {
     switch(type) {
     case MQTT_TYPE_CONNECT:
         printf("mqtt connected!\n");
+        if (cli->reconn_setting && cli->reconn_setting->cur_retry_cnt > 0) {
+            printf("mqtt reconnect cnt=%d, delay=%d\n", cli->reconn_setting->cur_retry_cnt, cli->reconn_setting->cur_delay);
+        }
         break;
     case MQTT_TYPE_DISCONNECT:
         printf("mqtt disconnected!\n");
-        mqtt_client_stop(cli);
+        if (cli->reconn_setting && cli->reconn_setting->cur_retry_cnt > 0) {
+            printf("mqtt reconnect cnt=%d, delay=%d\n", cli->reconn_setting->cur_retry_cnt, cli->reconn_setting->cur_delay);
+        }
         break;
     case MQTT_TYPE_CONNACK:
         printf("mqtt connack!\n");
@@ -79,6 +85,15 @@ static int mqtt_subscribe(const char* host, int port, const char* topic) {
 
     mqtt_client_set_userdata(cli, (void*)topic);
     mqtt_client_set_callback(cli, on_mqtt);
+
+#if TEST_RECONNECT
+    reconn_setting_t reconn;
+    reconn_setting_init(&reconn);
+    reconn.min_delay = 1000;
+    reconn.max_delay = 10000;
+    reconn.delay_policy = 2;
+    mqtt_client_set_reconnect(cli, &reconn);
+#endif
 
     int ssl = 0;
 #if TEST_SSL

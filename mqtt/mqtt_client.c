@@ -131,11 +131,24 @@ static int mqtt_client_login(mqtt_client_t* cli) {
     return nwrite < 0 ? nwrite : 0;
 }
 
+static void reconnect_timer_cb(htimer_t* timer) {
+    mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(timer);
+    if (cli == NULL) return;
+    cli->reconn_timer = NULL;
+    mqtt_client_reconnect(cli);
+}
+
 static void on_close(hio_t* io) {
     mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(io);
     if (cli->cb) {
         cli->head.type = MQTT_TYPE_DISCONNECT;
         cli->cb(cli, cli->head.type);
+    }
+    // reconnect
+    if (cli->reconn_setting && reconn_setting_can_retry(cli->reconn_setting)) {
+        uint32_t delay = reconn_setting_calc_delay(cli->reconn_setting);
+        cli->reconn_timer = htimer_add(cli->loop, reconnect_timer_cb, delay, 1);
+        hevent_set_userdata(cli->reconn_timer, cli);
     }
 }
 
@@ -277,6 +290,9 @@ static void on_connect(hio_t* io) {
         cli->head.type = MQTT_TYPE_CONNECT;
         cli->cb(cli, cli->head.type);
     }
+    if (cli->reconn_setting) {
+        reconn_setting_reset(cli->reconn_setting);
+    }
 
     static unpack_setting_t mqtt_unpack_setting;
     mqtt_unpack_setting.mode = UNPACK_BY_LENGTH_FIELD;
@@ -311,10 +327,15 @@ mqtt_client_t* mqtt_client_new(hloop_t* loop) {
 void mqtt_client_free(mqtt_client_t* cli) {
     if (!cli) return;
     hmutex_destroy(&cli->mutex_);
+    if (cli->reconn_timer) {
+        htimer_del(cli->reconn_timer);
+        cli->reconn_timer = NULL;
+    }
     if (cli->ssl_ctx && cli->alloced_ssl_ctx) {
         hssl_ctx_free(cli->ssl_ctx);
         cli->ssl_ctx = NULL;
     }
+    HV_FREE(cli->reconn_setting);
     HV_FREE(cli->will);
     HV_FREE(cli);
 }
@@ -385,12 +406,31 @@ int mqtt_client_new_ssl_ctx(mqtt_client_t* cli, hssl_ctx_opt_t* opt) {
     return mqtt_client_set_ssl_ctx(cli, ssl_ctx);
 }
 
+int mqtt_client_set_reconnect(mqtt_client_t* cli, reconn_setting_t* reconn) {
+    if (reconn == NULL) {
+        HV_FREE(cli->reconn_setting);
+        return 0;
+    }
+    if (cli->reconn_setting == NULL) {
+        HV_ALLOC_SIZEOF(cli->reconn_setting);
+    }
+    *cli->reconn_setting = *reconn;
+    return 0;
+}
+
+int mqtt_client_reconnect(mqtt_client_t* cli) {
+    mqtt_client_connect(cli, cli->host, cli->port, cli->ssl);
+    return 0;
+}
+
 int mqtt_client_connect(mqtt_client_t* cli, const char* host, int port, int ssl) {
     if (!cli) return -1;
+    safe_strncpy(cli->host, host, sizeof(cli->host));
+    cli->port = port;
+    cli->ssl = ssl;
     hio_t* io = hio_create_socket(cli->loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) return -1;
     if (ssl) {
-        cli->ssl = 1;
         if (cli->ssl_ctx) {
             hio_set_ssl_ctx(io, cli->ssl_ctx);
         }
@@ -405,6 +445,8 @@ int mqtt_client_connect(mqtt_client_t* cli, const char* host, int port, int ssl)
 
 int mqtt_client_disconnect(mqtt_client_t* cli) {
     if (!cli || !cli->io) return -1;
+    // cancel reconnect first
+    mqtt_client_set_reconnect(cli, NULL);
     mqtt_send_disconnect(cli->io);
     return hio_close(cli->io);
 }
