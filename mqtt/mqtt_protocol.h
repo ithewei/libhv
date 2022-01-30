@@ -13,14 +13,6 @@
 #define MQTT_PROTOCOL_NAME_v31  "MQIsdp"
 
 /*
- * MQTT connect
- * 2 + 4 protocol_name + 1 protocol_version + 1 conn_flags + 2 keepalive + 2 + [client_id] +
- * [2 + will_topic + 2 + will_payload] +
- * [2 + username] + [2 + password]
- */
-#define MQTT_CONN_HEAD_LEN  12
-
-/*
  * connect flags
  * 0        1               2       3-4         5           6           7
  * reserved clean_session has_will will_qos will_retain has_password has_username

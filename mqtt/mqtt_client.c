@@ -46,8 +46,14 @@ static void mqtt_send_disconnect(hio_t* io) {
     mqtt_send_head(io, MQTT_TYPE_DISCONNECT, 0);
 }
 
+/*
+ * MQTT_TYPE_CONNECT
+ * 2 + protocol_name + 1 protocol_version + 1 conn_flags + 2 keepalive + 2 + [client_id] +
+ * [2 + will_topic + 2 + will_payload] +
+ * [2 + username] + [2 + password]
+ */
 static int mqtt_client_login(mqtt_client_t* cli) {
-    int len = MQTT_CONN_HEAD_LEN;
+    int len = 2 + 1 + 1 + 2 + 2;
     unsigned short cid_len = 0,
                    will_topic_len = 0,
                    will_payload_len = 0,
@@ -55,6 +61,8 @@ static int mqtt_client_login(mqtt_client_t* cli) {
                    password_len = 0;
     unsigned char conn_flags = 0;
 
+    // protocol_name_len
+    len += cli->protocol_version == MQTT_PROTOCOL_V31 ? 6 : 4;
     if (*cli->client_id) {
         cid_len = strlen(cli->client_id);
     } else {
