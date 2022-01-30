@@ -22,10 +22,11 @@ struct mqtt_client_s {
     reconn_setting_t* reconn_setting;
     // login: flags + keepalive + client_id + will + username + password
     // flags
-    unsigned short clean_session:   1;
-    unsigned short ssl: 1; // Read Only
-    unsigned short alloced_ssl_ctx: 1; // intern
-    unsigned short keepalive;
+    unsigned char   protocol_version; // Default MQTT_PROTOCOL_V311
+    unsigned char   clean_session:   1;
+    unsigned char   ssl: 1; // Read Only
+    unsigned char   alloced_ssl_ctx: 1; // intern
+    unsigned short  keepalive;
     char client_id[64];
     // will
     mqtt_message_t* will;
@@ -112,7 +113,7 @@ HV_EXPORT int mqtt_client_publish(mqtt_client_t* cli,
 
 // subscribe
 HV_EXPORT int mqtt_client_subscribe(mqtt_client_t* cli,
-        const char* topic, int qos);
+        const char* topic, int qos DEFAULT(0));
 
 // unsubscribe
 HV_EXPORT int mqtt_client_unsubscribe(mqtt_client_t* cli,

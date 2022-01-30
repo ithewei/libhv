@@ -105,6 +105,10 @@ HV_EXPORT char* get_executable_dir(char* buf, int size);
 HV_EXPORT char* get_executable_file(char* buf, int size);
 HV_EXPORT char* get_run_dir(char* buf, int size);
 
+// random
+HV_EXPORT int   hv_rand(int min, int max);
+HV_EXPORT void  hv_random_string(char *buf, int len);
+
 END_EXTERN_C
 
 #endif // HV_BASE_H_

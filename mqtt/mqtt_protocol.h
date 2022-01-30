@@ -5,9 +5,12 @@
 
 #define DEFAULT_MQTT_PORT   1883
 
-#define MQTT_PROTOCOL_V31   3 // Deprecated
+#define MQTT_PROTOCOL_V31   3
 #define MQTT_PROTOCOL_V311  4
 #define MQTT_PROTOCOL_V5    5 // Not yet supproted
+
+#define MQTT_PROTOCOL_NAME      "MQTT"
+#define MQTT_PROTOCOL_NAME_v31  "MQIsdp"
 
 /*
  * MQTT connect

@@ -57,8 +57,12 @@ static int mqtt_client_login(mqtt_client_t* cli) {
 
     if (*cli->client_id) {
         cid_len = strlen(cli->client_id);
-        len += cid_len;
+    } else {
+        cid_len = 20;
+        hv_random_string(cli->client_id, cid_len);
+        hlogi("MQTT client_id: %.*s", (int)cid_len, cli->client_id);
     }
+    len += cid_len;
     if (cid_len == 0) cli->clean_session = 1;
     if (cli->clean_session) {
         conn_flags |= MQTT_CONN_CLEAN_SESSION;
@@ -101,10 +105,15 @@ static int mqtt_client_login(mqtt_client_t* cli) {
     unsigned char* p = buf;
     int headlen = mqtt_head_pack(&head, p);
     p += headlen;
-    // TODO: just implement MQTT_PROTOCOL_V311
-    PUSH16(p, 4);
-    PUSH_N(p, "MQTT", 4);
-    PUSH8(p, MQTT_PROTOCOL_V311);
+    // TODO: Not implement MQTT_PROTOCOL_V5
+    if (cli->protocol_version == MQTT_PROTOCOL_V31) {
+        PUSH16(p, 6);
+        PUSH_N(p, MQTT_PROTOCOL_NAME_v31, 6);
+    } else {
+        PUSH16(p, 4);
+        PUSH_N(p, MQTT_PROTOCOL_NAME, 4);
+    }
+    PUSH8(p, cli->protocol_version);
     PUSH8(p, conn_flags);
     PUSH16(p, cli->keepalive);
     PUSH16(p, cid_len);
@@ -319,6 +328,7 @@ mqtt_client_t* mqtt_client_new(hloop_t* loop) {
     HV_ALLOC_SIZEOF(cli);
     if (cli == NULL) return NULL;
     cli->loop = loop;
+    cli->protocol_version = MQTT_PROTOCOL_V311;
     cli->keepalive = DEFAULT_MQTT_KEEPALIVE;
     hmutex_init(&cli->mutex_);
     return cli;

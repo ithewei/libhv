@@ -56,7 +56,7 @@ static void on_mqtt(mqtt_client_t* cli, int type) {
         printf("mqtt connack!\n");
     {
         const char* topic = (const char*)mqtt_client_get_userdata(cli);
-        int mid = mqtt_client_subscribe(cli, topic, 2);
+        int mid = mqtt_client_subscribe(cli, topic, 0);
         printf("mqtt subscribe mid=%d\n", mid);
     }
         break;
@@ -74,11 +74,6 @@ static int mqtt_subscribe(const char* host, int port, const char* topic) {
     mqtt_client_t* cli = mqtt_client_new(NULL);
     if (cli == NULL) return -1;
 
-    // client_id
-    char client_id[64];
-    snprintf(client_id, sizeof(client_id), "mqtt_sub_%ld", hv_getpid());
-    printf("client_id: %s\n", client_id);
-    mqtt_client_set_id(cli, client_id);
 #if TEST_AUTH
     mqtt_client_set_auth(cli, "test", "123456");
 #endif

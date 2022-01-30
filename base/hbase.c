@@ -6,6 +6,10 @@
 
 #include "hatomic.h"
 
+#ifndef RAND_MAX
+#define RAND_MAX 2147483647
+#endif
+
 static hatomic_t s_alloc_cnt = HATOMIC_VAR_INIT(0);
 static hatomic_t s_free_cnt = HATOMIC_VAR_INIT(0);
 
@@ -329,4 +333,31 @@ char* get_executable_file(char* buf, int size) {
 
 char* get_run_dir(char* buf, int size) {
     return getcwd(buf, size);
+}
+
+int hv_rand(int min, int max) {
+    static int s_seed = 0;
+    assert(max > min);
+
+    if (s_seed == 0) {
+        s_seed = time(NULL);
+        srand(s_seed);
+    }
+
+    int _rand = rand();
+    _rand = min + (int) ((double) ((double) (max) - (min) + 1.0) * ((_rand) / ((RAND_MAX) + 1.0)));
+    return _rand;
+}
+
+void hv_random_string(char *buf, int len) {
+    static char s_characters[] = {
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
+        'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
+        'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    };
+    int i = 0;
+    for (; i < len; i++) {
+        buf[i] = s_characters[hv_rand(0, sizeof(s_characters) - 1)];
+    }
+    buf[i] = '\0';
 }

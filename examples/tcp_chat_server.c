@@ -151,8 +151,7 @@ int main(int argc, char** argv) {
 
     s_chatroom.loop = loop;
     s_chatroom.listenio = listenio;
-    srand(time(NULL));
-    s_chatroom.roomid = rand() % 1000000;
+    s_chatroom.roomid = hv_rand(100000, 999999);
     list_init(&s_chatroom.conns);
 
     hloop_run(loop);

@@ -124,6 +124,8 @@
 - get_executable_dir
 - get_executable_file
 - get_run_dir
+- hv_rand
+- hv_random_string
 
 ### hversion.h
 - hv_version
@@ -620,6 +622,8 @@
 - mqtt_client_get_last_error
 - mqtt_client_set_ssl_ctx
 - mqtt_client_new_ssl_ctx
+- mqtt_client_set_reconnect
+- mqtt_client_reconnect
 - mqtt_client_connect
 - mqtt_client_disconnect
 - mqtt_client_publish
