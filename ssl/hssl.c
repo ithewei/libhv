@@ -4,7 +4,7 @@ hssl_ctx_t g_ssl_ctx = NULL;
 
 hssl_ctx_t hssl_ctx_init(hssl_ctx_init_param_t* param) {
     if (g_ssl_ctx == NULL) {
-        hssl_ctx_t ssl_ctx = hssl_ctx_new(param);
+        g_ssl_ctx = hssl_ctx_new(param);
     }
     return g_ssl_ctx;
 }
