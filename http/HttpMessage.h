@@ -166,7 +166,8 @@ public:
     template<typename T>
     int Json(const T& t) {
         content_type = APPLICATION_JSON;
-        json = t;
+        hv::Json j(t);
+        body = j.dump(2);
         return 200;
     }
     const hv::Json& GetJson() {
@@ -264,6 +265,7 @@ public:
     virtual void Reset() {
         Init();
         headers.clear();
+        cookies.clear();
         body.clear();
 #ifndef WITHOUT_HTTP_CONTENT
         json.clear();
