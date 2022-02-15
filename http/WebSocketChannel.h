@@ -30,49 +30,68 @@ public:
         if (len > fragment) {
             return send(buf, len, fragment, opcode);
         }
-        return send_(buf, len, opcode, fin);
+        std::lock_guard<std::mutex> locker(mutex_);
+        return sendFrame(buf, len, opcode, fin);
     }
 
     // websocket fragment
+    // lock ->
     // send(p, fragment, opcode, false) ->
     // send(p, fragment, WS_OPCODE_CONTINUE, false) ->
     // ... ->
     // send(p, remain, WS_OPCODE_CONTINUE, true)
+    // unlock
     int send(const char* buf, int len, int fragment, enum ws_opcode opcode = WS_OPCODE_BINARY) {
+        std::lock_guard<std::mutex> locker(mutex_);
         if (len <= fragment) {
-            return send_(buf, len, opcode, true);
+            return sendFrame(buf, len, opcode, true);
         }
 
         // first fragment
-        int nsend = send_(buf, fragment, opcode, false);
+        int nsend = sendFrame(buf, fragment, opcode, false);
         if (nsend < 0) return nsend;
 
         const char* p = buf + fragment;
         int remain = len - fragment;
         while (remain > fragment) {
-            nsend = send_(p, fragment, WS_OPCODE_CONTINUE, false);
+            nsend = sendFrame(p, fragment, WS_OPCODE_CONTINUE, false);
             if (nsend < 0) return nsend;
             p += fragment;
             remain -= fragment;
         }
 
         // last fragment
-        nsend = send_(p, remain, WS_OPCODE_CONTINUE, true);
+        nsend = sendFrame(p, remain, WS_OPCODE_CONTINUE, true);
         if (nsend < 0) return nsend;
 
         return len;
     }
 
+    int sendPing() {
+        std::lock_guard<std::mutex> locker(mutex_);
+        if (type == WS_CLIENT) {
+            return write(WS_CLIENT_PING_FRAME, WS_CLIENT_MIN_FRAME_SIZE);
+        }
+        return write(WS_SERVER_PING_FRAME, WS_SERVER_MIN_FRAME_SIZE);
+    }
+
+    int sendPong() {
+        std::lock_guard<std::mutex> locker(mutex_);
+        if (type == WS_CLIENT) {
+            return write(WS_CLIENT_PONG_FRAME, WS_CLIENT_MIN_FRAME_SIZE);
+        }
+        return write(WS_SERVER_PONG_FRAME, WS_SERVER_MIN_FRAME_SIZE);
+    }
+
 protected:
-    int send_(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY, bool fin = true) {
+    int sendFrame(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY, bool fin = true) {
         bool has_mask = false;
         char mask[4] = {0};
         if (type == WS_CLIENT) {
-            has_mask = true;
             *(int*)mask = rand();
+            has_mask = true;
         }
         int frame_size = ws_calc_frame_size(len, has_mask);
-        std::lock_guard<std::mutex> locker(mutex_);
         if (sendbuf_.len < frame_size) {
             sendbuf_.resize(ceil2e(frame_size));
         }

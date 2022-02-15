@@ -8,17 +8,27 @@ static unsigned short mqtt_next_mid() {
     return ++s_mid;
 }
 
+static int mqtt_client_send(mqtt_client_t* cli, const void* buf, int len) {
+    // thread-safe
+    hmutex_lock(&cli->mutex_);
+    int nwrite = hio_write(cli->io, buf, len);
+    hmutex_unlock(&cli->mutex_);
+    return nwrite;
+}
+
 static int mqtt_send_head(hio_t* io, int type, int length) {
+    mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(io);
     mqtt_head_t head;
     memset(&head, 0, sizeof(head));
     head.type = type;
     head.length = length;
     unsigned char headbuf[8] = { 0 };
     int headlen = mqtt_head_pack(&head, headbuf);
-    return hio_write(io, headbuf, headlen);
+    return mqtt_client_send(cli, headbuf, headlen);
 }
 
 static int mqtt_send_head_with_mid(hio_t* io, int type, unsigned short mid) {
+    mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(io);
     mqtt_head_t head;
     memset(&head, 0, sizeof(head));
     head.type = type;
@@ -31,7 +41,7 @@ static int mqtt_send_head_with_mid(hio_t* io, int type, unsigned short mid) {
     int headlen = mqtt_head_pack(&head, p);
     p += headlen;
     PUSH16(p, mid);
-    return hio_write(io, headbuf, headlen + 2);
+    return mqtt_client_send(cli, headbuf, headlen + 2);
 }
 
 static void mqtt_send_ping(hio_t* io) {
@@ -143,7 +153,7 @@ static int mqtt_client_login(mqtt_client_t* cli) {
         PUSH_N(p, cli->password, password_len);
     }
 
-    int nwrite = hio_write(cli->io, buf, p - buf);
+    int nwrite = mqtt_client_send(cli, buf, p - buf);
     HV_STACK_FREE(buf);
     return nwrite < 0 ? nwrite : 0;
 }
@@ -536,7 +546,7 @@ int mqtt_client_subscribe(mqtt_client_t* cli, const char* topic, int qos) {
     PUSH_N(p, topic, topic_len);
     PUSH8(p, qos & 3);
     // send head + mid + topic + qos
-    int nwrite = hio_write(cli->io, buf, p - buf);
+    int nwrite = mqtt_client_send(cli, buf, p - buf);
     HV_STACK_FREE(buf);
     return nwrite < 0 ? nwrite : mid;
 }
@@ -562,7 +572,7 @@ int mqtt_client_unsubscribe(mqtt_client_t* cli, const char* topic) {
     PUSH16(p, topic_len);
     PUSH_N(p, topic, topic_len);
     // send head + mid + topic
-    int nwrite = hio_write(cli->io, buf, p - buf);
+    int nwrite = mqtt_client_send(cli, buf, p - buf);
     HV_STACK_FREE(buf);
     return nwrite < 0 ? nwrite : mid;
 }

@@ -41,10 +41,10 @@ static void websocket_heartbeat(hio_t* io) {
     WebSocketHandler* ws = handler->ws.get();
     if (ws->last_recv_pong_time < ws->last_send_ping_time) {
         hlogw("[%s:%d] websocket no pong!", handler->ip, handler->port);
-        hio_close(io);
+        ws->channel->close(true);
     } else {
         // printf("send ping\n");
-        hio_write(io, WS_SERVER_PING_FRAME, WS_SERVER_MIN_FRAME_SIZE);
+        ws->channel->sendPing();
         ws->last_send_ping_time = gethrtime_us();
     }
 }
@@ -54,12 +54,12 @@ static void websocket_onmessage(int opcode, const std::string& msg, hio_t* io) {
     WebSocketHandler* ws = handler->ws.get();
     switch(opcode) {
     case WS_OPCODE_CLOSE:
-        hio_close_async(io);
+        ws->channel->close(true);
         break;
     case WS_OPCODE_PING:
         // printf("recv ping\n");
         // printf("send pong\n");
-        hio_write(io, WS_SERVER_PONG_FRAME, WS_SERVER_MIN_FRAME_SIZE);
+        ws->channel->sendPong();
         break;
     case WS_OPCODE_PONG:
         // printf("recv pong\n");

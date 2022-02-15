@@ -130,7 +130,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                     {
                         // printf("recv ping\n");
                         // printf("send pong\n");
-                        channel->write(WS_CLIENT_PONG_FRAME, WS_CLIENT_MIN_FRAME_SIZE);
+                        channel->sendPong();
                         break;
                     }
                     case WS_OPCODE_PONG:
@@ -158,7 +158,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                             return;
                         }
                         // printf("send ping\n");
-                        channel->write(WS_CLIENT_PING_FRAME, WS_CLIENT_MIN_FRAME_SIZE);
+                        channel->sendPing();
                     });
                 }
                 if (onopen) onopen();
