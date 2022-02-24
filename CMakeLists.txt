@@ -17,7 +17,7 @@ option(WITH_HTTP_SERVER "compile http/server" ON)
 option(WITH_HTTP_CLIENT "compile http/client" ON)
 option(WITH_MQTT "compile mqtt" OFF)
 
-option(ENABLE_IPV6 "ipv6" OFF)
+option(ENABLE_IPV6 "ipv6" ON)
 option(ENABLE_UDS "Unix Domain Socket" OFF)
 option(USE_MULTIMAP "MultiMap" OFF)
 
