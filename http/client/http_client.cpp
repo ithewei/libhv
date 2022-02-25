@@ -557,6 +557,10 @@ recv:
             nrecv = recv(connfd, recvbuf, sizeof(recvbuf), 0);
         }
         if (nrecv <= 0) {
+            if (resp->content_length == 0 && resp->http_major == 1 && resp->http_minor == 0) {
+                // HTTP/1.0, assume close after body
+                goto disconnect;
+            }
             if (++fail_cnt == 1) {
                 // maybe keep-alive timeout, try again
                 cli->Close();

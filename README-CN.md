@@ -495,6 +495,7 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 - [libhv教程16--多线程/多进程服务端编程](https://hewei.blog.csdn.net/article/details/120366024)
 - [libhv教程17--Qt中使用libhv](https://hewei.blog.csdn.net/article/details/120699890)
 - [libhv教程18--动手写一个tinyhttpd](https://hewei.blog.csdn.net/article/details/121706604)
+- [libhv教程19--MQTT的实现与使用](https://hewei.blog.csdn.net/article/details/122753665)
 
 ## 💎 用户案例
 

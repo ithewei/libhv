@@ -138,7 +138,7 @@ int AsyncHttpClient::sendRequest(const SocketChannelPtr& channel) {
     HttpResponse* resp = ctx->resp.get();
 
     if (ctx->parser == NULL) {
-        ctx->parser.reset(HttpParser::New(HTTP_CLIENT, (http_version)ctx->task->req->http_major));
+        ctx->parser.reset(HttpParser::New(HTTP_CLIENT, (http_version)req->http_major));
     }
     if (resp == NULL) {
         resp = new HttpResponse;

@@ -180,8 +180,7 @@ static void nio_connect(hio_t* io) {
     int ret = getpeername(io->fd, io->peeraddr, &addrlen);
     if (ret < 0) {
         io->error = socket_errno();
-        printd("connect failed: %s: %d\n", strerror(io->error), io->error);
-        goto connect_failed;
+        goto connect_error;
     }
     else {
         addrlen = sizeof(sockaddr_u);
@@ -200,11 +199,11 @@ static void nio_connect(hio_t* io) {
                     io->alloced_ssl_ctx = 1;
                 }
                 if (ssl_ctx == NULL) {
-                    goto connect_failed;
+                    goto connect_error;
                 }
                 hssl_t ssl = hssl_new(ssl_ctx, io->fd);
                 if (ssl == NULL) {
-                    goto connect_failed;
+                    goto connect_error;
                 }
                 io->ssl = ssl;
             }
@@ -218,7 +217,8 @@ static void nio_connect(hio_t* io) {
         return;
     }
 
-connect_failed:
+connect_error:
+    hlogw("connfd=%d connect error: %s:%d\n", io->fd, socket_strerror(io->error), io->error);
     hio_close(io);
 }
 
