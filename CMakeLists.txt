@@ -17,7 +17,6 @@ option(WITH_HTTP_SERVER "compile http/server" ON)
 option(WITH_HTTP_CLIENT "compile http/client" ON)
 option(WITH_MQTT "compile mqtt" OFF)
 
-option(ENABLE_IPV6 "ipv6" ON)
 option(ENABLE_UDS "Unix Domain Socket" OFF)
 option(USE_MULTIMAP "MultiMap" OFF)
 
@@ -99,10 +98,6 @@ if("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
     add_definitions(-DDEBUG)
 else()
     add_definitions(-DNDEBUG)
-endif()
-
-if(ENABLE_IPV6)
-    add_definitions(-DENABLE_IPV6)
 endif()
 
 if(ENABLE_UDS)

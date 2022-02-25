@@ -26,7 +26,6 @@ modules:
   --with-mqtt           compile mqtt module?            (DEFAULT: $WITH_MQTT)
 
 features:
-  --enable-ipv6         enable IPv6?                    (DEFAULT: $ENABLE_IPV6)
   --enable-uds          enable Unix Domain Socket?      (DEFAULT: $ENABLE_UDS)
   --enable-windump      enable Windows coredump?        (DEFAULT: $ENABLE_WINDUMP)
 

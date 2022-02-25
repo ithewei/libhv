@@ -59,32 +59,24 @@ int ResolveAddr(const char* host, sockaddr_u* addr) {
         return 0;
     }
 
-#ifdef ENABLE_IPV6
     if (inet_pton(AF_INET6, host, &addr->sin6.sin6_addr) == 1) {
         addr->sa.sa_family = AF_INET6; // host is ipv6
     }
+
     struct addrinfo* ais = NULL;
-    struct addrinfo hint;
-    hint.ai_flags = 0;
-    hint.ai_family = AF_UNSPEC;
-    hint.ai_socktype = 0;
-    hint.ai_protocol = 0;
     int ret = getaddrinfo(host, NULL, NULL, &ais);
-    if (ret != 0 || ais == NULL || ais->ai_addrlen == 0 || ais->ai_addr == NULL) {
+    if (ret != 0 || ais == NULL || ais->ai_addr == NULL || ais->ai_addrlen == 0) {
         printd("unknown host: %s err:%d:%s\n", host, ret, gai_strerror(ret));
         return ret;
     }
-    memcpy(addr, ais->ai_addr, ais->ai_addrlen);
-    freeaddrinfo(ais);
-#else
-    struct hostent* phe = gethostbyname(host);
-    if (phe == NULL) {
-        printd("unknown host %s err:%d\n", host, h_errno);
-        return -h_errno;
+    struct addrinfo* pai = ais;
+    while (pai != NULL) {
+        if (pai->ai_family == AF_INET) break;
+        pai = pai->ai_next;
     }
-    addr->sin.sin_family = AF_INET;
-    memcpy(&addr->sin.sin_addr, phe->h_addr_list[0], phe->h_length);
-#endif
+    if (pai == NULL) pai = ais;
+    memcpy(addr, pai->ai_addr, pai->ai_addrlen);
+    freeaddrinfo(ais);
     return 0;
 }
 
