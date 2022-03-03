@@ -506,4 +506,6 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 | [阅面科技](https://www.readsense.cn) | [猎户AIoT平台](https://orionweb.readsense.cn)设备管理、人脸检测HTTP服务、人脸搜索HTTP服务 |
 | [socks5-libhv](https://gitee.com/billykang/socks5-libhv) | socks5代理 |
 | [hvloop](https://github.com/xiispace/hvloop) | 类似[uvloop](https://github.com/MagicStack/uvloop)的python异步IO事件循环 |
+| [tsproxyd-android](https://github.com/Haiwen-GitHub/tsproxyd-android) | 一个基于libhv实现的android端web代理服务 |
+| [玄舟智维](https://zjzwxw.com) | C100K设备连接网关服务 |
 
