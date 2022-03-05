@@ -476,6 +476,7 @@ ab -c 100 -n 100000 http://127.0.0.1:8080/
 ## 📚 中文资料
 
 - **libhv QQ群**: `739352073`，欢迎加群交流
+- **libhv 源码剖析**: <https://hewei.blog.csdn.net/article/details/123295998>
 - **libhv 教程**: <https://hewei.blog.csdn.net/article/details/113733758>
 - [libhv教程01--介绍与体验](https://hewei.blog.csdn.net/article/details/113702536)
 - [libhv教程02--编译与安装](https://hewei.blog.csdn.net/article/details/113704737)
