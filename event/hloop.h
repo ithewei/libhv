@@ -445,6 +445,7 @@ HV_EXPORT hio_t* hio_setup_udp_upstream(hio_t* io, const char* host, int port);
 
 //-----------------unpack---------------------------------------------
 typedef enum {
+    UNPACK_MODE_NONE        = 0,
     UNPACK_BY_FIXED_LENGTH  = 1,    // Not recommended
     UNPACK_BY_DELIMITER     = 2,    // Suitable for text protocol
     UNPACK_BY_LENGTH_FIELD  = 3,    // Suitable for binary protocol

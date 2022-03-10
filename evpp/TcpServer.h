@@ -18,7 +18,7 @@ public:
     TcpServerTmpl() {
         listenfd = -1;
         tls = false;
-        enable_unpack = false;
+        unpack_setting.mode = UNPACK_MODE_NONE;
         max_connections = 0xFFFFFFFF;
     }
 
@@ -93,26 +93,31 @@ public:
 
     void setUnpack(unpack_setting_t* setting) {
         if (setting) {
-            enable_unpack = true;
             unpack_setting = *setting;
         } else {
-            enable_unpack = false;
+            unpack_setting.mode = UNPACK_MODE_NONE;
         }
     }
 
     // channel
     const TSocketChannelPtr& addChannel(hio_t* io) {
-        int fd = hio_fd(io);
+        uint32_t id = hio_id(io);
         auto channel = TSocketChannelPtr(new TSocketChannel(io));
         std::lock_guard<std::mutex> locker(mutex_);
-        channels[fd] = channel;
-        return channels[fd];
+        channels[id] = channel;
+        return channels[id];
+    }
+
+    TSocketChannelPtr getChannelById(uint32_t id) {
+        std::lock_guard<std::mutex> locker(mutex_);
+        auto iter = channels.find(id);
+        return iter != channels.end() ? iter->second : NULL;
     }
 
     void removeChannel(const TSocketChannelPtr& channel) {
-        int fd = channel->fd();
+        uint32_t id = channel->id();
         std::lock_guard<std::mutex> locker(mutex_);
-        channels.erase(fd);
+        channels.erase(id);
     }
 
     size_t connectionNum() {
@@ -176,7 +181,7 @@ private:
             // so in this lambda function, no code should be added below.
         };
 
-        if (server->enable_unpack) {
+        if (server->unpack_setting.mode != UNPACK_MODE_NONE) {
             channel->setUnpack(&server->unpack_setting);
         }
         channel->startRead();
@@ -200,7 +205,6 @@ private:
 public:
     int                     listenfd;
     bool                    tls;
-    bool                    enable_unpack;
     unpack_setting_t        unpack_setting;
     // Callback
     std::function<void(const TSocketChannelPtr&)>           onConnection;
@@ -211,9 +215,9 @@ public:
     uint32_t                max_connections;
 
 private:
-    // fd => TSocketChannelPtr
-    std::map<int, TSocketChannelPtr> channels; // GUAREDE_BY(mutex_)
-    std::mutex                       mutex_;
+    // id => TSocketChannelPtr
+    std::map<uint32_t, TSocketChannelPtr>   channels; // GUAREDE_BY(mutex_)
+    std::mutex                              mutex_;
 
     EventLoopThread                 acceptor_thread;
     EventLoopThreadPool             worker_threads;

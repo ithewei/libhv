@@ -155,6 +155,7 @@ public:
         CLOSED,
     } status;
     std::function<void(Buffer*)> onread;
+    // NOTE: Use Channel::isWriteComplete in onwrite callback to determine whether all data has been written.
     std::function<void(Buffer*)> onwrite;
     std::function<void()>        onclose;
 
@@ -217,37 +218,36 @@ public:
         return hio_new_ssl_ctx(io_, opt);
     }
 
+    // timeout
     void setConnectTimeout(int timeout_ms) {
         if (io_ == NULL) return;
         hio_set_connect_timeout(io_, timeout_ms);
     }
-
     void setCloseTimeout(int timeout_ms) {
         if (io_ == NULL) return;
         hio_set_close_timeout(io_, timeout_ms);
     }
-
     void setReadTimeout(int timeout_ms) {
         if (io_ == NULL) return;
         hio_set_read_timeout(io_, timeout_ms);
     }
-
     void setWriteTimeout(int timeout_ms) {
         if (io_ == NULL) return;
         hio_set_write_timeout(io_, timeout_ms);
     }
-
     void setKeepaliveTimeout(int timeout_ms) {
         if (io_ == NULL) return;
         hio_set_keepalive_timeout(io_, timeout_ms);
     }
 
+    // heartbeat
     void setHeartbeat(int interval_ms, std::function<void()> fn) {
         if (io_ == NULL) return;
         heartbeat = std::move(fn);
         hio_set_heartbeat(io_, interval_ms, send_heartbeat);
     }
 
+    // unpack
     void setUnpack(unpack_setting_t* setting) {
         if (io_ == NULL) return;
         hio_set_unpack(io_, setting);
