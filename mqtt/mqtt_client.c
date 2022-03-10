@@ -1,6 +1,7 @@
 #include "mqtt_client.h"
 #include "hbase.h"
 #include "hlog.h"
+#include "herr.h"
 #include "hendian.h"
 
 static unsigned short mqtt_next_mid() {
@@ -429,7 +430,7 @@ int mqtt_client_set_ssl_ctx(mqtt_client_t* cli, hssl_ctx_t ssl_ctx) {
 int mqtt_client_new_ssl_ctx(mqtt_client_t* cli, hssl_ctx_opt_t* opt) {
     opt->endpoint = HSSL_CLIENT;
     hssl_ctx_t ssl_ctx = hssl_ctx_new(opt);
-    if (ssl_ctx == NULL) return HSSL_ERROR;
+    if (ssl_ctx == NULL) return ERR_NEW_SSL_CTX;
     cli->alloced_ssl_ctx = true;
     return mqtt_client_set_ssl_ctx(cli, ssl_ctx);
 }

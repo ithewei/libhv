@@ -4,6 +4,7 @@
 #include "hsocket.h"
 #include "hssl.h"
 #include "hlog.h"
+#include "herr.h"
 #include "hthread.h"
 
 static void __connect_timeout_cb(htimer_t* timer) {
@@ -82,6 +83,7 @@ static void ssl_server_handshake(hio_t* io) {
     }
     else {
         hloge("ssl handshake failed: %d", ret);
+        io->error = ERR_SSL_HANDSHAKE;
         hio_close(io);
     }
 }
@@ -104,6 +106,7 @@ static void ssl_client_handshake(hio_t* io) {
     }
     else {
         hloge("ssl handshake failed: %d", ret);
+        io->error = ERR_SSL_HANDSHAKE;
         hio_close(io);
     }
 }
@@ -149,12 +152,12 @@ static void nio_accept(hio_t* io) {
                     io->alloced_ssl_ctx = 1;
                 }
                 if (ssl_ctx == NULL) {
-                    io->error = HSSL_ERROR;
+                    io->error = ERR_NEW_SSL_CTX;
                     goto accept_error;
                 }
                 hssl_t ssl = hssl_new(ssl_ctx, connfd);
                 if (ssl == NULL) {
-                    io->error = HSSL_ERROR;
+                    io->error = ERR_NEW_SSL;
                     goto accept_error;
                 }
                 connio->ssl = ssl;
@@ -199,10 +202,12 @@ static void nio_connect(hio_t* io) {
                     io->alloced_ssl_ctx = 1;
                 }
                 if (ssl_ctx == NULL) {
+                    io->error = ERR_NEW_SSL_CTX;
                     goto connect_error;
                 }
                 hssl_t ssl = hssl_new(ssl_ctx, io->fd);
                 if (ssl == NULL) {
+                    io->error = ERR_NEW_SSL;
                     goto connect_error;
                 }
                 io->ssl = ssl;
@@ -417,6 +422,7 @@ int hio_connect(hio_t* io) {
     if (ret < 0 && socket_errno() != EINPROGRESS) {
 #endif
         perror("connect");
+        io->error = socket_errno();
         hio_close(io);
         return ret;
     }
@@ -489,6 +495,7 @@ enqueue:
         if (io->write_bufsize + len - nwrite > MAX_WRITE_BUFSIZE) {
             if (io->write_bufsize > MAX_WRITE_BUFSIZE) {
                 hloge("write bufsize > %u, close it!", (unsigned int)MAX_WRITE_BUFSIZE);
+                io->error = ERR_OVER_LIMIT;
                 goto write_error;
             }
         }

@@ -119,7 +119,7 @@ int http_client_set_ssl_ctx(http_client_t* cli, hssl_ctx_t ssl_ctx) {
 int http_client_new_ssl_ctx(http_client_t* cli, hssl_ctx_opt_t* opt) {
     opt->endpoint = HSSL_CLIENT;
     hssl_ctx_t ssl_ctx = hssl_ctx_new(opt);
-    if (ssl_ctx == NULL) return HSSL_ERROR;
+    if (ssl_ctx == NULL) return ERR_NEW_SSL_CTX;
     cli->alloced_ssl_ctx = true;
     return http_client_set_ssl_ctx(cli, ssl_ctx);
 }
@@ -452,12 +452,12 @@ static int http_client_connect(http_client_t* cli, const char* host, int port, i
         }
         if (ssl_ctx == NULL) {
             closesocket(connfd);
-            return HSSL_ERROR;
+            return NABS(ERR_NEW_SSL_CTX);
         }
         cli->ssl = hssl_new(ssl_ctx, connfd);
         if (cli->ssl == NULL) {
             closesocket(connfd);
-            return HSSL_ERROR;
+            return NABS(ERR_NEW_SSL);
         }
         if (!is_ipaddr(host)) {
             hssl_set_sni_hostname(cli->ssl, host);

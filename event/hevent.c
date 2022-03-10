@@ -2,6 +2,7 @@
 #include "hsocket.h"
 #include "hatomic.h"
 #include "hlog.h"
+#include "herr.h"
 
 #include "unpack.h"
 
@@ -479,7 +480,7 @@ int hio_set_ssl_ctx(hio_t* io, hssl_ctx_t ssl_ctx) {
 
 int hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt) {
     hssl_ctx_t ssl_ctx = hssl_ctx_new(opt);
-    if (ssl_ctx == NULL) return HSSL_ERROR;
+    if (ssl_ctx == NULL) return ERR_NEW_SSL_CTX;
     io->alloced_ssl_ctx = 1;
     return hio_set_ssl_ctx(io, ssl_ctx);
 }
@@ -689,6 +690,7 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
 void hio_alloc_readbuf(hio_t* io, int len) {
     if (len > MAX_READ_BUFSIZE) {
         hloge("read bufsize > %u, close it!", (unsigned int)MAX_READ_BUFSIZE);
+        io->error = ERR_OVER_LIMIT;
         hio_close_async(io);
         return;
     }

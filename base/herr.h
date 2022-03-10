@@ -46,6 +46,11 @@
     F(1032, READ_FILE,      "Read file failed") \
     F(1033, WRITE_FILE,     "Write file failed")\
     \
+    F(1040, SSL,            "SSL/TLS error")        \
+    F(1041, NEW_SSL_CTX,    "New SSL_CTX failed")   \
+    F(1042, NEW_SSL,        "New SSL failed")       \
+    F(1043, SSL_HANDSHAKE,  "SSL handshake failed") \
+    \
     F(1100, TASK_TIMEOUT,       "Task timeout")     \
     F(1101, TASK_QUEUE_FULL,    "Task queue full")  \
     F(1102, TASK_QUEUE_EMPTY,   "Task queue empty") \
