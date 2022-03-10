@@ -90,6 +90,7 @@ public:
 #endif
     // Callback
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
+    // NOTE: Use Channel::isWriteComplete in onWriteComplete callback to determine whether all data has been written.
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
 private:

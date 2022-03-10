@@ -263,8 +263,11 @@ HV_EXPORT bool hio_is_closed(hio_t* io);
 // #include "hbuf.h"
 typedef struct fifo_buf_s hio_readbuf_t;
 HV_EXPORT hio_readbuf_t* hio_get_readbuf(hio_t* io);
+// NOTE: hio_write is non-blocking, so there is a write queue inside hio_t to cache unwritten data and wait for writable.
+// @return current buffer size of write queue.
 HV_EXPORT size_t   hio_write_bufsize(hio_t* io);
 #define hio_write_queue_is_empty(io) (hio_write_bufsize(io) == 0)
+#define hio_write_is_complete(io)    (hio_write_bufsize(io) == 0)
 HV_EXPORT uint64_t hio_last_read_time(hio_t* io);   // ms
 HV_EXPORT uint64_t hio_last_write_time(hio_t* io);  // ms
 

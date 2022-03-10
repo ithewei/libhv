@@ -125,6 +125,14 @@ public:
         return write(str.data(), str.size());
     }
 
+    size_t writeBufsize() {
+        if (io_ == NULL) return 0;
+        return hio_write_bufsize(io_);
+    }
+    bool isWriteComplete() {
+        return writeBufsize() == 0;
+    }
+
     // close thread-safe
     int close(bool async = false) {
         if (!isOpened()) return -1;
