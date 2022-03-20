@@ -48,7 +48,10 @@ LIBHV_SRCDIRS += mqtt
 endif
 
 default: all
+
 all: libhv examples
+	@echo "make all done, please enjoy libhv."
+
 examples: hmain_test htimer_test hloop_test \
 	nc nmap tinyhttpd tinyproxyd httpd curl wget wrk consul \
 	tcp_echo_server \
@@ -65,12 +68,14 @@ examples: hmain_test htimer_test hloop_test \
 	websocket_client_test \
 	mqtt_sub \
 	mqtt_pub \
-	jsonrpc \
+	jsonrpc
+	@echo "make examples done."
 
 clean:
 	$(MAKEF) clean SRCDIRS="$(ALL_SRCDIRS)"
 	$(RM) examples/*.o examples/*/*.o
 	$(RM) include/hv
+	@echo "make clean done."
 
 prepare:
 	$(MKDIR) bin
@@ -80,12 +85,14 @@ libhv:
 	$(MAKEF) TARGET=$@ TARGET_TYPE="SHARED|STATIC" SRCDIRS="$(LIBHV_SRCDIRS)"
 	$(MKDIR) include/hv
 	$(CP) $(LIBHV_HEADERS) include/hv
+	@echo "make libhv done."
 
 install:
 	$(MKDIR) $(INSTALL_INCDIR)
 	$(MKDIR) $(INSTALL_LIBDIR)
 	$(CP) include/hv/* $(INSTALL_INCDIR)
 	$(CP) lib/libhv.*  $(INSTALL_LIBDIR)
+	@echo "make install done."
 
 hmain_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base cpputil" SRCS="examples/hmain_test.cpp"
