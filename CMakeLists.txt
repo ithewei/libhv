@@ -123,7 +123,12 @@ endif()
 
 if(WITH_OPENSSL)
     add_definitions(-DWITH_OPENSSL)
-    set(LIBS ${LIBS} ssl crypto)
+    find_package(OpenSSL)
+    if(OpenSSL_FOUND)
+        set(LIBS ${LIBS} OpenSSL::SSL OpenSSL::Crypto)
+    else()
+        set(LIBS ${LIBS} ssl crypto)
+    endif()
 endif()
 
 if(WITH_GNUTLS)
@@ -210,6 +215,7 @@ if(BUILD_SHARED)
     target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS})
     target_link_libraries(hv ${LIBS})
     install(TARGETS hv
+        EXPORT libhvConfig
         ARCHIVE DESTINATION lib
         LIBRARY DESTINATION lib
         RUNTIME DESTINATION bin)
@@ -220,12 +226,16 @@ if(BUILD_STATIC)
     add_library(hv_static STATIC ${LIBHV_SRCS})
     target_compile_definitions(hv_static PRIVATE HV_STATICLIB)
     target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS})
-    install(TARGETS hv_static DESTINATION lib)
+    target_link_libraries(hv_static ${LIBS})
+    install(TARGETS hv_static
+        EXPORT libhvConfig
+        ARCHIVE DESTINATION lib)
     add_custom_target(libhv_static DEPENDS hv_static)
 endif()
 
 file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
+install(EXPORT libhvConfig DESTINATION lib/cmake/libhv)
 
 if(BUILD_SHARED)
     set(HV_LIBRARIES hv CACHE INTERNAL "link hv libraries")
