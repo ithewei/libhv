@@ -21,14 +21,18 @@ case ${UNAME} in
 esac
 
 # install muduo => https://github.com/chenshuo/muduo.git
-if false; then
-cd ${ROOT_DIR}/..
-git clone https://github.com/chenshuo/muduo.git
-cd muduo
-mkdir build && cd build
-cmake .. && make && sudo make install
+TEST_MUDUO=false
+if [ "$TEST_MUDUO" == "true" ]; then
+    cd ${ROOT_DIR}/..
+    git clone https://github.com/chenshuo/muduo.git
+    cd muduo
+    mkdir build && cd build
+    cmake .. && make && sudo make install
 fi
 
+# install libhv
 cd ${ROOT_DIR}
-make libhv && sudo make install
+make libhv && sudo make install && sudo ldconfig
+
+# build echo-servers
 make echo-servers
