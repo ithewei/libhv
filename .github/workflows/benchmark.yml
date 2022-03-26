@@ -44,11 +44,19 @@ jobs:
           ps aux | grep nginx
           ps aux | grep httpd
           bin/tinyhttpd 9090 &
+          echo -e "\n======Test nginx send file==============================="
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/
+          echo -e "\n======Test libhv/httpd send file (with FileCache)========"
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/
+          echo -e "\n======Test libhv/tinyhttpd send file (no FileCache)======"
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/
+          echo -e "\n======Test nginx 404 Not Found==========================="
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/404
+          echo -e "\n======Test libhv/httpd 404 Not Found====================="
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/404
+          echo -e "\n======Test libhv/tinyhttpd 404 Not found================="
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/404
+          echo -e "\n======Test libhv/httpd /ping============================="
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/ping
+          echo -e "\n======Test libhv/tinyhttpd /ping========================="
           bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/ping
