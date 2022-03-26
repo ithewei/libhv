@@ -315,7 +315,10 @@ read:
     }
     io->readbuf.tail += nread;
     __read_cb(io, buf, nread);
-    // if (nread == len) goto read;
+    if (nread == len && !io->closed) {
+        // read continue
+        goto read;
+    }
     return;
 read_error:
 disconnect:
