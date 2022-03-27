@@ -11,33 +11,29 @@ using namespace hv;
 typedef std::function<void(size_t received_bytes, size_t total_bytes)> wget_progress_cb;
 
 static int wget(const char* url, const char* filepath, wget_progress_cb progress_cb = NULL) {
-    HFile file;
-    if (file.open(filepath, "wb") != 0) {
-        fprintf(stderr, "Failed to open file %s\n", filepath);
-        return -20;
-    }
-    printf("Save file to %s ...\n", filepath);
-
+    int ret = 0;
     HttpClient cli;
     HttpRequest req;
-    req.url = url;
     HttpResponse resp;
 
     // HEAD
     req.method = HTTP_HEAD;
-    int ret = cli.send(&req, &resp);
+    req.url = url;
+    ret = cli.send(&req, &resp);
     if (ret != 0) {
         fprintf(stderr, "request error: %d\n", ret);
-        return -1;
+        return ret;
     }
     printd("%s", resp.Dump(true, false).c_str());
     if (resp.status_code == HTTP_STATUS_NOT_FOUND) {
         fprintf(stderr, "404 Not Found\n");
-        return -1;
+        return 404;
     }
 
+    // use Range?
     bool use_range = false;
     int range_bytes = 1 << 20; // 1M
+    long from = 0, to = 0;
     std::string accept_ranges = resp.GetHeader("Accept-Ranges");
     size_t content_length = hv::from_string<size_t>(resp.GetHeader("Content-Length"));
     // use Range if server accept_ranges and content_length > 1M
@@ -46,6 +42,15 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         content_length > range_bytes) {
         use_range = true;
     }
+
+    // open file
+    HFile file;
+    ret = file.open(filepath, "wb");
+    if (ret != 0) {
+        fprintf(stderr, "Failed to open file %s\n", filepath);
+        return ret;
+    }
+    printf("Save file to %s ...\n", filepath);
 
     // GET
     req.method = HTTP_GET;
@@ -71,13 +76,12 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         ret = cli.send(&req, &resp);
         if (ret != 0) {
             fprintf(stderr, "request error: %d\n", ret);
-            return -1;
+            goto error;
         }
         return 0;
     }
 
     // Range: bytes=from-to
-    long from = 0, to = 0;
     while (from < content_length) {
         to = from + range_bytes - 1;
         if (to >= content_length) to = content_length - 1;
@@ -86,7 +90,7 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         ret = cli.send(&req, &resp);
         if (ret != 0) {
             fprintf(stderr, "request error: %d\n", ret);
-            return -1;
+            goto error;
         }
         printd("%s", resp.Dump(true, false).c_str());
         file.write(resp.body.data(), resp.body.size());
@@ -98,6 +102,10 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
     }
 
     return 0;
+error:
+    file.close();
+    remove(filepath);
+    return ret;
 }
 
 int main(int argc, char** argv) {
