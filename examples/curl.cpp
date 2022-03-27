@@ -263,23 +263,18 @@ int main(int argc, char* argv[]) {
         }
     }
     req.url = url;
-
-    HttpResponse res;
-    /*
-    res.head_cb = [](const http_headers& headers){
-        if (verbose) {
-            for (auto& header : headers) {
-                fprintf(stderr, "%s: %s\r\n", header.first.c_str(), header.second.c_str());
+    req.http_cb = [](HttpMessage* res, http_parser_state state, const char* data, size_t size) {
+        if (state == HP_HEADERS_COMPLETE) {
+            if (verbose) {
+                fprintf(stderr, "%s", res->Dump(true, false).c_str());
             }
-            fprintf(stderr, "\r\n");
+        } else if (state == HP_BODY) {
+            if (data && size) {
+                printf("%.*s", (int)size, data);
+                // This program no need to save data to body.
+                // res->body.append(data, size);
+            }
         }
-    };
-    res.body_cb = [](const char* data, size_t size){
-        printf("%.*s", (int)size, data);
-    };
-    */
-    res.chunked_cb = [](const char* data, size_t size){
-        printf("%.*s", (int)size, data);
     };
 
     hv::HttpClient cli;
@@ -314,6 +309,7 @@ send:
     if (verbose) {
         fprintf(stderr, "%s\n", req.Dump(true, true).c_str());
     }
+    HttpResponse res;
     ret = cli.send(&req, &res);
     if (ret != 0) {
         fprintf(stderr, "* Failed:%s:%d\n", http_client_strerror(ret), ret);
@@ -323,11 +319,6 @@ send:
             hv_sleep(retry_delay);
             goto send;
         }
-    } else {
-        if (verbose) {
-            fprintf(stderr, "%s", res.Dump(true, false).c_str());
-        }
-        printf("%s", res.body.c_str());
     }
     if (--send_count > 0) {
         fprintf(stderr, "\nsend again later...%d\n", send_count);

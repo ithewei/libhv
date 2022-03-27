@@ -225,9 +225,7 @@ int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
 
     http_client_make_request(cli, req);
 
-    if (req->head_cb)    resp->head_cb = std::move(req->head_cb);
-    if (req->body_cb)    resp->body_cb = std::move(req->body_cb);
-    if (req->chunked_cb) resp->chunked_cb = std::move(req->chunked_cb);
+    if (req->http_cb) resp->http_cb = std::move(req->http_cb);
 
     int ret = __http_client_send(cli, req, resp);
     if (ret != 0) return ret;
@@ -295,13 +293,14 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
 static size_t s_body_cb(char* buf, size_t size, size_t cnt, void *userdata) {
     if (buf == NULL || userdata == NULL)    return 0;
     size_t len = size * cnt;
-    HttpResponse* resp = (HttpResponse*)userdata;
-    if (resp->head_cb) {
-        resp->head_cb(resp->headers);
-        resp->head_cb = NULL;
-    }
-    if (resp->body_cb) {
-        resp->body_cb(buf, len);
+    HttpMessage* resp = (HttpMessage*)userdata;
+    if (resp->http_cb) {
+        if (resp->content == NULL && resp->content_length == 0) {
+            resp->content = buf;
+            resp->content_length = len;
+            resp->http_cb(resp, HP_HEADERS_COMPLETE, NULL, 0);
+        }
+        resp->http_cb(resp, HP_BODY, buf, len);
     } else {
         resp->body.append(buf, len);
     }

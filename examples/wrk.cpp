@@ -57,8 +57,8 @@ typedef struct connection_s {
         , ok_cnt(0)
         , readbytes(0)
     {
-        response->body_cb = [](const char* data, size_t size) {
-            // No need to save data
+        response->http_cb = [](HttpMessage* res, http_parser_state state, const char* data, size_t size) {
+            // wrk no need to save data to body
         };
     }
 

@@ -4,20 +4,6 @@
 #include "HttpParser.h"
 #include "http_parser.h"
 
-enum http_parser_state {
-    HP_START_REQ_OR_RES,
-    HP_MESSAGE_BEGIN,
-    HP_URL,
-    HP_STATUS,
-    HP_HEADER_FIELD,
-    HP_HEADER_VALUE,
-    HP_HEADERS_COMPLETE,
-    HP_CHUNK_HEADER,
-    HP_BODY,
-    HP_CHUNK_COMPLETE,
-    HP_MESSAGE_COMPLETE
-};
-
 class Http1Parser : public HttpParser {
 public:
     static http_parser_settings     cbs;
@@ -130,6 +116,13 @@ public:
 
     virtual int SubmitResponse(HttpResponse* res) {
         submited = res;
+        return 0;
+    }
+
+    // HttpMessage::http_cb
+    int invokeHttpCb(const char* data = NULL, size_t size = 0) {
+        if (parsed->http_cb == NULL) return -1;
+        parsed->http_cb(parsed, state, data, size);
         return 0;
     }
 };
