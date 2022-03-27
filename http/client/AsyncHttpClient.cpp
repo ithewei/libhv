@@ -91,10 +91,10 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             iter->second.remove(channel->fd());
         }
         const HttpClientTaskPtr& task = ctx->task;
-        if (task && task->retry_cnt-- > 0) {
-            if (task->retry_delay) {
+        if (task && task->req && task->req->retry_count-- > 0) {
+            if (task->req->retry_delay > 0) {
                 // try again after delay
-                setTimeout(ctx->task->retry_delay, [this, task](TimerID timerID){
+                setTimeout(task->req->retry_delay, [this, task](TimerID timerID){
                     hlogi("retry %s %s", http_method_str(task->req->method), task->req->url.c_str());
                     sendInLoop(task);
                 });

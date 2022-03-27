@@ -4,7 +4,7 @@
 
 #include <string.h>
 
-using namespace hv;
+BEGIN_NAMESPACE_HV
 
 std::string dump_query_params(const QueryParams& query_params) {
     std::string query_string;
@@ -248,3 +248,5 @@ int parse_json(const char* str, hv::Json& json, std::string& errmsg) {
     return (json.is_discarded() || json.is_null()) ? -1 : 0;
 }
 #endif
+
+END_NAMESPACE_HV

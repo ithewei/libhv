@@ -27,7 +27,6 @@ int main(int argc, char* argv[]) {
 }
 */
 
-#define DEFAULT_HTTP_TIMEOUT    60 // s
 typedef struct http_client_s http_client_t;
 
 HV_EXPORT http_client_t* http_client_new(const char* host = NULL, int port = DEFAULT_HTTP_PORT, int https = 0);
@@ -35,6 +34,7 @@ HV_EXPORT int http_client_close(http_client_t* cli);
 HV_EXPORT int http_client_del(http_client_t* cli);
 HV_EXPORT const char* http_client_strerror(int errcode);
 
+// timeout: s
 HV_EXPORT int http_client_set_timeout(http_client_t* cli, int timeout);
 
 // SSL/TLS

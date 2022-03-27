@@ -71,7 +71,7 @@ HV_INLINE Request newRequestFromJson(const json& jreq) {
     }
     // params
     if (jreq.contains("params")) {
-        req->query_params = jreq["params"].get<QueryParams>();
+        req->query_params = jreq["params"].get<hv::QueryParams>();
     }
     // headers
     if (jreq.contains("headers")) {

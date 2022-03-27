@@ -46,7 +46,9 @@
 #include "httpdef.h"
 #include "http_content.h"
 
-struct HNetAddr {
+namespace hv {
+
+struct NetAddr {
     std::string     ip;
     int             port;
 
@@ -54,6 +56,8 @@ struct HNetAddr {
         return hv::asprintf("%s:%d", ip.c_str(), port);
     }
 };
+
+}
 
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
 // Cookie: sessionid=1; domain=.example.com; path=/; max-age=86400; secure; httponly
@@ -111,7 +115,7 @@ public:
     http_content_type   content_type;
 #ifndef WITHOUT_HTTP_CONTENT
     hv::Json            json;       // APPLICATION_JSON
-    MultiPart           form;       // MULTIPART_FORM_DATA
+    hv::MultiPart       form;       // MULTIPART_FORM_DATA
     hv::KeyValue        kv;         // X_WWW_FORM_URLENCODED
 
     // T=[bool, int, int64_t, float, double]
@@ -130,7 +134,7 @@ public:
             json[key] = value;
             break;
         case MULTIPART_FORM_DATA:
-            form[key] = FormData(value);
+            form[key] = hv::FormData(value);
             break;
         case X_WWW_FORM_URLENCODED:
             kv[key] = hv::to_string(value);
@@ -175,17 +179,17 @@ public:
     // Content-Type: multipart/form-data
     template<typename T>
     void SetFormData(const char* name, const T& t) {
-        form[name] = FormData(t);
+        form[name] = hv::FormData(t);
     }
     void SetFormFile(const char* name, const char* filepath) {
-        form[name] = FormData(NULL, filepath);
+        form[name] = hv::FormData(NULL, filepath);
     }
     int FormFile(const char* name, const char* filepath) {
         content_type = MULTIPART_FORM_DATA;
-        form[name] = FormData(NULL, filepath);
+        form[name] = hv::FormData(NULL, filepath);
         return 200;
     }
-    const MultiPart& GetForm() {
+    const hv::MultiPart& GetForm() {
         if (form.empty() && ContentType() == MULTIPART_FORM_DATA) {
             ParseBody();
         }
@@ -206,7 +210,7 @@ public:
             ParseBody();
             if (form.empty()) return HTTP_STATUS_BAD_REQUEST;
         }
-        const FormData& formdata = form[name];
+        const hv::FormData& formdata = form[name];
         if (formdata.content.empty()) {
             return HTTP_STATUS_BAD_REQUEST;
         }
@@ -376,7 +380,11 @@ public:
     }
 };
 
-#define DEFAULT_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36"
+#define DEFAULT_HTTP_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36"
+#define DEFAULT_HTTP_TIMEOUT            60 // s
+#define DEFAULT_HTTP_FAIL_RETRY_COUNT   1
+#define DEFAULT_HTTP_FAIL_RETRY_DELAY   1000 // ms
+
 class HV_EXPORT HttpRequest : public HttpMessage {
 public:
     http_method         method;
@@ -387,12 +395,15 @@ public:
     std::string         host;
     int                 port;
     std::string         path;
-    QueryParams         query_params;
+    hv::QueryParams     query_params;
     // client_addr
-    HNetAddr            client_addr;    // for http server save client addr of request
-    int                 timeout;        // for http client timeout
-    unsigned            redirect: 1;    // for http_client redirect
-    unsigned            proxy   : 1;    // for http_client proxy
+    hv::NetAddr         client_addr; // for http server save client addr of request
+    // for HttpClient
+    int                 timeout;
+    int                 retry_count; // just for AsyncHttpClient fail retry
+    int                 retry_delay; // just for AsyncHttpClient fail retry
+    unsigned            redirect: 1;
+    unsigned            proxy   : 1;
 
     HttpRequest() : HttpMessage() {
         type = HTTP_REQUEST;
@@ -400,14 +411,16 @@ public:
     }
 
     void Init() {
-        headers["User-Agent"] = DEFAULT_USER_AGENT;
+        headers["User-Agent"] = DEFAULT_HTTP_USER_AGENT;
         headers["Accept"] = "*/*";
         method = HTTP_GET;
         scheme = "http";
         host = "127.0.0.1";
         port = DEFAULT_HTTP_PORT;
         path = "/";
-        timeout = 0;
+        timeout = DEFAULT_HTTP_TIMEOUT;
+        retry_count = DEFAULT_HTTP_FAIL_RETRY_COUNT;
+        retry_delay = DEFAULT_HTTP_FAIL_RETRY_DELAY;
         redirect = 1;
         proxy = 0;
     }

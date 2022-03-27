@@ -4,13 +4,19 @@
 #include "hexport.h"
 #include "hstring.h"
 
+// NOTE: WITHOUT_HTTP_CONTENT
+// ndk-r10e no std::to_string and can't compile modern json.hpp
+#ifndef WITHOUT_HTTP_CONTENT
+#include "json.hpp" // https://github.com/nlohmann/json
+#endif
+
+BEGIN_NAMESPACE_HV
+
 // QueryParams
-typedef hv::KeyValue    QueryParams;
+using QueryParams = hv::KeyValue;
 HV_EXPORT std::string dump_query_params(const QueryParams& query_params);
 HV_EXPORT int         parse_query_params(const char* query_string, QueryParams& query_params);
 
-// NOTE: WITHOUT_HTTP_CONTENT
-// ndk-r10e no std::to_string and can't compile modern json.hpp
 #ifndef WITHOUT_HTTP_CONTENT
 
 /**************multipart/form-data*************************************
@@ -60,15 +66,13 @@ HV_EXPORT std::string dump_multipart(MultiPart& mp, const char* boundary = DEFAU
 HV_EXPORT int         parse_multipart(const std::string& str, MultiPart& mp, const char* boundary);
 
 // Json
-// https://github.com/nlohmann/json
-#include "json.hpp"
-namespace hv { // NOTE: Avoid conflict with jsoncpp
 using Json = nlohmann::json;
 // using Json = nlohmann::ordered_json;
-}
 
 HV_EXPORT std::string dump_json(const hv::Json& json, int indent = -1);
 HV_EXPORT int         parse_json(const char* str, hv::Json& json, std::string& errmsg);
 #endif
+
+END_NAMESPACE_HV
 
 #endif // HV_HTTP_CONTENT_H_

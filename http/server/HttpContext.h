@@ -44,7 +44,7 @@ struct HV_EXPORT HttpContext {
         return request->GetHeader(key, defvalue);
     }
 
-    const QueryParams& params() {
+    const hv::QueryParams& params() {
         return request->query_params;
     }
 
@@ -79,7 +79,7 @@ struct HV_EXPORT HttpContext {
     }
 
     // Content-Type: multipart/form-data
-    const MultiPart& form() {
+    const hv::MultiPart& form() {
         return request->GetForm();
     }
     std::string form(const char* name, const std::string& defvalue = hv::empty_string) {
