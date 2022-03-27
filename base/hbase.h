@@ -7,16 +7,16 @@
 
 BEGIN_EXTERN_C
 
-//--------------------safe alloc/free---------------------------
-HV_EXPORT void* safe_malloc(size_t size);
-HV_EXPORT void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize);
-HV_EXPORT void* safe_calloc(size_t nmemb, size_t size);
-HV_EXPORT void* safe_zalloc(size_t size);
-HV_EXPORT void  safe_free(void* ptr);
+//--------------------alloc/free---------------------------
+HV_EXPORT void* hv_malloc(size_t size);
+HV_EXPORT void* hv_realloc(void* oldptr, size_t newsize, size_t oldsize);
+HV_EXPORT void* hv_calloc(size_t nmemb, size_t size);
+HV_EXPORT void* hv_zalloc(size_t size);
+HV_EXPORT void  hv_free(void* ptr);
 
 #define HV_ALLOC(ptr, size)\
     do {\
-        *(void**)&(ptr) = safe_zalloc(size);\
+        *(void**)&(ptr) = hv_zalloc(size);\
         printd("alloc(%p, size=%llu)\tat [%s:%d:%s]\n", ptr, (unsigned long long)size, __FILE__, __LINE__, __FUNCTION__);\
     } while(0)
 
@@ -25,7 +25,7 @@ HV_EXPORT void  safe_free(void* ptr);
 #define HV_FREE(ptr)\
     do {\
         if (ptr) {\
-            safe_free(ptr);\
+            hv_free(ptr);\
             printd("free( %p )\tat [%s:%d:%s]\n", ptr, __FILE__, __LINE__, __FUNCTION__);\
             ptr = NULL;\
         }\
@@ -55,33 +55,33 @@ HV_INLINE void hv_memcheck() {
 }
 #define HV_MEMCHECK    atexit(hv_memcheck);
 
-//--------------------safe string-------------------------------
-HV_EXPORT char* strupper(char* str);
-HV_EXPORT char* strlower(char* str);
-HV_EXPORT char* strreverse(char* str);
+//--------------------string-------------------------------
+HV_EXPORT char* hv_strupper(char* str);
+HV_EXPORT char* hv_strlower(char* str);
+HV_EXPORT char* hv_strreverse(char* str);
 
-HV_EXPORT bool strstartswith(const char* str, const char* start);
-HV_EXPORT bool strendswith(const char* str, const char* end);
-HV_EXPORT bool strcontains(const char* str, const char* sub);
+HV_EXPORT bool hv_strstartswith(const char* str, const char* start);
+HV_EXPORT bool hv_strendswith(const char* str, const char* end);
+HV_EXPORT bool hv_strcontains(const char* str, const char* sub);
 
 // strncpy n = sizeof(dest_buf)-1
-// safe_strncpy n = sizeof(dest_buf)
-HV_EXPORT char* safe_strncpy(char* dest, const char* src, size_t n);
+// hv_strncpy n = sizeof(dest_buf)
+HV_EXPORT char* hv_strncpy(char* dest, const char* src, size_t n);
 
 // strncat n = sizeof(dest_buf)-1-strlen(dest)
-// safe_strncpy n = sizeof(dest_buf)
-HV_EXPORT char* safe_strncat(char* dest, const char* src, size_t n);
+// hv_strncpy n = sizeof(dest_buf)
+HV_EXPORT char* hv_strncat(char* dest, const char* src, size_t n);
 
 #if !HAVE_STRLCPY
-#define strlcpy safe_strncpy
+#define strlcpy hv_strncpy
 #endif
 
 #if !HAVE_STRLCAT
-#define strlcat safe_strncat
+#define strlcat hv_strncat
 #endif
 
-#define strrchr_dot(str) strrchr(str, '.')
-HV_EXPORT char* strrchr_dir(const char* filepath);
+#define hv_strrchr_dot(str) strrchr(str, '.')
+HV_EXPORT char* hv_strrchr_dir(const char* filepath);
 
 // basename
 HV_EXPORT const char* hv_basename(const char* filepath);
@@ -97,17 +97,17 @@ HV_EXPORT bool hv_isfile(const char* path);
 HV_EXPORT bool hv_islink(const char* path);
 HV_EXPORT size_t hv_filesize(const char* filepath);
 
-// 1 y on yes true enable
-HV_EXPORT bool getboolean(const char* str);
-
 HV_EXPORT char* get_executable_path(char* buf, int size);
 HV_EXPORT char* get_executable_dir(char* buf, int size);
 HV_EXPORT char* get_executable_file(char* buf, int size);
 HV_EXPORT char* get_run_dir(char* buf, int size);
 
 // random
-HV_EXPORT int   hv_rand(int min, int max);
-HV_EXPORT void  hv_random_string(char *buf, int len);
+HV_EXPORT int  hv_rand(int min, int max);
+HV_EXPORT void hv_random_string(char *buf, int len);
+
+// 1 y on yes true enable
+HV_EXPORT bool hv_getboolean(const char* str);
 
 END_EXTERN_C
 

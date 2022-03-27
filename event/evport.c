@@ -20,7 +20,7 @@ typedef struct evport_ctx_s {
 static void evport_ctx_resize(evport_ctx_t* evport_ctx, int size) {
     int bytes = sizeof(port_event_t) * size;
     int oldbytes = sizeof(port_event_t) * evport_ctx->capacity;
-    evport_ctx->events = (port_event_t*)safe_realloc(evport_ctx->events, bytes, oldbytes);
+    evport_ctx->events = (port_event_t*)hv_realloc(evport_ctx->events, bytes, oldbytes);
     evport_ctx->capacity = size;
 }
 

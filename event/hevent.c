@@ -695,7 +695,7 @@ void hio_alloc_readbuf(hio_t* io, int len) {
         return;
     }
     if (hio_is_alloced_readbuf(io)) {
-        io->readbuf.base = (char*)safe_realloc(io->readbuf.base, len, io->readbuf.len);
+        io->readbuf.base = (char*)hv_realloc(io->readbuf.base, len, io->readbuf.len);
     } else {
         HV_ALLOC(io->readbuf.base, len);
     }

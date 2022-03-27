@@ -214,7 +214,7 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
     for (auto& header : req->headers) {
         name = header.first.c_str();
         value = header.second.c_str();
-        strlower((char*)name);
+        hv_strlower((char*)name);
         if (strcmp(name, "connection") == 0) {
             // HTTP2 default keep-alive
             continue;
@@ -262,7 +262,7 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
     for (auto& header : res->headers) {
         name = header.first.c_str();
         value = header.second.c_str();
-        strlower((char*)name);
+        hv_strlower((char*)name);
         if (strcmp(name, "connection") == 0) {
             // HTTP2 default keep-alive
             continue;

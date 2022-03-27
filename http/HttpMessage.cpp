@@ -239,7 +239,7 @@ HV_EXPORT bool HttpMessage::Get(const char* key, bool defvalue) {
         }
         else if (value.is_string()) {
             std::string str = value;
-            return getboolean(str.c_str());
+            return hv_getboolean(str.c_str());
         }
         else if (value.is_null()) {
             return false;
@@ -253,7 +253,7 @@ HV_EXPORT bool HttpMessage::Get(const char* key, bool defvalue) {
     }
     else {
         std::string str = GetString(key);
-        return str.empty() ? defvalue : getboolean(str.c_str());
+        return str.empty() ? defvalue : hv_getboolean(str.c_str());
     }
 }
 

@@ -21,7 +21,7 @@ long hv_free_cnt() {
     return s_free_cnt;
 }
 
-void* safe_malloc(size_t size) {
+void* hv_malloc(size_t size) {
     hatomic_inc(&s_alloc_cnt);
     void* ptr = malloc(size);
     if (!ptr) {
@@ -31,7 +31,7 @@ void* safe_malloc(size_t size) {
     return ptr;
 }
 
-void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize) {
+void* hv_realloc(void* oldptr, size_t newsize, size_t oldsize) {
     hatomic_inc(&s_alloc_cnt);
     hatomic_inc(&s_free_cnt);
     void* ptr = realloc(oldptr, newsize);
@@ -45,7 +45,7 @@ void* safe_realloc(void* oldptr, size_t newsize, size_t oldsize) {
     return ptr;
 }
 
-void* safe_calloc(size_t nmemb, size_t size) {
+void* hv_calloc(size_t nmemb, size_t size) {
     hatomic_inc(&s_alloc_cnt);
     void* ptr =  calloc(nmemb, size);
     if (!ptr) {
@@ -55,7 +55,7 @@ void* safe_calloc(size_t nmemb, size_t size) {
     return ptr;
 }
 
-void* safe_zalloc(size_t size) {
+void* hv_zalloc(size_t size) {
     hatomic_inc(&s_alloc_cnt);
     void* ptr = malloc(size);
     if (!ptr) {
@@ -66,7 +66,7 @@ void* safe_zalloc(size_t size) {
     return ptr;
 }
 
-void safe_free(void* ptr) {
+void hv_free(void* ptr) {
     if (ptr) {
         free(ptr);
         ptr = NULL;
@@ -74,7 +74,7 @@ void safe_free(void* ptr) {
     }
 }
 
-char* strupper(char* str) {
+char* hv_strupper(char* str) {
     char* p = str;
     while (*p != '\0') {
         if (*p >= 'a' && *p <= 'z') {
@@ -85,7 +85,7 @@ char* strupper(char* str) {
     return str;
 }
 
-char* strlower(char* str) {
+char* hv_strlower(char* str) {
     char* p = str;
     while (*p != '\0') {
         if (*p >= 'A' && *p <= 'Z') {
@@ -96,7 +96,7 @@ char* strlower(char* str) {
     return str;
 }
 
-char* strreverse(char* str) {
+char* hv_strreverse(char* str) {
     if (str == NULL) return NULL;
     char* b = str;
     char* e = str;
@@ -114,7 +114,7 @@ char* strreverse(char* str) {
 }
 
 // n = sizeof(dest_buf)
-char* safe_strncpy(char* dest, const char* src, size_t n) {
+char* hv_strncpy(char* dest, const char* src, size_t n) {
     assert(dest != NULL && src != NULL);
     char* ret = dest;
     while (*src != '\0' && --n > 0) {
@@ -125,7 +125,7 @@ char* safe_strncpy(char* dest, const char* src, size_t n) {
 }
 
 // n = sizeof(dest_buf)
-char* safe_strncat(char* dest, const char* src, size_t n) {
+char* hv_strncat(char* dest, const char* src, size_t n) {
     assert(dest != NULL && src != NULL);
     char* ret = dest;
     while (*dest) {++dest;--n;}
@@ -136,7 +136,7 @@ char* safe_strncat(char* dest, const char* src, size_t n) {
     return ret;
 }
 
-bool strstartswith(const char* str, const char* start) {
+bool hv_strstartswith(const char* str, const char* start) {
     assert(str != NULL && start != NULL);
     while (*str && *start && *str == *start) {
         ++str;
@@ -145,7 +145,7 @@ bool strstartswith(const char* str, const char* start) {
     return *start == '\0';
 }
 
-bool strendswith(const char* str, const char* end) {
+bool hv_strendswith(const char* str, const char* end) {
     assert(str != NULL && end != NULL);
     int len1 = 0;
     int len2 = 0;
@@ -162,12 +162,12 @@ bool strendswith(const char* str, const char* end) {
     return true;
 }
 
-bool strcontains(const char* str, const char* sub) {
+bool hv_strcontains(const char* str, const char* sub) {
     assert(str != NULL && sub != NULL);
     return strstr(str, sub) != NULL;
 }
 
-char* strrchr_dir(const char* filepath) {
+char* hv_strrchr_dir(const char* filepath) {
     char* p = (char*)filepath;
     while (*p) ++p;
     while (--p >= filepath) {
@@ -182,12 +182,12 @@ char* strrchr_dir(const char* filepath) {
 }
 
 const char* hv_basename(const char* filepath) {
-    const char* pos = strrchr_dir(filepath);
+    const char* pos = hv_strrchr_dir(filepath);
     return pos ? pos+1 : filepath;
 }
 
 const char* hv_suffixname(const char* filename) {
-    const char* pos = strrchr_dot(filename);
+    const char* pos = hv_strrchr_dot(filename);
     return pos ? pos+1 : "";
 }
 
@@ -196,7 +196,7 @@ int hv_mkdir_p(const char* dir) {
         return EEXIST;
     }
     char tmp[MAX_PATH] = {0};
-    safe_strncpy(tmp, dir, sizeof(tmp));
+    hv_strncpy(tmp, dir, sizeof(tmp));
     char* p = tmp;
     char delim = '/';
     while (*p) {
@@ -226,7 +226,7 @@ int hv_rmdir_p(const char* dir) {
         return EPERM;
     }
     char tmp[MAX_PATH] = {0};
-    safe_strncpy(tmp, dir, sizeof(tmp));
+    hv_strncpy(tmp, dir, sizeof(tmp));
     char* p = tmp;
     while (*p) ++p;
     while (--p >= tmp) {
@@ -283,20 +283,6 @@ size_t hv_filesize(const char* filepath) {
     return st.st_size;
 }
 
-bool getboolean(const char* str) {
-    if (str == NULL) return false;
-    int len = strlen(str);
-    if (len == 0) return false;
-    switch (len) {
-    case 1: return *str == '1' || *str == 'y' || *str == 'Y';
-    case 2: return stricmp(str, "on") == 0;
-    case 3: return stricmp(str, "yes") == 0;
-    case 4: return stricmp(str, "true") == 0;
-    case 6: return stricmp(str, "enable") == 0;
-    default: return false;
-    }
-}
-
 char* get_executable_path(char* buf, int size) {
 #ifdef OS_WIN
     GetModuleFileName(NULL, buf, size);
@@ -313,7 +299,7 @@ char* get_executable_path(char* buf, int size) {
 char* get_executable_dir(char* buf, int size) {
     char filepath[MAX_PATH] = {0};
     get_executable_path(filepath, sizeof(filepath));
-    char* pos = strrchr_dir(filepath);
+    char* pos = hv_strrchr_dir(filepath);
     if (pos) {
         *pos = '\0';
         strncpy(buf, filepath, size);
@@ -324,7 +310,7 @@ char* get_executable_dir(char* buf, int size) {
 char* get_executable_file(char* buf, int size) {
     char filepath[MAX_PATH] = {0};
     get_executable_path(filepath, sizeof(filepath));
-    char* pos = strrchr_dir(filepath);
+    char* pos = hv_strrchr_dir(filepath);
     if (pos) {
         strncpy(buf, pos+1, size);
     }
@@ -360,4 +346,18 @@ void hv_random_string(char *buf, int len) {
         buf[i] = s_characters[hv_rand(0, sizeof(s_characters) - 1)];
     }
     buf[i] = '\0';
+}
+
+bool hv_getboolean(const char* str) {
+    if (str == NULL) return false;
+    int len = strlen(str);
+    if (len == 0) return false;
+    switch (len) {
+    case 1: return *str == '1' || *str == 'y' || *str == 'Y';
+    case 2: return stricmp(str, "on") == 0;
+    case 3: return stricmp(str, "yes") == 0;
+    case 4: return stricmp(str, "true") == 0;
+    case 6: return stricmp(str, "enable") == 0;
+    default: return false;
+    }
 }

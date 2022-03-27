@@ -330,7 +330,7 @@ void IniParser::SetValue(const std::string& key, const std::string& value, const
 template<>
 HV_EXPORT bool IniParser::Get(const std::string& key, const std::string& section, bool defvalue) {
     std::string str = GetValue(key, section);
-    return str.empty() ? defvalue : getboolean(str.c_str());
+    return str.empty() ? defvalue : hv_getboolean(str.c_str());
 }
 
 template<>

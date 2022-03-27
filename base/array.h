@@ -79,7 +79,7 @@ static inline void atype##_cleanup(atype* p) {\
 \
 static inline void atype##_resize(atype* p, int maxsize) {\
     if (maxsize == 0) maxsize = ARRAY_INIT_SIZE;\
-    p->ptr = (type*)safe_realloc(p->ptr, sizeof(type) * maxsize, sizeof(type) * p->maxsize);\
+    p->ptr = (type*)hv_realloc(p->ptr, sizeof(type) * maxsize, sizeof(type) * p->maxsize);\
     p->maxsize = maxsize;\
 }\
 \

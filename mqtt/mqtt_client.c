@@ -381,7 +381,7 @@ void mqtt_client_stop(mqtt_client_t* cli) {
 
 void mqtt_client_set_id(mqtt_client_t* cli, const char* id) {
     if (!cli || !id) return;
-    safe_strncpy(cli->client_id, id, sizeof(cli->client_id));
+    hv_strncpy(cli->client_id, id, sizeof(cli->client_id));
 }
 
 void mqtt_client_set_will(mqtt_client_t* cli, mqtt_message_t* will) {
@@ -395,10 +395,10 @@ void mqtt_client_set_will(mqtt_client_t* cli, mqtt_message_t* will) {
 void mqtt_client_set_auth(mqtt_client_t* cli, const char* username, const char* password) {
     if (!cli) return;
     if (username) {
-        safe_strncpy(cli->username, username, sizeof(cli->username));
+        hv_strncpy(cli->username, username, sizeof(cli->username));
     }
     if (password) {
-        safe_strncpy(cli->password, password, sizeof(cli->password));
+        hv_strncpy(cli->password, password, sizeof(cli->password));
     }
 }
 
@@ -454,7 +454,7 @@ int mqtt_client_reconnect(mqtt_client_t* cli) {
 
 int mqtt_client_connect(mqtt_client_t* cli, const char* host, int port, int ssl) {
     if (!cli) return -1;
-    safe_strncpy(cli->host, host, sizeof(cli->host));
+    hv_strncpy(cli->host, host, sizeof(cli->host));
     cli->port = port;
     cli->ssl = ssl;
     hio_t* io = hio_create_socket(cli->loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);

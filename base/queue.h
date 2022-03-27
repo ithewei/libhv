@@ -72,7 +72,7 @@ static inline void qtype##_cleanup(qtype* p) {\
 \
 static inline void qtype##_resize(qtype* p, int maxsize) {\
     if (maxsize == 0) maxsize = QUEUE_INIT_SIZE;\
-    p->ptr = (type*)safe_realloc(p->ptr, sizeof(type) * maxsize, sizeof(type) * p->maxsize);\
+    p->ptr = (type*)hv_realloc(p->ptr, sizeof(type) * maxsize, sizeof(type) * p->maxsize);\
     p->maxsize = maxsize;\
 }\
 \

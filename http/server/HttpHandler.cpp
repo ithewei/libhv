@@ -137,7 +137,7 @@ int HttpHandler::defaultStaticHandler() {
     }
     bool is_dir = filepath.c_str()[filepath.size()-1] == '/';
     bool is_index_of = false;
-    if (service->index_of.size() != 0 && strstartswith(req_path, service->index_of.c_str())) {
+    if (service->index_of.size() != 0 && hv_strstartswith(req_path, service->index_of.c_str())) {
         is_index_of = true;
     }
     if (!is_dir || is_index_of) {

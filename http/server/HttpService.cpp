@@ -1,6 +1,6 @@
 #include "HttpService.h"
 
-#include "hbase.h" // import strendswith
+#include "hbase.h" // import hv_strendswith
 
 namespace hv {
 
@@ -77,7 +77,7 @@ int HttpService::GetApi(HttpRequest* req, http_handler** handler) {
         while (*kp && *vp) {
             if (kp[0] == '*') {
                 // wildcard *
-                match = strendswith(vp, kp+1);
+                match = hv_strendswith(vp, kp+1);
                 break;
             } else if (*kp != *vp) {
                 match = false;

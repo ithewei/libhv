@@ -79,7 +79,7 @@ int parse_confile(const char* confile) {
     // log_fsync
     str = ini.GetValue("log_fsync");
     if (!str.empty()) {
-        logger_enable_fsync(hlog, getboolean(str.c_str()));
+        logger_enable_fsync(hlog, hv_getboolean(str.c_str()));
     }
     hlogi("%s version: %s", g_main_ctx.program_name, hv_compile_version());
     hlog_fsync();
