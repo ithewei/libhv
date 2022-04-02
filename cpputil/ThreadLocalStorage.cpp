@@ -19,11 +19,12 @@ void ThreadLocalStorage::setThreadName(const char* name) {
 }
 
 const char* ThreadLocalStorage::threadName() {
-    static char unnamed[32] = {0};
     void* value = get(THREAD_NAME);
     if (value) {
         return (char*)value;
     }
+
+    static char unnamed[32] = {0};
     snprintf(unnamed, sizeof(unnamed)-1, "thread-%ld", hv_gettid());
     return unnamed;
 }

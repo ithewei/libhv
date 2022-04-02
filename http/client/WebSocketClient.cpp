@@ -51,7 +51,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
     // wss
     bool wss = strncmp(url.c_str(), "wss", 3) == 0;
     if (wss) {
-        withTLS();
+        channel->enableSSL();
     }
 
     for (auto& header : headers) {

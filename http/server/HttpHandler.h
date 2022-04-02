@@ -103,10 +103,8 @@ public:
         req.reset(new HttpRequest);
         resp.reset(new HttpResponse);
         if (http_version == 2) {
-            req->http_major = 2;
-            req->http_minor = 0;
-            resp->http_major = 2;
-            resp->http_minor = 0;
+            resp->http_major = req->http_major = 2;
+            resp->http_minor = req->http_minor = 0;
         }
         parser->InitRequest(req.get());
         if (io) {
@@ -122,10 +120,8 @@ public:
             return false;
         }
         protocol = HTTP_V2;
-        req->http_major = 2;
-        req->http_minor = 0;
-        resp->http_major = 2;
-        resp->http_minor = 0;
+        resp->http_major = req->http_major = 2;
+        resp->http_minor = req->http_minor = 0;
         parser->InitRequest(req.get());
         return true;
     }

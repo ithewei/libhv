@@ -32,10 +32,7 @@ typedef struct file_cache_s {
     bool is_modified() {
         time_t mtime = st.st_mtime;
         stat(filepath.c_str(), &st);
-        if (mtime == st.st_mtime) {
-            return false;
-        }
-        return true;
+        return mtime != st.st_mtime;
     }
 
     bool is_complete() {

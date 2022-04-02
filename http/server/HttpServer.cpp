@@ -268,13 +268,13 @@ static void on_accept(hio_t* io) {
     HttpHandler* handler = new HttpHandler;
     // ssl
     handler->ssl = hio_is_ssl(io);
-    // ip
-    sockaddr_ip((sockaddr_u*)hio_peeraddr(io), handler->ip, sizeof(handler->ip));
-    // port
-    handler->port = sockaddr_port((sockaddr_u*)hio_peeraddr(io));
-    // service
+    // ip:port
+    sockaddr_u* peeraddr = (sockaddr_u*)hio_peeraddr(io);
+    sockaddr_ip(peeraddr, handler->ip, sizeof(handler->ip));
+    handler->port = sockaddr_port(peeraddr);
+    // http service
     handler->service = service;
-    // ws
+    // websocket service
     handler->ws_service = server->ws;
     // FileCache
     handler->files = default_filecache();

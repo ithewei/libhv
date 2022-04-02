@@ -113,10 +113,7 @@ static inline int detect_endian() {
         short s;
     } u;
     u.s = 0x1122;
-    if (u.c == 0x11) {
-        return BIG_ENDIAN;
-    }
-    return LITTLE_ENDIAN;
+    return u.c ==0x11 ? BIG_ENDIAN : LITTLE_ENDIAN;
 }
 
 #ifdef __cplusplus

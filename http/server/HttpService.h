@@ -27,8 +27,11 @@
  *          http_status_code:   handle done
  */
 #define HTTP_STATUS_UNFINISHED  0
+// NOTE: http_sync_handler run on IO thread
 typedef std::function<int(HttpRequest* req, HttpResponse* resp)>                            http_sync_handler;
+// NOTE: http_async_handler run on hv::async threadpool
 typedef std::function<void(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer)> http_async_handler;
+// NOTE: http_ctx_handler run on IO thread, you can easily post HttpContextPtr to your consumer thread for processing.
 typedef std::function<int(const HttpContextPtr& ctx)>                                       http_ctx_handler;
 
 struct http_handler {
@@ -121,8 +124,8 @@ struct HV_EXPORT HttpService {
         keepalive_timeout = DEFAULT_KEEPALIVE_TIMEOUT;
     }
 
-    // @retval 0 OK, else HTTP_STATUS_NOT_FOUND, HTTP_STATUS_METHOD_NOT_ALLOWED
     void AddApi(const char* path, http_method method, const http_handler& handler);
+    // @retval 0 OK, else HTTP_STATUS_NOT_FOUND, HTTP_STATUS_METHOD_NOT_ALLOWED
     int  GetApi(const char* url,  http_method method, http_handler** handler);
     // RESTful API /:field/ => req->query_params["field"]
     int  GetApi(HttpRequest* req, http_handler** handler);

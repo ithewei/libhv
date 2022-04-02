@@ -89,6 +89,14 @@ public:
         return http_client_set_timeout(_client, timeout);
     }
 
+    // SSL/TLS
+    int setSslCtx(hssl_ctx_t ssl_ctx) {
+        return http_client_set_ssl_ctx(_client, ssl_ctx);
+    }
+    int newSslCtx(hssl_ctx_opt_t* opt) {
+        return http_client_new_ssl_ctx(_client, opt);
+    }
+
     // headers
     int clearHeaders() {
         return http_client_clear_headers(_client);

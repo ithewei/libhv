@@ -26,9 +26,10 @@ public:
         return loop_thread.loop();
     }
 
+    //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
     //@retval >=0 sockfd, <0 error
-    int createsocket(int port, const char* host = "127.0.0.1") {
-        hio_t* io = hloop_create_udp_client(loop_thread.hloop(), host, port);
+    int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
+        hio_t* io = hloop_create_udp_client(loop_thread.hloop(), remote_host, remote_port);
         if (io == NULL) return -1;
         channel.reset(new TSocketChannel(io));
         return channel->fd();

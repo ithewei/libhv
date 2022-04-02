@@ -10,15 +10,12 @@
 
 namespace hv {
 
-typedef struct reconn_setting_s ReconnectInfo; // Deprecated
-
 template<class TSocketChannel = SocketChannel>
 class TcpClientTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
 
     TcpClientTmpl() {
-        tls = false;
         connect_timeout = 5000;
         reconn_setting = NULL;
         unpack_setting = NULL;
@@ -33,10 +30,11 @@ public:
         return loop_thread.loop();
     }
 
+    //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
     //@retval >=0 connfd, <0 error
-    int createsocket(int port, const char* host = "127.0.0.1") {
+    int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
         memset(&peeraddr, 0, sizeof(peeraddr));
-        int ret = sockaddr_set_ipport(&peeraddr, host, port);
+        int ret = sockaddr_set_ipport(&peeraddr, remote_host, remote_port);
         if (ret != 0) {
             return -1;
         }
@@ -66,9 +64,6 @@ public:
 
     int startConnect() {
         assert(channel != NULL);
-        if (tls) {
-            channel->enableSSL();
-        }
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
         }
@@ -148,25 +143,9 @@ public:
         return send(str.data(), str.size());
     }
 
-    // deprecated: use withTLS(opt) after createsocket
-    int withTLS(const char* cert_file = NULL, const char* key_file = NULL, bool verify_peer = false) {
-        if (cert_file) {
-            hssl_ctx_init_param_t param;
-            memset(&param, 0, sizeof(param));
-            param.crt_file = cert_file;
-            param.key_file = key_file;
-            param.verify_peer = verify_peer ? 1 : 0;
-            param.endpoint = HSSL_CLIENT;
-            if (hssl_ctx_init(&param) == NULL) {
-                fprintf(stderr, "hssl_ctx_init failed!\n");
-                return -1;
-            }
-        }
-        tls = true;
-        return 0;
-    }
     int withTLS(hssl_ctx_opt_t* opt) {
         if (!channel) return -1;
+        opt->endpoint = HSSL_CLIENT;
         return channel->newSslCtx(opt);
     }
 
@@ -203,7 +182,6 @@ public:
     TSocketChannelPtr       channel;
 
     sockaddr_u              peeraddr;
-    bool                    tls;
     int                     connect_timeout;
     reconn_setting_t*       reconn_setting;
     unpack_setting_t*       unpack_setting;

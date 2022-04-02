@@ -508,7 +508,7 @@ send:
     size_t len  = 0;
     while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
-        while (1) {
+        while (total_nsend < len) {
             if (timeout > 0) {
                 cur_time = time(NULL);
                 if (cur_time - start_time >= timeout) {
@@ -534,9 +534,6 @@ send:
                 }
             }
             total_nsend += nsend;
-            if (total_nsend == len) {
-                break;
-            }
         }
     }
     cli->parser->InitResponse(resp);

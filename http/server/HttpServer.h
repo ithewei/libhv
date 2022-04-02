@@ -17,8 +17,8 @@ typedef struct http_server_s {
     int http_version;
     int worker_processes;
     int worker_threads;
-    HttpService* service;
-    WebSocketService* ws;
+    HttpService* service; // http service
+    WebSocketService* ws; // websocket service
     void* userdata;
 //private:
     int listenfd[2]; // 0: http, 1: https

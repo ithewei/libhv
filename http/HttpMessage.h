@@ -399,7 +399,7 @@ public:
     // client_addr
     hv::NetAddr         client_addr; // for http server save client addr of request
     // for HttpClient
-    int                 timeout;
+    int                 timeout;     // unit: s
     int                 retry_count; // just for AsyncHttpClient fail retry
     int                 retry_delay; // just for AsyncHttpClient fail retry
     unsigned            redirect: 1;

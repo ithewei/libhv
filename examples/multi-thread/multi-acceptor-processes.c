@@ -15,7 +15,6 @@
 static const char* host = "0.0.0.0";
 static int port = 1234;
 static int process_num = 4;
-static int listenfd = INVALID_SOCKET;
 
 static void on_close(hio_t* io) {
     printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
@@ -41,6 +40,7 @@ static void on_accept(hio_t* io) {
 }
 
 static void loop_proc(void* userdata) {
+    int listenfd = (int)(intptr_t)(userdata);
     hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
     haccept(loop, listenfd, on_accept);
     hloop_run(loop);
@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
     }
     port = atoi(argv[1]);
 
-    listenfd = Listen(port, host);
+    int listenfd = Listen(port, host);
     if (listenfd < 0) {
         exit(1);
     }
@@ -61,6 +61,7 @@ int main(int argc, char** argv) {
     proc_ctx_t ctx;
     memset(&ctx, 0, sizeof(ctx));
     ctx.proc = loop_proc;
+    ctx.proc_userdata = (void*)(intptr_t)listenfd;
     for (int i = 0; i < process_num; ++i) {
         hproc_spawn(&ctx);
     }

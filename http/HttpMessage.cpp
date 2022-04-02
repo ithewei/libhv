@@ -331,7 +331,7 @@ void HttpMessage::FillContentLength() {
 
 bool HttpMessage::IsChunked() {
     auto iter = headers.find("Transfer-Encoding");
-    return iter == headers.end() ? false : stricmp(iter->second.c_str(), "chunked") == 0;
+    return iter != headers.end() && stricmp(iter->second.c_str(), "chunked") == 0;
 }
 
 bool HttpMessage::IsKeepAlive() {

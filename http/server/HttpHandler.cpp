@@ -13,8 +13,10 @@ int HttpHandler::customHttpHandler(const http_handler& handler) {
 int HttpHandler::invokeHttpHandler(const http_handler* handler) {
     int status_code = HTTP_STATUS_NOT_IMPLEMENTED;
     if (handler->sync_handler) {
+        // NOTE: sync_handler run on IO thread
         status_code = handler->sync_handler(req.get(), resp.get());
     } else if (handler->async_handler) {
+        // NOTE: async_handler run on hv::async threadpool
         hv::async(std::bind(handler->async_handler, req, writer));
         status_code = HTTP_STATUS_UNFINISHED;
     } else if (handler->ctx_handler) {
@@ -23,6 +25,7 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
         ctx->request = req;
         ctx->response = resp;
         ctx->writer = writer;
+        // NOTE: ctx_handler run on IO thread, you can easily post HttpContextPtr to your consumer thread for processing.
         status_code = handler->ctx_handler(ctx);
         if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
             status_code = HTTP_STATUS_UNFINISHED;
@@ -42,6 +45,7 @@ int HttpHandler::HandleHttpRequest() {
     pReq->client_addr.port = port;
     pReq->Host();
     pReq->ParseUrl();
+    // NOTE: Not all users want to parse body, we comment it out.
     // pReq->ParseBody();
 
 preprocessor:
@@ -143,7 +147,7 @@ int HttpHandler::defaultStaticHandler() {
     if (!is_dir || is_index_of) {
         FileCache::OpenParam param;
         bool has_range = req->headers.find("Range") != req->headers.end();
-        param.need_read = req->method == HTTP_HEAD || has_range ? false : true;
+        param.need_read = !(req->method == HTTP_HEAD || has_range);
         param.path = req_path;
         fc = files->Open(filepath.c_str(), &param);
         if (fc == NULL) {
@@ -181,9 +185,7 @@ int HttpHandler::defaultStaticHandler() {
 int HttpHandler::defaultErrorHandler() {
     // error page
     if (service->error_page.size() != 0) {
-        std::string filepath = service->document_root;
-        filepath += '/';
-        filepath += service->error_page;
+        std::string filepath = service->document_root + '/' + service->error_page;
         FileCache::OpenParam param;
         fc = files->Open(filepath.c_str(), &param);
     }
@@ -268,6 +270,7 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
                         state = SEND_DONE;
                         goto return_nobody;
                     }
+                    pResp->status_code = HTTP_STATUS_PARTIAL_CONTENT;
                     pResp->SetRange(from, to, total);
                     state = SEND_BODY;
                     goto return_header;
