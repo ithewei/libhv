@@ -316,8 +316,11 @@ read:
     io->readbuf.tail += nread;
     __read_cb(io, buf, nread);
     if (nread == len && !io->closed) {
-        // read continue
-        goto read;
+        // NOTE: ssl may have own cache
+        if (io->io_type == HIO_TYPE_SSL) {
+            // read continue
+            goto read;
+        }
     }
     return;
 read_error:
