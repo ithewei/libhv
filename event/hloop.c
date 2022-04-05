@@ -523,6 +523,26 @@ long hloop_tid(hloop_t* loop) {
     return loop->tid;
 }
 
+uint64_t hloop_count(hloop_t* loop) {
+    return loop->loop_cnt;
+}
+
+uint32_t hloop_nios(hloop_t* loop) {
+    return loop->nios;
+}
+
+uint32_t hloop_ntimers(hloop_t* loop) {
+    return loop->ntimers;
+}
+
+uint32_t hloop_nidles(hloop_t* loop) {
+    return loop->nidles;
+}
+
+uint32_t hloop_nactives(hloop_t* loop) {
+    return loop->nactives;
+}
+
 void  hloop_set_userdata(hloop_t* loop, void* userdata) {
     loop->userdata = userdata;
 }

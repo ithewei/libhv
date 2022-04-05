@@ -147,10 +147,22 @@ HV_EXPORT uint64_t hloop_now(hloop_t* loop);          // s
 HV_EXPORT uint64_t hloop_now_ms(hloop_t* loop);       // ms
 HV_EXPORT uint64_t hloop_now_hrtime(hloop_t* loop);   // us
 #define hloop_now_us hloop_now_hrtime
+
+// export some hloop's members
 // @return pid of hloop_run
 HV_EXPORT long hloop_pid(hloop_t* loop);
 // @return tid of hloop_run
 HV_EXPORT long hloop_tid(hloop_t* loop);
+// @return count of loop
+HV_EXPORT uint64_t hloop_count(hloop_t* loop);
+// @return number of ios
+HV_EXPORT uint32_t hloop_nios(hloop_t* loop);
+// @return number of timers
+HV_EXPORT uint32_t hloop_ntimers(hloop_t* loop);
+// @return number of idles
+HV_EXPORT uint32_t hloop_nidles(hloop_t* loop);
+// @return number of active events
+HV_EXPORT uint32_t hloop_nactives(hloop_t* loop);
 
 // userdata
 HV_EXPORT void  hloop_set_userdata(hloop_t* loop, void* userdata);
