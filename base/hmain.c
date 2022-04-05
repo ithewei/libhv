@@ -318,12 +318,12 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
     return 0;
 }
 
-#ifdef OS_UNIX
+#if defined(OS_UNIX) && !HAVE_SETPROCTITLE
 /*
  * memory layout
  * argv[0]\0argv[1]\0argv[n]\0env[0]\0env[1]\0env[n]\0
  */
-void hv_setproctitle(const char* fmt, ...) {
+void setproctitle(const char* fmt, ...) {
     char buf[256] = {0};
     va_list ap;
     va_start(ap, fmt);
@@ -578,7 +578,7 @@ static HTHREAD_ROUTINE(worker_thread) {
 
 static void worker_init(void* userdata) {
 #ifdef OS_UNIX
-    hv_setproctitle("%s: worker process", g_main_ctx.program_name);
+    setproctitle("%s: worker process", g_main_ctx.program_name);
     signal(SIGNAL_RELOAD, signal_handler);
 #endif
 }
@@ -626,7 +626,7 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
         }
         // master-workers processes
 #ifdef OS_UNIX
-        hv_setproctitle("%s: master process", g_main_ctx.program_name);
+        setproctitle("%s: master process", g_main_ctx.program_name);
         signal(SIGNAL_RELOAD, signal_handler);
 #endif
         g_main_ctx.worker_processes = worker_processes;

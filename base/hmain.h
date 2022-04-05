@@ -78,8 +78,8 @@ HV_EXPORT int parse_opt_long(int argc, char** argv, const option_t* long_options
 HV_EXPORT const char* get_arg(const char* key);
 HV_EXPORT const char* get_env(const char* key);
 
-#ifdef OS_UNIX
-HV_EXPORT void hv_setproctitle(const char* fmt, ...);
+#if defined(OS_UNIX) && !HAVE_SETPROCTITLE
+HV_EXPORT void setproctitle(const char* fmt, ...);
 #endif
 
 // pidfile

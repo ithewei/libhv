@@ -259,7 +259,7 @@
 - parse_opt_long
 - get_arg
 - get_env
-- hv_setproctitle
+- setproctitle
 - signal_init
 - signal_handle
 - create_pidfile

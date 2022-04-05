@@ -85,6 +85,10 @@
 #define HAVE_EVENTFD 1
 #endif
 
+#ifndef HAVE_SETPROCTITLE
+#define HAVE_SETPROCTITLE 0
+#endif
+
 /* #undef WITH_OPENSSL */
 /* #undef WITH_GNUTLS */
 /* #undef WITH_MBEDTLS */
