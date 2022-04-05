@@ -40,8 +40,12 @@
 #define le32toh(v) __builtin_bswap32(v)
 #define le64toh(v) __builtin_bswap64(v)
 #endif
-#else
+#elif HAVE_ENDIAN_H
 #include <endian.h>
+#elif HAVE_SYS_ENDIAN_H
+#include <sys/endian.h>
+#else
+#warning "Not found endian.h!"
 #endif
 
 #define PI8(p)      *(int8_t*)(p)

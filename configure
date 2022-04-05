@@ -253,6 +253,8 @@ header=sys/stat.h && check_header
 header=sys/time.h && check_header
 header=fcntl.h && check_header
 header=pthread.h && check_header
+header=endian.h && check_header
+header=sys/endian.h && check_header
 
 # Checks for functions
 function=gettid && header=unistd.h && check_function

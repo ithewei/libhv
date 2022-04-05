@@ -54,6 +54,8 @@ check_header("sys/stat.h")
 check_header("sys/time.h")
 check_header("fcntl.h")
 check_header("pthread.h")
+check_header("endian.h")
+check_header("sys/endian.h")
 
 # Checks for functions
 if(NOT MSVC)

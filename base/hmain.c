@@ -323,11 +323,16 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
  * memory layout
  * argv[0]\0argv[1]\0argv[n]\0env[0]\0env[1]\0env[n]\0
  */
-void setproctitle(const char* title) {
-    //printf("proctitle=%s\n", title);
+void hv_setproctitle(const char* fmt, ...) {
+    char buf[256] = {0};
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
+    va_end(ap);
+
     int len = g_main_ctx.arg_len + g_main_ctx.env_len;
     if (g_main_ctx.os_argv && len) {
-        strncpy(g_main_ctx.os_argv[0], title, len-1);
+        strncpy(g_main_ctx.os_argv[0], buf, len-1);
     }
 }
 #endif
@@ -573,9 +578,7 @@ static HTHREAD_ROUTINE(worker_thread) {
 
 static void worker_init(void* userdata) {
 #ifdef OS_UNIX
-    char proctitle[256] = {0};
-    snprintf(proctitle, sizeof(proctitle), "%s: worker process", g_main_ctx.program_name);
-    setproctitle(proctitle);
+    hv_setproctitle("%s: worker process", g_main_ctx.program_name);
     signal(SIGNAL_RELOAD, signal_handler);
 #endif
 }
@@ -623,9 +626,7 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
         }
         // master-workers processes
 #ifdef OS_UNIX
-        char proctitle[256] = {0};
-        snprintf(proctitle, sizeof(proctitle), "%s: master process", g_main_ctx.program_name);
-        setproctitle(proctitle);
+        hv_setproctitle("%s: master process", g_main_ctx.program_name);
         signal(SIGNAL_RELOAD, signal_handler);
 #endif
         g_main_ctx.worker_processes = worker_processes;

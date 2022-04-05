@@ -33,6 +33,14 @@
 #define HAVE_PTHREAD_H @HAVE_PTHREAD_H@
 #endif
 
+#ifndef HAVE_ENDIAN_H
+#define HAVE_ENDIAN_H @HAVE_ENDIAN_H@
+#endif
+
+#ifndef HAVE_SYS_ENDIAN_H
+#define HAVE_SYS_ENDIAN_H @HAVE_SYS_ENDIAN_H@
+#endif
+
 #ifndef HAVE_GETTID
 #define HAVE_GETTID @HAVE_GETTID@
 #endif

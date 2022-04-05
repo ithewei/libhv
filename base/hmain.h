@@ -79,7 +79,7 @@ HV_EXPORT const char* get_arg(const char* key);
 HV_EXPORT const char* get_env(const char* key);
 
 #ifdef OS_UNIX
-HV_EXPORT void setproctitle(const char* title);
+HV_EXPORT void hv_setproctitle(const char* fmt, ...);
 #endif
 
 // pidfile
