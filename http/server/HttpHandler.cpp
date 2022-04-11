@@ -1,10 +1,61 @@
-#include "HttpHandler.h"
+﻿#include "HttpHandler.h"
 
 #include "hbase.h"
 #include "herr.h"
 #include "hlog.h"
 #include "hasync.h" // import hv::async for http_async_handler
 #include "http_page.h"
+
+#include "htime.h"
+bool HttpHandler::SwitchWebSocket(hio_t* io, ws_session_type type) {
+    if(!io || !ws_service) return false;
+    protocol = WEBSOCKET;
+    ws_parser.reset(new WebSocketParser);
+    ws_channel.reset(new hv::WebSocketChannel(io, type));
+    ws_parser->onMessage = [this](int opcode, const std::string& msg){
+        switch(opcode) {
+        case WS_OPCODE_CLOSE:
+            ws_channel->close(true);
+            break;
+        case WS_OPCODE_PING:
+            // printf("recv ping\n");
+            // printf("send pong\n");
+            ws_channel->sendPong();
+            break;
+        case WS_OPCODE_PONG:
+            // printf("recv pong\n");
+            this->last_recv_pong_time = gethrtime_us();
+            break;
+        case WS_OPCODE_TEXT:
+        case WS_OPCODE_BINARY:
+            // onmessage
+            if (ws_service && ws_service->onmessage) {
+                ws_service->onmessage(ws_channel, msg);
+            }
+            break;
+        default:
+            break;
+        }
+    };
+    // NOTE: cancel keepalive timer, judge alive by heartbeat.
+    hio_set_keepalive_timeout(io, 0);
+    if (ws_service && ws_service->ping_interval > 0) {
+        int ping_interval = MAX(ws_service->ping_interval, 1000);
+        ws_channel->setHeartbeat(ping_interval, [this](){
+            if (last_recv_pong_time < last_send_ping_time) {
+                hlogw("[%s:%d] websocket no pong!", ip, port);
+                ws_channel->close(true);
+            } else {
+                // printf("send ping\n");
+                ws_channel->sendPing();
+                last_send_ping_time = gethrtime_us();
+            }
+        });
+    }
+    // onopen
+    WebSocketOnOpen();
+    return true;
+}
 
 int HttpHandler::customHttpHandler(const http_handler& handler) {
     return invokeHttpHandler(&handler);
@@ -200,7 +251,7 @@ int HttpHandler::defaultErrorHandler() {
 int HttpHandler::FeedRecvData(const char* data, size_t len) {
     int nfeed = 0;
     if (protocol == HttpHandler::WEBSOCKET) {
-        nfeed = ws->parser->FeedRecvData(data, len);
+        nfeed = ws_parser->FeedRecvData(data, len);
         if (nfeed != len) {
             hloge("[%s:%d] websocket parse error!", ip, port);
         }

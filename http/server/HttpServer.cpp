@@ -36,45 +36,6 @@ struct HttpServerPrivdata {
     std::mutex                  mutex_;
 };
 
-static void websocket_heartbeat(hio_t* io) {
-    HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
-    WebSocketHandler* ws = handler->ws.get();
-    if (ws->last_recv_pong_time < ws->last_send_ping_time) {
-        hlogw("[%s:%d] websocket no pong!", handler->ip, handler->port);
-        ws->channel->close(true);
-    } else {
-        // printf("send ping\n");
-        ws->channel->sendPing();
-        ws->last_send_ping_time = gethrtime_us();
-    }
-}
-
-static void websocket_onmessage(int opcode, const std::string& msg, hio_t* io) {
-    HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
-    WebSocketHandler* ws = handler->ws.get();
-    switch(opcode) {
-    case WS_OPCODE_CLOSE:
-        ws->channel->close(true);
-        break;
-    case WS_OPCODE_PING:
-        // printf("recv ping\n");
-        // printf("send pong\n");
-        ws->channel->sendPong();
-        break;
-    case WS_OPCODE_PONG:
-        // printf("recv pong\n");
-        ws->last_recv_pong_time = gethrtime_us();
-        break;
-    case WS_OPCODE_TEXT:
-    case WS_OPCODE_BINARY:
-        // onmessage
-        handler->WebSocketOnMessage(msg);
-        break;
-    default:
-        break;
-    }
-}
-
 static void on_recv(hio_t* io, void* _buf, int readbytes) {
     // printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
     const char* buf = (const char*)_buf;
@@ -146,7 +107,6 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
     // Upgrade:
     bool upgrade = false;
-    HttpHandler::ProtocolType upgrade_protocol = HttpHandler::UNKNOWN;
     auto iter_upgrade = req->headers.find("upgrade");
     if (iter_upgrade != req->headers.end()) {
         upgrade = true;
@@ -154,6 +114,11 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, upgrade_proto);
         // websocket
         if (stricmp(upgrade_proto, "websocket") == 0) {
+            if (!handler->SwitchWebSocket(io)) {
+                hloge("[%s:%d] unsupported websocket", handler->ip, handler->port);
+                hio_close(io);
+                return;
+            }
             /*
             HTTP/1.1 101 Switching Protocols
             Connection: Upgrade
@@ -169,7 +134,10 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
                 ws_encode_key(iter_key->second.c_str(), ws_accept);
                 resp->headers[SEC_WEBSOCKET_ACCEPT] = ws_accept;
             }
-            upgrade_protocol = HttpHandler::WEBSOCKET;
+            
+            // write upgrade resp
+            std::string header = resp->Dump(true, false);
+            hio_write(io, header.data(), header.length());
         }
         // h2/h2c
         else if (strnicmp(upgrade_proto, "h2", 2) == 0) {
@@ -213,22 +181,6 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         handler->ip, handler->port,
         http_method_str(req->method), req->path.c_str(),
         resp->status_code, resp->status_message());
-
-    // switch protocol to websocket
-    if (upgrade && upgrade_protocol == HttpHandler::WEBSOCKET) {
-        WebSocketHandler* ws = handler->SwitchWebSocket();
-        ws->Init(io);
-        ws->parser->onMessage = std::bind(websocket_onmessage, std::placeholders::_1, std::placeholders::_2, io);
-        // NOTE: cancel keepalive timer, judge alive by heartbeat.
-        hio_set_keepalive_timeout(io, 0);
-        if (handler->ws_service && handler->ws_service->ping_interval > 0) {
-            int ping_interval = MAX(handler->ws_service->ping_interval, 1000);
-            hio_set_heartbeat(io, ping_interval, websocket_heartbeat);
-        }
-        // onopen
-        handler->WebSocketOnOpen();
-        return;
-    }
 
     if (status_code && !keepalive) {
         hio_close(io);
@@ -311,7 +263,7 @@ static void loop_thread(void* userdata) {
             FileCache* filecache = default_filecache();
             filecache->RemoveExpiredFileCache();
         }, DEFAULT_FILE_EXPIRED_TIME * 1000);
-        // NOTE: add timer to update date every 1s
+        // NOTE: add timer to update s_date every 1s
         htimer_add(hloop, [](htimer_t* timer) {
             gmtime_fmt(hloop_now(hevent_loop(timer)), HttpMessage::s_date);
         }, 1000);

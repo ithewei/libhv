@@ -8,35 +8,6 @@
 #include "WebSocketServer.h"
 #include "WebSocketParser.h"
 
-class WebSocketHandler {
-public:
-    WebSocketChannelPtr         channel;
-    WebSocketParserPtr          parser;
-    uint64_t                    last_send_ping_time;
-    uint64_t                    last_recv_pong_time;
-
-    WebSocketHandler() {
-        last_send_ping_time = 0;
-        last_recv_pong_time = 0;
-    }
-
-    void Init(hio_t* io = NULL, ws_session_type type = WS_SERVER) {
-        parser.reset(new WebSocketParser);
-        if (io) {
-            channel.reset(new hv::WebSocketChannel(io, type));
-        }
-    }
-
-    void onopen() {
-        channel->status = hv::SocketChannel::CONNECTED;
-    }
-
-    void onclose() {
-        channel->status = hv::SocketChannel::DISCONNECTED;
-    }
-};
-typedef std::shared_ptr<WebSocketHandler> WebSocketHandlerPtr;
-
 class HttpHandler {
 public:
     enum ProtocolType {
@@ -76,7 +47,10 @@ public:
     std::string             body;
 
     // for websocket
-    WebSocketHandlerPtr         ws;
+    WebSocketChannelPtr         ws_channel;
+    WebSocketParserPtr          ws_parser;
+    uint64_t                    last_send_ping_time;
+    uint64_t                    last_recv_pong_time;
     WebSocketService*           ws_service;
 
     HttpHandler() {
@@ -143,26 +117,18 @@ public:
     int GetSendData(char** data, size_t* len);
 
     // websocket
-    WebSocketHandler* SwitchWebSocket() {
-        ws.reset(new WebSocketHandler);
-        protocol = WEBSOCKET;
-        return ws.get();
-    }
+    bool SwitchWebSocket(hio_t* io, ws_session_type type = WS_SERVER);
+
     void WebSocketOnOpen() {
-        ws->onopen();
+        ws_channel->status = hv::SocketChannel::CONNECTED;
         if (ws_service && ws_service->onopen) {
-            ws_service->onopen(ws->channel, req->url);
+            ws_service->onopen(ws_channel, req->url);
         }
     }
     void WebSocketOnClose() {
-        ws->onclose();
+        ws_channel->status = hv::SocketChannel::DISCONNECTED;
         if (ws_service && ws_service->onclose) {
-            ws_service->onclose(ws->channel);
-        }
-    }
-    void WebSocketOnMessage(const std::string& msg) {
-        if (ws_service && ws_service->onmessage) {
-            ws_service->onmessage(ws->channel, msg);
+            ws_service->onclose(ws_channel);
         }
     }
 
