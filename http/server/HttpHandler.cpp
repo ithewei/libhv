@@ -3,16 +3,85 @@
 #include "hbase.h"
 #include "herr.h"
 #include "hlog.h"
+#include "htime.h"
 #include "hasync.h" // import hv::async for http_async_handler
 #include "http_page.h"
 
-#include "EventLoop.h"
-#include "htime.h"
-bool HttpHandler::SwitchWebSocket(hio_t* io, ws_session_type type) {
-    if(!io || !ws_service) return false;
+#include "EventLoop.h" // import hv::setInterval
+using namespace hv;
+
+HttpHandler::HttpHandler() {
+    protocol = UNKNOWN;
+    state = WANT_RECV;
+    ssl = false;
+    service = NULL;
+    ws_service = NULL;
+    last_send_ping_time = 0;
+    last_recv_pong_time = 0;
+
+    files = NULL;
+    file = NULL;
+}
+
+HttpHandler::~HttpHandler() {
+    closeFile();
+    if (writer) {
+        writer->status = hv::SocketChannel::DISCONNECTED;
+    }
+}
+
+bool HttpHandler::Init(int http_version, hio_t* io) {
+    parser.reset(HttpParser::New(HTTP_SERVER, (enum http_version)http_version));
+    if (parser == NULL) {
+        return false;
+    }
+    req.reset(new HttpRequest);
+    resp.reset(new HttpResponse);
+    if(http_version == 1) {
+        protocol = HTTP_V1;
+    } else if (http_version == 2) {
+        protocol = HTTP_V2;
+        resp->http_major = req->http_major = 2;
+        resp->http_minor = req->http_minor = 0;
+    }
+    parser->InitRequest(req.get());
+    if (io) {
+        writer.reset(new hv::HttpResponseWriter(io, resp));
+        writer->status = hv::SocketChannel::CONNECTED;
+    }
+    return true;
+}
+
+void HttpHandler::Reset() {
+    state = WANT_RECV;
+    req->Reset();
+    resp->Reset();
+    parser->InitRequest(req.get());
+    closeFile();
+    if (writer) {
+        writer->Begin();
+    }
+}
+
+bool HttpHandler::SwitchHTTP2() {
+    parser.reset(HttpParser::New(HTTP_SERVER, ::HTTP_V2));
+    if (parser == NULL) {
+        return false;
+    }
+    protocol = HTTP_V2;
+    resp->http_major = req->http_major = 2;
+    resp->http_minor = req->http_minor = 0;
+    parser->InitRequest(req.get());
+    return true;
+}
+
+bool HttpHandler::SwitchWebSocket(hio_t* io) {
+    if (!io && writer) io = writer->io();
+    if(!io) return false;
+
     protocol = WEBSOCKET;
     ws_parser.reset(new WebSocketParser);
-    ws_channel.reset(new hv::WebSocketChannel(io, type));
+    ws_channel.reset(new hv::WebSocketChannel(io, WS_SERVER));
     ws_parser->onMessage = [this](int opcode, const std::string& msg){
         switch(opcode) {
         case WS_OPCODE_CLOSE:
@@ -39,7 +108,7 @@ bool HttpHandler::SwitchWebSocket(hio_t* io, ws_session_type type) {
         }
     };
     // NOTE: cancel keepalive timer, judge alive by heartbeat.
-    hio_set_keepalive_timeout(io, 0);
+    ws_channel->setKeepaliveTimeout(0);
     if (ws_service && ws_service->ping_interval > 0) {
         int ping_interval = MAX(ws_service->ping_interval, 1000);
         ws_channel->setHeartbeat(ping_interval, [this](){
@@ -53,41 +122,7 @@ bool HttpHandler::SwitchWebSocket(hio_t* io, ws_session_type type) {
             }
         });
     }
-    // onopen
-    WebSocketOnOpen();
     return true;
-}
-
-HttpHandler::HttpHandler()
-{
-    protocol = UNKNOWN;
-    state = WANT_RECV;
-    ssl = false;
-    service = NULL;
-    files = NULL;
-    ws_service = NULL;
-    last_send_ping_time = 0;
-    last_recv_pong_time = 0;
-
-    flushing_ = false;
-    last_flush_size = 0;
-    last_flush_time = 0;
-    flush_timer = 0;
-}
-
-HttpHandler::~HttpHandler() {
-    if (writer) {
-        writer->status = hv::SocketChannel::DISCONNECTED;
-    }
-    resetFlush();
-}
-
-void HttpHandler::resetFlush(){
-    file.close();
-    if(flush_timer){
-        hv::killTimer(flush_timer);
-        flush_timer = 0;
-    }
 }
 
 int HttpHandler::customHttpHandler(const http_handler& handler) {
@@ -222,70 +257,65 @@ int HttpHandler::defaultStaticHandler() {
     if (req_path[1] == '\0') {
         filepath += service->home_page;
     }
+
+    // dir
     bool is_dir = filepath[filepath.size()-1] == '/';
-    bool is_index_of = false;
-    if (service->index_of.size() != 0 && hv_strstartswith(req_path, service->index_of.c_str())) {
-        is_index_of = true;
-    }
-    if (is_dir && !is_index_of) { // unsupport dir without index
+    bool is_index_of = service->index_of.size() != 0 && hv_strstartswith(req_path, service->index_of.c_str());
+    if (is_dir && !is_index_of) {
         return HTTP_STATUS_NOT_FOUND;
     }
 
     int status_code = HTTP_STATUS_OK;
-    bool has_range = false;
-    FileCache::OpenParam param;
-    long from, to = 0;
     // Range:
+    bool has_range = false;
+    long from, to = 0;
     if (req->GetRange(from, to)) {
         has_range = true;
-        if (file.open(filepath.c_str(), "rb") != 0) {
+        if (openFile(filepath.c_str()) != 0) {
             return HTTP_STATUS_NOT_FOUND;
         }
-        long total = file.size();
+        long total = file->size();
         if (to == 0 || to >= total) to = total - 1;
-        file.seek(from);
+        file->seek(from);
+        status_code = HTTP_STATUS_PARTIAL_CONTENT;
         resp->content_length = to - from + 1;
-        resp->File(filepath.c_str(), false);
+        resp->SetContentTypeByFilename(filepath.c_str());
         resp->SetRange(from, to, total);
-        if(resp->content_length < param.max_read) {
-            // range with memory
-            int nread = file.readrange(resp->body, from, to);
-            file.close();
+        if(resp->content_length < service->max_file_cache_size) {
+            // read into body directly
+            int nread = file->readrange(resp->body, from, to);
+            closeFile();
             if (nread != resp->content_length) {
                 resp->content_length = 0;
-                resp->Reset();
+                resp->body.clear();
                 return HTTP_STATUS_INTERNAL_SERVER_ERROR;
             }
-            return HTTP_STATUS_PARTIAL_CONTENT;
         }
-        else { // range with file cache
-            writer->WriteStatus(HTTP_STATUS_PARTIAL_CONTENT);
-            writer->EndHeaders();
-            return HTTP_STATUS_UNFINISHED;
+        else {
+            if (service->largeFileHandler) {
+                status_code = customHttpHandler(service->largeFileHandler);
+            } else {
+                status_code = defaultLargeFileHandler();
+            }
         }
+        return status_code;
     }
+
+    // FileCache
+    FileCache::OpenParam param;
+    param.max_read = service->max_file_cache_size;
     param.need_read = !(req->method == HTTP_HEAD || has_range);
     param.path = req_path;
     fc = files->Open(filepath.c_str(), &param);
     if (fc == NULL) {
-        // status_code = HTTP_STATUS_NOT_FOUND;
         if (param.error == ERR_OVER_LIMIT) {
-            /*
             if (service->largeFileHandler) {
                 status_code = customHttpHandler(service->largeFileHandler);
+            } else {
+                status_code = defaultLargeFileHandler();
             }
-            */
-
-            if (file.open(filepath.c_str(), "rb") != 0) {
-                return HTTP_STATUS_NOT_FOUND;
-            }
-            
-            // use file cache for large file
-            resp->content_length = file.size();
-            resp->File(filepath.c_str(), false);
-            writer->WriteStatus(HTTP_STATUS_OK);
-			writer->EndHeaders();
-            return HTTP_STATUS_UNFINISHED;
+        } else {
+            status_code = HTTP_STATUS_NOT_FOUND;
         }
     }
     else {
@@ -307,12 +337,50 @@ int HttpHandler::defaultStaticHandler() {
     return status_code;
 }
 
+int HttpHandler::defaultLargeFileHandler() {
+    if (!writer) return HTTP_STATUS_NOT_IMPLEMENTED;
+    if (!isFileOpened()) {
+        std::string filepath = service->document_root + req->Path();
+        if (openFile(filepath.c_str()) != 0) {
+            return HTTP_STATUS_NOT_FOUND;
+        }
+        resp->content_length = file->size();
+        resp->SetContentTypeByFilename(filepath.c_str());
+    }
+    if (service->limit_rate == 0) {
+        // forbidden to send large file
+        resp->content_length = 0;
+        resp->status_code = HTTP_STATUS_NOT_ACCEPTABLE;
+    } else {
+        size_t bufsize = 40960; // 40K
+        file->buf.resize(bufsize);
+        if (service->limit_rate < 0) {
+            // unlimited: sendFile when writable
+            writer->onwrite = [this](HBuf* buf) {
+                if (writer->isWriteComplete()) {
+                    sendFile();
+                }
+            };
+        } else {
+            // limit_rate=40KB/s  interval_ms=1000
+            // limit_rate=500KB/s interval_ms=80
+            int interval_ms = file->buf.len * 1000 / 1024 / service->limit_rate;
+            // limit_rate=40MB/s interval_m=1: 40KB/ms = 40MB/s = 320Mbps
+            if (interval_ms == 0) interval_ms = 1;
+            // printf("limit_rate=%dKB/s interval_ms=%d\n", service->limit_rate, interval_ms);
+            hv::setInterval(interval_ms, std::bind(&HttpHandler::sendFile, this));
+        }
+    }
+    writer->EndHeaders();
+    return HTTP_STATUS_UNFINISHED;
+}
+
 int HttpHandler::defaultErrorHandler() {
     // error page
     if (service->error_page.size() != 0) {
         std::string filepath = service->document_root + '/' + service->error_page;
+        // cache and load error page
         FileCache::OpenParam param;
-        // load error page from file cache..
         fc = files->Open(filepath.c_str(), &param);
     }
     // status page
@@ -361,6 +429,8 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
             state = SEND_HEADER;
         case SEND_HEADER:
         {
+            size_t content_length = 0;
+            const char* content = NULL;
             // HEAD
             if (pReq->method == HTTP_HEAD) {
                 if (fc) {
@@ -371,8 +441,7 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
                     pResp->headers["Content-Length"] = "0";
                 }
                 state = SEND_DONE;
-                pResp->content_length = 0;
-                goto return_header;
+                goto return_nobody;
             }
             // File service
             if (fc) {
@@ -386,19 +455,25 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
                 return *len;
             }
             // API service
-            if (const char* content = (const char*)pResp->Content()) {
-                int content_length = pResp->ContentLength();
+            content_length = pResp->ContentLength();
+            content = (const char*)pResp->Content();
+            if (content) {
                 if (content_length > (1 << 20)) {
                     state = SEND_BODY;
+                    goto return_header;
                 } else {
                     // NOTE: header+body in one package if <= 1M
                     header = pResp->Dump(true, false);
                     header.append(content, content_length);
                     state = SEND_DONE;
+                    goto return_header;
                 }
             } else {
                 state = SEND_DONE;
+                goto return_header;
             }
+return_nobody:
+            pResp->content_length = 0;
 return_header:
             if (header.empty()) header = pResp->Dump(true, false);
             *data = (char*)header.c_str();
@@ -414,13 +489,12 @@ return_header:
         }
         case SEND_DONE:
         {
-            // NOTE: remove file cache if > 16M
+            // NOTE: remove file cache if > FILE_CACHE_MAX_SIZE
             if (fc && fc->filebuf.len > FILE_CACHE_MAX_SIZE) {
                 files->Close(fc);
             }
             fc = NULL;
             header.clear();
-            file.close();
             return 0;
         }
         default:
@@ -432,62 +506,45 @@ return_header:
     return 0;
 }
 
-void HttpHandler::flushFile() {
-    if(!writer || !file.isopen())
-        return ;
-    int len = 40960; // 416K
-#if 0
-    socklen_t optlen = sizeof(len);
-    getsockopt(writer->fd(), SOL_SOCKET, SO_SNDBUF, (char*)&len, &optlen);
-    if(len < 4096) len = 4096;
-    len++;
-#endif    
-    char* buff = NULL;
-    HV_ALLOC(buff, len);
-    flushing_ = true;
-    last_flush_time = gettick_ms();
-    while (resp->content_length > 0) {
-        size_t nread = file.read(buff, len);
-        if (nread <= 0) {
-            hlogi("%p flushFile finish\n", this);
-            file.close();
-            state = SEND_DONE;
-            break;
-        }
-        int ret = writer->write(buff, nread);
-        if (ret < 0) {
-            hlogi("%p flushFile netwrite error %d\n", this, ret);
-            state = SEND_DONE;
-            file.close();
-            break;
-        } 
-        else {
-            last_flush_size += ret;
-            resp->content_length -= ret;
-            if (ret != nread) {
-                hlogd("%p flushFile %d, file cur %d, %d remain\n", this, last_flush_size, file.tell(), resp->content_length);
-                break;
-            }
-        }
-    }
-    HV_FREE(buff);
-    flushing_ = false;
+int HttpHandler::openFile(const char* filepath) {
+    closeFile();
+    file = new LargeFile;
+    return file->open(filepath, "rb");
 }
 
-void HttpHandler::onWrite(hv::Buffer* buf) {
-    //printf("%p onWrite %d\n", this, buf->len);
-    if (protocol == HTTP_V1 && file.isopen()) {
-        if (writer->isWriteComplete() && !flushing_) {
-            int tick = 1;
-            int ms_delta = gettick_ms() - last_flush_time;
-            if (service->file_speed > 0) {
-                tick = last_flush_size / service->file_speed - ms_delta;
-                // timeout_ms can't be 0
-                if(tick < 1) tick = 1;
-            }
-            hlogd("%p flushFile after %d ms, speed %d kB/s\n", this, tick, last_flush_size/(ms_delta + tick));
-            flush_timer = hv::setTimeout(tick, std::bind(&HttpHandler::flushFile, this));
-            last_flush_size = 0;
+bool HttpHandler::isFileOpened() {
+    return file && file->isopen();
+}
+
+int HttpHandler::sendFile() {
+    if (!writer || !writer->isWriteComplete() ||
+        !isFileOpened() ||
+        resp->content_length == 0) {
+        return -1;
+    }
+
+    int readbytes = MIN(file->buf.len, resp->content_length);
+    size_t nread = file->read(file->buf.base, readbytes);
+    if (nread <= 0) {
+        hloge("read file error!");
+        writer->close(true);
+        return 0;
+    }
+    writer->WriteBody(file->buf.base, nread);
+    resp->content_length -= nread;
+    if (resp->content_length == 0) {
+        writer->End();
+        closeFile();
+    }
+    return nread;
+}
+
+void HttpHandler::closeFile() {
+    if (file) {
+        if (file->timer != INVALID_TIMER_ID) {
+            hv::killTimer(file->timer);
         }
+        delete file;
+        file = NULL;
     }
 }

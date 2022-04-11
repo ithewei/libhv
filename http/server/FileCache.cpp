@@ -16,7 +16,7 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
     bool modified = false;
     if (fc) {
         time_t now = time(NULL);
-        if (now - fc->stat_time > file_stat_interval) {
+        if (now - fc->stat_time > stat_interval) {
             modified = fc->is_modified();
             fc->stat_time = now;
             fc->stat_cnt++;
@@ -148,7 +148,7 @@ void FileCache::RemoveExpiredFileCache() {
     time_t now = time(NULL);
     auto iter = cached_files.begin();
     while (iter != cached_files.end()) {
-        if (now - iter->second->stat_time > file_expired_time) {
+        if (now - iter->second->stat_time > expired_time) {
             iter = cached_files.erase(iter);
         } else {
             ++iter;

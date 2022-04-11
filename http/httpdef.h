@@ -169,7 +169,7 @@ enum http_method {
     XX(IMAGE_BMP,               image/bmp,                bmp)          \
     XX(IMAGE_SVG,               image/svg,                svg)          \
     XX(VIDEO_AVI,               video/x-msvideo,          avi)          \
-    XX(VIDEO_TS,                video/mp2t,               ts)          \
+    XX(VIDEO_TS,                video/mp2t,               ts)           \
     XX(VIDEO_WEBM,              video/webm,               webm)         \
     XX(VIDEO_FLV,               video/x-flv,              flv)          \
     XX(VIDEO_MP4,               video/mp4,                mp4)          \

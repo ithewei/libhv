@@ -10,7 +10,7 @@ using namespace hv;
 
 typedef std::function<void(size_t received_bytes, size_t total_bytes)> wget_progress_cb;
 
-static int wget(const char* url, const char* filepath, wget_progress_cb progress_cb = NULL) {
+static int wget(const char* url, const char* filepath, wget_progress_cb progress_cb = NULL, bool use_range = true) {
     int ret = 0;
     HttpClient cli;
     HttpRequest req;
@@ -31,16 +31,18 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
     }
 
     // use Range?
-    bool use_range = false;
     int range_bytes = 1 << 20; // 1M
     long from = 0, to = 0;
-    std::string accept_ranges = resp.GetHeader("Accept-Ranges");
     size_t content_length = hv::from_string<size_t>(resp.GetHeader("Content-Length"));
-    // use Range if server accept_ranges and content_length > 1M
-    if (resp.status_code == 200 &&
-        accept_ranges == "bytes" &&
-        content_length > range_bytes) {
-        use_range = true;
+    if (use_range) {
+        use_range = false;
+        std::string accept_ranges = resp.GetHeader("Accept-Ranges");
+        // use Range if server accept_ranges and content_length > 1M
+        if (resp.status_code == 200 &&
+            accept_ranges == "bytes" &&
+            content_length > range_bytes) {
+            use_range = true;
+        }
     }
 
     // open file
@@ -104,19 +106,25 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
     return 0;
 error:
     file.close();
-    remove(filepath);
+    // remove(filepath);
     return ret;
 }
 
 int main(int argc, char** argv) {
     if (argc < 2) {
-        printf("Usage: %s url [filepath]\n", argv[0]);
+        printf("Usage: %s [--use_range] url [filepath]\n", argv[0]);
         return -10;
     }
-    const char* url = argv[1];
+    int idx = 1;
+    bool use_range = false;
+    if (strcmp(argv[idx], "--use_range") == 0) {
+        use_range = true;
+        ++idx;
+    }
+    const char* url = argv[idx++];
     const char* filepath = "index.html";
-    if (argc > 2) {
-        filepath = argv[2];
+    if (argv[idx]) {
+        filepath = argv[idx];
     } else {
         const char* path = strrchr(url, '/');
         if (path && path[1]) {
@@ -138,9 +146,12 @@ int main(int argc, char** argv) {
             }
         }
         fflush(stdout);
-    });
+    }, use_range);
     unsigned int end_time = gettick_ms();
-    printf("\ncost time %u ms\n", end_time - start_time);
+    unsigned int cost_time = end_time - start_time;
+    printf("\ncost time %u ms\n", cost_time);
+    // 1B/ms = 1KB/s = 8Kbps
+    printf("download rate = %lu KB/s\n", (unsigned long)hv_filesize(filepath) / cost_time);
 
     return 0;
 }

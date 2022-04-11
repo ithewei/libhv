@@ -163,6 +163,11 @@ int parse_confile(const char* confile) {
     if (str.size() != 0) {
         g_http_service.index_of = str;
     }
+    // limit_rate
+    str = ini.GetValue("limit_rate");
+    if (str.size() != 0) {
+        g_http_service.limit_rate = atoi(str.c_str());
+    }
     // ssl
     if (g_http_server.https_port > 0) {
         std::string crt_file = ini.GetValue("ssl_certificate");

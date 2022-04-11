@@ -57,18 +57,16 @@ typedef std::shared_ptr<file_cache_t>           file_cache_ptr;
 // filepath => file_cache_ptr
 typedef std::map<std::string, file_cache_ptr>   FileCacheMap;
 
-#define DEFAULT_FILE_STAT_INTERVAL      10 // s
-#define DEFAULT_FILE_EXPIRED_TIME       60 // s
 class FileCache {
 public:
-    int file_stat_interval;
-    int file_expired_time;
     FileCacheMap    cached_files;
     std::mutex      mutex_;
+    int             stat_interval;
+    int             expired_time;
 
     FileCache() {
-        file_stat_interval = DEFAULT_FILE_STAT_INTERVAL;
-        file_expired_time  = DEFAULT_FILE_EXPIRED_TIME;
+        stat_interval = 10; // s
+        expired_time  = 60; // s
     }
 
     struct OpenParam {

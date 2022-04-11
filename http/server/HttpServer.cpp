@@ -20,20 +20,12 @@ static void on_accept(hio_t* io);
 static void on_recv(hio_t* io, void* _buf, int readbytes);
 static void on_close(hio_t* io);
 
-static HttpService* default_http_service() {
-    static HttpService* s_default_service = new HttpService;
-    return s_default_service;
-}
-
-static FileCache* default_filecache() {
-    static FileCache s_filecache;
-    return &s_filecache;
-}
-
 struct HttpServerPrivdata {
-    std::vector<EventLoopPtr>   loops;
-    std::vector<hthread_t>      threads;
-    std::mutex                  mutex_;
+    std::vector<EventLoopPtr>       loops;
+    std::vector<hthread_t>          threads;
+    std::mutex                      mutex_;
+    std::shared_ptr<HttpService>    service;
+    FileCache                       filecache;
 };
 
 static void on_recv(hio_t* io, void* _buf, int readbytes) {
@@ -107,6 +99,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
     // Upgrade:
     bool upgrade = false;
+    HttpHandler::ProtocolType upgrade_protocol = HttpHandler::UNKNOWN;
     auto iter_upgrade = req->headers.find("upgrade");
     if (iter_upgrade != req->headers.end()) {
         upgrade = true;
@@ -114,11 +107,6 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, upgrade_proto);
         // websocket
         if (stricmp(upgrade_proto, "websocket") == 0) {
-            if (!handler->SwitchWebSocket(io)) {
-                hloge("[%s:%d] unsupported websocket", handler->ip, handler->port);
-                hio_close(io);
-                return;
-            }
             /*
             HTTP/1.1 101 Switching Protocols
             Connection: Upgrade
@@ -134,10 +122,8 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
                 ws_encode_key(iter_key->second.c_str(), ws_accept);
                 resp->headers[SEC_WEBSOCKET_ACCEPT] = ws_accept;
             }
-            
-            // write upgrade resp
-            std::string header = resp->Dump(true, false);
-            hio_write(io, header.data(), header.length());
+            upgrade_protocol = HttpHandler::WEBSOCKET;
+            // NOTE: SwitchWebSocket after send handshake response
         }
         // h2/h2c
         else if (strnicmp(upgrade_proto, "h2", 2) == 0) {
@@ -181,6 +167,17 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         handler->ip, handler->port,
         http_method_str(req->method), req->path.c_str(),
         resp->status_code, resp->status_message());
+
+    // switch protocol to websocket
+    if (upgrade && upgrade_protocol == HttpHandler::WEBSOCKET) {
+        if (!handler->SwitchWebSocket(io)) {
+            hloge("[%s:%d] unsupported websocket", handler->ip, handler->port);
+            hio_close(io);
+            return;
+        }
+        // onopen
+        handler->WebSocketOnOpen();
+    }
 
     if (status_code && !keepalive) {
         hio_close(io);
@@ -229,12 +226,14 @@ static void on_accept(hio_t* io) {
     // websocket service
     handler->ws_service = server->ws;
     // FileCache
-    handler->files = default_filecache();
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
+    handler->files = &privdata->filecache;
     hevent_set_userdata(io, handler);
 }
 
 static void loop_thread(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
+    HttpService* service = server->service;
 
     EventLoopPtr loop(new EventLoop);
     hloop_t* hloop = loop->loop();
@@ -258,15 +257,25 @@ static void loop_thread(void* userdata) {
         hidle_add(hloop, [](hidle_t*) {
             hlog_fsync();
         }, INFINITE);
-        // NOTE: add timer to remove expired file cache
-        htimer_add(hloop, [](htimer_t*) {
-            FileCache* filecache = default_filecache();
-            filecache->RemoveExpiredFileCache();
-        }, DEFAULT_FILE_EXPIRED_TIME * 1000);
+
         // NOTE: add timer to update s_date every 1s
         htimer_add(hloop, [](htimer_t* timer) {
             gmtime_fmt(hloop_now(hevent_loop(timer)), HttpMessage::s_date);
         }, 1000);
+
+        // FileCache
+        FileCache* filecache = &privdata->filecache;
+        filecache->stat_interval = service->file_cache_stat_interval;
+        filecache->expired_time = service->file_cache_expired_time;
+        if (filecache->expired_time > 0) {
+            filecache->expired_time = service->file_cache_expired_time;
+            // NOTE: add timer to remove expired file cache
+            htimer_t* timer = htimer_add(hloop, [](htimer_t* timer) {
+                FileCache* filecache = (FileCache*)hevent_userdata(timer);
+                filecache->RemoveExpiredFileCache();
+            },  filecache->expired_time * 1000);
+            hevent_set_userdata(timer, filecache);
+        }
     }
     privdata->loops.push_back(loop);
     privdata->mutex_.unlock();
@@ -287,13 +296,13 @@ int http_server_run(http_server_t* server, int wait) {
         if (server->listenfd[1] < 0) return server->listenfd[1];
         hlogi("https server listening on %s:%d", server->host, server->https_port);
     }
-    // service
-    if (server->service == NULL) {
-        server->service = default_http_service();
-    }
 
     HttpServerPrivdata* privdata = new HttpServerPrivdata;
     server->privdata = privdata;
+    if (server->service == NULL) {
+        privdata->service.reset(new HttpService);
+        server->service = privdata->service.get();
+    }
 
     if (server->worker_processes) {
         // multi-processes

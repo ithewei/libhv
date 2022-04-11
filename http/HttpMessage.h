@@ -111,7 +111,7 @@ public:
 
     // structured content
     void*               content;    // DATA_NO_COPY
-    int                 content_length;
+    size_t              content_length;
     http_content_type   content_type;
 #ifndef WITHOUT_HTTP_CONTENT
     hv::Json            json;       // APPLICATION_JSON
@@ -316,7 +316,7 @@ public:
         return content;
     }
 
-    int ContentLength() {
+    size_t ContentLength() {
         if (content_length == 0) {
             FillContentLength();
         }
@@ -328,6 +328,15 @@ public:
             FillContentType();
         }
         return content_type;
+    }
+    void SetContentTypeByFilename(const char* filepath) {
+        const char* suffix = hv_suffixname(filepath);
+        if (suffix) {
+            content_type = http_content_type_enum_by_suffix(suffix);
+        }
+        if (content_type == CONTENT_TYPE_NONE || content_type == CONTENT_TYPE_UNDEFINED) {
+            content_type = APPLICATION_OCTET_STREAM;
+        }
     }
 
     void AddCookie(const HttpCookie& cookie) {
@@ -354,20 +363,13 @@ public:
         return 200;
     }
 
-    int File(const char* filepath, bool read = true) {
+    int File(const char* filepath) {
         HFile file;
         if (file.open(filepath, "rb") != 0) {
             return HTTP_STATUS_NOT_FOUND;
         }
-        const char* suffix = hv_suffixname(filepath);
-        if (suffix) {
-            content_type = http_content_type_enum_by_suffix(suffix);
-        }
-        if (content_type == CONTENT_TYPE_NONE || content_type == CONTENT_TYPE_UNDEFINED) {
-            content_type = APPLICATION_OCTET_STREAM;
-        }
-        if (read)
-            file.readall(body);
+        SetContentTypeByFilename(filepath);
+        file.readall(body);
         return 200;
     }
 

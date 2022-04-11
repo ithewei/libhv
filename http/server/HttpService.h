@@ -20,6 +20,11 @@
 #define DEFAULT_INDEXOF_DIR     "/downloads/"
 #define DEFAULT_KEEPALIVE_TIMEOUT   75000   // ms
 
+// for FileCache
+#define MAX_FILE_CACHE_SIZE                 (1 << 22)   // 4M
+#define DEFAULT_FILE_CACHE_STAT_INTERVAL    10          // s
+#define DEFAULT_FILE_CACHE_EXPIRED_TIME     60          // s
+
 /*
  * @param[in]  req:  parsed structured http request
  * @param[out] resp: structured http response
@@ -107,11 +112,20 @@ struct HV_EXPORT HttpService {
     std::string     error_page;
     // indexof service (that is http.DirectoryServer)
     std::string     index_of;
-    int file_speed = 0; // file download speed limit(KB/s, <=0 no limit)
     http_handler    errorHandler;
 
     // options
     int keepalive_timeout;
+    int max_file_cache_size;        // cache small file
+    int file_cache_stat_interval;   // stat file is modified
+    int file_cache_expired_time;    // remove expired file cache
+    /*
+     * @test    limit_rate
+     * @build   make examples
+     * @server  bin/httpd -c etc/httpd.conf -s restart -d
+     * @client  bin/wget http://127.0.0.1:8080/downloads/test.zip
+     */
+    int limit_rate; // limit send rate, unit: KB/s
 
     HttpService() {
         // base_url = DEFAULT_BASE_URL;
@@ -122,6 +136,10 @@ struct HV_EXPORT HttpService {
         // index_of = DEFAULT_INDEXOF_DIR;
 
         keepalive_timeout = DEFAULT_KEEPALIVE_TIMEOUT;
+        max_file_cache_size = MAX_FILE_CACHE_SIZE;
+        file_cache_stat_interval = DEFAULT_FILE_CACHE_STAT_INTERVAL;
+        file_cache_expired_time = DEFAULT_FILE_CACHE_EXPIRED_TIME;
+        limit_rate = -1; // unlimited
     }
 
     void AddApi(const char* path, http_method method, const http_handler& handler);

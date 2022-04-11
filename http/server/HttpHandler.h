@@ -35,75 +35,35 @@ public:
 
     // for http
     HttpService             *service;
-    FileCache               *files;
-
     HttpRequestPtr          req;
     HttpResponsePtr         resp;
     HttpResponseWriterPtr   writer;
     HttpParserPtr           parser;
 
+    // for sendfile
+    FileCache               *files;
+    file_cache_ptr          fc; // cache small file
+    struct LargeFile : public HFile {
+        HBuf                buf;
+        uint64_t            timer;
+    } *file; // for large file
+
     // for GetSendData
-    file_cache_ptr          fc;
     std::string             header;
-    // std::string             body;
+    // std::string          body;
 
     // for websocket
+    WebSocketService*           ws_service;
     WebSocketChannelPtr         ws_channel;
     WebSocketParserPtr          ws_parser;
     uint64_t                    last_send_ping_time;
     uint64_t                    last_recv_pong_time;
-    WebSocketService*           ws_service;
 
     HttpHandler();
     ~HttpHandler();
 
-    bool Init(int http_version = 1, hio_t* io = NULL) {
-        parser.reset(HttpParser::New(HTTP_SERVER, (enum http_version)http_version));
-        if (parser == NULL) {
-            return false;
-        }
-        req.reset(new HttpRequest);
-        resp.reset(new HttpResponse);
-        if (http_version == 2) {
-            protocol = HTTP_V2;
-            resp->http_major = req->http_major = 2;
-            resp->http_minor = req->http_minor = 0;
-        }
-        else if(http_version == 1) {
-            protocol = HTTP_V1;
-        }
-        parser->InitRequest(req.get());
-        if (io) {
-            // shared resp object with HttpResponseWriter
-            writer.reset(new hv::HttpResponseWriter(io, resp));
-            writer->status = hv::SocketChannel::CONNECTED;
-            writer->onwrite = std::bind(&HttpHandler::onWrite, this, std::placeholders::_1);
-        }
-        return true;
-    }
-
-    bool SwitchHTTP2() {
-        parser.reset(HttpParser::New(HTTP_SERVER, ::HTTP_V2));
-        if (parser == NULL) {
-            return false;
-        }
-        protocol = HTTP_V2;
-        resp->http_major = req->http_major = 2;
-        resp->http_minor = req->http_minor = 0;
-        parser->InitRequest(req.get());
-        return true;
-    }
-
-    void Reset() {
-        state = WANT_RECV;
-        req->Reset();
-        resp->Reset();
-        parser->InitRequest(req.get());
-        if (writer) {
-            writer->Begin();
-        }
-        resetFlush();
-    }
+    bool Init(int http_version = 1, hio_t* io = NULL);
+    void Reset();
 
     int FeedRecvData(const char* data, size_t len);
     // @workflow: preprocessor -> api -> web -> postprocessor
@@ -111,9 +71,11 @@ public:
     int HandleHttpRequest();
     int GetSendData(char** data, size_t* len);
 
-    // websocket
-    bool SwitchWebSocket(hio_t* io, ws_session_type type = WS_SERVER);
+    // HTTP2
+    bool SwitchHTTP2();
 
+    // websocket
+    bool SwitchWebSocket(hio_t* io = NULL);
     void WebSocketOnOpen() {
         ws_channel->status = hv::SocketChannel::CONNECTED;
         if (ws_service && ws_service->onopen) {
@@ -128,17 +90,14 @@ public:
     }
 
 private:
-    HFile file; ///< file cache body
-    uint64_t flush_timer;
-    bool flushing_;
-    int last_flush_size;
-    uint64_t last_flush_time;
-    void flushFile();
-    void resetFlush();
-    void onWrite(hv::Buffer* buf);
+    int  openFile(const char* filepath);
+    int  sendFile();
+    void closeFile();
+    bool isFileOpened();
 
     int defaultRequestHandler();
     int defaultStaticHandler();
+    int defaultLargeFileHandler();
     int defaultErrorHandler();
     int customHttpHandler(const http_handler& handler);
     int invokeHttpHandler(const http_handler* handler);
