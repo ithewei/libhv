@@ -107,7 +107,7 @@ struct HV_EXPORT HttpService {
     std::string     error_page;
     // indexof service (that is http.DirectoryServer)
     std::string     index_of;
-
+    int file_speed = 0; // file download speed limit(KB/s, <=0 no limit)
     http_handler    errorHandler;
 
     // options

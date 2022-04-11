@@ -8,35 +8,6 @@
 #include "WebSocketServer.h"
 #include "WebSocketParser.h"
 
-class WebSocketHandler {
-public:
-    WebSocketChannelPtr         channel;
-    WebSocketParserPtr          parser;
-    uint64_t                    last_send_ping_time;
-    uint64_t                    last_recv_pong_time;
-
-    WebSocketHandler() {
-        last_send_ping_time = 0;
-        last_recv_pong_time = 0;
-    }
-
-    void Init(hio_t* io = NULL, ws_session_type type = WS_SERVER) {
-        parser.reset(new WebSocketParser);
-        if (io) {
-            channel.reset(new hv::WebSocketChannel(io, type));
-        }
-    }
-
-    void onopen() {
-        channel->status = hv::SocketChannel::CONNECTED;
-    }
-
-    void onclose() {
-        channel->status = hv::SocketChannel::DISCONNECTED;
-    }
-};
-typedef std::shared_ptr<WebSocketHandler> WebSocketHandlerPtr;
-
 class HttpHandler {
 public:
     enum ProtocolType {
@@ -45,6 +16,7 @@ public:
         HTTP_V2,
         WEBSOCKET,
     } protocol;
+
     enum State {
         WANT_RECV,
         HANDLE_BEGIN,
@@ -73,43 +45,39 @@ public:
     // for GetSendData
     file_cache_ptr          fc;
     std::string             header;
-    std::string             body;
+    // std::string             body;
 
     // for websocket
-    WebSocketHandlerPtr         ws;
+    WebSocketChannelPtr         ws_channel;
+    WebSocketParserPtr          ws_parser;
+    uint64_t                    last_send_ping_time;
+    uint64_t                    last_recv_pong_time;
     WebSocketService*           ws_service;
 
-    HttpHandler() {
-        protocol = UNKNOWN;
-        state = WANT_RECV;
-        ssl = false;
-        service = NULL;
-        files = NULL;
-        ws_service = NULL;
-    }
-
-    ~HttpHandler() {
-        if (writer) {
-            writer->status = hv::SocketChannel::DISCONNECTED;
-        }
-    }
+    HttpHandler();
+    ~HttpHandler();
 
     bool Init(int http_version = 1, hio_t* io = NULL) {
         parser.reset(HttpParser::New(HTTP_SERVER, (enum http_version)http_version));
         if (parser == NULL) {
             return false;
         }
-        protocol = http_version == 1 ? HTTP_V1 : HTTP_V2;
         req.reset(new HttpRequest);
         resp.reset(new HttpResponse);
         if (http_version == 2) {
+            protocol = HTTP_V2;
             resp->http_major = req->http_major = 2;
             resp->http_minor = req->http_minor = 0;
         }
+        else if(http_version == 1) {
+            protocol = HTTP_V1;
+        }
         parser->InitRequest(req.get());
         if (io) {
+            // shared resp object with HttpResponseWriter
             writer.reset(new hv::HttpResponseWriter(io, resp));
             writer->status = hv::SocketChannel::CONNECTED;
+            writer->onwrite = std::bind(&HttpHandler::onWrite, this, std::placeholders::_1);
         }
         return true;
     }
@@ -134,6 +102,7 @@ public:
         if (writer) {
             writer->Begin();
         }
+        resetFlush();
     }
 
     int FeedRecvData(const char* data, size_t len);
@@ -143,30 +112,31 @@ public:
     int GetSendData(char** data, size_t* len);
 
     // websocket
-    WebSocketHandler* SwitchWebSocket() {
-        ws.reset(new WebSocketHandler);
-        protocol = WEBSOCKET;
-        return ws.get();
-    }
+    bool SwitchWebSocket(hio_t* io, ws_session_type type = WS_SERVER);
+
     void WebSocketOnOpen() {
-        ws->onopen();
+        ws_channel->status = hv::SocketChannel::CONNECTED;
         if (ws_service && ws_service->onopen) {
-            ws_service->onopen(ws->channel, req->url);
+            ws_service->onopen(ws_channel, req->url);
         }
     }
     void WebSocketOnClose() {
-        ws->onclose();
+        ws_channel->status = hv::SocketChannel::DISCONNECTED;
         if (ws_service && ws_service->onclose) {
-            ws_service->onclose(ws->channel);
-        }
-    }
-    void WebSocketOnMessage(const std::string& msg) {
-        if (ws_service && ws_service->onmessage) {
-            ws_service->onmessage(ws->channel, msg);
+            ws_service->onclose(ws_channel);
         }
     }
 
 private:
+    HFile file; ///< file cache body
+    uint64_t flush_timer;
+    bool flushing_;
+    int last_flush_size;
+    uint64_t last_flush_time;
+    void flushFile();
+    void resetFlush();
+    void onWrite(hv::Buffer* buf);
+
     int defaultRequestHandler();
     int defaultStaticHandler();
     int defaultErrorHandler();

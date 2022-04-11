@@ -10,7 +10,7 @@
 #include "hstring.h"
 
 #define HTTP_HEADER_MAX_LENGTH      1024        // 1K
-#define FILE_CACHE_MAX_SIZE         (1 << 26)   // 64M
+#define FILE_CACHE_MAX_SIZE         (1 << 22)   // 4M
 
 typedef struct file_cache_s {
     std::string filepath;
