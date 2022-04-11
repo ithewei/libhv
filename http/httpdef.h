@@ -168,6 +168,13 @@ enum http_method {
     XX(IMAGE_GIF,               image/gif,                gif)          \
     XX(IMAGE_BMP,               image/bmp,                bmp)          \
     XX(IMAGE_SVG,               image/svg,                svg)          \
+    XX(VIDEO_AVI,               video/x-msvideo,          avi)          \
+    XX(VIDEO_TS,                video/mp2t,               ts)          \
+    XX(VIDEO_WEBM,              video/webm,               webm)         \
+    XX(VIDEO_FLV,               video/x-flv,              flv)          \
+    XX(VIDEO_MP4,               video/mp4,                mp4)          \
+    XX(AUDIO_MP3,               audio/mpeg,               mp3)          \
+    XX(AUDIO_OGG,               audio/ogg,                ogg)          \
     XX(APPLICATION_OCTET_STREAM,application/octet-stream, bin)          \
     XX(APPLICATION_JAVASCRIPT,  application/javascript,   js)           \
     XX(APPLICATION_XML,         application/xml,          xml)          \
