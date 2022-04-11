@@ -16,6 +16,7 @@ public:
         HTTP_V2,
         WEBSOCKET,
     } protocol;
+
     enum State {
         WANT_RECV,
         HANDLE_BEGIN,
@@ -44,7 +45,7 @@ public:
     // for GetSendData
     file_cache_ptr          fc;
     std::string             header;
-    std::string             body;
+    // std::string             body;
 
     // for websocket
     WebSocketChannelPtr         ws_channel;
@@ -53,37 +54,30 @@ public:
     uint64_t                    last_recv_pong_time;
     WebSocketService*           ws_service;
 
-    HttpHandler() {
-        protocol = UNKNOWN;
-        state = WANT_RECV;
-        ssl = false;
-        service = NULL;
-        files = NULL;
-        ws_service = NULL;
-    }
-
-    ~HttpHandler() {
-        if (writer) {
-            writer->status = hv::SocketChannel::DISCONNECTED;
-        }
-    }
+    HttpHandler();
+    ~HttpHandler();
 
     bool Init(int http_version = 1, hio_t* io = NULL) {
         parser.reset(HttpParser::New(HTTP_SERVER, (enum http_version)http_version));
         if (parser == NULL) {
             return false;
         }
-        protocol = http_version == 1 ? HTTP_V1 : HTTP_V2;
         req.reset(new HttpRequest);
         resp.reset(new HttpResponse);
         if (http_version == 2) {
+            protocol = HTTP_V2;
             resp->http_major = req->http_major = 2;
             resp->http_minor = req->http_minor = 0;
         }
+        else if(http_version == 1) {
+            protocol = HTTP_V1;
+        }
         parser->InitRequest(req.get());
         if (io) {
+            // shared resp object with HttpResponseWriter
             writer.reset(new hv::HttpResponseWriter(io, resp));
             writer->status = hv::SocketChannel::CONNECTED;
+            writer->onwrite = std::bind(&HttpHandler::onWrite, this, std::placeholders::_1);
         }
         return true;
     }
@@ -108,6 +102,7 @@ public:
         if (writer) {
             writer->Begin();
         }
+        resetFlush();
     }
 
     int FeedRecvData(const char* data, size_t len);
@@ -133,6 +128,15 @@ public:
     }
 
 private:
+    HFile file; ///< file cache body
+    uint64_t flush_timer;
+    bool flushing_;
+    int last_flush_size;
+    uint64_t last_flush_time;
+    void flushFile();
+    void resetFlush();
+    void onWrite(hv::Buffer* buf);
+
     int defaultRequestHandler();
     int defaultStaticHandler();
     int defaultErrorHandler();

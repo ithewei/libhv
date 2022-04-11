@@ -354,7 +354,7 @@ public:
         return 200;
     }
 
-    int File(const char* filepath) {
+    int File(const char* filepath, bool read = true) {
         HFile file;
         if (file.open(filepath, "rb") != 0) {
             return HTTP_STATUS_NOT_FOUND;
@@ -366,7 +366,8 @@ public:
         if (content_type == CONTENT_TYPE_NONE || content_type == CONTENT_TYPE_UNDEFINED) {
             content_type = APPLICATION_OCTET_STREAM;
         }
-        file.readall(body);
+        if (read)
+            file.readall(body);
         return 200;
     }
 
