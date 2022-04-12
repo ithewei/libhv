@@ -177,6 +177,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         }
         // onopen
         handler->WebSocketOnOpen();
+        return;
     }
 
     if (status_code && !keepalive) {
@@ -268,7 +269,6 @@ static void loop_thread(void* userdata) {
         filecache->stat_interval = service->file_cache_stat_interval;
         filecache->expired_time = service->file_cache_expired_time;
         if (filecache->expired_time > 0) {
-            filecache->expired_time = service->file_cache_expired_time;
             // NOTE: add timer to remove expired file cache
             htimer_t* timer = htimer_add(hloop, [](htimer_t* timer) {
                 FileCache* filecache = (FileCache*)hevent_userdata(timer);

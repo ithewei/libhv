@@ -1,4 +1,4 @@
-﻿#include "HttpHandler.h"
+#include "HttpHandler.h"
 
 #include "hbase.h"
 #include "herr.h"
@@ -350,7 +350,7 @@ int HttpHandler::defaultLargeFileHandler() {
     if (service->limit_rate == 0) {
         // forbidden to send large file
         resp->content_length = 0;
-        resp->status_code = HTTP_STATUS_NOT_ACCEPTABLE;
+        resp->status_code = HTTP_STATUS_FORBIDDEN;
     } else {
         size_t bufsize = 40960; // 40K
         file->buf.resize(bufsize);
@@ -368,7 +368,7 @@ int HttpHandler::defaultLargeFileHandler() {
             // limit_rate=40MB/s interval_m=1: 40KB/ms = 40MB/s = 320Mbps
             if (interval_ms == 0) interval_ms = 1;
             // printf("limit_rate=%dKB/s interval_ms=%d\n", service->limit_rate, interval_ms);
-            hv::setInterval(interval_ms, std::bind(&HttpHandler::sendFile, this));
+            file->timer = setInterval(interval_ms, std::bind(&HttpHandler::sendFile, this));
         }
     }
     writer->EndHeaders();
@@ -509,6 +509,7 @@ return_header:
 int HttpHandler::openFile(const char* filepath) {
     closeFile();
     file = new LargeFile;
+    file->timer = INVALID_TIMER_ID;
     return file->open(filepath, "rb");
 }
 
@@ -519,6 +520,7 @@ bool HttpHandler::isFileOpened() {
 int HttpHandler::sendFile() {
     if (!writer || !writer->isWriteComplete() ||
         !isFileOpened() ||
+        file->buf.len == 0 ||
         resp->content_length == 0) {
         return -1;
     }
@@ -528,9 +530,14 @@ int HttpHandler::sendFile() {
     if (nread <= 0) {
         hloge("read file error!");
         writer->close(true);
-        return 0;
+        return nread;
     }
-    writer->WriteBody(file->buf.base, nread);
+    int nwrite = writer->WriteBody(file->buf.base, nread);
+    if (nwrite < 0) {
+        // disconnectd
+        writer->close(true);
+        return nwrite;
+    }
     resp->content_length -= nread;
     if (resp->content_length == 0) {
         writer->End();
@@ -542,7 +549,8 @@ int HttpHandler::sendFile() {
 void HttpHandler::closeFile() {
     if (file) {
         if (file->timer != INVALID_TIMER_ID) {
-            hv::killTimer(file->timer);
+            killTimer(file->timer);
+            file->timer = INVALID_TIMER_ID;
         }
         delete file;
         file = NULL;
