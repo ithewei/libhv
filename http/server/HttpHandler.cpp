@@ -292,6 +292,7 @@ int HttpHandler::defaultStaticHandler() {
             }
         }
         else {
+            resp->status_code = HTTP_STATUS_PARTIAL_CONTENT;
             if (service->largeFileHandler) {
                 status_code = customHttpHandler(service->largeFileHandler);
             } else {
@@ -555,4 +556,6 @@ void HttpHandler::closeFile() {
         delete file;
         file = NULL;
     }
+    if(writer)
+        writer->onwrite = NULL;
 }
