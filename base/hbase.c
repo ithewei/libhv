@@ -335,7 +335,7 @@ int hv_rand(int min, int max) {
     return _rand;
 }
 
-void hv_random_string(char *buf, int len) {
+char* hv_random_string(char *buf, int len) {
     static char s_characters[] = {
         'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
         'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p',
@@ -346,6 +346,7 @@ void hv_random_string(char *buf, int len) {
         buf[i] = s_characters[hv_rand(0, sizeof(s_characters) - 1)];
     }
     buf[i] = '\0';
+    return buf;
 }
 
 bool hv_getboolean(const char* str) {
@@ -360,4 +361,51 @@ bool hv_getboolean(const char* str) {
     case 6: return stricmp(str, "enable") == 0;
     default: return false;
     }
+}
+
+size_t hv_parse_size(const char* str) {
+    size_t size = 0, n = 0;
+    const char* p = str;
+    char c;
+    while ((c = *p) != '\0') {
+        if (c >= '0' && c <= '9') {
+            n = n * 10 + c - '0';
+        } else {
+            switch (c) {
+            case 'K': case 'k': n <<= 10; break;
+            case 'M': case 'm': n <<= 20; break;
+            case 'G': case 'g': n <<= 30; break;
+            case 'T': case 't': n <<= 40; break;
+            default:                      break;
+            }
+            size += n;
+            n = 0;
+        }
+        ++p;
+    }
+    return size + n;
+}
+
+time_t hv_parse_time(const char* str) {
+    time_t time = 0, n = 0;
+    const char* p = str;
+    char c;
+    while ((c = *p) != '\0') {
+        if (c >= '0' && c <= '9') {
+            n = n * 10 + c - '0';
+        } else {
+            switch (c) {
+            case 's':                           break;
+            case 'm': n *= 60;                  break;
+            case 'h': n *= 60 * 60;             break;
+            case 'd': n *= 24 * 60 * 60;        break;
+            case 'w': n *= 7 * 24 * 60 * 60;    break;
+            default:                            break;
+            }
+            time += n;
+            n = 0;
+        }
+        ++p;
+    }
+    return time + n;
 }

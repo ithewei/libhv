@@ -103,11 +103,15 @@ HV_EXPORT char* get_executable_file(char* buf, int size);
 HV_EXPORT char* get_run_dir(char* buf, int size);
 
 // random
-HV_EXPORT int  hv_rand(int min, int max);
-HV_EXPORT void hv_random_string(char *buf, int len);
+HV_EXPORT int   hv_rand(int min, int max);
+HV_EXPORT char* hv_random_string(char *buf, int len);
 
-// 1 y on yes true enable
-HV_EXPORT bool hv_getboolean(const char* str);
+// 1 y on yes true enable => true
+HV_EXPORT bool   hv_getboolean(const char* str);
+// 1T2G3M4K5B => ?B
+HV_EXPORT size_t hv_parse_size(const char* str);
+// 1w2d3h4m5s => ?s
+HV_EXPORT time_t hv_parse_time(const char* str);
 
 END_EXTERN_C
 

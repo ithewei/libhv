@@ -124,6 +124,8 @@
 - hv_rand
 - hv_random_string
 - hv_getboolean
+- hv_parse_size
+- hv_parse_time
 
 ### hversion.h
 - hv_version

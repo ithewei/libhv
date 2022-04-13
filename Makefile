@@ -204,6 +204,7 @@ protorpc_server: prepare protorpc_protoc
 
 unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rbtree_test       unittest/rbtree_test.c        base/rbtree.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hbase_test        unittest/hbase_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rmdir_p           unittest/rmdir_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/date              unittest/date_test.c          base/htime.c

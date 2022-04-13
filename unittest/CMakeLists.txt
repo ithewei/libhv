@@ -1,6 +1,9 @@
 add_definitions(-DHV_SOURCE=1)
 
 # ------base------
+add_executable(hbase_test hbase_test.c ../base/hbase.c)
+target_include_directories(hbase_test PRIVATE .. ../base)
+
 add_executable(mkdir_p mkdir_test.c ../base/hbase.c)
 target_include_directories(mkdir_p PRIVATE .. ../base)
 
