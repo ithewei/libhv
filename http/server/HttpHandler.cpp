@@ -60,6 +60,7 @@ void HttpHandler::Reset() {
     closeFile();
     if (writer) {
         writer->Begin();
+        writer->onwrite = NULL;
     }
 }
 
@@ -278,6 +279,7 @@ int HttpHandler::defaultStaticHandler() {
         if (to == 0 || to >= total) to = total - 1;
         file->seek(from);
         status_code = HTTP_STATUS_PARTIAL_CONTENT;
+        resp->status_code = HTTP_STATUS_PARTIAL_CONTENT;
         resp->content_length = to - from + 1;
         resp->SetContentTypeByFilename(filepath.c_str());
         resp->SetRange(from, to, total);
