@@ -52,14 +52,13 @@ static int hloop_process_idles(hloop_t* loop) {
     return nidles;
 }
 
-static int hloop_process_timers(hloop_t* loop) {
+static int __hloop_process_timers(struct heap* timers, uint64_t timeout) {
     int ntimers = 0;
     htimer_t* timer = NULL;
-    uint64_t now_hrtime = hloop_now_hrtime(loop);
-    while (loop->timers.root) {
+    while (timers->root) {
         // NOTE: root of minheap has min timeout.
-        timer = TIMER_ENTRY(loop->timers.root);
-        if (timer->next_timeout > now_hrtime) {
+        timer = TIMER_ENTRY(timers->root);
+        if (timer->next_timeout > timeout) {
             break;
         }
         if (timer->repeat != INFINITE) {
@@ -72,9 +71,9 @@ static int hloop_process_timers(hloop_t* loop) {
         }
         else {
             // NOTE: calc next timeout, then re-insert heap.
-            heap_dequeue(&loop->timers);
+            heap_dequeue(timers);
             if (timer->event_type == HEVENT_TYPE_TIMEOUT) {
-                while (timer->next_timeout <= now_hrtime) {
+                while (timer->next_timeout <= timeout) {
                     timer->next_timeout += (uint64_t)((htimeout_t*)timer)->timeout * 1000;
                 }
             }
@@ -83,11 +82,18 @@ static int hloop_process_timers(hloop_t* loop) {
                 timer->next_timeout = (uint64_t)cron_next_timeout(period->minute, period->hour, period->day,
                         period->week, period->month) * 1000000;
             }
-            heap_insert(&loop->timers, &timer->node);
+            heap_insert(timers, &timer->node);
         }
         EVENT_PENDING(timer);
         ++ntimers;
     }
+    return ntimers;
+}
+
+static int hloop_process_timers(hloop_t* loop) {
+    uint64_t now = hloop_now_us(loop);
+    int ntimers = __hloop_process_timers(&loop->timers, loop->cur_hrtime);
+    ntimers +=    __hloop_process_timers(&loop->realtimers, now);
     return ntimers;
 }
 
@@ -137,21 +143,27 @@ static int hloop_process_events(hloop_t* loop) {
     nios = ntimers = nidles = 0;
 
     // calc blocktime
-    int32_t blocktime = HLOOP_MAX_BLOCK_TIME;
-    if (loop->timers.root) {
+    int32_t blocktime_ms = HLOOP_MAX_BLOCK_TIME;
+    if (loop->ntimers) {
         hloop_update_time(loop);
-        uint64_t next_min_timeout = TIMER_ENTRY(loop->timers.root)->next_timeout;
-        int64_t blocktime_us = next_min_timeout - hloop_now_hrtime(loop);
+        int64_t blocktime_us = blocktime_ms * 1000;
+        if (loop->timers.root) {
+            int64_t min_timeout = TIMER_ENTRY(loop->timers.root)->next_timeout - loop->cur_hrtime;
+            blocktime_us = MIN(blocktime_us, min_timeout);
+        }
+        if (loop->realtimers.root) {
+            int64_t min_timeout = TIMER_ENTRY(loop->realtimers.root)->next_timeout - hloop_now_us(loop);
+            blocktime_us = MIN(blocktime_us, min_timeout);
+        }
         if (blocktime_us <= 0) goto process_timers;
-        blocktime = blocktime_us / 1000;
-        ++blocktime;
-        blocktime = MIN(blocktime, HLOOP_MAX_BLOCK_TIME);
+        blocktime_ms = blocktime_us / 1000 + 1;
+        blocktime_ms = MIN(blocktime_ms, HLOOP_MAX_BLOCK_TIME);
     }
 
     if (loop->nios) {
-        nios = hloop_process_ios(loop, blocktime);
+        nios = hloop_process_ios(loop, blocktime_ms);
     } else {
-        hv_msleep(blocktime);
+        hv_msleep(blocktime_ms);
     }
     hloop_update_time(loop);
     // wakeup by hloop_stop
@@ -309,6 +321,7 @@ static void hloop_init(hloop_t* loop) {
 
     // timers
     heap_init(&loop->timers, timers_compare);
+    heap_init(&loop->realtimers, timers_compare);
 
     // ios
     io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
@@ -368,6 +381,12 @@ static void hloop_cleanup(hloop_t* loop) {
         HV_FREE(timer);
     }
     heap_init(&loop->timers, NULL);
+    while (loop->realtimers.root) {
+        timer = TIMER_ENTRY(loop->realtimers.root);
+        heap_dequeue(&loop->realtimers);
+        HV_FREE(timer);
+    }
+    heap_init(&loop->realtimers, NULL);
 
     // readbuf
     if (loop->readbuf.base && loop->readbuf.len) {
@@ -501,8 +520,12 @@ uint64_t hloop_now_ms(hloop_t* loop) {
     return loop->start_ms + (loop->cur_hrtime - loop->start_hrtime) / 1000;
 }
 
-uint64_t hloop_now_hrtime(hloop_t* loop) {
+uint64_t hloop_now_us(hloop_t* loop) {
     return loop->start_ms * 1000 + (loop->cur_hrtime - loop->start_hrtime);
+}
+
+uint64_t hloop_now_hrtime(hloop_t* loop) {
+    return loop->cur_hrtime;
 }
 
 uint64_t hio_last_read_time(hio_t* io) {
@@ -585,7 +608,7 @@ htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t rep
     timer->repeat = repeat;
     timer->timeout = timeout;
     hloop_update_time(loop);
-    timer->next_timeout = hloop_now_hrtime(loop) + (uint64_t)timeout*1000;
+    timer->next_timeout = loop->cur_hrtime + (uint64_t)timeout*1000;
     // NOTE: Limit granularity to 100ms
     if (timeout >= 1000 && timeout % 100 == 0) {
         timer->next_timeout = timer->next_timeout / 100000 * 100000;
@@ -610,7 +633,7 @@ void htimer_reset(htimer_t* timer) {
     if (timer->repeat == 0) {
         timer->repeat = 1;
     }
-    timer->next_timeout = hloop_now_hrtime(loop) + (uint64_t)timeout->timeout*1000;
+    timer->next_timeout = loop->cur_hrtime + (uint64_t)timeout->timeout*1000;
     // NOTE: Limit granularity to 100ms
     if (timeout->timeout >= 1000 && timeout->timeout % 100 == 0) {
         timer->next_timeout = timer->next_timeout / 100000 * 100000;
@@ -636,7 +659,7 @@ htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
     timer->month  = month;
     timer->week   = week;
     timer->next_timeout = (uint64_t)cron_next_timeout(minute, hour, day, week, month) * 1000000;
-    heap_insert(&loop->timers, &timer->node);
+    heap_insert(&loop->realtimers, &timer->node);
     EVENT_ADD(loop, timer, cb);
     loop->ntimers++;
     return (htimer_t*)timer;
@@ -644,7 +667,11 @@ htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
 
 static void __htimer_del(htimer_t* timer) {
     if (timer->destroy) return;
-    heap_remove(&timer->loop->timers, &timer->node);
+    if (timer->event_type == HEVENT_TYPE_TIMEOUT) {
+        heap_remove(&timer->loop->timers, &timer->node);
+    } else if (timer->event_type == HEVENT_TYPE_PERIOD) {
+        heap_remove(&timer->loop->realtimers, &timer->node);
+    }
     timer->loop->ntimers--;
     timer->destroy = 1;
 }

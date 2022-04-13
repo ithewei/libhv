@@ -143,10 +143,10 @@ HV_EXPORT int hloop_wakeup(hloop_t* loop);
 HV_EXPORT hloop_status_e hloop_status(hloop_t* loop);
 
 HV_EXPORT void     hloop_update_time(hloop_t* loop);
-HV_EXPORT uint64_t hloop_now(hloop_t* loop);          // s
-HV_EXPORT uint64_t hloop_now_ms(hloop_t* loop);       // ms
-HV_EXPORT uint64_t hloop_now_hrtime(hloop_t* loop);   // us
-#define hloop_now_us hloop_now_hrtime
+HV_EXPORT uint64_t hloop_now(hloop_t* loop);        // s
+HV_EXPORT uint64_t hloop_now_ms(hloop_t* loop);     // ms
+HV_EXPORT uint64_t hloop_now_us(hloop_t* loop);     // us
+HV_EXPORT uint64_t hloop_now_hrtime(hloop_t* loop); // us
 
 // export some hloop's members
 // @return pid of hloop_run

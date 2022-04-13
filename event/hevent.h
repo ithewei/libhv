@@ -49,7 +49,8 @@ struct hloop_s {
     struct list_head            idles;
     uint32_t                    nidles;
     // timers
-    struct heap                 timers;
+    struct heap                 timers;     // monotonic time
+    struct heap                 realtimers; // realtime
     uint32_t                    ntimers;
     // ios: with fd as array.index
     struct io_array             ios;
