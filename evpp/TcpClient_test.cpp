@@ -30,10 +30,12 @@ int main(int argc, char* argv[]) {
             // send(time) every 3s
             setInterval(3000, [channel](TimerID timerID){
                 if (channel->isConnected()) {
-                    char str[DATETIME_FMT_BUFLEN] = {0};
-                    datetime_t dt = datetime_now();
-                    datetime_fmt(&dt, str);
-                    channel->write(str);
+                    if (channel->isWriteComplete()) {
+                        char str[DATETIME_FMT_BUFLEN] = {0};
+                        datetime_t dt = datetime_now();
+                        datetime_fmt(&dt, str);
+                        channel->write(str);
+                    }
                 } else {
                     killTimer(timerID);
                 }
