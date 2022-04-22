@@ -71,6 +71,7 @@ public:
         setConnectTimeout(5000);
 
         reconn_setting_t reconn;
+        reconn_setting_init(&reconn);
         reconn.min_delay = 1000;
         reconn.max_delay = 10000;
         reconn.delay_policy = 2;

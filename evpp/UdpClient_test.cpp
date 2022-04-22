@@ -1,7 +1,9 @@
 /*
  * UdpClient_test.cpp
  *
- * @build: make evpp
+ * @build   make evpp
+ * @server  bin/UdpServer_test 1234
+ * @client  bin/UdpClient_test 1234
  *
  */
 

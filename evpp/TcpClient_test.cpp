@@ -1,7 +1,9 @@
 /*
  * TcpClient_test.cpp
  *
- * @build: make evpp
+ * @build   make evpp
+ * @server  bin/TcpServer_test 1234
+ * @client  bin/TcpClient_test 1234
  *
  */
 
@@ -52,6 +54,7 @@ int main(int argc, char* argv[]) {
     };
     // reconnect: 1,2,4,8,10,10,10...
     reconn_setting_t reconn;
+    reconn_setting_init(&reconn);
     reconn.min_delay = 1000;
     reconn.max_delay = 10000;
     reconn.delay_policy = 2;

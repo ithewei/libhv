@@ -17,11 +17,14 @@ public:
 
     TcpClientTmpl() {
         connect_timeout = 5000;
+        tls = false;
+        tls_setting = NULL;
         reconn_setting = NULL;
         unpack_setting = NULL;
     }
 
     virtual ~TcpClientTmpl() {
+        HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
     }
@@ -67,6 +70,12 @@ public:
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
         }
+        if (tls) {
+            channel->enableSSL();
+            if (tls_setting) {
+                channel->newSslCtx(tls_setting);
+            }
+        }
         channel->onconnect = [this]() {
             if (unpack_setting) {
                 channel->setUnpack(unpack_setting);
@@ -111,7 +120,7 @@ public:
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
         loop_thread.loop()->setTimeout(delay, [this](TimerID timerID){
             hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
-            createsocket(&peeraddr.sa);
+            if (createsocket(&peeraddr.sa) < 0) return;
             startConnect();
         });
         return 0;
@@ -143,10 +152,16 @@ public:
         return send(str.data(), str.size());
     }
 
-    int withTLS(hssl_ctx_opt_t* opt) {
-        if (!channel) return -1;
-        opt->endpoint = HSSL_CLIENT;
-        return channel->newSslCtx(opt);
+    int withTLS(hssl_ctx_opt_t* opt = NULL) {
+        tls = true;
+        if (opt) {
+            if (tls_setting == NULL) {
+                HV_ALLOC_SIZEOF(tls_setting);
+            }
+            opt->endpoint = HSSL_CLIENT;
+            *tls_setting = *opt;
+        }
+        return 0;
     }
 
     void setConnectTimeout(int ms) {
@@ -183,6 +198,8 @@ public:
 
     sockaddr_u              peeraddr;
     int                     connect_timeout;
+    bool                    tls;
+    hssl_ctx_opt_t*         tls_setting;
     reconn_setting_t*       reconn_setting;
     unpack_setting_t*       unpack_setting;
 
