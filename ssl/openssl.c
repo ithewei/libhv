@@ -73,6 +73,10 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
     if (mode == SSL_VERIFY_PEER && !ca_file && !ca_path) {
         SSL_CTX_set_default_verify_paths(ctx);
     }
+
+#ifdef SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
+    SSL_CTX_set_mode(ctx, SSL_CTX_get_mode(ctx) | SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER);
+#endif
     SSL_CTX_set_verify(ctx, mode, NULL);
     return ctx;
 error:
