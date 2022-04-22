@@ -20,12 +20,13 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libssl-dev
+          sudo apt install iperf
           sudo apt install nginx
 
-      - name: make tinyhttpd httpd wrk
+      - name: make examples
         run: |
           ./configure
-          make tinyhttpd httpd wrk
+          make examples
 
       - name: build echo-servers
         run: |
@@ -34,6 +35,13 @@ jobs:
       - name: benchmark echo-servers
         run: |
           bash echo-servers/benchmark.sh
+
+      - name: benchmark tcp_proxy_server
+        run: |
+          iperf -s -p 5001 > /dev/null &
+          bin/tcp_proxy_server 1212 127.0.0.1:5001 &
+          iperf -c 127.0.0.1 -p 5001 -l 8K
+          iperf -c 127.0.0.1 -p 1212 -l 8K
 
       - name: webbench
         run: |
