@@ -47,7 +47,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
         addChannel(connio);
         // https
-        if (req->IsHttps()) {
+        if (req->IsHttps() && !req->IsProxy()) {
             hio_enable_ssl(connio);
         }
     }
