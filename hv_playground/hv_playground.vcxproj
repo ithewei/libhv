@@ -1,0 +1,298 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>x64</Platform>
+    <ProjectName>hv_playground</ProjectName>
+    <VCProjectUpgraderObjectName>NoUpgrade</VCProjectUpgraderObjectName>
+    <ProjectGuid>{BE828CDC-6BA0-422C-9F99-97B861DE46C6}</ProjectGuid>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">F:\Study\OpenSource\libhv\build\bin\Debug\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">hv_playground</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">F:\Study\OpenSource\libhv\build\bin\Release\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">hv_playground.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">hv_playground</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">F:\Study\OpenSource\libhv\build\bin\MinSizeRel\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">hv_playground.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">hv_playground</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">true</GenerateManifest>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">F:\Study\OpenSource\libhv\build\bin\RelWithDebInfo\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">hv_playground.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">hv_playground</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.exe</TargetExt>
+    <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</LinkIncremental>
+    <GenerateManifest Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\build\include;./hvpp/inc;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0600;CMAKE_INTDIR="Debug";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0600;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>..\build\lib\Debug\hv.lib;winmm.lib;iphlpapi.lib;ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>F:/Study/OpenSource/libhv/.;F:/Study/OpenSource/libhv/./$(Configuration);F:/Study/OpenSource/libhv/lib;F:/Study/OpenSource/libhv/lib/$(Configuration);F:/Study/OpenSource/libhv/3rd/lib;F:/Study/OpenSource/libhv/3rd/lib/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>F:/Study/OpenSource/libhv/build/lib/Debug/hv_playground.lib</ImportLibrary>
+      <ProgramDataBaseFile>F:/Study/OpenSource/libhv/build/bin/Debug/hv_playground.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0600;CMAKE_INTDIR="Release";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0600;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>..\lib\Release\hv.lib;winmm.lib;iphlpapi.lib;ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>F:/Study/OpenSource/libhv/.;F:/Study/OpenSource/libhv/./$(Configuration);F:/Study/OpenSource/libhv/lib;F:/Study/OpenSource/libhv/lib/$(Configuration);F:/Study/OpenSource/libhv/3rd/lib;F:/Study/OpenSource/libhv/3rd/lib/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>F:/Study/OpenSource/libhv/build/lib/Release/hv_playground.lib</ImportLibrary>
+      <ProgramDataBaseFile>F:/Study/OpenSource/libhv/build/bin/Release/hv_playground.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0600;CMAKE_INTDIR="MinSizeRel";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0600;CMAKE_INTDIR=\"MinSizeRel\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>..\lib\MinSizeRel\hv.lib;winmm.lib;iphlpapi.lib;ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>F:/Study/OpenSource/libhv/.;F:/Study/OpenSource/libhv/./$(Configuration);F:/Study/OpenSource/libhv/lib;F:/Study/OpenSource/libhv/lib/$(Configuration);F:/Study/OpenSource/libhv/3rd/lib;F:/Study/OpenSource/libhv/3rd/lib/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>F:/Study/OpenSource/libhv/build/lib/MinSizeRel/hv_playground.lib</ImportLibrary>
+      <ProgramDataBaseFile>F:/Study/OpenSource/libhv/build/bin/MinSizeRel/hv_playground.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <UseFullPaths>false</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0600;CMAKE_INTDIR="RelWithDebInfo";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN32_WINNT=0x0600;CMAKE_INTDIR=\"RelWithDebInfo\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Midl>
+      <AdditionalIncludeDirectories>F:\Study\OpenSource\libhv\.;F:\Study\OpenSource\libhv\include;F:\Study\OpenSource\libhv\3rd\include;F:\Study\OpenSource\libhv\src;F:\Study\OpenSource\libhv\examples\..;F:\Study\OpenSource\libhv\examples\..\base;F:\Study\OpenSource\libhv\examples\..\ssl;F:\Study\OpenSource\libhv\examples\..\event;F:\Study\OpenSource\libhv\examples\..\util;F:\Study\OpenSource\libhv\examples\..\cpputil;F:\Study\OpenSource\libhv\examples\..\evpp;F:\Study\OpenSource\libhv\examples\..\http;F:\Study\OpenSource\libhv\examples\..\http\server;F:\Study\OpenSource\libhv\examples\..\http\client;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <Link>
+      <AdditionalDependencies>..\lib\RelWithDebInfo\hv.lib;winmm.lib;iphlpapi.lib;ws2_32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;comdlg32.lib;advapi32.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>F:/Study/OpenSource/libhv/.;F:/Study/OpenSource/libhv/./$(Configuration);F:/Study/OpenSource/libhv/lib;F:/Study/OpenSource/libhv/lib/$(Configuration);F:/Study/OpenSource/libhv/3rd/lib;F:/Study/OpenSource/libhv/3rd/lib/$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ImportLibrary>F:/Study/OpenSource/libhv/build/lib/RelWithDebInfo/hv_playground.lib</ImportLibrary>
+      <ProgramDataBaseFile>F:/Study/OpenSource/libhv/build/bin/RelWithDebInfo/hv_playground.pdb</ProgramDataBaseFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectReference Include="F:\Study\OpenSource\libhv\build\ZERO_CHECK.vcxproj">
+      <Project>{37031B48-60D3-3A4B-8D47-3108CF985B3D}</Project>
+      <Name>ZERO_CHECK</Name>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </ProjectReference>
+    <ProjectReference Include="F:\Study\OpenSource\libhv\build\hv.vcxproj">
+      <Project>{AB6B92D6-3F74-3C8F-8DE7-031F61BFA992}</Project>
+      <Name>hv</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="hvpp\src\HEvent.cpp" />
+    <ClCompile Include="hvpp\src\HIo.cpp" />
+    <ClCompile Include="hvpp\src\HLoop.cpp" />
+    <ClCompile Include="hvpp\src\HTimer.cpp" />
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="hvpp\inc\HEvent.h" />
+    <ClInclude Include="hvpp\inc\HForwardDecls.h" />
+    <ClInclude Include="hvpp\inc\HIo.h" />
+    <ClInclude Include="hvpp\inc\HLoop.h" />
+    <ClInclude Include="hvpp\inc\HTimer.h" />
+    <ClInclude Include="hvpp\inc\hvpp.h" />
+    <ClInclude Include="hvpp\src\HEventImplement.h" />
+    <ClInclude Include="hvpp\src\HIoImplement.h" />
+    <ClInclude Include="hvpp\src\HLoopImplement.h" />
+    <ClInclude Include="hvpp\src\HTimerImplement.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
