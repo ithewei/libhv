@@ -481,7 +481,7 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
     int err = 0;
     int timeout = req->timeout;
     int connfd = cli->fd;
-    bool https = req->IsHttps();
+    bool https = req->IsHttps() && !req->IsProxy();
     bool keepalive = true;
 
     time_t start_time = time(NULL);
