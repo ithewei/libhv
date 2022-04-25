@@ -45,9 +45,9 @@
 - [libhv教程18--动手写一个tinyhttpd](https://hewei.blog.csdn.net/article/details/121706604)
 - [libhv教程19--MQTT的实现与使用](https://hewei.blog.csdn.net/article/details/122753665)
 
-## ✨ 特征
+## ✨ 特性
 
-- 跨平台（Linux, Windows, MacOS, Solaris, Android, iOS）
+- 跨平台（Linux, Windows, MacOS, BSD, Solaris, Android, iOS）
 - 高性能事件循环（网络IO事件、定时器事件、空闲事件、自定义事件）
 - TCP/UDP服务端/客户端/代理
 - TCP支持心跳、转发、拆包、多线程安全write和close等特性
