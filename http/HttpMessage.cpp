@@ -547,20 +547,20 @@ void HttpRequest::ParseUrl() {
     FillHost(host_.c_str(), port_);
     // path
     if (parser.field_set & (1<<UF_PATH)) {
-        const char* sp = url.c_str() + parser.field_data[UF_PATH].off;
-        char* ep = (char*)(sp + parser.field_data[UF_PATH].len);
-        char ev = *ep;
-        *ep = '\0';
-        path = url_unescape(sp);
-        if (ev != '\0') {
-            *ep = ev;
-            path += ep;
-        }
+        path = url.substr(parser.field_data[UF_PATH].off);
     }
     // query
     if (parser.field_set & (1<<UF_QUERY)) {
         parse_query_params(url.c_str()+parser.field_data[UF_QUERY].off, query_params);
     }
+}
+
+std::string HttpRequest::Path() {
+    const char* s = path.c_str();
+    const char* e = s;
+    while (*e && *e != '?' && *e != '#') ++e;
+    std::string path_no_query(s, e);
+    return url_unescape(path_no_query.c_str());
 }
 
 void HttpRequest::FillHost(const char* host, int port) {

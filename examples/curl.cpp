@@ -8,6 +8,7 @@
  */
 
 #include "http_client.h"
+#include "hurl.h"
 
 #ifdef _MSC_VER
 #include "misc/win32_getopt.h"
@@ -262,7 +263,8 @@ int main(int argc, char* argv[]) {
             req.method = HTTP_POST;
         }
     }
-    req.url = url;
+    // http://127.0.0.1:8080@user:pswd/path?k1=v1&k2=v2#fragment
+    req.url = url_escape(url, ":/@?=&#");
     req.http_cb = [](HttpMessage* res, http_parser_state state, const char* data, size_t size) {
         if (state == HP_HEADERS_COMPLETE) {
             if (verbose) {

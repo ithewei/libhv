@@ -33,6 +33,7 @@ cmd="bin/curl -v localhost:8080" && run_cmd
 
 # http indexof service
 cmd="bin/curl -v localhost:8080/downloads/" && run_cmd
+cmd="bin/curl -v localhost:8080/downloads/中文.html" && run_cmd
 
 # http api service
 cmd="bin/curl -v localhost:8080/paths" && run_cmd
