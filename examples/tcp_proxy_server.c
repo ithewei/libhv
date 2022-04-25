@@ -15,6 +15,12 @@
  *                > GET / HTTP/1.1
  *                > Connection: keep-alive
  *                > [Enter]
+ *
+ * @benchmark:    sudo apt install iperf
+ *                iperf -s -p 5001
+ *                bin/tcp_proxy_server 1212 127.0.0.1:5001
+ *                iperf -c 127.0.0.1 -p 5001 -l 8K
+ *                iperf -c 127.0.0.1 -p 1212 -l 8K
  */
 
 #include "hloop.h"
@@ -50,6 +56,7 @@ int main(int argc, char** argv) {
         return -10;
     }
     proxy_port = atoi(argv[1]);
+    if (proxy_port % 1000 == 443) proxy_ssl = 1;
     char* pos = strchr(argv[2], ':');
     if (pos) {
         int len = pos - argv[2];

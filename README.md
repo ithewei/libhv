@@ -71,6 +71,7 @@ run `./getting_started.sh`:
 ```shell
 git clone https://github.com/ithewei/libhv.git
 cd libhv
+./configure
 make
 
 bin/httpd -h
@@ -398,7 +399,7 @@ int main() {
 - [examples/consul](examples/consul)
 
 ## 🥇 Benchmark
-### tcp benchmark
+### `pingpong echo-servers`
 ```shell
 cd echo-servers
 ./build.sh
@@ -445,7 +446,29 @@ total readcount=1699652 readbytes=1740443648
 throughput = 165 MB/s
 ```
 
-### http benchmark
+### `iperf tcp_proxy_server`
+```shell
+# sudo apt install iperf
+iperf -s -p 5001 > /dev/null &
+bin/tcp_proxy_server 1212 127.0.0.1:5001 &
+iperf -c 127.0.0.1 -p 5001 -l 8K
+iperf -c 127.0.0.1 -p 1212 -l 8K
+```
+
+**Bandwidth**:
+```shell
+------------------------------------------------------------
+[  3] local 127.0.0.1 port 52560 connected with 127.0.0.1 port 5001
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  20.8 GBytes  17.9 Gbits/sec
+
+------------------------------------------------------------
+[  3] local 127.0.0.1 port 48142 connected with 127.0.0.1 port 1212
+[ ID] Interval       Transfer     Bandwidth
+[  3]  0.0-10.0 sec  11.9 GBytes  10.2 Gbits/sec
+```
+
+### `webbench`
 ```shell
 # sudo apt install wrk
 wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/

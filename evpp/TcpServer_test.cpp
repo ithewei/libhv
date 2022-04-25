@@ -1,7 +1,9 @@
 /*
  * TcpServer_test.cpp
  *
- * @build: make evpp
+ * @build   make evpp
+ * @server  bin/TcpServer_test 1234
+ * @client  bin/TcpClient_test 1234
  *
  */
 

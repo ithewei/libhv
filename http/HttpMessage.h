@@ -489,6 +489,7 @@ public:
     void FillHost(const char* host, int port = DEFAULT_HTTP_PORT);
     void SetHost(const char* host, int port = DEFAULT_HTTP_PORT);
     void SetProxy(const char* host, int port);
+    bool IsProxy() { return proxy; }
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1) {

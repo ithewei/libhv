@@ -62,10 +62,12 @@ int main(int argc, char** argv) {
         MyContext* ctx = channel->newContext<MyContext>();
         // send(time) every 1s
         ctx->timerID = setInterval(1000, [channel](TimerID id) {
-            char str[DATETIME_FMT_BUFLEN] = {0};
-            datetime_t dt = datetime_now();
-            datetime_fmt(&dt, str);
-            channel->send(str);
+            if (channel->isConnected() && channel->isWriteComplete()) {
+                char str[DATETIME_FMT_BUFLEN] = {0};
+                datetime_t dt = datetime_now();
+                datetime_fmt(&dt, str);
+                channel->send(str);
+            }
         });
     };
     ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {

@@ -75,19 +75,15 @@ public:
         }
     }
 
-    int withTLS(const char* cert_file, const char* key_file) {
-        if (cert_file) {
-            hssl_ctx_init_param_t param;
-            memset(&param, 0, sizeof(param));
-            param.crt_file = cert_file;
-            param.key_file = key_file;
-            param.endpoint = HSSL_SERVER;
-            if (hssl_ctx_init(&param) == NULL) {
+    int withTLS(hssl_ctx_opt_t* opt = NULL) {
+        tls = true;
+        if (opt) {
+            opt->endpoint = HSSL_SERVER;
+            if (hssl_ctx_init(opt) == NULL) {
                 fprintf(stderr, "hssl_ctx_init failed!\n");
                 return -1;
             }
         }
-        tls = true;
         return 0;
     }
 
