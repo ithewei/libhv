@@ -168,7 +168,7 @@ int main_ctx_init(int argc, char** argv) {
     return 0;
 }
 
-int main_ctx_finish() {
+void main_ctx_finish() {
     SAFE_FREE( g_main_ctx.save_argv[ 0 ] );
     SAFE_FREE( g_main_ctx.save_argv );
     SAFE_FREE( g_main_ctx.cmdline );
