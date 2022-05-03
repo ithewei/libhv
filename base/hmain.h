@@ -67,8 +67,8 @@ typedef struct option_s {
     int         arg_type;
 } option_t;
 
-HV_EXPORT int main_ctx_init(int argc, char** argv);
-HV_EXPORT void main_ctx_finish();
+HV_EXPORT int  main_ctx_init(int argc, char** argv);
+HV_EXPORT void main_ctx_free();
 
 // ls -a -l
 // ls -al
