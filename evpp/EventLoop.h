@@ -32,6 +32,7 @@ public:
             loop_ = hloop_new(HLOOP_FLAG_AUTO_FREE);
             is_loop_owner = true;
         }
+        connectionNum = 0;
         setStatus(kInitialized);
     }
 
@@ -212,6 +213,8 @@ private:
         if (ev && ev->cb) ev->cb(ev.get());
     }
 
+public:
+    std::atomic<uint32_t>       connectionNum;  // for LB_LeastConnections
 private:
     hloop_t*                    loop_;
     bool                        is_loop_owner;

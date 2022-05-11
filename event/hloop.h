@@ -627,6 +627,15 @@ HV_INLINE uint32_t reconn_setting_calc_delay(reconn_setting_t* reconn) {
     return reconn->cur_delay;
 }
 
+//-----------------LoadBalance-------------------------------------
+typedef enum {
+    LB_RoundRobin,
+    LB_Random,
+    LB_LeastConnections,
+    LB_IpHash,
+    LB_UrlHash,
+} load_balance_e;
+
 //-----------------rudp---------------------------------------------
 #if WITH_KCP
 #define WITH_RUDP 1

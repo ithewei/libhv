@@ -10,6 +10,9 @@
 #include "TcpClient.h"
 #include "htime.h"
 
+#define TEST_RECONNECT  1
+#define TEST_TLS        0
+
 using namespace hv;
 
 int main(int argc, char* argv[]) {
@@ -52,6 +55,8 @@ int main(int argc, char* argv[]) {
     cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
         printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
     };
+
+#if TEST_RECONNECT
     // reconnect: 1,2,4,8,10,10,10...
     reconn_setting_t reconn;
     reconn_setting_init(&reconn);
@@ -59,6 +64,12 @@ int main(int argc, char* argv[]) {
     reconn.max_delay = 10000;
     reconn.delay_policy = 2;
     cli.setReconnect(&reconn);
+#endif
+
+#if TEST_TLS
+    cli.withTLS();
+#endif
+
     cli.start();
 
     // press Enter to stop
