@@ -133,7 +133,8 @@ static void on_close(hio_t* io) {
 
 static void on_recv(hio_t* io, void* buf, int readbytes) {
     socks5_conn_t* conn = (socks5_conn_t*)hevent_userdata(io);
-    uint8_t* bytes = (uint8_t*)buf;
+    const uint8_t* bytes = (uint8_t*)buf;
+    fprintf(stdout, "%d received\n", readbytes);
     switch(conn->state) {
     case s_begin:
         // printf("s_begin\n");
@@ -305,14 +306,18 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
                 conn->addr.sa.sa_family = AF_INET6;
                 memcpy(&conn->addr.sin6.sin6_addr, bytes, 16);
             } else {
-                char* host = (char*)bytes;
-                host[readbytes] = '\0';
+                char* host = calloc(1, readbytes + 1);
+                if (host) {
+                    memcpy(host, bytes, readbytes);
+                }
                 // TODO: async DNS
-                if (ResolveAddr(host, &conn->addr) != 0) {
+                if (!host || ResolveAddr(host, &conn->addr) != 0) {
                     fprintf(stderr, "Resovle %s failed!\n", host);
+                    free(host);
                     hio_close(io);
                     return;
                 }
+                free(host);
             }
             conn->state = s_dst_port;
             hio_readbytes(io, 2);
@@ -382,11 +387,11 @@ static void on_accept(hio_t* io) {
 }
 
 int main(int argc, char** argv) {
-    if (argc < 2) {
-        printf("Usage: %s proxy_port [username] [password]\n", argv[0]);
-        return -10;
-    }
-    proxy_port = atoi(argv[1]);
+    //if (argc < 2) {
+    //    printf("Usage: %s proxy_port [username] [password]\n", argv[0]);
+    //    return -10;
+    //}
+    proxy_port = 1085;//atoi(argv[1]);
     if (argc > 3) {
         auth_username = argv[2];
         auth_password = argv[3];
