@@ -20,6 +20,7 @@ public:
         tls = false;
         unpack_setting.mode = UNPACK_MODE_NONE;
         max_connections = 0xFFFFFFFF;
+        load_balance = LB_RoundRobin;
     }
 
     virtual ~TcpServerTmpl() {
@@ -44,6 +45,10 @@ public:
 
     void setMaxConnectionNum(uint32_t num) {
         max_connections = num;
+    }
+
+    void setLoadBalance(load_balance_e lb) {
+        load_balance = lb;
     }
 
     // NOTE: totalThreadNum = 1 acceptor_thread + N worker_threads (N can be 0)
@@ -168,6 +173,10 @@ private:
             }
         };
         channel->onclose = [server, &channel]() {
+            EventLoop* worker_loop = currentThreadEventLoop;
+            assert(worker_loop != NULL);
+            --worker_loop->connectionNum;
+
             channel->status = SocketChannel::CLOSED;
             if (server->onConnection) {
                 server->onConnection(channel);
@@ -190,11 +199,11 @@ private:
         TcpServerTmpl* server = (TcpServerTmpl*)hevent_userdata(connio);
         // NOTE: detach from acceptor loop
         hio_detach(connio);
-        // Load Banlance: Round-Robin
-        EventLoopPtr worker_loop = server->worker_threads.nextLoop();
+        EventLoopPtr worker_loop = server->worker_threads.nextLoop(server->load_balance);
         if (worker_loop == NULL) {
             worker_loop = server->acceptor_thread.loop();
         }
+        ++worker_loop->connectionNum;
         worker_loop->runInLoop(std::bind(&TcpServerTmpl::newConnEvent, connio));
     }
 
@@ -209,6 +218,7 @@ public:
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
     uint32_t                max_connections;
+    load_balance_e          load_balance;
 
 private:
     // id => TSocketChannelPtr

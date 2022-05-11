@@ -165,7 +165,32 @@ int main_ctx_init(int argc, char** argv) {
     g_main_ctx.worker_userdata = 0;
     g_main_ctx.proc_ctxs = NULL;
 
+    atexit(main_ctx_free);
     return 0;
+}
+
+void main_ctx_free() {
+    if (g_main_ctx.save_argv) {
+        SAFE_FREE(g_main_ctx.save_argv[0]);
+        SAFE_FREE(g_main_ctx.save_argv);
+    }
+    SAFE_FREE(g_main_ctx.cmdline);
+    if (g_main_ctx.save_envp) {
+        SAFE_FREE(g_main_ctx.save_envp[0]);
+        SAFE_FREE(g_main_ctx.save_envp);
+    }
+    if (g_main_ctx.arg_kv) {
+        for (int i = 0; i < g_main_ctx.arg_kv_size; ++i) {
+            SAFE_FREE(g_main_ctx.arg_kv[i]);
+        }
+        SAFE_FREE(g_main_ctx.arg_kv);
+    }
+    if (g_main_ctx.arg_list) {
+        for (int i = 0; i < g_main_ctx.arg_list_size; ++i) {
+            SAFE_FREE(g_main_ctx.arg_list[i]);
+        }
+        SAFE_FREE(g_main_ctx.arg_list);
+    }
 }
 
 #define UNDEFINED_OPTION    -1

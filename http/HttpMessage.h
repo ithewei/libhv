@@ -463,13 +463,10 @@ public:
     // url -> structed url
     void ParseUrl();
 
+    // /path?query#fragment
+    std::string FullPath() { return path; }
     // /path
-    std::string Path() {
-        const char* s = path.c_str();
-        const char* e = s;
-        while (*e && *e != '?' && *e != '#') ++e;
-        return std::string(s, e);
-    }
+    std::string Path();
 
     // ?query_params
     template<typename T>

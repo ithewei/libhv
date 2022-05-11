@@ -46,10 +46,17 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
     }
 
     // open file
+    std::string filepath_download(filepath);
+    filepath_download += ".download";
     HFile file;
-    ret = file.open(filepath, "wb");
+    if (use_range) {
+        ret = file.open(filepath_download.c_str(), "ab");
+        from = file.size();
+    } else {
+        ret = file.open(filepath_download.c_str(), "wb");
+    }
     if (ret != 0) {
-        fprintf(stderr, "Failed to open file %s\n", filepath);
+        fprintf(stderr, "Failed to open file %s\n", filepath_download.c_str());
         return ret;
     }
     printf("Save file to %s ...\n", filepath);
@@ -80,7 +87,7 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
             fprintf(stderr, "request error: %d\n", ret);
             goto error;
         }
-        return 0;
+        goto success;
     }
 
     // Range: bytes=from-to
@@ -103,10 +110,16 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         }
     }
 
-    return 0;
+success:
+    file.close();
+    ret = rename(filepath_download.c_str(), filepath);
+    if (ret != 0) {
+        fprintf(stderr, "mv %s => %s failed: %s:%d\n", filepath_download.c_str(), filepath, strerror(ret), ret);
+    }
+    return ret;
 error:
     file.close();
-    // remove(filepath);
+    // remove(filepath_download.c_str());
     return ret;
 }
 

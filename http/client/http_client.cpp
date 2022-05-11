@@ -313,9 +313,17 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
     }
     CURL* curl = cli->curl;
 
+    // proxy
+    if (req->IsProxy()) {
+        curl_easy_setopt(curl, CURLOPT_PROXY, req->host.c_str());
+        curl_easy_setopt(curl, CURLOPT_PROXYPORT, req->port);
+    }
+
     // SSL
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
+    if (req->IsHttps()) {
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
+    }
 
     // http2
     if (req->http_major == 2) {

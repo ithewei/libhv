@@ -506,7 +506,7 @@ hloop_status_e hloop_status(hloop_t* loop) {
 
 void hloop_update_time(hloop_t* loop) {
     loop->cur_hrtime = gethrtime_us();
-    if (ABS((int64_t)hloop_now(loop) - (int64_t)time(NULL)) > 1) {
+    if (hloop_now(loop) != time(NULL)) {
         // systemtime changed, we adjust start_ms
         loop->start_ms = gettimeofday_ms() - (loop->cur_hrtime - loop->start_hrtime) / 1000;
     }

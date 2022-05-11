@@ -35,18 +35,24 @@ static inline bool is_unambiguous(char c) {
            c == '~';
 }
 
+static inline bool char_in_str(char c, const char* str) {
+    const char* p = str;
+    while (*p && *p != c) ++p;
+    return *p != '\0';
+}
+
 static inline unsigned char hex2i(char hex) {
     return hex <= '9' ? hex - '0' :
         hex <= 'F' ? hex - 'A' + 10 : hex - 'a' + 10;
 }
 
-std::string url_escape(const char* istr) {
+std::string url_escape(const char* istr, const char* unescaped_chars) {
     std::string ostr;
     static char tab[] = "0123456789ABCDEF";
     const unsigned char* p = reinterpret_cast<const unsigned char*>(istr);
     char szHex[4] = "%00";
     while (*p != '\0') {
-        if (is_unambiguous(*p)) {
+        if (is_unambiguous(*p) || char_in_str(*p, unescaped_chars)) {
             ostr += *p;
         }
         else {

@@ -23,7 +23,7 @@ but simpler api and richer protocols.
 
 ## ✨ Features
 
-- Cross-platform (Linux, Windows, MacOS, Solaris, Android, iOS)
+- Cross-platform (Linux, Windows, MacOS, BSD, Solaris, Android, iOS)
 - High-performance EventLoop (IO, timer, idle, custom)
 - TCP/UDP client/server/proxy
 - TCP supports heartbeat, upstream, unpack, MultiThread-safe write and close, etc.

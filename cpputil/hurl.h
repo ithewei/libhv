@@ -5,7 +5,7 @@
 
 #include "hexport.h"
 
-HV_EXPORT std::string url_escape(const char* istr);
+HV_EXPORT std::string url_escape(const char* istr, const char* unescaped_chars = "");
 HV_EXPORT std::string url_unescape(const char* istr);
 
 #endif // HV_URL_H_
