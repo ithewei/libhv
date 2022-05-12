@@ -154,3 +154,8 @@ make clean && make
 ./configure --with-mqtt
 make clean && make
 ```
+
+### More
+```
+./configure --help
+```
