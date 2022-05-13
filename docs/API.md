@@ -624,7 +624,9 @@
 - mqtt_client_new_ssl_ctx
 - mqtt_client_set_reconnect
 - mqtt_client_reconnect
+- mqtt_client_set_connect_timeout
 - mqtt_client_connect
+- mqtt_client_is_connected
 - mqtt_client_disconnect
 - mqtt_client_publish
 - mqtt_client_subscribe

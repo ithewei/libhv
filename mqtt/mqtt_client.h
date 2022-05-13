@@ -18,6 +18,7 @@ struct mqtt_client_s {
     // connect: host:port
     char host[256];
     int  port;
+    int  connect_timeout; // ms
     // reconnect
     reconn_setting_t* reconn_setting;
     // login: flags + keepalive + client_id + will + username + password
@@ -26,6 +27,7 @@ struct mqtt_client_s {
     unsigned char   clean_session:   1;
     unsigned char   ssl: 1; // Read Only
     unsigned char   alloced_ssl_ctx: 1; // intern
+    unsigned char   connected : 1;
     unsigned short  keepalive;
     char client_id[64];
     // will
@@ -98,10 +100,12 @@ HV_EXPORT int mqtt_client_reconnect(mqtt_client_t* cli);
 // hio_create_socket -> hio_connect ->
 // on_connect -> mqtt_client_login ->
 // on_connack
-HV_EXPORT int mqtt_client_connect(mqtt_client_t* cli,
+HV_EXPORT void mqtt_client_set_connect_timeout(mqtt_client_t* cli, int ms);
+HV_EXPORT int  mqtt_client_connect(mqtt_client_t* cli,
         const char* host,
         int port DEFAULT(DEFAULT_MQTT_PORT),
         int ssl  DEFAULT(0));
+HV_EXPORT bool mqtt_client_is_connected(mqtt_client_t* cli);
 
 // disconnect
 // @see hio_close
