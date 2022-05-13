@@ -17,7 +17,7 @@
 #define READ_BUFSIZE_HIGH_WATER     65536       // 64K
 #define WRITE_BUFSIZE_HIGH_WATER    (1U << 23)  // 8M
 #define MAX_READ_BUFSIZE            (1U << 24)  // 16M
-#define MAX_WRITE_BUFSIZE           (1U << 26)  // 64M
+#define MAX_WRITE_BUFSIZE           (1U << 24)  // 16M
 
 // hio_read_flags
 #define HIO_READ_ONCE           0x1
@@ -133,11 +133,13 @@ struct hio_s {
         unsigned int    read_until_length;
         unsigned char   read_until_delim;
     };
+    uint32_t            max_read_bufsize;
     uint32_t            small_readbytes_cnt; // for readbuf autosize
     // write
     struct write_queue  write_queue;
     hrecursive_mutex_t  write_mutex; // lock write and write_queue
     uint32_t            write_bufsize;
+    uint32_t            max_write_bufsize;
     // callbacks
     hread_cb    read_cb;
     hwrite_cb   write_cb;

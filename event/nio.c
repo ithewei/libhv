@@ -498,12 +498,10 @@ enqueue:
         hio_add(io, hio_handle_events, HV_WRITE);
     }
     if (nwrite < len) {
-        if (io->write_bufsize + len - nwrite > MAX_WRITE_BUFSIZE) {
-            if (io->write_bufsize > MAX_WRITE_BUFSIZE) {
-                hloge("write bufsize > %u, close it!", (unsigned int)MAX_WRITE_BUFSIZE);
-                io->error = ERR_OVER_LIMIT;
-                goto write_error;
-            }
+        if (io->write_bufsize + len - nwrite > io->max_write_bufsize) {
+            hloge("write bufsize > %u, close it!", io->max_write_bufsize);
+            io->error = ERR_OVER_LIMIT;
+            goto write_error;
         }
         offset_buf_t remain;
         remain.len = len - nwrite;

@@ -125,6 +125,15 @@ public:
         return write(str.data(), str.size());
     }
 
+    // iobuf setting
+    void setMaxReadBufsize(uint32_t size) {
+        if (io_ == NULL) return;
+        return hio_set_max_read_bufsize(io_, size);
+    }
+    void setMaxWriteBufsize(uint32_t size) {
+        if (io_ == NULL) return;
+        return hio_set_max_write_bufsize(io_, size);
+    }
     size_t writeBufsize() {
         if (io_ == NULL) return 0;
         return hio_write_bufsize(io_);

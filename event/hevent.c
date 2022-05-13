@@ -106,9 +106,11 @@ void hio_ready(hio_t* io) {
     io->readbuf.head = io->readbuf.tail = 0;
     io->read_flags = 0;
     io->read_until_length = 0;
+    io->max_read_bufsize = MAX_READ_BUFSIZE;
     io->small_readbytes_cnt = 0;
     // write_queue
     io->write_bufsize = 0;
+    io->max_write_bufsize = MAX_WRITE_BUFSIZE;
     // callbacks
     io->read_cb = NULL;
     io->write_cb = NULL;
@@ -244,14 +246,6 @@ void hio_set_context(hio_t* io, void* ctx) {
 
 void* hio_context(hio_t* io) {
     return io->ctx;
-}
-
-hio_readbuf_t* hio_get_readbuf(hio_t* io) {
-    return &io->readbuf;
-}
-
-size_t hio_write_bufsize(hio_t* io) {
-    return io->write_bufsize;
 }
 
 haccept_cb hio_getcb_accept(hio_t* io) {
@@ -485,15 +479,6 @@ int hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt) {
     return hio_set_ssl_ctx(io, ssl_ctx);
 }
 
-void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
-    assert(io && buf && len != 0);
-    hio_free_readbuf(io);
-    io->readbuf.base = (char*)buf;
-    io->readbuf.len = len;
-    io->readbuf.head = io->readbuf.tail = 0;
-    io->alloced_readbuf = 0;
-}
-
 void hio_del_connect_timer(hio_t* io) {
     if (io->connect_timer) {
         htimer_del(io->connect_timer);
@@ -687,9 +672,10 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
     io->heartbeat_fn = fn;
 }
 
+//-----------------iobuf---------------------------------------------
 void hio_alloc_readbuf(hio_t* io, int len) {
-    if (len > MAX_READ_BUFSIZE) {
-        hloge("read bufsize > %u, close it!", (unsigned int)MAX_READ_BUFSIZE);
+    if (len > io->max_read_bufsize) {
+        hloge("read bufsize > %u, close it!", io->max_read_bufsize);
         io->error = ERR_OVER_LIMIT;
         hio_close_async(io);
         return;
@@ -712,6 +698,31 @@ void hio_free_readbuf(hio_t* io) {
         io->readbuf.base = io->loop->readbuf.base;
         io->readbuf.len = io->loop->readbuf.len;
     }
+}
+
+void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
+    assert(io && buf && len != 0);
+    hio_free_readbuf(io);
+    io->readbuf.base = (char*)buf;
+    io->readbuf.len = len;
+    io->readbuf.head = io->readbuf.tail = 0;
+    io->alloced_readbuf = 0;
+}
+
+hio_readbuf_t* hio_get_readbuf(hio_t* io) {
+    return &io->readbuf;
+}
+
+void hio_set_max_read_bufsize (hio_t* io, uint32_t size) {
+    io->max_read_bufsize = size;
+}
+
+void hio_set_max_write_bufsize(hio_t* io, uint32_t size) {
+    io->max_write_bufsize = size;
+}
+
+size_t hio_write_bufsize(hio_t* io) {
+    return io->write_bufsize;
 }
 
 int hio_read_once (hio_t* io) {
@@ -806,8 +817,9 @@ void hio_set_unpack(hio_t* io, unpack_setting_t* setting) {
     if (io->unpack_setting->mode == UNPACK_BY_FIXED_LENGTH) {
         io->readbuf.len = io->unpack_setting->fixed_length;
     } else {
-        io->readbuf.len = HLOOP_READ_BUFSIZE;
+        io->readbuf.len = MIN(HLOOP_READ_BUFSIZE, io->unpack_setting->package_max_length);
     }
+    io->max_read_bufsize = io->unpack_setting->package_max_length;
     hio_alloc_readbuf(io, io->readbuf.len);
 }
 
