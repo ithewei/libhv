@@ -26,7 +26,8 @@ but simpler api and richer protocols.
 - Cross-platform (Linux, Windows, MacOS, BSD, Solaris, Android, iOS)
 - High-performance EventLoop (IO, timer, idle, custom)
 - TCP/UDP client/server/proxy
-- TCP supports heartbeat, upstream, unpack, MultiThread-safe write and close, etc.
+- TCP supports heartbeat, reconnect, upstream, MultiThread-safe write and close, etc.
+- Built-in common unpacking modes (FixedLength, Delimiter, LengthField)
 - RUDP support: WITH_KCP
 - SSL/TLS support: (via WITH_OPENSSL or WITH_GNUTLS or WITH_MBEDTLS)
 - HTTP client/server (support https http1/x http2 grpc)
@@ -333,11 +334,11 @@ int main(int argc, char** argv) {
     ws.onopen = []() {
         printf("onopen\n");
     };
-    ws.onclose = []() {
-        printf("onclose\n");
-    };
     ws.onmessage = [](const std::string& msg) {
         printf("onmessage: %s\n", msg.c_str());
+    };
+    ws.onclose = []() {
+        printf("onclose\n");
     };
 
     // reconnect: 1,2,4,8,10,10,10...

@@ -50,7 +50,8 @@
 - 跨平台（Linux, Windows, MacOS, BSD, Solaris, Android, iOS）
 - 高性能事件循环（网络IO事件、定时器事件、空闲事件、自定义事件）
 - TCP/UDP服务端/客户端/代理
-- TCP支持心跳、转发、拆包、多线程安全write和close等特性
+- TCP支持心跳、重连、转发、多线程安全write和close等特性
+- 内置常见的拆包模式（固定包长、分界符、头部长度字段）
 - 可靠UDP支持: WITH_KCP
 - SSL/TLS加密通信（可选WITH_OPENSSL、WITH_GNUTLS、WITH_MBEDTLS）
 - HTTP服务端/客户端（支持https http1/x http2 grpc）
@@ -370,11 +371,11 @@ int main(int argc, char** argv) {
     ws.onopen = []() {
         printf("onopen\n");
     };
-    ws.onclose = []() {
-        printf("onclose\n");
-    };
     ws.onmessage = [](const std::string& msg) {
         printf("onmessage: %s\n", msg.c_str());
+    };
+    ws.onclose = []() {
+        printf("onclose\n");
     };
 
     // reconnect: 1,2,4,8,10,10,10...
@@ -404,17 +405,17 @@ int main(int argc, char** argv) {
 ## 🍭 更多示例
 
 ### c版本
-- 事件循环: [examples/hloop_test.c](examples/hloop_test.c)
+- 事件循环:     [examples/hloop_test.c](examples/hloop_test.c)
 - TCP回显服务:  [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
 - TCP聊天服务:  [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
 - SOCKS5代理服务: [examples/socks5_proxy_server.c](examples/socks5_proxy_server.c)
-- TinyHttpd示例:[examples/tinyhttpd.c](examples/tinyhttpd.c)
-- TinyProxyd示例:[examples/tinyproxyd.c](examples/tinyproxyd.c)
+- HTTP服务:     [examples/tinyhttpd.c](examples/tinyhttpd.c)
+- HTTP代理服务: [examples/tinyproxyd.c](examples/tinyproxyd.c)
 - jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
-- MQTT示例: [examples/mqtt](examples/mqtt)
+- MQTT示例:     [examples/mqtt](examples/mqtt)
 - 多accept进程模式: [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
 - 多accept线程模式: [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
 - 一个accept线程+多worker线程: [examples/multi-thread/one-acceptor-multi-workers.c](examples/multi-thread/one-acceptor-multi-workers.c)
@@ -439,7 +440,7 @@ int main(int argc, char** argv) {
 - 网络扫描工具: [examples/nmap](examples/nmap)
 - HTTP服务程序: [examples/httpd](examples/httpd)
 - HTTP压测工具: [examples/wrk](examples/wrk.cpp)
-- URL请求工具: [examples/curl](examples/curl.cpp)
+- URL请求工具:  [examples/curl](examples/curl.cpp)
 - 文件下载工具: [examples/wget](examples/wget.cpp)
 - 服务注册与发现: [examples/consul](examples/consul)
 
