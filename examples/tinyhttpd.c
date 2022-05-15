@@ -6,10 +6,10 @@
  * @server   bin/tinyhttpd 8000
  *
  * @client   bin/curl -v http://127.0.0.1:8000/
- *           bin/curl -v http://127.0.0.1:8000/ping
+ *           bin/curl -v http://127.0.0.1:8000/plaintext
  *           bin/curl -v http://127.0.0.1:8000/echo -d "hello,world!"
  *
- * @webbench bin/wrk  http://127.0.0.1:8000/ping
+ * @webbench bin/wrk  http://127.0.0.1:8000/plaintext
  *
  */
 
@@ -95,7 +95,7 @@ typedef struct {
     http_msg_t      response;
 } http_conn_t;
 
-static char s_date[32] = {0};
+static char s_date[32] = "Sun, 15 May 2022 12:34:56 GMT";
 static void update_date(htimer_t* timer) {
     uint64_t now = hloop_now(hevent_loop(timer));
     gmtime_fmt(now, s_date);
@@ -106,17 +106,15 @@ static int http_response_dump(http_msg_t* msg, char* buf, int len) {
     // status line
     offset += snprintf(buf + offset, len - offset, "HTTP/%d.%d %d %s\r\n", msg->major_version, msg->minor_version, msg->status_code, msg->status_message);
     // headers
-    offset += snprintf(buf + offset, len - offset, "Server: libhv/%s\r\n", hv_version());
-    offset += snprintf(buf + offset, len - offset, "Connection: %s\r\n", msg->keepalive ? "keep-alive" : "close");
     if (msg->content_length > 0) {
         offset += snprintf(buf + offset, len - offset, "Content-Length: %d\r\n", msg->content_length);
     }
     if (*msg->content_type) {
         offset += snprintf(buf + offset, len - offset, "Content-Type: %s\r\n", msg->content_type);
     }
-    if (*s_date) {
-        offset += snprintf(buf + offset, len - offset, "Date: %s\r\n", s_date);
-    }
+    offset += snprintf(buf + offset, len - offset, "Server: libhv/%s\r\n", hv_version());
+    offset += snprintf(buf + offset, len - offset, "Date: %s\r\n", s_date);
+    // offset += snprintf(buf + offset, len - offset, "Connection: %s\r\n", msg->keepalive ? "keep-alive" : "close");
     // TODO: Add your headers
     offset += snprintf(buf + offset, len - offset, "\r\n");
     // body
@@ -236,9 +234,9 @@ static int on_request(http_conn_t* conn) {
     http_msg_t* req = &conn->request;
     // TODO: router
     if (strcmp(req->method, "GET") == 0) {
-        // GET /ping HTTP/1.1\r\n
-        if (strcmp(req->path, "/ping") == 0) {
-            http_reply(conn, 200, "OK", TEXT_PLAIN, "pong", 4);
+        // GET /plaintext HTTP/1.1\r\n
+        if (strcmp(req->path, "/plaintext") == 0) {
+            http_reply(conn, 200, "OK", TEXT_PLAIN, "Hello, World!", 13);
             return 200;
         } else {
             // TODO: Add handler for your path
