@@ -373,7 +373,7 @@ static void new_conn_event(hevent_t* ev) {
 
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
-    hio_set_keepalive_timeout(io, HTTP_KEEPALIVE_TIMEOUT);
+    // hio_set_keepalive_timeout(io, HTTP_KEEPALIVE_TIMEOUT);
 
     http_conn_t* conn = NULL;
     HV_ALLOC_SIZEOF(conn);
