@@ -181,25 +181,21 @@ private:
         EventLoop* loop = (EventLoop*)hevent_userdata(htimer);
 
         TimerID timerID = hevent_id(htimer);
-        Timer* timer = NULL;
+        TimerCallback cb = nullptr;
 
         loop->mutex_.lock();
         auto iter = loop->timers.find(timerID);
         if (iter != loop->timers.end()) {
-            timer = &iter->second;
+            Timer* timer = &iter->second;
             if (timer->repeat != INFINITE) --timer->repeat;
+            cb = timer->cb;
+            if (timer->repeat == 0) {
+                loop->timers.erase(timerID);
+            }
         }
         loop->mutex_.unlock();
 
-        if (timer) {
-            if (timer->cb) timer->cb(timerID);
-            if (timer->repeat == 0) {
-                // htimer_t alloc and free by hloop, but timers[timerID] managed by EventLoop.
-                loop->mutex_.lock();
-                loop->timers.erase(timerID);
-                loop->mutex_.unlock();
-            }
-        }
+        if (cb != nullptr) cb(timerID);
     }
 
     static void onCustomEvent(hevent_t* hev) {
