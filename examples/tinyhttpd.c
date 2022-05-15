@@ -393,6 +393,7 @@ static hloop_t* get_next_loop() {
 }
 
 static void on_accept(hio_t* io) {
+    tcp_nodelay(hio_fd(io), 1);
     hio_detach(io);
 
     hloop_t* worker_loop = get_next_loop();
@@ -416,6 +417,7 @@ static HTHREAD_ROUTINE(accept_thread) {
     if (listenio == NULL) {
         exit(1);
     }
+    tcp_nodelay(hio_fd(listenio), 1);
     printf("tinyhttpd listening on %s:%d, listenfd=%d, thread_num=%d\n",
             host, port, hio_fd(listenio), thread_num);
     // NOTE: add timer to update date every 1s
