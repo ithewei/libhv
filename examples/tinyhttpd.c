@@ -442,7 +442,14 @@ int main(int argc, char** argv) {
     worker_loops = (hloop_t**)malloc(sizeof(hloop_t*) * thread_num);
     for (int i = 0; i < thread_num; ++i) {
         worker_loops[i] = hloop_new(HLOOP_FLAG_AUTO_FREE);
-        hthread_create(worker_thread, worker_loops[i]);
+        hthread_t th = hthread_create(worker_thread, worker_loops[i]);
+#if defined(OS_LINUX) && HAVE_PTHREAD_H
+        cpu_set_t mask;
+        CPU_ZERO(&mask);
+        CPU_SET(i, &mask);
+        // printf("pthread_setaffinity_np %d\n", i);
+        pthread_setaffinity_np(th, sizeof(cpu_set_t), &mask);
+#endif
     }
 
     accept_loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
