@@ -94,6 +94,7 @@ typedef std::string                                             http_body;
 
 HV_EXPORT extern http_headers DefaultHeaders;
 HV_EXPORT extern http_body    NoBody;
+HV_EXPORT extern HttpCookie   NoCookie;
 
 class HV_EXPORT HttpMessage {
 public:
@@ -343,6 +344,15 @@ public:
         cookies.push_back(cookie);
     }
 
+    const HttpCookie& GetCookie(const std::string& name) {
+        for (auto iter = cookies.begin(); iter != cookies.end(); ++iter) {
+            if (iter->name == name) {
+                return *iter;
+            }
+        }
+        return NoCookie;
+    }
+
     int String(const std::string& str) {
         content_type = TEXT_PLAIN;
         body = str;
@@ -501,16 +511,6 @@ public:
         from = to = 0;
         return false;
     }
-
-    // Cookie:
-    void SetCookie(const HttpCookie& cookie) {
-        headers["Cookie"] = cookie.dump();
-    }
-    bool GetCookie(HttpCookie& cookie) {
-        std::string str = GetHeader("Cookie");
-        if (str.empty()) return false;
-        return cookie.parse(str);
-    }
 };
 
 class HV_EXPORT HttpResponse : public HttpMessage {
@@ -548,16 +548,6 @@ public:
         }
         from = to = total = 0;
         return false;
-    }
-
-    // Set-Cookie
-    void SetCookie(const HttpCookie& cookie) {
-        headers["Set-Cookie"] = cookie.dump();
-    }
-    bool GetCookie(HttpCookie& cookie) {
-        std::string str = GetHeader("Set-Cookie");
-        if (str.empty()) return false;
-        return cookie.parse(str);
     }
 };
 

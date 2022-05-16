@@ -11,6 +11,7 @@ using namespace hv;
 
 http_headers DefaultHeaders;
 http_body    NoBody;
+HttpCookie   NoCookie;
 char HttpMessage::s_date[32] = {0};
 
 bool HttpCookie::parse(const std::string& str) {
