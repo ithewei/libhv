@@ -96,9 +96,15 @@ typedef struct {
 } http_conn_t;
 
 static char s_date[32] = "Sun, 15 May 2022 12:34:56 GMT";
+static char s_plaintext_response_str[256] = "HTTP/1.1 200 OK\r\nContent-Length: 13\r\nContent-Type: text/plain\r\nServer: libhv\r\nDate: Sun, 15 May 2022 12:34:56 GMT\r\n\r\nHello, World!";
+static int  s_plaintext_response_len = 0;
+static char* s_plaintext_date = NULL;
 static void update_date(htimer_t* timer) {
     uint64_t now = hloop_now(hevent_loop(timer));
     gmtime_fmt(now, s_date);
+    if (s_plaintext_date) {
+        memcpy(s_plaintext_date, s_date, GMTIME_FMT_BUFLEN - 1);
+    }
 }
 
 static int http_response_dump(http_msg_t* msg, char* buf, int len) {
@@ -197,7 +203,22 @@ static int http_serve_file(http_conn_t* conn) {
 static bool parse_http_request_line(http_conn_t* conn, char* buf, int len) {
     // GET / HTTP/1.1
     http_msg_t* req = &conn->request;
-    sscanf(buf, "%s %s HTTP/%d.%d", req->method, req->path, &req->major_version, &req->minor_version);
+    // sscanf is slow
+    // sscanf(buf, "%s %s HTTP/%d.%d", req->method, req->path, &req->major_version, &req->minor_version);
+
+    // method
+    char* src = buf;
+    char* dst = req->method;
+    while (*src != ' ') *dst++ = *src++;
+    *dst = '\0';
+    // path
+    ++src;
+    dst = req->path;
+    while (*src != ' ') *dst++ = *src++;
+    *dst = '\0';
+
+    req->major_version = 1;
+    req->minor_version = 1;
     if (req->major_version != 1) return false;
     if (req->minor_version == 1) req->keepalive = 1;
     // printf("%s %s HTTP/%d.%d\r\n", req->method, req->path, req->major_version, req->minor_version);
@@ -236,7 +257,8 @@ static int on_request(http_conn_t* conn) {
     if (strcmp(req->method, "GET") == 0) {
         // GET /plaintext HTTP/1.1\r\n
         if (strcmp(req->path, "/plaintext") == 0) {
-            http_reply(conn, 200, "OK", TEXT_PLAIN, "Hello, World!", 13);
+            // http_reply(conn, 200, "OK", TEXT_PLAIN, "Hello, World!", 13);
+            hio_write(conn->io, s_plaintext_response_str, s_plaintext_response_len);
             return 200;
         } else {
             // TODO: Add handler for your path
@@ -303,12 +325,14 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
         if (readbytes == 2 && str[0] == '\r' && str[1] == '\n') {
             conn->state = s_head_end;
         } else {
+            /*
             str[readbytes - 2] = '\0';
             if (parse_http_head(conn, str, readbytes - 2) == false) {
                 fprintf(stderr, "Failed to parse http head:\n%s\n", str);
                 hio_close(io);
                 return;
             }
+            */
             hio_readline(io);
             break;
         }
@@ -343,8 +367,8 @@ s_end:
         if (req->keepalive) {
             // Connection: keep-alive\r\n
             // reset and receive next request
-            memset(&conn->request,  0, sizeof(http_msg_t));
-            memset(&conn->response, 0, sizeof(http_msg_t));
+            // memset(&conn->request,  0, sizeof(http_msg_t));
+            // memset(&conn->response, 0, sizeof(http_msg_t));
             conn->state = s_first_line;
             hio_readline(io);
         } else {
@@ -421,6 +445,8 @@ static HTHREAD_ROUTINE(accept_thread) {
     printf("tinyhttpd listening on %s:%d, listenfd=%d, thread_num=%d\n",
             host, port, hio_fd(listenio), thread_num);
     // NOTE: add timer to update date every 1s
+    s_plaintext_response_len = strlen(s_plaintext_response_str);
+    s_plaintext_date = strstr(s_plaintext_response_str, "Date: ") + 6;
     htimer_add(loop, update_date, 1000, INFINITE);
     hloop_run(loop);
     return 0;
