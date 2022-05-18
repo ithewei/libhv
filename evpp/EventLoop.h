@@ -95,11 +95,11 @@ public:
             hevent_set_id(htimer, timerID);
         }
 
-        Timer timer(htimer, cb, repeat);
+        TimerPtr timer = std::make_shared<Timer>(htimer, cb, repeat);
         hevent_set_userdata(htimer, this);
 
         mutex_.lock();
-        timers[timerID] = timer;
+        timers[timerID] = std::move(timer);
         mutex_.unlock();
         return timerID;
     }
@@ -116,8 +116,7 @@ public:
         std::lock_guard<std::mutex> locker(mutex_);
         auto iter = timers.find(timerID);
         if (iter != timers.end()) {
-            Timer& timer = iter->second;
-            htimer_del(timer.timer);
+            htimer_del(iter->second->timer);
             timers.erase(iter);
         }
     }
@@ -126,10 +125,9 @@ public:
         std::lock_guard<std::mutex> locker(mutex_);
         auto iter = timers.find(timerID);
         if (iter != timers.end()) {
-            Timer& timer = iter->second;
-            htimer_reset(timer.timer);
-            if (timer.repeat == 0) {
-                timer.repeat = 1;
+            htimer_reset(iter->second->timer);
+            if (iter->second->repeat == 0) {
+                iter->second->repeat = 1;
             }
         }
     }
@@ -181,12 +179,12 @@ private:
         EventLoop* loop = (EventLoop*)hevent_userdata(htimer);
 
         TimerID timerID = hevent_id(htimer);
-        Timer* timer = NULL;
+        TimerPtr timer = NULL;
 
         loop->mutex_.lock();
         auto iter = loop->timers.find(timerID);
         if (iter != loop->timers.end()) {
-            timer = &iter->second;
+            timer = iter->second;
             if (timer->repeat != INFINITE) --timer->repeat;
         }
         loop->mutex_.unlock();
@@ -220,7 +218,7 @@ private:
     bool                        is_loop_owner;
     std::mutex                  mutex_;
     std::queue<EventPtr>        customEvents;   // GUAREDE_BY(mutex_)
-    std::map<TimerID, Timer>    timers;         // GUAREDE_BY(mutex_)
+    std::map<TimerID, TimerPtr> timers;         // GUAREDE_BY(mutex_)
 };
 
 typedef std::shared_ptr<EventLoop> EventLoopPtr;
