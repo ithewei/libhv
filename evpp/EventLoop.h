@@ -116,8 +116,7 @@ public:
         std::lock_guard<std::mutex> locker(mutex_);
         auto iter = timers.find(timerID);
         if (iter != timers.end()) {
-            TimerPtr timer = iter->second;
-            htimer_del(timer->timer);
+            htimer_del(iter->second->timer);
             timers.erase(iter);
         }
     }
@@ -126,10 +125,9 @@ public:
         std::lock_guard<std::mutex> locker(mutex_);
         auto iter = timers.find(timerID);
         if (iter != timers.end()) {
-            TimerPtr timer = iter->second;
-            htimer_reset(timer->timer);
-            if (timer->repeat == 0) {
-                timer->repeat = 1;
+            htimer_reset(iter->second->timer);
+            if (iter->second->repeat == 0) {
+                iter->second->repeat = 1;
             }
         }
     }
