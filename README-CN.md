@@ -182,7 +182,7 @@ int main() {
 不想自定义协议和拆包组包的可直接使用现成的`HTTP/WebSocket`协议。<br>
 
 #### TCP客户端
-**c版本**: [examples/nc.c](examples/nc.c)
+**c版本**: [examples/tcp_client_test.c](examples/tcp_client_test.c)
 
 **c++版本**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 ```c++

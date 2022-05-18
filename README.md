@@ -145,7 +145,7 @@ int main() {
 ```
 
 #### tcp client
-**c version**: [examples/nc.c](examples/nc.c)
+**c version**: [examples/tcp_client_test.c](examples/tcp_client_test.c)
 
 **c++ version**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 ```c++

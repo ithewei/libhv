@@ -410,17 +410,17 @@ HV_EXPORT hio_t* hio_create_socket(hloop_t* loop, const char* host, int port,
 // @see examples/tcp_echo_server.c
 HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 
-// @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_connect
+// @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_setcb_close -> hio_connect
 // @see examples/nc.c
-HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
 
 // @ssl_server: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // @see examples/tcp_echo_server.c => #define TEST_SSL 1
 HV_EXPORT hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 
-// @ssl_client: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_connect
+// @ssl_client: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_setcb_close -> hio_connect
 // @see examples/nc.c => #define TEST_SSL 1
-HV_EXPORT hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+HV_EXPORT hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
 
 // @udp_server: hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_SERVER_SIDE)
 // @see examples/udp_echo_server.c

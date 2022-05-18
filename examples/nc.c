@@ -198,10 +198,10 @@ Examples: nc 127.0.0.1 80\n\
     if (protocol == 1) {
 #if TEST_SSL
         // ssl
-        sockio = hloop_create_ssl_client(loop, host, port, on_connect);
+        sockio = hloop_create_ssl_client(loop, host, port, on_connect, on_close);
 #else
         // tcp
-        sockio = hloop_create_tcp_client(loop, host, port, on_connect);
+        sockio = hloop_create_tcp_client(loop, host, port, on_connect, on_close);
 #endif
     }
     else if (protocol == 2) {

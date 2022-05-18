@@ -54,6 +54,7 @@ all: libhv examples
 
 examples: hmain_test htimer_test hloop_test \
 	nc nmap tinyhttpd tinyproxyd httpd curl wget wrk consul \
+	tcp_client_test \
 	tcp_echo_server \
 	tcp_chat_server \
 	tcp_proxy_server \
@@ -102,6 +103,9 @@ htimer_test: prepare
 
 hloop_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/hloop_test.c"
+
+tcp_client_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/tcp_client_test.c"
 
 tcp_echo_server: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/tcp_echo_server.c"

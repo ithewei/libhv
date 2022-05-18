@@ -980,10 +980,11 @@ hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, hacce
     return io;
 }
 
-hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
+hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb) {
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) return NULL;
     hio_setcb_connect(io, connect_cb);
+    hio_setcb_close(io, close_cb);
     if (hio_connect(io) != 0) return NULL;
     return io;
 }
@@ -996,10 +997,11 @@ hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, hacce
     return io;
 }
 
-hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
+hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb) {
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE);
     if (io == NULL) return NULL;
     hio_setcb_connect(io, connect_cb);
+    hio_setcb_close(io, close_cb);
     if (hio_connect(io) != 0) return NULL;
     return io;
 }
