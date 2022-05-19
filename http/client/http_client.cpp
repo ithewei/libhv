@@ -186,6 +186,7 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
         req->host = cli->host;
         req->port = cli->port;
     }
+    req->ParseUrl();
 
     bool https = req->IsHttps();
     bool use_proxy = https ? (!cli->https_proxy_host.empty()) : (!cli->http_proxy_host.empty());
@@ -240,19 +241,8 @@ int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
 int http_client_send(HttpRequest* req, HttpResponse* resp) {
     if (!req || !resp) return ERR_NULL_POINTER;
 
-    if (req->timeout == 0) {
-        req->timeout = DEFAULT_HTTP_TIMEOUT;
-    }
-
     http_client_t cli;
-    int ret = __http_client_send(&cli, req, resp);
-    if (ret != 0) return ret;
-
-    // redirect
-    if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
-        return http_client_redirect(req, resp);
-    }
-    return ret;
+    return http_client_send(&cli, req, resp);
 }
 
 #ifdef WITH_CURL
@@ -496,7 +486,6 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
     time_t cur_time;
     int fail_cnt = 0;
     if (connfd <= 0) {
-        req->ParseUrl();
 connect:
         connfd = http_client_connect(cli, req->host.c_str(), req->port, https, req->timeout);
         if (connfd < 0) {
