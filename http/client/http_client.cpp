@@ -594,13 +594,13 @@ static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, Http
         cli->mutex_.unlock();
     }
 
-    return cli->async_client_->send(req, resp_cb);
+    return cli->async_client_->send(req, std::move(resp_cb));
 }
 
 int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
     if (!cli || !req) return ERR_NULL_POINTER;
     http_client_make_request(cli, req.get());
-    return __http_client_send_async(cli, req, resp_cb);
+    return __http_client_send_async(cli, req, std::move(resp_cb));
 }
 
 static http_client_t* __get_default_async_client();
@@ -632,5 +632,5 @@ int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
         req->timeout = DEFAULT_HTTP_TIMEOUT;
     }
 
-    return __http_client_send_async(__get_default_async_client(), req, resp_cb);
+    return __http_client_send_async(__get_default_async_client(), req, std::move(resp_cb));
 }

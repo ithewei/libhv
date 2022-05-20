@@ -108,7 +108,7 @@ HV_INLINE Response Delete(const char* url, const http_headers& headers = Default
 }
 
 HV_INLINE int async(Request req, ResponseCallback resp_cb) {
-    return http_client_send_async(req, resp_cb);
+    return http_client_send_async(req, std::move(resp_cb));
 }
 
 }
