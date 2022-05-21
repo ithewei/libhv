@@ -212,6 +212,7 @@ struct http_parser_settings {
 };
 
 
+#ifdef WITH_HTTP_PRASER_URL
 enum http_parser_url_fields
   { UF_SCHEMA           = 0
   , UF_HOST             = 1
@@ -240,6 +241,7 @@ struct http_parser_url {
     uint16_t len;               /* Length of run in buffer */
   } field_data[UF_MAX];
 };
+#endif
 
 
 /* Returns the library version. Bits 16-23 contain the major version number,
@@ -284,6 +286,7 @@ const char *http_errno_name(enum http_errno err);
 /* Return a string description of the given error */
 const char *http_errno_description(enum http_errno err);
 
+#ifdef WITH_HTTP_PRASER_URL
 /* Initialize all http_parser_url members to 0 */
 void http_parser_url_init(struct http_parser_url *u);
 
@@ -291,6 +294,7 @@ void http_parser_url_init(struct http_parser_url *u);
 int http_parser_parse_url(const char *buf, size_t buflen,
                           int is_connect,
                           struct http_parser_url *u);
+#endif
 
 /* Pause or un-pause the parser; a nonzero value pauses */
 void http_parser_pause(http_parser *parser, int paused);

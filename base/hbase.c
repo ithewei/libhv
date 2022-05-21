@@ -167,6 +167,16 @@ bool hv_strcontains(const char* str, const char* sub) {
     return strstr(str, sub) != NULL;
 }
 
+char* hv_strnchr(const char* s, char c, size_t n) {
+    assert(s != NULL);
+    const char* p = s;
+    while (*p != '\0' && n-- > 0) {
+        if (*p == c) return (char*)p;
+        ++p;
+    }
+    return NULL;
+}
+
 char* hv_strrchr_dir(const char* filepath) {
     char* p = (char*)filepath;
     while (*p) ++p;
@@ -408,4 +418,84 @@ time_t hv_parse_time(const char* str) {
         ++p;
     }
     return time + n;
+}
+
+int hv_parse_url(hurl_t* stURL, const char* strURL) {
+    if (stURL == NULL || strURL == NULL) return -1;
+    memset(stURL, 0, sizeof(hurl_t));
+    const char* begin = strURL;
+    const char* end = strURL;
+    while (*end != '\0') ++end;
+    if (end - begin > 65535) return -2;
+    // scheme://
+    const char* sp = strURL;
+    const char* ep = strstr(sp, "://");
+    if (ep) {
+        // stURL->fields[HV_URL_SCHEME].off = sp - begin;
+        stURL->fields[HV_URL_SCHEME].len = ep - sp;
+        sp = ep + 3;
+    }
+    // user:pswd@host:port
+    ep = strchr(sp, '/');
+    if (ep == NULL) ep = end;
+    const char* user = sp;
+    const char* host = sp;
+    const char* pos = hv_strnchr(sp, '@', ep - sp);
+    if (pos) {
+        // user:pswd
+        const char* pswd = hv_strnchr(user, ':', pos - user);
+        if (pswd) {
+            stURL->fields[HV_URL_PASSWORD].off = pswd + 1 - begin;
+            stURL->fields[HV_URL_PASSWORD].len = pos - pswd - 1;
+        } else {
+            pswd = pos;
+        }
+        stURL->fields[HV_URL_USERNAME].off = user - begin;
+        stURL->fields[HV_URL_USERNAME].len = pswd - user;
+        // @
+        host = pos + 1;
+    }
+    // port
+    const char* port = hv_strnchr(host, ':', ep - host);
+    if (port) {
+        stURL->fields[HV_URL_PORT].off = port + 1 - begin;
+        stURL->fields[HV_URL_PORT].len = ep - port - 1;
+        // atoi
+        for (unsigned short i = 1; i <= stURL->fields[HV_URL_PORT].len; ++i) {
+            stURL->port = stURL->port * 10 + (port[i] - '0');
+        }
+    } else {
+        port = ep;
+        // set default port
+        stURL->port = 80;
+        if (stURL->fields[HV_URL_SCHEME].len > 0) {
+            if (strncmp(strURL, "https://", 8) == 0) {
+                stURL->port = 443;
+            }
+        }
+    }
+    // host
+    stURL->fields[HV_URL_HOST].off = host - begin;
+    stURL->fields[HV_URL_HOST].len = port - host;
+    if (ep == end) return 0;
+    // /path
+    sp = ep;
+    ep = strchr(sp, '?');
+    if (ep == NULL) ep = end;
+    stURL->fields[HV_URL_PATH].off = sp - begin;
+    stURL->fields[HV_URL_PATH].len = ep - sp;
+    if (ep == end) return 0;
+    // ?query
+    sp = ep + 1;
+    ep = strchr(sp, '#');
+    if (ep == NULL) ep = end;
+    stURL->fields[HV_URL_QUERY].off = sp - begin;
+    stURL->fields[HV_URL_QUERY].len = ep - sp;
+    if (ep == end) return 0;
+    // #fragment
+    sp = ep + 1;
+    ep = end;
+    stURL->fields[HV_URL_FRAGMENT].off = sp - begin;
+    stURL->fields[HV_URL_FRAGMENT].len = ep - sp;
+    return 0;
 }

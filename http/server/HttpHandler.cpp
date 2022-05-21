@@ -163,7 +163,6 @@ int HttpHandler::HandleHttpRequest() {
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
     pReq->client_addr.port = port;
-    pReq->Host();
     pReq->ParseUrl();
     // NOTE: Not all users want to parse body, we comment it out.
     // pReq->ParseBody();

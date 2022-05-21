@@ -106,6 +106,7 @@
 - hv_strstartswith
 - hv_strendswith
 - hv_strcontains
+- hv_strnchr
 - hv_strrchr_dot
 - hv_strrchr_dir
 - hv_basename
@@ -126,6 +127,7 @@
 - hv_getboolean
 - hv_parse_size
 - hv_parse_time
+- hv_parse_url
 
 ### hversion.h
 - hv_version
@@ -306,8 +308,10 @@
 - listdir
 
 ### hurl.h
-- url_escape
-- url_unescape
+- HUrl::escape
+- HUrl::unescape
+- HUrl::parse
+- HUrl::dump
 
 ### hscope.h
 - defer

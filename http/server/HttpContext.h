@@ -32,6 +32,10 @@ struct HV_EXPORT HttpContext {
         return request->Path();
     }
 
+    std::string fullpath() {
+        return request->FullPath();
+    }
+
     std::string host() {
         return request->Host();
     }

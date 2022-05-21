@@ -12,9 +12,9 @@ std::string dump_query_params(const QueryParams& query_params) {
         if (query_string.size() != 0) {
             query_string += '&';
         }
-        query_string += url_escape(pair.first.c_str());
+        query_string += HUrl::escape(pair.first);
         query_string += '=';
-        query_string += url_escape(pair.second.c_str());
+        query_string += HUrl::escape(pair.second);
     }
     return query_string;
 }
@@ -37,7 +37,7 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
             if (key_len && value_len) {
                 std::string strkey = std::string(key, key_len);
                 std::string strvalue = std::string(value, value_len);
-                query_params[url_unescape(strkey.c_str())] = url_unescape(strvalue.c_str());
+                query_params[HUrl::unescape(strkey)] = HUrl::unescape(strvalue);
                 key_len = value_len = 0;
             }
             state = s_key;
@@ -55,7 +55,7 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
     if (key_len && value_len) {
         std::string strkey = std::string(key, key_len);
         std::string strvalue = std::string(value, value_len);
-        query_params[url_unescape(strkey.c_str())] = url_unescape(strvalue.c_str());
+        query_params[HUrl::unescape(strkey)] = HUrl::unescape(strvalue);
         key_len = value_len = 0;
     }
     return query_params.size() == 0 ? -1 : 0;

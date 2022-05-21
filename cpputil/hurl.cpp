@@ -1,6 +1,7 @@
 #include "hurl.h"
 
 #include "hdef.h"
+#include "hbase.h"
 
 /*
 static bool Curl_isunreserved(unsigned char in)
@@ -46,10 +47,10 @@ static inline unsigned char hex2i(char hex) {
         hex <= 'F' ? hex - 'A' + 10 : hex - 'a' + 10;
 }
 
-std::string url_escape(const char* istr, const char* unescaped_chars) {
+std::string HUrl::escape(const std::string& str, const char* unescaped_chars) {
     std::string ostr;
     static char tab[] = "0123456789ABCDEF";
-    const unsigned char* p = reinterpret_cast<const unsigned char*>(istr);
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(str.c_str());
     char szHex[4] = "%00";
     while (*p != '\0') {
         if (is_unambiguous(*p) || char_in_str(*p, unescaped_chars)) {
@@ -65,9 +66,9 @@ std::string url_escape(const char* istr, const char* unescaped_chars) {
     return ostr;
 }
 
-std::string url_unescape(const char* istr) {
+std::string HUrl::unescape(const std::string& str) {
     std::string ostr;
-    const char* p = istr;
+    const char* p = str.c_str();
     while (*p != '\0') {
         if (*p == '%' &&
             IS_HEX(p[1]) &&
@@ -81,4 +82,88 @@ std::string url_unescape(const char* istr) {
         }
     }
     return ostr;
+}
+
+
+bool HUrl::parse(const std::string& url) {
+    reset();
+    this->url = url;
+    hurl_t stURL;
+    if (hv_parse_url(&stURL, url.c_str()) != 0) {
+        return false;
+    }
+    int len = stURL.fields[HV_URL_SCHEME].len;
+    if (len > 0) {
+        scheme = url.substr(stURL.fields[HV_URL_SCHEME].off, len);
+    }
+    len = stURL.fields[HV_URL_USERNAME].len;
+    if (len > 0) {
+        username = url.substr(stURL.fields[HV_URL_USERNAME].off, len);
+        len = stURL.fields[HV_URL_PASSWORD].len;
+        if (len > 0) {
+            password = url.substr(stURL.fields[HV_URL_PASSWORD].off, len);
+        }
+    }
+    len = stURL.fields[HV_URL_HOST].len;
+    if (len > 0) {
+        host = url.substr(stURL.fields[HV_URL_HOST].off, len);
+    }
+    port = stURL.port;
+    len = stURL.fields[HV_URL_PATH].len;
+    if (len > 0) {
+        path = url.substr(stURL.fields[HV_URL_PATH].off, len);
+    } else {
+        path = "/";
+    }
+    len = stURL.fields[HV_URL_QUERY].len;
+    if (len > 0) {
+        query = url.substr(stURL.fields[HV_URL_QUERY].off, len);
+    }
+    len = stURL.fields[HV_URL_FRAGMENT].len;
+    if (len > 0) {
+        fragment = url.substr(stURL.fields[HV_URL_FRAGMENT].off, len);
+    }
+    return true;
+}
+
+const std::string& HUrl::dump() {
+    url.clear();
+    // scheme://
+    if (!scheme.empty()) {
+        url += scheme;
+        url += "://";
+    }
+    // user:pswd@
+    if (!username.empty()) {
+        url += username;
+        if (!password.empty()) {
+            url += ":";
+            url += password;
+        }
+        url += "@";
+    }
+    // host:port
+    if (!host.empty()) {
+        url += host;
+        if (port != 80 && port != 443) {
+            char buf[16] = {0};
+            snprintf(buf, sizeof(buf), ":%d", port);
+            url += port;
+        }
+    }
+    // /path
+    if (!path.empty()) {
+        url += path;
+    }
+    // ?query
+    if (!query.empty()) {
+        url += '?';
+        url += query;
+    }
+    // #fragment
+    if (!fragment.empty()) {
+        url += '#';
+        url += fragment;
+    }
+    return url;
 }
