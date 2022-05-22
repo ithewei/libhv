@@ -212,6 +212,9 @@ static void nio_connect(hio_t* io) {
                 }
                 io->ssl = ssl;
             }
+            if (io->hostname) {
+                hssl_set_sni_hostname(io->ssl, io->hostname);
+            }
             ssl_client_handshake(io);
         }
         else {
@@ -572,6 +575,7 @@ int hio_close (hio_t* io) {
         hssl_ctx_free(io->ssl_ctx);
         io->ssl_ctx = NULL;
     }
+    SAFE_FREE(io->hostname);
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     }

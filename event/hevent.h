@@ -98,7 +98,7 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=408 on linux-x64
+// sizeof(struct hio_s)=416 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
@@ -167,6 +167,7 @@ struct hio_s {
     // ssl
     void*       ssl;        // for hio_set_ssl
     void*       ssl_ctx;    // for hio_set_ssl_ctx
+    char*       hostname;   // for hssl_set_sni_hostname
     // context
     void*       ctx; // for hio_context / hio_set_context
 // private:

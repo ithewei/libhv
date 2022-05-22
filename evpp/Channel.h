@@ -226,6 +226,11 @@ public:
         if (io_ == NULL) return -1;
         return hio_new_ssl_ctx(io_, opt);
     }
+    // for hssl_set_sni_hostname
+    int setHostname(const std::string& hostname) {
+        if (io_ == NULL) return -1;
+        return hio_set_hostname(io_, hostname.c_str());
+    }
 
     // timeout
     void setConnectTimeout(int timeout_ms) {

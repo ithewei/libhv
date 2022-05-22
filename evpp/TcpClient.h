@@ -16,7 +16,7 @@ public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
 
     TcpClientTmpl() {
-        connect_timeout = 5000;
+        connect_timeout = HIO_DEFAULT_CONNECT_TIMEOUT;
         tls = false;
         tls_setting = NULL;
         reconn_setting = NULL;
@@ -36,16 +36,18 @@ public:
     //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
     //@retval >=0 connfd, <0 error
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
-        memset(&peeraddr, 0, sizeof(peeraddr));
-        int ret = sockaddr_set_ipport(&peeraddr, remote_host, remote_port);
+        memset(&remote_addr, 0, sizeof(remote_addr));
+        int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
         if (ret != 0) {
             return -1;
         }
-        return createsocket(&peeraddr.sa);
+        this->remote_host = remote_host;
+        this->remote_port = remote_port;
+        return createsocket(&remote_addr.sa);
     }
-    int createsocket(struct sockaddr* peeraddr) {
-        int connfd = socket(peeraddr->sa_family, SOCK_STREAM, 0);
-        // SOCKADDR_PRINT(peeraddr);
+    int createsocket(struct sockaddr* remote_addr) {
+        int connfd = socket(remote_addr->sa_family, SOCK_STREAM, 0);
+        // SOCKADDR_PRINT(remote_addr);
         if (connfd < 0) {
             perror("socket");
             return -2;
@@ -53,7 +55,7 @@ public:
 
         hio_t* io = hio_get(loop_thread.hloop(), connfd);
         assert(io != NULL);
-        hio_set_peeraddr(io, peeraddr, SOCKADDR_LEN(peeraddr));
+        hio_set_peeraddr(io, remote_addr, SOCKADDR_LEN(remote_addr));
         channel.reset(new TSocketChannel(io));
         return connfd;
     }
@@ -74,6 +76,9 @@ public:
             channel->enableSSL();
             if (tls_setting) {
                 channel->newSslCtx(tls_setting);
+            }
+            if (!is_ipaddr(remote_host.c_str())) {
+                channel->setHostname(remote_host);
             }
         }
         channel->onconnect = [this]() {
@@ -120,7 +125,7 @@ public:
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
         loop_thread.loop()->setTimeout(delay, [this](TimerID timerID){
             hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
-            if (createsocket(&peeraddr.sa) < 0) return;
+            if (createsocket(&remote_addr.sa) < 0) return;
             startConnect();
         });
         return 0;
@@ -196,7 +201,9 @@ public:
 public:
     TSocketChannelPtr       channel;
 
-    sockaddr_u              peeraddr;
+    std::string             remote_host;
+    int                     remote_port;
+    sockaddr_u              remote_addr;
     int                     connect_timeout;
     bool                    tls;
     hssl_ctx_opt_t*         tls_setting;

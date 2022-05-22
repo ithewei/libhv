@@ -139,6 +139,7 @@ void hio_ready(hio_t* io) {
     io->ssl = NULL;
     io->ssl_ctx = NULL;
     io->alloced_ssl_ctx = 0;
+    io->hostname = NULL;
     // context
     io->ctx = NULL;
     // private:
@@ -477,6 +478,16 @@ int hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt) {
     if (ssl_ctx == NULL) return ERR_NEW_SSL_CTX;
     io->alloced_ssl_ctx = 1;
     return hio_set_ssl_ctx(io, ssl_ctx);
+}
+
+int hio_set_hostname(hio_t* io, const char* hostname) {
+    SAFE_FREE(io->hostname);
+    io->hostname = strdup(hostname);
+    return 0;
+}
+
+const char* hio_get_hostname(hio_t* io) {
+    return io->hostname;
 }
 
 void hio_del_connect_timer(hio_t* io) {

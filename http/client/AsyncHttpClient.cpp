@@ -19,9 +19,10 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     req->ParseUrl();
     sockaddr_u peeraddr;
     memset(&peeraddr, 0, sizeof(peeraddr));
-    int ret = sockaddr_set_ipport(&peeraddr, req->host.c_str(), req->port);
+    const char* host = req->host.c_str();
+    int ret = sockaddr_set_ipport(&peeraddr, host, req->port);
     if (ret != 0) {
-        hloge("unknown host %s", req->host.c_str());
+        hloge("unknown host %s", host);
         return -20;
     }
 
@@ -49,6 +50,9 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         // https
         if (req->IsHttps() && !req->IsProxy()) {
             hio_enable_ssl(connio);
+            if (!is_ipaddr(host)) {
+                hio_set_hostname(connio, host);
+            }
         }
     }
 

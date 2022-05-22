@@ -115,7 +115,7 @@ typedef enum {
     HIO_CLIENT_SIDE  = 1,
 } hio_side_e;
 
-#define HIO_DEFAULT_CONNECT_TIMEOUT     5000    // ms
+#define HIO_DEFAULT_CONNECT_TIMEOUT     10000   // ms
 #define HIO_DEFAULT_CLOSE_TIMEOUT       60000   // ms
 #define HIO_DEFAULT_KEEPALIVE_TIMEOUT   75000   // ms
 #define HIO_DEFAULT_HEARTBEAT_INTERVAL  10000   // ms
@@ -312,6 +312,9 @@ HV_EXPORT int  hio_set_ssl_ctx(hio_t* io, hssl_ctx_t ssl_ctx);
 HV_EXPORT int  hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt);
 HV_EXPORT hssl_t     hio_get_ssl(hio_t* io);
 HV_EXPORT hssl_ctx_t hio_get_ssl_ctx(hio_t* io);
+// for hssl_set_sni_hostname
+HV_EXPORT int         hio_set_hostname(hio_t* io, const char* hostname);
+HV_EXPORT const char* hio_get_hostname(hio_t* io);
 
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
