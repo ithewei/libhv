@@ -395,6 +395,7 @@ public:
 
 #define DEFAULT_HTTP_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36"
 #define DEFAULT_HTTP_TIMEOUT            60 // s
+#define DEFAULT_HTTP_CONNECT_TIMEOUT    10 // s
 #define DEFAULT_HTTP_FAIL_RETRY_COUNT   1
 #define DEFAULT_HTTP_FAIL_RETRY_DELAY   1000 // ms
 
@@ -412,9 +413,10 @@ public:
     // client_addr
     hv::NetAddr         client_addr; // for http server save client addr of request
     // for HttpClient
-    int                 timeout;     // unit: s
-    int                 retry_count; // just for AsyncHttpClient fail retry
-    int                 retry_delay; // just for AsyncHttpClient fail retry
+    uint16_t            timeout;        // unit: s
+    uint16_t            connect_timeout;// unit: s
+    uint32_t            retry_count;    // just for AsyncHttpClient fail retry
+    uint32_t            retry_delay;    // just for AsyncHttpClient fail retry
     unsigned            redirect: 1;
     unsigned            proxy   : 1;
 
@@ -432,6 +434,7 @@ public:
         port = DEFAULT_HTTP_PORT;
         path = "/";
         timeout = DEFAULT_HTTP_TIMEOUT;
+        connect_timeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
         retry_count = DEFAULT_HTTP_FAIL_RETRY_COUNT;
         retry_delay = DEFAULT_HTTP_FAIL_RETRY_DELAY;
         redirect = 1;

@@ -128,6 +128,9 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         sendRequest(channel);
     } else {
         // startConnect
+        if (req->connect_timeout > 0) {
+            channel->setConnectTimeout(req->connect_timeout * 1000);
+        }
         channel->startConnect();
     }
 

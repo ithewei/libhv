@@ -487,7 +487,7 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
     int fail_cnt = 0;
     if (connfd <= 0) {
 connect:
-        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, req->timeout);
+        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, MIN(req->connect_timeout, req->timeout));
         if (connfd < 0) {
             return connfd;
         }
