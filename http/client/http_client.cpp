@@ -269,6 +269,9 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
             resp->http_major = http_major;
             resp->http_minor = http_minor;
             resp->status_code = (http_status)status_code;
+            if (resp->http_cb) {
+                resp->http_cb(resp, HP_MESSAGE_BEGIN, NULL, 0);
+            }
         }
     }
     else {
@@ -380,6 +383,9 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, req->body.size());
     }
 
+    if (req->connect_timeout > 0) {
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, req->connect_timeout);
+    }
     if (req->timeout > 0) {
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, req->timeout);
     }
@@ -415,6 +421,10 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
         curl_formfree(httppost);
     }
     */
+
+    if (resp->http_cb) {
+        resp->http_cb(resp, HP_MESSAGE_COMPLETE, NULL, 0);
+    }
 
     return ret;
 }
