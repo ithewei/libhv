@@ -46,11 +46,10 @@ public:
 #endif
 
 // KeyValue
+namespace hv {
 typedef std::map<std::string, std::string>      keyval_t;
 typedef std::MultiMap<std::string, std::string> multi_keyval_t;
-
-namespace hv {
-typedef HV_MAP<std::string, std::string> KeyValue;
+typedef HV_MAP<std::string, std::string>        KeyValue;
 }
 
 #endif // HV_MAP_H_
