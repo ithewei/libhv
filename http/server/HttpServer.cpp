@@ -191,6 +191,10 @@ static void on_close(hio_t* io) {
         if (handler->protocol == HttpHandler::WEBSOCKET) {
             // onclose
             handler->WebSocketOnClose();
+        } else {
+            if (handler->writer && handler->writer->onclose) {
+                handler->writer->onclose();
+            }
         }
         hevent_set_userdata(io, NULL);
         delete handler;
