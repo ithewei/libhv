@@ -34,7 +34,7 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
     int value_len = 0;
     while (*p != '\0') {
         if (*p == '&') {
-            if (key_len && value_len) {
+            if (key_len /* && value_len */) {
                 std::string strkey = std::string(key, key_len);
                 std::string strvalue = std::string(value, value_len);
                 query_params[HUrl::unescape(strkey)] = HUrl::unescape(strvalue);
@@ -52,7 +52,7 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
         }
         ++p;
     }
-    if (key_len && value_len) {
+    if (key_len /* && value_len */) {
         std::string strkey = std::string(key, key_len);
         std::string strvalue = std::string(value, value_len);
         query_params[HUrl::unescape(strkey)] = HUrl::unescape(strvalue);
