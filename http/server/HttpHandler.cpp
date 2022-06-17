@@ -230,7 +230,7 @@ int HttpHandler::defaultRequestHandler() {
         if (service->staticHandler) {
             status_code = customHttpHandler(service->staticHandler);
         }
-        else if (service->document_root.size() != 0) {
+        else if (service->staticDirs.size() > 0) {
             status_code = defaultStaticHandler();
         }
         else {
@@ -253,15 +253,17 @@ int HttpHandler::defaultStaticHandler() {
     if (req_path[0] != '/' || strstr(req_path, "/../")) {
         return HTTP_STATUS_BAD_REQUEST;
     }
-    std::string filepath = service->document_root + path;
-    if (req_path[1] == '\0') {
-        filepath += service->home_page;
-    }
 
-    // dir
-    bool is_dir = filepath[filepath.size()-1] == '/';
-    bool is_index_of = service->index_of.size() != 0 && hv_strstartswith(req_path, service->index_of.c_str());
-    if (is_dir && !is_index_of) {
+    std::string filepath;
+    bool is_dir = path.back() == '/' &&
+                  service->index_of.size() > 0 &&
+                  hv_strstartswith(req_path, service->index_of.c_str());
+    if (is_dir) {
+        filepath = service->document_root + path;
+    } else {
+        filepath = service->GetStaticFilepath(req_path);
+    }
+    if (filepath.empty()) {
         return HTTP_STATUS_NOT_FOUND;
     }
 
@@ -341,8 +343,8 @@ int HttpHandler::defaultStaticHandler() {
 int HttpHandler::defaultLargeFileHandler() {
     if (!writer) return HTTP_STATUS_NOT_IMPLEMENTED;
     if (!isFileOpened()) {
-        std::string filepath = service->document_root + req->Path();
-        if (openFile(filepath.c_str()) != 0) {
+        std::string filepath = service->GetStaticFilepath(req->Path().c_str());
+        if (filepath.empty() || openFile(filepath.c_str()) != 0) {
             return HTTP_STATUS_NOT_FOUND;
         }
         resp->content_length = file->size();

@@ -110,6 +110,8 @@ struct HV_EXPORT HttpService {
     std::string     document_root;
     std::string     home_page;
     std::string     error_page;
+    // location => root
+    std::map<std::string, std::string, std::greater<std::string>> staticDirs;
     // indexof service (that is http.DirectoryServer)
     std::string     index_of;
     http_handler    errorHandler;
@@ -147,6 +149,11 @@ struct HV_EXPORT HttpService {
     int  GetApi(const char* url,  http_method method, http_handler** handler);
     // RESTful API /:field/ => req->query_params["field"]
     int  GetApi(HttpRequest* req, http_handler** handler);
+
+    // Static("/", "/var/www/html")
+    void Static(const char* path, const char* dir);
+    // @retval / => /var/www/html/index.html
+    std::string GetStaticFilepath(const char* path);
 
     hv::StringList Paths() {
         hv::StringList paths;

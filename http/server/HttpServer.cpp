@@ -268,6 +268,11 @@ static void loop_thread(void* userdata) {
             gmtime_fmt(hloop_now(hevent_loop(timer)), HttpMessage::s_date);
         }, 1000);
 
+        // document_root
+        if (service->document_root.size() > 0 && service->GetStaticFilepath("/").empty()) {
+            service->Static("/", service->document_root.c_str());
+        }
+
         // FileCache
         FileCache* filecache = &privdata->filecache;
         filecache->stat_interval = service->file_cache_stat_interval;
