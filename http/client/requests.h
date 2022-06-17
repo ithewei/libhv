@@ -101,6 +101,7 @@ HV_INLINE size_t downloadFile(const char* url, const char* filepath, download_pr
     Request req(new HttpRequest);
     req->method = HTTP_GET;
     req->url = url;
+    req->timeout = 3600; // 1h
     size_t content_length = 0;
     size_t received_bytes = 0;
     req->http_cb = [&file, &content_length, &received_bytes, &progress_cb]
