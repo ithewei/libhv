@@ -11,11 +11,12 @@
 namespace hv {
 
 template<class TSocketChannel = SocketChannel>
-class TcpClientTmpl {
+class TcpClientEventLoopTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
 
-    TcpClientTmpl() {
+    TcpClientEventLoopTmpl(EventLoopPtr loop = NULL) {
+        loop_ = loop ? loop : std::make_shared<EventLoop>();
         connect_timeout = HIO_DEFAULT_CONNECT_TIMEOUT;
         tls = false;
         tls_setting = NULL;
@@ -23,14 +24,14 @@ public:
         unpack_setting = NULL;
     }
 
-    virtual ~TcpClientTmpl() {
+    virtual ~TcpClientEventLoopTmpl() {
         HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
     }
 
     const EventLoopPtr& loop() {
-        return loop_thread.loop();
+        return loop_;
     }
 
     //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
@@ -53,7 +54,7 @@ public:
             return -2;
         }
 
-        hio_t* io = hio_get(loop_thread.hloop(), connfd);
+        hio_t* io = hio_get(loop_->loop(), connfd);
         assert(io != NULL);
         hio_set_peeraddr(io, remote_addr, SOCKADDR_LEN(remote_addr));
         channel.reset(new TSocketChannel(io));
@@ -123,7 +124,7 @@ public:
         if (!reconn_setting) return -1;
         if (!reconn_setting_can_retry(reconn_setting)) return -2;
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
-        loop_thread.loop()->setTimeout(delay, [this](TimerID timerID){
+        loop_->setTimeout(delay, [this](TimerID timerID){
             hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
             if (createsocket(&remote_addr.sa) < 0) return;
             startConnect();
@@ -131,13 +132,9 @@ public:
         return 0;
     }
 
-    void start(bool wait_threads_started = true) {
-        loop_thread.start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
-    }
-    // stop thread-safe
-    void stop(bool wait_threads_stopped = true) {
-        setReconnect(NULL);
-        loop_thread.stop(wait_threads_stopped);
+    // start thread-safe
+    void start() {
+        loop_->runInLoop(std::bind(&TcpClientEventLoopTmpl::startConnect, this));
     }
 
     bool isConnected() {
@@ -217,7 +214,34 @@ public:
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
 private:
-    EventLoopThread         loop_thread;
+    EventLoopPtr            loop_;
+};
+
+template<class TSocketChannel = SocketChannel>
+class TcpClientTmpl : private EventLoopThread, public TcpClientEventLoopTmpl<TSocketChannel> {
+public:
+    TcpClientTmpl(EventLoopPtr loop = NULL)
+        : EventLoopThread()
+        , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
+    {}
+    virtual ~TcpClientTmpl() {
+        stop(true);
+    }
+
+    const EventLoopPtr& loop() {
+        return EventLoopThread::loop();
+    }
+
+    // start thread-safe
+    void start(bool wait_threads_started = true) {
+        EventLoopThread::start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
+    }
+
+    // stop thread-safe
+    void stop(bool wait_threads_stopped = true) {
+        TcpClientTmpl::setReconnect(NULL);
+        EventLoopThread::stop(wait_threads_stopped);
+    }
 };
 
 typedef TcpClientTmpl<SocketChannel> TcpClient;

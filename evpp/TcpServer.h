@@ -11,11 +11,12 @@
 namespace hv {
 
 template<class TSocketChannel = SocketChannel>
-class TcpServerTmpl {
+class TcpServerEventLoopTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
 
-    TcpServerTmpl() {
+    TcpServerEventLoopTmpl(EventLoopPtr loop = NULL) {
+        acceptor_loop = loop ? loop : std::make_shared<EventLoop>();
         listenfd = -1;
         tls = false;
         unpack_setting.mode = UNPACK_MODE_NONE;
@@ -23,7 +24,7 @@ public:
         load_balance = LB_RoundRobin;
     }
 
-    virtual ~TcpServerTmpl() {
+    virtual ~TcpServerEventLoopTmpl() {
     }
 
     EventLoopPtr loop(int idx = -1) {
@@ -38,7 +39,7 @@ public:
     // closesocket thread-safe
     void closesocket() {
         if (listenfd >= 0) {
-            hio_close_async(hio_get(acceptor_thread.hloop(), listenfd));
+            hio_close_async(hio_get(acceptor_loop->loop(), listenfd));
             listenfd = -1;
         }
     }
@@ -58,7 +59,7 @@ public:
 
     int startAccept() {
         assert(listenfd >= 0);
-        hio_t* listenio = haccept(acceptor_thread.hloop(), listenfd, onAccept);
+        hio_t* listenio = haccept(acceptor_loop->loop(), listenfd, onAccept);
         hevent_set_userdata(listenio, this);
         if (tls) {
             hio_enable_ssl(listenio);
@@ -66,15 +67,15 @@ public:
         return 0;
     }
 
+    // start thread-safe
     void start(bool wait_threads_started = true) {
         if (worker_threads.threadNum() > 0) {
             worker_threads.start(wait_threads_started);
         }
-        acceptor_thread.start(wait_threads_started, std::bind(&TcpServerTmpl::startAccept, this));
+        acceptor_loop->runInLoop(std::bind(&TcpServerEventLoopTmpl::startAccept, this));
     }
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
-        acceptor_thread.stop(wait_threads_stopped);
         if (worker_threads.threadNum() > 0) {
             worker_threads.stop(wait_threads_stopped);
         }
@@ -147,7 +148,7 @@ public:
 
 private:
     static void newConnEvent(hio_t* connio) {
-        TcpServerTmpl* server = (TcpServerTmpl*)hevent_userdata(connio);
+        TcpServerEventLoopTmpl* server = (TcpServerEventLoopTmpl*)hevent_userdata(connio);
         if (server->connectionNum() >= server->max_connections) {
             hlogw("over max_connections");
             hio_close(connio);
@@ -196,15 +197,15 @@ private:
     }
 
     static void onAccept(hio_t* connio) {
-        TcpServerTmpl* server = (TcpServerTmpl*)hevent_userdata(connio);
+        TcpServerEventLoopTmpl* server = (TcpServerEventLoopTmpl*)hevent_userdata(connio);
         // NOTE: detach from acceptor loop
         hio_detach(connio);
         EventLoopPtr worker_loop = server->worker_threads.nextLoop(server->load_balance);
         if (worker_loop == NULL) {
-            worker_loop = server->acceptor_thread.loop();
+            worker_loop = server->acceptor_loop;
         }
         ++worker_loop->connectionNum;
-        worker_loop->runInLoop(std::bind(&TcpServerTmpl::newConnEvent, connio));
+        worker_loop->runInLoop(std::bind(&TcpServerEventLoopTmpl::newConnEvent, connio));
     }
 
 public:
@@ -225,8 +226,36 @@ private:
     std::map<uint32_t, TSocketChannelPtr>   channels; // GUAREDE_BY(mutex_)
     std::mutex                              mutex_;
 
-    EventLoopThread                 acceptor_thread;
-    EventLoopThreadPool             worker_threads;
+    EventLoopPtr            acceptor_loop;
+    EventLoopThreadPool     worker_threads;
+};
+
+template<class TSocketChannel = SocketChannel>
+class TcpServerTmpl : private EventLoopThread, public TcpServerEventLoopTmpl<TSocketChannel> {
+public:
+    TcpServerTmpl(EventLoopPtr loop = NULL)
+        : EventLoopThread()
+        , TcpServerEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
+    {}
+    virtual ~TcpServerTmpl() {
+        stop(true);
+    }
+
+    const EventLoopPtr& loop(int idx = -1) {
+        return TcpServerEventLoopTmpl<TSocketChannel>::loop(idx);
+    }
+
+    // start thread-safe
+    void start(bool wait_threads_started = true) {
+        TcpServerEventLoopTmpl<TSocketChannel>::start(wait_threads_started);
+        EventLoopThread::start(wait_threads_started);
+    }
+
+    // stop thread-safe
+    void stop(bool wait_threads_stopped = true) {
+        EventLoopThread::stop(wait_threads_stopped);
+        TcpServerEventLoopTmpl<TSocketChannel>::stop(wait_threads_stopped);
+    }
 };
 
 typedef TcpServerTmpl<SocketChannel> TcpServer;
