@@ -121,11 +121,11 @@ public:
         }
     }
 
-    void resetTimer(TimerID timerID) {
+    void resetTimer(TimerID timerID, int timeout_ms = 0) {
         std::lock_guard<std::mutex> locker(mutex_);
         auto iter = timers.find(timerID);
         if (iter != timers.end()) {
-            htimer_reset(iter->second->timer);
+            htimer_reset(iter->second->timer, timeout_ms);
             if (iter->second->repeat == 0) {
                 iter->second->repeat = 1;
             }
@@ -243,11 +243,11 @@ static inline void killTimer(TimerID timerID) {
     loop->killTimer(timerID);
 }
 
-static inline void resetTimer(TimerID timerID) {
+static inline void resetTimer(TimerID timerID, int timeout_ms) {
     EventLoop* loop = tlsEventLoop();
     assert(loop != NULL);
     if (loop == NULL) return;
-    loop->resetTimer(timerID);
+    loop->resetTimer(timerID, timeout_ms);
 }
 
 static inline TimerID setTimeout(int timeout_ms, TimerCallback cb) {

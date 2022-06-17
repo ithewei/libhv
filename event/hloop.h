@@ -185,8 +185,7 @@ HV_EXPORT hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT
 HV_EXPORT void     hidle_del(hidle_t* idle);
 
 // timer
-// @param timeout: unit(ms)
-HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat DEFAULT(INFINITE));
+HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout_ms, uint32_t repeat DEFAULT(INFINITE));
 /*
  * minute   hour    day     week    month       cb
  * 0~59     0~23    1~31    0~6     1~12
@@ -202,7 +201,7 @@ HV_EXPORT htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
                         int8_t week   DEFAULT(-1), int8_t month DEFAULT(-1), uint32_t repeat DEFAULT(INFINITE));
 
 HV_EXPORT void htimer_del(htimer_t* timer);
-HV_EXPORT void htimer_reset(htimer_t* timer);
+HV_EXPORT void htimer_reset(htimer_t* timer, uint32_t timeout_ms DEFAULT(0));
 
 // io
 //-----------------------low-level apis---------------------------------------

@@ -38,8 +38,8 @@ public:
         loop()->runInLoop(std::bind(&EventLoop::killTimer, loop(), timerID));
     }
 
-    void resetTimer(TimerID timerID) {
-        loop()->runInLoop(std::bind(&EventLoop::resetTimer, loop(), timerID));
+    void resetTimer(TimerID timerID, int timeout_ms = 0) {
+        loop()->runInLoop(std::bind(&EventLoop::resetTimer, loop(), timerID, timeout_ms));
     }
 };
 

@@ -560,8 +560,7 @@ static void __read_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
     uint64_t inactive_ms = (io->loop->cur_hrtime - io->last_read_hrtime) / 1000;
     if (inactive_ms + 100 < io->read_timeout) {
-        ((struct htimeout_s*)io->read_timer)->timeout = io->read_timeout - inactive_ms;
-        htimer_reset(io->read_timer);
+        htimer_reset(io->read_timer, io->read_timeout - inactive_ms);
     } else {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -582,8 +581,7 @@ void hio_set_read_timeout(hio_t* io, int timeout_ms) {
 
     if (io->read_timer) {
         // reset
-        ((struct htimeout_s*)io->read_timer)->timeout = timeout_ms;
-        htimer_reset(io->read_timer);
+        htimer_reset(io->read_timer, timeout_ms);
     } else {
         // add
         io->read_timer = htimer_add(io->loop, __read_timeout_cb, timeout_ms, 1);
@@ -596,8 +594,7 @@ static void __write_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
     uint64_t inactive_ms = (io->loop->cur_hrtime - io->last_write_hrtime) / 1000;
     if (inactive_ms + 100 < io->write_timeout) {
-        ((struct htimeout_s*)io->write_timer)->timeout = io->write_timeout - inactive_ms;
-        htimer_reset(io->write_timer);
+        htimer_reset(io->write_timer, io->write_timeout - inactive_ms);
     } else {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -618,8 +615,7 @@ void hio_set_write_timeout(hio_t* io, int timeout_ms) {
 
     if (io->write_timer) {
         // reset
-        ((struct htimeout_s*)io->write_timer)->timeout = timeout_ms;
-        htimer_reset(io->write_timer);
+        htimer_reset(io->write_timer, timeout_ms);
     } else {
         // add
         io->write_timer = htimer_add(io->loop, __write_timeout_cb, timeout_ms, 1);
@@ -633,8 +629,7 @@ static void __keepalive_timeout_cb(htimer_t* timer) {
     uint64_t last_rw_hrtime = MAX(io->last_read_hrtime, io->last_write_hrtime);
     uint64_t inactive_ms = (io->loop->cur_hrtime - last_rw_hrtime) / 1000;
     if (inactive_ms + 100 < io->keepalive_timeout) {
-        ((struct htimeout_s*)io->keepalive_timer)->timeout = io->keepalive_timeout - inactive_ms;
-        htimer_reset(io->keepalive_timer);
+        htimer_reset(io->keepalive_timer, io->keepalive_timeout - inactive_ms);
     } else {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -655,8 +650,7 @@ void hio_set_keepalive_timeout(hio_t* io, int timeout_ms) {
 
     if (io->keepalive_timer) {
         // reset
-        ((struct htimeout_s*)io->keepalive_timer)->timeout = timeout_ms;
-        htimer_reset(io->keepalive_timer);
+        htimer_reset(io->keepalive_timer, timeout_ms);
     } else {
         // add
         io->keepalive_timer = htimer_add(io->loop, __keepalive_timeout_cb, timeout_ms, 1);
@@ -681,8 +675,7 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
 
     if (io->heartbeat_timer) {
         // reset
-        ((struct htimeout_s*)io->heartbeat_timer)->timeout = interval_ms;
-        htimer_reset(io->heartbeat_timer);
+        htimer_reset(io->heartbeat_timer, interval_ms);
     } else {
         // add
         io->heartbeat_timer = htimer_add(io->loop, __heartbeat_timer_cb, interval_ms, INFINITE);
