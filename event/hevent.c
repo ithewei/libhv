@@ -88,6 +88,7 @@ void hio_ready(hio_t* io) {
     if (io->ready) return;
     // flags
     io->ready = 1;
+    io->connected = 0;
     io->closed = 0;
     io->accept = io->connect = io->connectex = 0;
     io->recv = io->send = 0;
@@ -204,6 +205,11 @@ bool hio_is_opened(hio_t* io) {
     return io->ready == 1 && io->closed == 0;
 }
 
+bool hio_is_connected(hio_t* io) {
+    if (io == NULL) return false;
+    return io->ready == 1 && io->connected == 1 && io->closed == 0;
+}
+
 bool hio_is_closed(hio_t* io) {
     if (io == NULL) return true;
     return io->ready == 0 && io->closed == 1;
@@ -312,6 +318,7 @@ void hio_connect_cb(hio_t* io) {
             SOCKADDR_STR(io->localaddr, localaddrstr),
             SOCKADDR_STR(io->peeraddr, peeraddrstr));
     */
+    io->connected = 1;
     if (io->connect_cb) {
         // printd("connect_cb------\n");
         io->connect_cb(io);
@@ -419,6 +426,8 @@ void hio_write_cb(hio_t* io, const void* buf, int len) {
 }
 
 void hio_close_cb(hio_t* io) {
+    io->connected = 0;
+    io->closed = 1;
     if (io->close_cb) {
         // printd("close_cb------\n");
         io->close_cb(io);

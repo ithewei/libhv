@@ -271,6 +271,7 @@ HV_EXPORT struct sockaddr* hio_peeraddr (hio_t* io);
 HV_EXPORT void hio_set_context(hio_t* io, void* ctx);
 HV_EXPORT void* hio_context(hio_t* io);
 HV_EXPORT bool hio_is_opened(hio_t* io);
+HV_EXPORT bool hio_is_connected(hio_t* io);
 HV_EXPORT bool hio_is_closed(hio_t* io);
 
 // iobuf
