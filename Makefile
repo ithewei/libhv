@@ -69,6 +69,7 @@ examples: hmain_test htimer_test hloop_test \
 	websocket_client_test \
 	mqtt_sub \
 	mqtt_pub \
+	mqtt_client_test \
 	jsonrpc
 	@echo "make examples done."
 
@@ -180,6 +181,9 @@ mqtt_sub: prepare
 
 mqtt_pub: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) mqtt" SRCS="examples/mqtt/mqtt_pub.c"
+
+mqtt_client_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) mqtt" SRCS="examples/mqtt/mqtt_client_test.cpp"
 
 jsonrpc: jsonrpc_client jsonrpc_server
 
