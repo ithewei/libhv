@@ -691,6 +691,38 @@ typedef struct kcp_setting_s {
 #endif
 } kcp_setting_t;
 
+HV_INLINE void kcp_setting_init_with_normal_mode(kcp_setting_t* setting) {
+    memset(setting, 0, sizeof(kcp_setting_t));
+    setting->nodelay = 0;
+    setting->interval = 40;
+    setting->fastresend = 0;
+    setting->nocwnd = 0;
+}
+
+HV_INLINE void kcp_setting_init_with_fast_mode(kcp_setting_t* setting) {
+    memset(setting, 0, sizeof(kcp_setting_t));
+    setting->nodelay = 0;
+    setting->interval = 30;
+    setting->fastresend = 2;
+    setting->nocwnd = 1;
+}
+
+HV_INLINE void kcp_setting_init_with_fast2_mode(kcp_setting_t* setting) {
+    memset(setting, 0, sizeof(kcp_setting_t));
+    setting->nodelay = 1;
+    setting->interval = 20;
+    setting->fastresend = 2;
+    setting->nocwnd = 1;
+}
+
+HV_INLINE void kcp_setting_init_with_fast3_mode(kcp_setting_t* setting) {
+    memset(setting, 0, sizeof(kcp_setting_t));
+    setting->nodelay = 1;
+    setting->interval = 10;
+    setting->fastresend = 2;
+    setting->nocwnd = 1;
+}
+
 // @see examples/udp_echo_server.c => #define TEST_KCP 1
 HV_EXPORT int hio_set_kcp(hio_t* io, kcp_setting_t* setting DEFAULT(NULL));
 #endif
