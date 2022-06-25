@@ -133,6 +133,7 @@ public:
         }
 
         int ret = 0;
+        bool keepAlive = response->IsKeepAlive();
         if (state == SEND_CHUNKED) {
             if (buf) {
                 ret = WriteChunked(buf, len);
@@ -159,7 +160,7 @@ public:
         }
 
         state = SEND_END;
-        if (!response->IsKeepAlive()) {
+        if (!keepAlive) {
             close(true);
         }
         return ret;
