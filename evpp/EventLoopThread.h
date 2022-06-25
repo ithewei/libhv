@@ -16,11 +16,7 @@ public:
 
     EventLoopThread(EventLoopPtr loop = NULL) {
         setStatus(kInitializing);
-        if (loop) {
-            loop_ = loop;
-        } else {
-            loop_.reset(new EventLoop);
-        }
+        loop_ = loop ? loop : std::make_shared<EventLoop>();
         setStatus(kInitialized);
     }
 

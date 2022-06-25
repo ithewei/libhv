@@ -134,7 +134,6 @@ static void on_close(hio_t* io) {
 static void on_recv(hio_t* io, void* buf, int readbytes) {
     socks5_conn_t* conn = (socks5_conn_t*)hevent_userdata(io);
     const uint8_t* bytes = (uint8_t*)buf;
-    fprintf(stdout, "%d received\n", readbytes);
     switch(conn->state) {
     case s_begin:
         // printf("s_begin\n");
@@ -306,6 +305,7 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
                 conn->addr.sa.sa_family = AF_INET6;
                 memcpy(&conn->addr.sin6.sin6_addr, bytes, 16);
             } else {
+<<<<<<< HEAD
                 char* host = calloc(1, readbytes + 1);
                 if (host) {
                     memcpy(host, bytes, readbytes);
@@ -314,6 +314,17 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
                 if (!host || ResolveAddr(host, &conn->addr) != 0) {
                     fprintf(stderr, "Resovle %s failed!\n", host);
                     free(host);
+=======
+                char* host = NULL;
+                STACK_OR_HEAP_ALLOC(host, readbytes + 1, 256);
+                memcpy(host, bytes, readbytes);
+                host[readbytes] = '\0';
+                // TODO: async DNS
+                int ret = ResolveAddr(host, &conn->addr);
+                STACK_OR_HEAP_FREE(host);
+                if (ret != 0) {
+                    fprintf(stderr, "Resolve %.*s failed!\n", readbytes, (char*)bytes);
+>>>>>>> upstream/master
                     hio_close(io);
                     return;
                 }

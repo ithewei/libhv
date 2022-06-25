@@ -128,4 +128,31 @@ int HttpService::GetApi(HttpRequest* req, http_handler** handler) {
     return HTTP_STATUS_NOT_FOUND;
 }
 
+void HttpService::Static(const char* path, const char* dir) {
+    std::string strPath(path);
+    if (strPath.back() != '/') strPath += '/';
+    std::string strDir(dir);
+    if (strDir.back() == '/') strDir.pop_back();
+    staticDirs[strPath] = strDir;
+}
+
+std::string HttpService::GetStaticFilepath(const char* path) {
+    std::string filepath;
+    for (auto iter = staticDirs.begin(); iter != staticDirs.end(); ++iter) {
+        if (hv_strstartswith(path, iter->first.c_str())) {
+            filepath = iter->second + (path + iter->first.length() - 1);
+            break;
+        }
+    }
+
+    if (filepath.empty()) {
+        return filepath;
+    }
+
+    if (filepath.back() == '/') {
+        filepath += home_page;
+    }
+    return filepath;
+}
+
 }

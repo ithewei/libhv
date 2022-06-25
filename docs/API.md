@@ -106,6 +106,7 @@
 - hv_strstartswith
 - hv_strendswith
 - hv_strcontains
+- hv_strnchr
 - hv_strrchr_dot
 - hv_strrchr_dir
 - hv_basename
@@ -126,6 +127,7 @@
 - hv_getboolean
 - hv_parse_size
 - hv_parse_time
+- hv_parse_url
 
 ### hversion.h
 - hv_version
@@ -306,8 +308,10 @@
 - listdir
 
 ### hurl.h
-- url_escape
-- url_unescape
+- HUrl::escape
+- HUrl::unescape
+- HUrl::parse
+- HUrl::dump
 
 ### hscope.h
 - defer
@@ -624,7 +628,9 @@
 - mqtt_client_new_ssl_ctx
 - mqtt_client_set_reconnect
 - mqtt_client_reconnect
+- mqtt_client_set_connect_timeout
 - mqtt_client_connect
+- mqtt_client_is_connected
 - mqtt_client_disconnect
 - mqtt_client_publish
 - mqtt_client_subscribe

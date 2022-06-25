@@ -9,27 +9,28 @@
 namespace hv {
 
 template<class TSocketChannel = SocketChannel>
-class UdpClientTmpl {
+class UdpClientEventLoopTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
 
-    UdpClientTmpl() {
+    UdpClientEventLoopTmpl(EventLoopPtr loop = NULL) {
+        loop_ = loop ? loop : std::make_shared<EventLoop>();
 #if WITH_KCP
         enable_kcp = false;
 #endif
     }
 
-    virtual ~UdpClientTmpl() {
+    virtual ~UdpClientEventLoopTmpl() {
     }
 
     const EventLoopPtr& loop() {
-        return loop_thread.loop();
+        return loop_;
     }
 
     //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
     //@retval >=0 sockfd, <0 error
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
-        hio_t* io = hloop_create_udp_client(loop_thread.hloop(), remote_host, remote_port);
+        hio_t* io = hloop_create_udp_client(loop_->loop(), remote_host, remote_port);
         if (io == NULL) return -1;
         channel.reset(new TSocketChannel(io));
         return channel->fd();
@@ -61,12 +62,9 @@ public:
         return channel->startRead();
     }
 
-    void start(bool wait_threads_started = true) {
-        loop_thread.start(wait_threads_started, std::bind(&UdpClientTmpl::startRecv, this));
-    }
-    // stop thread-safe
-    void stop(bool wait_threads_stopped = true) {
-        loop_thread.stop(wait_threads_stopped);
+    // start thread-safe
+    void start() {
+        loop_->runInLoop(std::bind(&UdpClientEventLoopTmpl::startRecv, this));
     }
 
     // sendto thread-safe
@@ -107,7 +105,33 @@ public:
 
 private:
     std::mutex              sendto_mutex;
-    EventLoopThread         loop_thread;
+    EventLoopPtr            loop_;
+};
+
+template<class TSocketChannel = SocketChannel>
+class UdpClientTmpl : private EventLoopThread, public UdpClientEventLoopTmpl<TSocketChannel> {
+public:
+    UdpClientTmpl(EventLoopPtr loop = NULL)
+        : EventLoopThread()
+        , UdpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
+    {}
+    virtual ~UdpClientTmpl() {
+        stop(true);
+    }
+
+    const EventLoopPtr& loop() {
+        return EventLoopThread::loop();
+    }
+
+    // start thread-safe
+    void start(bool wait_threads_started = true) {
+        EventLoopThread::start(wait_threads_started, std::bind(&UdpClientTmpl::startRecv, this));
+    }
+
+    // stop thread-safe
+    void stop(bool wait_threads_stopped = true) {
+        EventLoopThread::stop(wait_threads_stopped);
+    }
 };
 
 typedef UdpClientTmpl<SocketChannel> UdpClient;

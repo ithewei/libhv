@@ -191,6 +191,10 @@ static void on_close(hio_t* io) {
         if (handler->protocol == HttpHandler::WEBSOCKET) {
             // onclose
             handler->WebSocketOnClose();
+        } else {
+            if (handler->writer && handler->writer->onclose) {
+                handler->writer->onclose();
+            }
         }
         hevent_set_userdata(io, NULL);
         delete handler;
@@ -263,6 +267,11 @@ static void loop_thread(void* userdata) {
         htimer_add(hloop, [](htimer_t* timer) {
             gmtime_fmt(hloop_now(hevent_loop(timer)), HttpMessage::s_date);
         }, 1000);
+
+        // document_root
+        if (service->document_root.size() > 0 && service->GetStaticFilepath("/").empty()) {
+            service->Static("/", service->document_root.c_str());
+        }
 
         // FileCache
         FileCache* filecache = &privdata->filecache;

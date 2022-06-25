@@ -115,7 +115,7 @@ typedef enum {
     HIO_CLIENT_SIDE  = 1,
 } hio_side_e;
 
-#define HIO_DEFAULT_CONNECT_TIMEOUT     5000    // ms
+#define HIO_DEFAULT_CONNECT_TIMEOUT     10000   // ms
 #define HIO_DEFAULT_CLOSE_TIMEOUT       60000   // ms
 #define HIO_DEFAULT_KEEPALIVE_TIMEOUT   75000   // ms
 #define HIO_DEFAULT_HEARTBEAT_INTERVAL  10000   // ms
@@ -185,8 +185,7 @@ HV_EXPORT hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT
 HV_EXPORT void     hidle_del(hidle_t* idle);
 
 // timer
-// @param timeout: unit(ms)
-HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat DEFAULT(INFINITE));
+HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout_ms, uint32_t repeat DEFAULT(INFINITE));
 /*
  * minute   hour    day     week    month       cb
  * 0~59     0~23    1~31    0~6     1~12
@@ -202,7 +201,7 @@ HV_EXPORT htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
                         int8_t week   DEFAULT(-1), int8_t month DEFAULT(-1), uint32_t repeat DEFAULT(INFINITE));
 
 HV_EXPORT void htimer_del(htimer_t* timer);
-HV_EXPORT void htimer_reset(htimer_t* timer);
+HV_EXPORT void htimer_reset(htimer_t* timer, uint32_t timeout_ms DEFAULT(0));
 
 // io
 //-----------------------low-level apis---------------------------------------
@@ -271,15 +270,23 @@ HV_EXPORT struct sockaddr* hio_peeraddr (hio_t* io);
 HV_EXPORT void hio_set_context(hio_t* io, void* ctx);
 HV_EXPORT void* hio_context(hio_t* io);
 HV_EXPORT bool hio_is_opened(hio_t* io);
+HV_EXPORT bool hio_is_connected(hio_t* io);
 HV_EXPORT bool hio_is_closed(hio_t* io);
+
+// iobuf
 // #include "hbuf.h"
 typedef struct fifo_buf_s hio_readbuf_t;
+// NOTE: One loop per thread, one readbuf per loop.
+// But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
+HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
 HV_EXPORT hio_readbuf_t* hio_get_readbuf(hio_t* io);
+HV_EXPORT void hio_set_max_read_bufsize (hio_t* io, uint32_t size);
+HV_EXPORT void hio_set_max_write_bufsize(hio_t* io, uint32_t size);
 // NOTE: hio_write is non-blocking, so there is a write queue inside hio_t to cache unwritten data and wait for writable.
 // @return current buffer size of write queue.
 HV_EXPORT size_t   hio_write_bufsize(hio_t* io);
-#define hio_write_queue_is_empty(io) (hio_write_bufsize(io) == 0)
-#define hio_write_is_complete(io)    (hio_write_bufsize(io) == 0)
+#define hio_write_is_complete(io) (hio_write_bufsize(io) == 0)
+
 HV_EXPORT uint64_t hio_last_read_time(hio_t* io);   // ms
 HV_EXPORT uint64_t hio_last_write_time(hio_t* io);  // ms
 
@@ -296,7 +303,6 @@ HV_EXPORT hread_cb    hio_getcb_read(hio_t* io);
 HV_EXPORT hwrite_cb   hio_getcb_write(hio_t* io);
 HV_EXPORT hclose_cb   hio_getcb_close(hio_t* io);
 
-// some useful settings
 // Enable SSL/TLS is so easy :)
 HV_EXPORT int  hio_enable_ssl(hio_t* io);
 HV_EXPORT bool hio_is_ssl(hio_t* io);
@@ -306,10 +312,10 @@ HV_EXPORT int  hio_set_ssl_ctx(hio_t* io, hssl_ctx_t ssl_ctx);
 HV_EXPORT int  hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt);
 HV_EXPORT hssl_t     hio_get_ssl(hio_t* io);
 HV_EXPORT hssl_ctx_t hio_get_ssl_ctx(hio_t* io);
+// for hssl_set_sni_hostname
+HV_EXPORT int         hio_set_hostname(hio_t* io, const char* hostname);
+HV_EXPORT const char* hio_get_hostname(hio_t* io);
 
-// NOTE: One loop per thread, one readbuf per loop.
-// But you can pass in your own readbuf instead of the default readbuf to avoid memcopy.
-HV_EXPORT void hio_set_readbuf(hio_t* io, void* buf, size_t len);
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
 // close timeout => hclose_cb
@@ -407,17 +413,17 @@ HV_EXPORT hio_t* hio_create_socket(hloop_t* loop, const char* host, int port,
 // @see examples/tcp_echo_server.c
 HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 
-// @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_connect
+// @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_setcb_close -> hio_connect
 // @see examples/nc.c
-HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
 
 // @ssl_server: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // @see examples/tcp_echo_server.c => #define TEST_SSL 1
 HV_EXPORT hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
 
-// @ssl_client: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_connect
+// @ssl_client: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_setcb_close -> hio_connect
 // @see examples/nc.c => #define TEST_SSL 1
-HV_EXPORT hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb);
+HV_EXPORT hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
 
 // @udp_server: hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_SERVER_SIDE)
 // @see examples/udp_echo_server.c

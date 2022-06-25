@@ -32,6 +32,7 @@ int main(int argc, char** argv) {
     if (port == 0) port = 8080;
 
     HttpService router;
+    router.Static("/", "./html");
     router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
         return resp->String("pong");
     });

@@ -131,7 +131,7 @@ public:
 
     // async
     int sendAsync(HttpRequestPtr req, HttpResponseCallback resp_cb = NULL) {
-        return http_client_send_async(_client, req, resp_cb);
+        return http_client_send_async(_client, req, std::move(resp_cb));
     }
 
     // close

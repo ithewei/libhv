@@ -338,6 +338,9 @@ int on_header_callback(nghttp2_session *session,
             HttpResponse* res = (HttpResponse*)hp->parsed;
             if (strcmp(name, ":status") == 0) {
                 res->status_code = (http_status)atoi(value);
+                if (res->http_cb) {
+                    res->http_cb(res, HP_MESSAGE_BEGIN, NULL, 0);
+                }
             }
         }
     }
@@ -369,7 +372,11 @@ int on_data_chunk_recv_callback(nghttp2_session *session,
             //printd("%.*s\n", (int)len, data);
         }
     }
-    hp->parsed->body.append((const char*)data, len);
+    if (hp->parsed->http_cb) {
+        hp->parsed->http_cb(hp->parsed, HP_BODY, (const char*)data, len);
+    } else {
+        hp->parsed->body.append((const char*)data, len);
+    }
     return 0;
 }
 
@@ -405,6 +412,13 @@ int on_frame_recv_callback(nghttp2_session *session,
             printd("on_stream_closed stream_id=%d\n", hp->stream_id);
             hp->stream_closed = 1;
             hp->frame_type_when_stream_closed = frame->hd.type;
+            if (hp->parsed->http_cb) {
+                if (hp->state == H2_RECV_HEADERS) {
+                    hp->parsed->http_cb(hp->parsed, HP_HEADERS_COMPLETE, NULL, 0);
+                } else if (hp->state == H2_RECV_DATA) {
+                    hp->parsed->http_cb(hp->parsed, HP_MESSAGE_COMPLETE, NULL, 0);
+                }
+            }
         }
     }
 

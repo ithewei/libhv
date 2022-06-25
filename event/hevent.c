@@ -88,6 +88,7 @@ void hio_ready(hio_t* io) {
     if (io->ready) return;
     // flags
     io->ready = 1;
+    io->connected = 0;
     io->closed = 0;
     io->accept = io->connect = io->connectex = 0;
     io->recv = io->send = 0;
@@ -106,9 +107,11 @@ void hio_ready(hio_t* io) {
     io->readbuf.head = io->readbuf.tail = 0;
     io->read_flags = 0;
     io->read_until_length = 0;
+    io->max_read_bufsize = MAX_READ_BUFSIZE;
     io->small_readbytes_cnt = 0;
     // write_queue
     io->write_bufsize = 0;
+    io->max_write_bufsize = MAX_WRITE_BUFSIZE;
     // callbacks
     io->read_cb = NULL;
     io->write_cb = NULL;
@@ -137,6 +140,7 @@ void hio_ready(hio_t* io) {
     io->ssl = NULL;
     io->ssl_ctx = NULL;
     io->alloced_ssl_ctx = 0;
+    io->hostname = NULL;
     // context
     io->ctx = NULL;
     // private:
@@ -201,6 +205,11 @@ bool hio_is_opened(hio_t* io) {
     return io->ready == 1 && io->closed == 0;
 }
 
+bool hio_is_connected(hio_t* io) {
+    if (io == NULL) return false;
+    return io->ready == 1 && io->connected == 1 && io->closed == 0;
+}
+
 bool hio_is_closed(hio_t* io) {
     if (io == NULL) return true;
     return io->ready == 0 && io->closed == 1;
@@ -244,14 +253,6 @@ void hio_set_context(hio_t* io, void* ctx) {
 
 void* hio_context(hio_t* io) {
     return io->ctx;
-}
-
-hio_readbuf_t* hio_get_readbuf(hio_t* io) {
-    return &io->readbuf;
-}
-
-size_t hio_write_bufsize(hio_t* io) {
-    return io->write_bufsize;
 }
 
 haccept_cb hio_getcb_accept(hio_t* io) {
@@ -317,6 +318,7 @@ void hio_connect_cb(hio_t* io) {
             SOCKADDR_STR(io->localaddr, localaddrstr),
             SOCKADDR_STR(io->peeraddr, peeraddrstr));
     */
+    io->connected = 1;
     if (io->connect_cb) {
         // printd("connect_cb------\n");
         io->connect_cb(io);
@@ -424,6 +426,8 @@ void hio_write_cb(hio_t* io, const void* buf, int len) {
 }
 
 void hio_close_cb(hio_t* io) {
+    io->connected = 0;
+    io->closed = 1;
     if (io->close_cb) {
         // printd("close_cb------\n");
         io->close_cb(io);
@@ -485,13 +489,14 @@ int hio_new_ssl_ctx(hio_t* io, hssl_ctx_opt_t* opt) {
     return hio_set_ssl_ctx(io, ssl_ctx);
 }
 
-void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
-    assert(io && buf && len != 0);
-    hio_free_readbuf(io);
-    io->readbuf.base = (char*)buf;
-    io->readbuf.len = len;
-    io->readbuf.head = io->readbuf.tail = 0;
-    io->alloced_readbuf = 0;
+int hio_set_hostname(hio_t* io, const char* hostname) {
+    SAFE_FREE(io->hostname);
+    io->hostname = strdup(hostname);
+    return 0;
+}
+
+const char* hio_get_hostname(hio_t* io) {
+    return io->hostname;
 }
 
 void hio_del_connect_timer(hio_t* io) {
@@ -555,8 +560,7 @@ static void __read_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
     uint64_t inactive_ms = (io->loop->cur_hrtime - io->last_read_hrtime) / 1000;
     if (inactive_ms + 100 < io->read_timeout) {
-        ((struct htimeout_s*)io->read_timer)->timeout = io->read_timeout - inactive_ms;
-        htimer_reset(io->read_timer);
+        htimer_reset(io->read_timer, io->read_timeout - inactive_ms);
     } else {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -577,8 +581,7 @@ void hio_set_read_timeout(hio_t* io, int timeout_ms) {
 
     if (io->read_timer) {
         // reset
-        ((struct htimeout_s*)io->read_timer)->timeout = timeout_ms;
-        htimer_reset(io->read_timer);
+        htimer_reset(io->read_timer, timeout_ms);
     } else {
         // add
         io->read_timer = htimer_add(io->loop, __read_timeout_cb, timeout_ms, 1);
@@ -591,8 +594,7 @@ static void __write_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
     uint64_t inactive_ms = (io->loop->cur_hrtime - io->last_write_hrtime) / 1000;
     if (inactive_ms + 100 < io->write_timeout) {
-        ((struct htimeout_s*)io->write_timer)->timeout = io->write_timeout - inactive_ms;
-        htimer_reset(io->write_timer);
+        htimer_reset(io->write_timer, io->write_timeout - inactive_ms);
     } else {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -613,8 +615,7 @@ void hio_set_write_timeout(hio_t* io, int timeout_ms) {
 
     if (io->write_timer) {
         // reset
-        ((struct htimeout_s*)io->write_timer)->timeout = timeout_ms;
-        htimer_reset(io->write_timer);
+        htimer_reset(io->write_timer, timeout_ms);
     } else {
         // add
         io->write_timer = htimer_add(io->loop, __write_timeout_cb, timeout_ms, 1);
@@ -628,8 +629,7 @@ static void __keepalive_timeout_cb(htimer_t* timer) {
     uint64_t last_rw_hrtime = MAX(io->last_read_hrtime, io->last_write_hrtime);
     uint64_t inactive_ms = (io->loop->cur_hrtime - last_rw_hrtime) / 1000;
     if (inactive_ms + 100 < io->keepalive_timeout) {
-        ((struct htimeout_s*)io->keepalive_timer)->timeout = io->keepalive_timeout - inactive_ms;
-        htimer_reset(io->keepalive_timer);
+        htimer_reset(io->keepalive_timer, io->keepalive_timeout - inactive_ms);
     } else {
         char localaddrstr[SOCKADDR_STRLEN] = {0};
         char peeraddrstr[SOCKADDR_STRLEN] = {0};
@@ -650,8 +650,7 @@ void hio_set_keepalive_timeout(hio_t* io, int timeout_ms) {
 
     if (io->keepalive_timer) {
         // reset
-        ((struct htimeout_s*)io->keepalive_timer)->timeout = timeout_ms;
-        htimer_reset(io->keepalive_timer);
+        htimer_reset(io->keepalive_timer, timeout_ms);
     } else {
         // add
         io->keepalive_timer = htimer_add(io->loop, __keepalive_timeout_cb, timeout_ms, 1);
@@ -676,8 +675,7 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
 
     if (io->heartbeat_timer) {
         // reset
-        ((struct htimeout_s*)io->heartbeat_timer)->timeout = interval_ms;
-        htimer_reset(io->heartbeat_timer);
+        htimer_reset(io->heartbeat_timer, interval_ms);
     } else {
         // add
         io->heartbeat_timer = htimer_add(io->loop, __heartbeat_timer_cb, interval_ms, INFINITE);
@@ -687,9 +685,10 @@ void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_fn fn) {
     io->heartbeat_fn = fn;
 }
 
+//-----------------iobuf---------------------------------------------
 void hio_alloc_readbuf(hio_t* io, int len) {
-    if (len > MAX_READ_BUFSIZE) {
-        hloge("read bufsize > %u, close it!", (unsigned int)MAX_READ_BUFSIZE);
+    if (len > io->max_read_bufsize) {
+        hloge("read bufsize > %u, close it!", io->max_read_bufsize);
         io->error = ERR_OVER_LIMIT;
         hio_close_async(io);
         return;
@@ -712,6 +711,31 @@ void hio_free_readbuf(hio_t* io) {
         io->readbuf.base = io->loop->readbuf.base;
         io->readbuf.len = io->loop->readbuf.len;
     }
+}
+
+void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
+    assert(io && buf && len != 0);
+    hio_free_readbuf(io);
+    io->readbuf.base = (char*)buf;
+    io->readbuf.len = len;
+    io->readbuf.head = io->readbuf.tail = 0;
+    io->alloced_readbuf = 0;
+}
+
+hio_readbuf_t* hio_get_readbuf(hio_t* io) {
+    return &io->readbuf;
+}
+
+void hio_set_max_read_bufsize (hio_t* io, uint32_t size) {
+    io->max_read_bufsize = size;
+}
+
+void hio_set_max_write_bufsize(hio_t* io, uint32_t size) {
+    io->max_write_bufsize = size;
+}
+
+size_t hio_write_bufsize(hio_t* io) {
+    return io->write_bufsize;
 }
 
 int hio_read_once (hio_t* io) {
@@ -806,8 +830,9 @@ void hio_set_unpack(hio_t* io, unpack_setting_t* setting) {
     if (io->unpack_setting->mode == UNPACK_BY_FIXED_LENGTH) {
         io->readbuf.len = io->unpack_setting->fixed_length;
     } else {
-        io->readbuf.len = HLOOP_READ_BUFSIZE;
+        io->readbuf.len = MIN(HLOOP_READ_BUFSIZE, io->unpack_setting->package_max_length);
     }
+    io->max_read_bufsize = io->unpack_setting->package_max_length;
     hio_alloc_readbuf(io, io->readbuf.len);
 }
 

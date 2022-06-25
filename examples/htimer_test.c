@@ -20,7 +20,7 @@ void on_timer_del(htimer_t* timer) {
 // test htimer_reset
 void on_timer_reset(htimer_t* timer) {
     printf("time=%llus on_timer_reset\n", LLU(hloop_now(hevent_loop(timer))));
-    htimer_reset((htimer_t*)hevent_userdata(timer));
+    htimer_reset((htimer_t*)hevent_userdata(timer), 0);
 }
 
 // test hloop_stop

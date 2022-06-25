@@ -17,7 +17,7 @@
 #define READ_BUFSIZE_HIGH_WATER     65536       // 64K
 #define WRITE_BUFSIZE_HIGH_WATER    (1U << 23)  // 8M
 #define MAX_READ_BUFSIZE            (1U << 24)  // 16M
-#define MAX_WRITE_BUFSIZE           (1U << 26)  // 64M
+#define MAX_WRITE_BUFSIZE           (1U << 24)  // 16M
 
 // hio_read_flags
 #define HIO_READ_ONCE           0x1
@@ -98,11 +98,12 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=408 on linux-x64
+// sizeof(struct hio_s)=416 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
     unsigned    ready       :1;
+    unsigned    connected   :1;
     unsigned    closed      :1;
     unsigned    accept      :1;
     unsigned    connect     :1;
@@ -133,11 +134,13 @@ struct hio_s {
         unsigned int    read_until_length;
         unsigned char   read_until_delim;
     };
+    uint32_t            max_read_bufsize;
     uint32_t            small_readbytes_cnt; // for readbuf autosize
     // write
     struct write_queue  write_queue;
     hrecursive_mutex_t  write_mutex; // lock write and write_queue
     uint32_t            write_bufsize;
+    uint32_t            max_write_bufsize;
     // callbacks
     hread_cb    read_cb;
     hwrite_cb   write_cb;
@@ -165,6 +168,7 @@ struct hio_s {
     // ssl
     void*       ssl;        // for hio_set_ssl
     void*       ssl_ctx;    // for hio_set_ssl_ctx
+    char*       hostname;   // for hssl_set_sni_hostname
     // context
     void*       ctx; // for hio_context / hio_set_context
 // private:

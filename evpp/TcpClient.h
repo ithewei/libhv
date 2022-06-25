@@ -11,49 +11,52 @@
 namespace hv {
 
 template<class TSocketChannel = SocketChannel>
-class TcpClientTmpl {
+class TcpClientEventLoopTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
 
-    TcpClientTmpl() {
-        connect_timeout = 5000;
+    TcpClientEventLoopTmpl(EventLoopPtr loop = NULL) {
+        loop_ = loop ? loop : std::make_shared<EventLoop>();
+        connect_timeout = HIO_DEFAULT_CONNECT_TIMEOUT;
         tls = false;
         tls_setting = NULL;
         reconn_setting = NULL;
         unpack_setting = NULL;
     }
 
-    virtual ~TcpClientTmpl() {
+    virtual ~TcpClientEventLoopTmpl() {
         HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
     }
 
     const EventLoopPtr& loop() {
-        return loop_thread.loop();
+        return loop_;
     }
 
     //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
     //@retval >=0 connfd, <0 error
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
-        memset(&peeraddr, 0, sizeof(peeraddr));
-        int ret = sockaddr_set_ipport(&peeraddr, remote_host, remote_port);
+        memset(&remote_addr, 0, sizeof(remote_addr));
+        int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
         if (ret != 0) {
             return -1;
         }
-        return createsocket(&peeraddr.sa);
+        this->remote_host = remote_host;
+        this->remote_port = remote_port;
+        return createsocket(&remote_addr.sa);
     }
-    int createsocket(struct sockaddr* peeraddr) {
-        int connfd = socket(peeraddr->sa_family, SOCK_STREAM, 0);
-        // SOCKADDR_PRINT(peeraddr);
+    int createsocket(struct sockaddr* remote_addr) {
+        int connfd = socket(remote_addr->sa_family, SOCK_STREAM, 0);
+        // SOCKADDR_PRINT(remote_addr);
         if (connfd < 0) {
             perror("socket");
             return -2;
         }
 
-        hio_t* io = hio_get(loop_thread.hloop(), connfd);
+        hio_t* io = hio_get(loop_->loop(), connfd);
         assert(io != NULL);
-        hio_set_peeraddr(io, peeraddr, SOCKADDR_LEN(peeraddr));
+        hio_set_peeraddr(io, remote_addr, SOCKADDR_LEN(remote_addr));
         channel.reset(new TSocketChannel(io));
         return connfd;
     }
@@ -74,6 +77,9 @@ public:
             channel->enableSSL();
             if (tls_setting) {
                 channel->newSslCtx(tls_setting);
+            }
+            if (!is_ipaddr(remote_host.c_str())) {
+                channel->setHostname(remote_host);
             }
         }
         channel->onconnect = [this]() {
@@ -118,21 +124,17 @@ public:
         if (!reconn_setting) return -1;
         if (!reconn_setting_can_retry(reconn_setting)) return -2;
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
-        loop_thread.loop()->setTimeout(delay, [this](TimerID timerID){
+        loop_->setTimeout(delay, [this](TimerID timerID){
             hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
-            if (createsocket(&peeraddr.sa) < 0) return;
+            if (createsocket(&remote_addr.sa) < 0) return;
             startConnect();
         });
         return 0;
     }
 
-    void start(bool wait_threads_started = true) {
-        loop_thread.start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
-    }
-    // stop thread-safe
-    void stop(bool wait_threads_stopped = true) {
-        setReconnect(NULL);
-        loop_thread.stop(wait_threads_stopped);
+    // start thread-safe
+    void start() {
+        loop_->runInLoop(std::bind(&TcpClientEventLoopTmpl::startConnect, this));
     }
 
     bool isConnected() {
@@ -196,7 +198,9 @@ public:
 public:
     TSocketChannelPtr       channel;
 
-    sockaddr_u              peeraddr;
+    std::string             remote_host;
+    int                     remote_port;
+    sockaddr_u              remote_addr;
     int                     connect_timeout;
     bool                    tls;
     hssl_ctx_opt_t*         tls_setting;
@@ -210,7 +214,34 @@ public:
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
 private:
-    EventLoopThread         loop_thread;
+    EventLoopPtr            loop_;
+};
+
+template<class TSocketChannel = SocketChannel>
+class TcpClientTmpl : private EventLoopThread, public TcpClientEventLoopTmpl<TSocketChannel> {
+public:
+    TcpClientTmpl(EventLoopPtr loop = NULL)
+        : EventLoopThread()
+        , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
+    {}
+    virtual ~TcpClientTmpl() {
+        stop(true);
+    }
+
+    const EventLoopPtr& loop() {
+        return EventLoopThread::loop();
+    }
+
+    // start thread-safe
+    void start(bool wait_threads_started = true) {
+        EventLoopThread::start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
+    }
+
+    // stop thread-safe
+    void stop(bool wait_threads_stopped = true) {
+        TcpClientTmpl::setReconnect(NULL);
+        EventLoopThread::stop(wait_threads_stopped);
+    }
 };
 
 typedef TcpClientTmpl<SocketChannel> TcpClient;

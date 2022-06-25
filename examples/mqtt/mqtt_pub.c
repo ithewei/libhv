@@ -14,7 +14,7 @@
  * @test    MQTTS
  * #define  TEST_SSL 1
  *
- * @build   ./configure --with-openssl && make clean && make
+ * @build   ./configure --with-mqtt --with-openssl && make clean && make
  *
  */
 #define TEST_SSL        0

@@ -80,6 +80,8 @@ HV_EXPORT char* hv_strncat(char* dest, const char* src, size_t n);
 #define strlcat hv_strncat
 #endif
 
+HV_EXPORT char* hv_strnchr(const char* s, char c, size_t n);
+
 #define hv_strrchr_dot(str) strrchr(str, '.')
 HV_EXPORT char* hv_strrchr_dir(const char* filepath);
 
@@ -112,6 +114,29 @@ HV_EXPORT bool   hv_getboolean(const char* str);
 HV_EXPORT size_t hv_parse_size(const char* str);
 // 1w2d3h4m5s => ?s
 HV_EXPORT time_t hv_parse_time(const char* str);
+
+// scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
+typedef enum {
+    HV_URL_SCHEME,
+    HV_URL_USERNAME,
+    HV_URL_PASSWORD,
+    HV_URL_HOST,
+    HV_URL_PORT,
+    HV_URL_PATH,
+    HV_URL_QUERY,
+    HV_URL_FRAGMENT,
+    HV_URL_FIELD_NUM,
+} hurl_field_e;
+
+typedef struct hurl_s {
+    struct {
+        unsigned short off;
+        unsigned short len;
+    } fields[HV_URL_FIELD_NUM];
+    unsigned short port;
+} hurl_t;
+
+HV_EXPORT int hv_parse_url(hurl_t* stURL, const char* strURL);
 
 END_EXTERN_C
 

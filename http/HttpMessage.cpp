@@ -5,12 +5,12 @@
 #include "htime.h"
 #include "hlog.h"
 #include "hurl.h"
-#include "http_parser.h" // for http_parser_url
 
 using namespace hv;
 
 http_headers DefaultHeaders;
 http_body    NoBody;
+HttpCookie   NoCookie;
 char HttpMessage::s_date[32] = {0};
 
 bool HttpCookie::parse(const std::string& str) {
@@ -527,15 +527,14 @@ query:
 
 void HttpRequest::ParseUrl() {
     DumpUrl();
-    http_parser_url parser;
-    http_parser_url_init(&parser);
-    http_parser_parse_url(url.c_str(), url.size(), 0, &parser);
+    hurl_t parser;
+    hv_parse_url(&parser, url.c_str());
     // scheme
-    std::string scheme_ = url.substr(parser.field_data[UF_SCHEMA].off, parser.field_data[UF_SCHEMA].len);
+    std::string scheme_ = url.substr(parser.fields[HV_URL_SCHEME].off, parser.fields[HV_URL_SCHEME].len);
     // host
     std::string host_(host);
-    if (parser.field_set & (1<<UF_HOST)) {
-        host_ = url.substr(parser.field_data[UF_HOST].off, parser.field_data[UF_HOST].len);
+    if (parser.fields[HV_URL_HOST].len > 0) {
+        host_ = url.substr(parser.fields[HV_URL_HOST].off, parser.fields[HV_URL_HOST].len);
     }
     // port
     int port_ = parser.port ? parser.port : strcmp(scheme_.c_str(), "https") ? DEFAULT_HTTP_PORT : DEFAULT_HTTPS_PORT;
@@ -546,12 +545,12 @@ void HttpRequest::ParseUrl() {
     }
     FillHost(host_.c_str(), port_);
     // path
-    if (parser.field_set & (1<<UF_PATH)) {
-        path = url.substr(parser.field_data[UF_PATH].off);
+    if (parser.fields[HV_URL_PATH].len > 0) {
+        path = url.substr(parser.fields[HV_URL_PATH].off);
     }
     // query
-    if (parser.field_set & (1<<UF_QUERY)) {
-        parse_query_params(url.c_str()+parser.field_data[UF_QUERY].off, query_params);
+    if (parser.fields[HV_URL_QUERY].len > 0) {
+        parse_query_params(url.c_str()+parser.fields[HV_URL_QUERY].off, query_params);
     }
 }
 
@@ -559,8 +558,7 @@ std::string HttpRequest::Path() {
     const char* s = path.c_str();
     const char* e = s;
     while (*e && *e != '?' && *e != '#') ++e;
-    std::string path_no_query(s, e);
-    return url_unescape(path_no_query.c_str());
+    return HUrl::unescape(std::string(s, e));
 }
 
 void HttpRequest::FillHost(const char* host, int port) {
