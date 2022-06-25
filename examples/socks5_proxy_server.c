@@ -317,7 +317,6 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
                     hio_close(io);
                     return;
                 }
-                free(host);
             }
             conn->state = s_dst_port;
             hio_readbytes(io, 2);
