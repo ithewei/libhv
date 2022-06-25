@@ -186,6 +186,7 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
         req->host = cli->host;
         req->port = cli->port;
     }
+    req->ParseUrl();
 
     bool https = req->IsHttps();
     bool use_proxy = https ? (!cli->https_proxy_host.empty()) : (!cli->http_proxy_host.empty());
@@ -240,19 +241,8 @@ int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
 int http_client_send(HttpRequest* req, HttpResponse* resp) {
     if (!req || !resp) return ERR_NULL_POINTER;
 
-    if (req->timeout == 0) {
-        req->timeout = DEFAULT_HTTP_TIMEOUT;
-    }
-
     http_client_t cli;
-    int ret = __http_client_send(&cli, req, resp);
-    if (ret != 0) return ret;
-
-    // redirect
-    if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
-        return http_client_redirect(req, resp);
-    }
-    return ret;
+    return http_client_send(&cli, req, resp);
 }
 
 #ifdef WITH_CURL
@@ -279,6 +269,9 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
             resp->http_major = http_major;
             resp->http_minor = http_minor;
             resp->status_code = (http_status)status_code;
+            if (resp->http_cb) {
+                resp->http_cb(resp, HP_MESSAGE_BEGIN, NULL, 0);
+            }
         }
     }
     else {
@@ -390,6 +383,9 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
         curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, req->body.size());
     }
 
+    if (req->connect_timeout > 0) {
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, req->connect_timeout);
+    }
     if (req->timeout > 0) {
         curl_easy_setopt(curl, CURLOPT_TIMEOUT, req->timeout);
     }
@@ -425,6 +421,10 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
         curl_formfree(httppost);
     }
     */
+
+    if (resp->http_cb) {
+        resp->http_cb(resp, HP_MESSAGE_COMPLETE, NULL, 0);
+    }
 
     return ret;
 }
@@ -496,9 +496,8 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
     time_t cur_time;
     int fail_cnt = 0;
     if (connfd <= 0) {
-        req->ParseUrl();
 connect:
-        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, req->timeout);
+        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, MIN(req->connect_timeout, req->timeout));
         if (connfd < 0) {
             return connfd;
         }
@@ -605,13 +604,13 @@ static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, Http
         cli->mutex_.unlock();
     }
 
-    return cli->async_client_->send(req, resp_cb);
+    return cli->async_client_->send(req, std::move(resp_cb));
 }
 
 int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
     if (!cli || !req) return ERR_NULL_POINTER;
     http_client_make_request(cli, req.get());
-    return __http_client_send_async(cli, req, resp_cb);
+    return __http_client_send_async(cli, req, std::move(resp_cb));
 }
 
 static http_client_t* __get_default_async_client();
@@ -643,5 +642,5 @@ int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
         req->timeout = DEFAULT_HTTP_TIMEOUT;
     }
 
-    return __http_client_send_async(__get_default_async_client(), req, resp_cb);
+    return __http_client_send_async(__get_default_async_client(), req, std::move(resp_cb));
 }

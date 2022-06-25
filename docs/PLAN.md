@@ -22,8 +22,10 @@
 - js binding
 - hrpc = libhv + protobuf
 - rudp: FEC, ARQ, KCP, UDT, QUIC
+- kcptun
 - have a taste of io_uring
 - coroutine
+- cppsocket.io
 - IM-libhv
 - MediaServer-libhv
 - GameServer-libhv

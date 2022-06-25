@@ -19,6 +19,7 @@ bin/sha1
 bin/defer_test
 bin/hstring_test
 bin/hpath_test
+bin/hurl_test
 # bin/hatomic_test
 # bin/hatomic_cpp_test
 # bin/hthread_test

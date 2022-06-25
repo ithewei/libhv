@@ -94,6 +94,7 @@ typedef std::string                                             http_body;
 
 HV_EXPORT extern http_headers DefaultHeaders;
 HV_EXPORT extern http_body    NoBody;
+HV_EXPORT extern HttpCookie   NoCookie;
 
 class HV_EXPORT HttpMessage {
 public:
@@ -343,6 +344,15 @@ public:
         cookies.push_back(cookie);
     }
 
+    const HttpCookie& GetCookie(const std::string& name) {
+        for (auto iter = cookies.begin(); iter != cookies.end(); ++iter) {
+            if (iter->name == name) {
+                return *iter;
+            }
+        }
+        return NoCookie;
+    }
+
     int String(const std::string& str) {
         content_type = TEXT_PLAIN;
         body = str;
@@ -385,6 +395,7 @@ public:
 
 #define DEFAULT_HTTP_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36"
 #define DEFAULT_HTTP_TIMEOUT            60 // s
+#define DEFAULT_HTTP_CONNECT_TIMEOUT    10 // s
 #define DEFAULT_HTTP_FAIL_RETRY_COUNT   1
 #define DEFAULT_HTTP_FAIL_RETRY_DELAY   1000 // ms
 
@@ -402,9 +413,10 @@ public:
     // client_addr
     hv::NetAddr         client_addr; // for http server save client addr of request
     // for HttpClient
-    int                 timeout;     // unit: s
-    int                 retry_count; // just for AsyncHttpClient fail retry
-    int                 retry_delay; // just for AsyncHttpClient fail retry
+    uint16_t            timeout;        // unit: s
+    uint16_t            connect_timeout;// unit: s
+    uint32_t            retry_count;    // just for AsyncHttpClient fail retry
+    uint32_t            retry_delay;    // just for AsyncHttpClient fail retry
     unsigned            redirect: 1;
     unsigned            proxy   : 1;
 
@@ -422,6 +434,7 @@ public:
         port = DEFAULT_HTTP_PORT;
         path = "/";
         timeout = DEFAULT_HTTP_TIMEOUT;
+        connect_timeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
         retry_count = DEFAULT_HTTP_FAIL_RETRY_COUNT;
         retry_delay = DEFAULT_HTTP_FAIL_RETRY_DELAY;
         redirect = 1;
@@ -501,16 +514,6 @@ public:
         from = to = 0;
         return false;
     }
-
-    // Cookie:
-    void SetCookie(const HttpCookie& cookie) {
-        headers["Cookie"] = cookie.dump();
-    }
-    bool GetCookie(HttpCookie& cookie) {
-        std::string str = GetHeader("Cookie");
-        if (str.empty()) return false;
-        return cookie.parse(str);
-    }
 };
 
 class HV_EXPORT HttpResponse : public HttpMessage {
@@ -548,16 +551,6 @@ public:
         }
         from = to = total = 0;
         return false;
-    }
-
-    // Set-Cookie
-    void SetCookie(const HttpCookie& cookie) {
-        headers["Set-Cookie"] = cookie.dump();
-    }
-    bool GetCookie(HttpCookie& cookie) {
-        std::string str = GetHeader("Set-Cookie");
-        if (str.empty()) return false;
-        return cookie.parse(str);
     }
 };
 

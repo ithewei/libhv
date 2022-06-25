@@ -79,19 +79,25 @@ static void test_requests() {
     }
 
     // Content-Type: multipart/form-data
-    requests::Request req(new HttpRequest);
-    req->method = HTTP_POST;
-    req->url = "http://127.0.0.1:8080/echo";
-    req->content_type = MULTIPART_FORM_DATA;
-    req->SetFormData("username", "admin");
-    req->SetFormFile("avatar", "avatar.jpg");
-    resp = requests::request(req);
+    std::map<std::string, std::string> params;
+    params["user"] = "admin";
+    params["pswd"] = "123456";
+    resp = requests::uploadFormFile("http://127.0.0.1:8080/echo", "avatar", "avatar.jpg", params);
     if (resp == NULL) {
-        printf("request failed!\n");
+        printf("uploadFormFile failed!\n");
     } else {
         printf("%d %s\r\n", resp->status_code, resp->status_message());
         printf("%s\n", resp->body.c_str());
     }
+
+    /*
+    size_t filesize = requests::downloadFile("http://www.example.com/index.html", "index.html");
+    if (filesize == 0) {
+        printf("downloadFile failed!\n");
+    } else {
+        printf("downloadFile success!\n");
+    }
+    */
 
     // async
     /*

@@ -139,7 +139,7 @@ HV_EXPORT int Connect(const char* host, int port, int nonblock DEFAULT(0));
 // Connect(host, port, 1)
 HV_EXPORT int ConnectNonblock(const char* host, int port);
 // Connect(host, port, 1) -> select -> blocking
-#define DEFAULT_CONNECT_TIMEOUT 5000 // ms
+#define DEFAULT_CONNECT_TIMEOUT 10000 // ms
 HV_EXPORT int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
 
 #ifdef ENABLE_UDS

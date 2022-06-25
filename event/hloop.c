@@ -599,18 +599,18 @@ void hidle_del(hidle_t* idle) {
     EVENT_DEL(idle);
 }
 
-htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t repeat) {
-    if (timeout == 0)   return NULL;
+htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout_ms, uint32_t repeat) {
+    if (timeout_ms == 0)   return NULL;
     htimeout_t* timer;
     HV_ALLOC_SIZEOF(timer);
     timer->event_type = HEVENT_TYPE_TIMEOUT;
     timer->priority = HEVENT_HIGHEST_PRIORITY;
     timer->repeat = repeat;
-    timer->timeout = timeout;
+    timer->timeout = timeout_ms;
     hloop_update_time(loop);
-    timer->next_timeout = loop->cur_hrtime + (uint64_t)timeout*1000;
+    timer->next_timeout = loop->cur_hrtime + (uint64_t)timeout_ms * 1000;
     // NOTE: Limit granularity to 100ms
-    if (timeout >= 1000 && timeout % 100 == 0) {
+    if (timeout_ms >= 1000 && timeout_ms % 100 == 0) {
         timer->next_timeout = timer->next_timeout / 100000 * 100000;
     }
     heap_insert(&loop->timers, &timer->node);
@@ -619,7 +619,7 @@ htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout, uint32_t rep
     return (htimer_t*)timer;
 }
 
-void htimer_reset(htimer_t* timer) {
+void htimer_reset(htimer_t* timer, uint32_t timeout_ms) {
     if (timer->event_type != HEVENT_TYPE_TIMEOUT) {
         return;
     }
@@ -633,7 +633,10 @@ void htimer_reset(htimer_t* timer) {
     if (timer->repeat == 0) {
         timer->repeat = 1;
     }
-    timer->next_timeout = loop->cur_hrtime + (uint64_t)timeout->timeout*1000;
+    if (timeout_ms > 0) {
+        timeout->timeout = timeout_ms;
+    }
+    timer->next_timeout = loop->cur_hrtime + (uint64_t)timeout->timeout * 1000;
     // NOTE: Limit granularity to 100ms
     if (timeout->timeout >= 1000 && timeout->timeout % 100 == 0) {
         timer->next_timeout = timer->next_timeout / 100000 * 100000;
@@ -980,10 +983,11 @@ hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, hacce
     return io;
 }
 
-hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
+hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb) {
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) return NULL;
     hio_setcb_connect(io, connect_cb);
+    hio_setcb_close(io, close_cb);
     if (hio_connect(io) != 0) return NULL;
     return io;
 }
@@ -996,10 +1000,11 @@ hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, hacce
     return io;
 }
 
-hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb) {
+hio_t* hloop_create_ssl_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb) {
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_CLIENT_SIDE);
     if (io == NULL) return NULL;
     hio_setcb_connect(io, connect_cb);
+    hio_setcb_close(io, close_cb);
     if (hio_connect(io) != 0) return NULL;
     return io;
 }

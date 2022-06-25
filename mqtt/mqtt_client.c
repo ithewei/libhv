@@ -168,6 +168,7 @@ static void reconnect_timer_cb(htimer_t* timer) {
 
 static void on_close(hio_t* io) {
     mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(io);
+    cli->connected = 0;
     if (cli->cb) {
         cli->head.type = MQTT_TYPE_DISCONNECT;
         cli->cb(cli, cli->head.type);
@@ -206,6 +207,7 @@ static void on_packet(hio_t* io, void* buf, int len) {
             hio_close(io);
             return;
         }
+        cli->connected = 1;
         if (cli->keepalive) {
             hio_set_heartbeat(io, cli->keepalive * 1000, mqtt_send_ping);
         }
@@ -452,6 +454,10 @@ int mqtt_client_reconnect(mqtt_client_t* cli) {
     return 0;
 }
 
+void mqtt_client_set_connect_timeout(mqtt_client_t* cli, int ms) {
+    cli->connect_timeout = ms;
+}
+
 int mqtt_client_connect(mqtt_client_t* cli, const char* host, int port, int ssl) {
     if (!cli) return -1;
     hv_strncpy(cli->host, host, sizeof(cli->host));
@@ -465,11 +471,18 @@ int mqtt_client_connect(mqtt_client_t* cli, const char* host, int port, int ssl)
         }
         hio_enable_ssl(io);
     }
+    if (cli->connect_timeout > 0) {
+        hio_set_connect_timeout(io, cli->connect_timeout);
+    }
     cli->io = io;
     hevent_set_userdata(io, cli);
     hio_setcb_connect(io, on_connect);
     hio_setcb_close(io, on_close);
     return hio_connect(io);
+}
+
+bool mqtt_client_is_connected(mqtt_client_t* cli) {
+    return cli && cli->connected;
 }
 
 int mqtt_client_disconnect(mqtt_client_t* cli) {
@@ -482,6 +495,7 @@ int mqtt_client_disconnect(mqtt_client_t* cli) {
 
 int mqtt_client_publish(mqtt_client_t* cli, mqtt_message_t* msg) {
     if (!cli || !cli->io || !msg) return -1;
+    if (!cli->connected) return -2;
     int topic_len = msg->topic_len ? msg->topic_len : strlen(msg->topic);
     int payload_len = msg->payload_len ? msg->payload_len : strlen(msg->payload);
     int len = 2 + topic_len + payload_len;
@@ -527,6 +541,7 @@ unlock:
 
 int mqtt_client_subscribe(mqtt_client_t* cli, const char* topic, int qos) {
     if (!cli || !cli->io || !topic) return -1;
+    if (!cli->connected) return -2;
     int topic_len = strlen(topic);
     int len = 2 + 2 + topic_len + 1;
 
@@ -554,6 +569,7 @@ int mqtt_client_subscribe(mqtt_client_t* cli, const char* topic, int qos) {
 
 int mqtt_client_unsubscribe(mqtt_client_t* cli, const char* topic) {
     if (!cli || !cli->io || !topic) return -1;
+    if (!cli->connected) return -2;
     int topic_len = strlen(topic);
     int len = 2 + 2 + topic_len;
 

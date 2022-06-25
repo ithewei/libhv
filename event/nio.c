@@ -212,6 +212,9 @@ static void nio_connect(hio_t* io) {
                 }
                 io->ssl = ssl;
             }
+            if (io->hostname) {
+                hssl_set_sni_hostname(io->ssl, io->hostname);
+            }
             ssl_client_handshake(io);
         }
         else {
@@ -498,12 +501,10 @@ enqueue:
         hio_add(io, hio_handle_events, HV_WRITE);
     }
     if (nwrite < len) {
-        if (io->write_bufsize + len - nwrite > MAX_WRITE_BUFSIZE) {
-            if (io->write_bufsize > MAX_WRITE_BUFSIZE) {
-                hloge("write bufsize > %u, close it!", (unsigned int)MAX_WRITE_BUFSIZE);
-                io->error = ERR_OVER_LIMIT;
-                goto write_error;
-            }
+        if (io->write_bufsize + len - nwrite > io->max_write_bufsize) {
+            hloge("write bufsize > %u, close it!", io->max_write_bufsize);
+            io->error = ERR_OVER_LIMIT;
+            goto write_error;
         }
         offset_buf_t remain;
         remain.len = len - nwrite;
@@ -574,6 +575,7 @@ int hio_close (hio_t* io) {
         hssl_ctx_free(io->ssl_ctx);
         io->ssl_ctx = NULL;
     }
+    SAFE_FREE(io->hostname);
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     }

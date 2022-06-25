@@ -2154,6 +2154,7 @@ http_errno_description(enum http_errno err) {
   return http_strerror_tab[err].description;
 }
 
+#ifdef WITH_HTTP_PRASER_URL
 static enum http_host_state
 http_parse_host_char(enum http_host_state s, const char ch) {
   switch(s) {
@@ -2445,6 +2446,7 @@ http_parser_parse_url(const char *buf, size_t buflen, int is_connect,
 
   return 0;
 }
+#endif
 
 void
 http_parser_pause(http_parser *parser, int paused) {

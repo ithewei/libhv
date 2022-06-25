@@ -32,6 +32,10 @@ struct HV_EXPORT HttpContext {
         return request->Path();
     }
 
+    std::string fullpath() {
+        return request->FullPath();
+    }
+
     std::string host() {
         return request->Host();
     }
@@ -50,6 +54,10 @@ struct HV_EXPORT HttpContext {
 
     std::string param(const char* key, const std::string& defvalue = hv::empty_string) {
         return request->GetParam(key, defvalue);
+    }
+
+    const HttpCookie& cookie(const char* name) {
+        return request->GetCookie(name);
     }
 
     int length() {
@@ -123,6 +131,10 @@ struct HV_EXPORT HttpContext {
         if (stricmp(key, "Content-Type") == 0) {
             setContentType(value.c_str());
         }
+    }
+
+    void setCookie(const HttpCookie& cookie) {
+        response->AddCookie(cookie);
     }
 
     void setBody(const std::string& body) {

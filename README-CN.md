@@ -50,7 +50,8 @@
 - 跨平台（Linux, Windows, MacOS, BSD, Solaris, Android, iOS）
 - 高性能事件循环（网络IO事件、定时器事件、空闲事件、自定义事件）
 - TCP/UDP服务端/客户端/代理
-- TCP支持心跳、转发、拆包、多线程安全write和close等特性
+- TCP支持心跳、重连、转发、多线程安全write和close等特性
+- 内置常见的拆包模式（固定包长、分界符、头部长度字段）
 - 可靠UDP支持: WITH_KCP
 - SSL/TLS加密通信（可选WITH_OPENSSL、WITH_GNUTLS、WITH_MBEDTLS）
 - HTTP服务端/客户端（支持https http1/x http2 grpc）
@@ -137,36 +138,6 @@ bin/wrk -c 1000 -d 10 -t 4 http://127.0.0.1:8080/
 ### TCP
 #### TCP服务端
 **c版本**: [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
-```c
-#include "hloop.h"
-
-static void on_close(hio_t* io) {
-    printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
-}
-
-static void on_recv(hio_t* io, void* buf, int readbytes) {
-    // echo
-    hio_write(io, buf, readbytes);
-}
-
-static void on_accept(hio_t* io) {
-    hio_setcb_close(io, on_close);
-    hio_setcb_read(io, on_recv);
-    hio_read(io);
-}
-
-int main() {
-    int port = 1234;
-    hloop_t* loop = hloop_new(0);
-    hio_t* listenio = hloop_create_tcp_server(loop, "0.0.0.0", port, on_accept);
-    if (listenio == NULL) {
-        return -1;
-    }
-    hloop_run(loop);
-    hloop_free(&loop);
-    return 0;
-}
-```
 
 **c++版本**: [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
 ```c++
@@ -211,42 +182,7 @@ int main() {
 不想自定义协议和拆包组包的可直接使用现成的`HTTP/WebSocket`协议。<br>
 
 #### TCP客户端
-**c版本**: [examples/nc.c](examples/nc.c)
-```c
-#include "hloop.h"
-
-static void on_close(hio_t* io) {
-    printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
-}
-
-static void on_recv(hio_t* io, void* buf, int readbytes) {
-    printf("< %.*s\n", readbytes, (char*)buf);
-}
-
-static void on_connect(hio_t* io) {
-    hio_setcb_read(io, on_recv);
-    hio_read(io);
-
-    hio_write(io, "hello", 5);
-}
-
-int main() {
-    const char host[] = "127.0.0.1";
-    int port = 1234;
-    hloop_t* loop = hloop_new(0);
-    hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
-    if (io == NULL) {
-        perror("socket");
-        exit(1);
-    }
-    hio_setcb_connect(io, on_connect);
-    hio_setcb_close(io, on_close);
-    hio_connect(io);
-    hloop_run(loop);
-    hloop_free(&loop);
-    return 0;
-}
-```
+**c版本**: [examples/tcp_client_test.c](examples/tcp_client_test.c)
 
 **c++版本**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 ```c++
@@ -287,6 +223,7 @@ int main() {
 **golang gin 风格**
 ```c++
 #include "HttpServer.h"
+using namespace hv;
 
 int main() {
     HttpService router;
@@ -315,10 +252,11 @@ int main() {
         return ctx->send(ctx->body(), ctx->type());
     });
 
-    http_server_t server;
-    server.port = 8080;
-    server.service = &router;
-    http_server_run(&server);
+    HttpServer server;
+    server.registerHttpService(&router);
+    server.setPort(8080);
+    server.setThreadNum(4);
+    server.run();
     return 0;
 }
 ```
@@ -394,20 +332,90 @@ int main() {
 }
 ```
 
+### WebSocket
+#### WebSocket服务端
+见[examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
+```c++
+#include "WebSocketServer.h"
+using namespace hv;
+
+int main(int argc, char** argv) {
+    WebSocketService ws;
+    ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
+        printf("onopen: GET %s\n", url.c_str());
+    };
+    ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
+        printf("onmessage: %s\n", msg.c_str());
+    };
+    ws.onclose = [](const WebSocketChannelPtr& channel) {
+        printf("onclose\n");
+    };
+
+    WebSocketServer server;
+    server.registerWebSocketService(&ws);
+    server.setPort(9999);
+    server.setThreadNum(4);
+    server.run();
+    return 0;
+}
+```
+
+#### WebSocket客户端
+见[examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+```c++
+#include "WebSocketClient.h"
+using namespace hv;
+
+int main(int argc, char** argv) {
+    WebSocketClient ws;
+    ws.onopen = []() {
+        printf("onopen\n");
+    };
+    ws.onmessage = [](const std::string& msg) {
+        printf("onmessage: %s\n", msg.c_str());
+    };
+    ws.onclose = []() {
+        printf("onclose\n");
+    };
+
+    // reconnect: 1,2,4,8,10,10,10...
+    reconn_setting_t reconn;
+    reconn_setting_init(&reconn);
+    reconn.min_delay = 1000;
+    reconn.max_delay = 10000;
+    reconn.delay_policy = 2;
+    ws.setReconnect(&reconn);
+
+    ws.open("ws://127.0.0.1:9999/test");
+
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (!ws.isConnected()) break;
+        if (str == "quit") {
+            ws.close();
+            break;
+        }
+        ws.send(str);
+    }
+
+    return 0;
+}
+```
+
 ## 🍭 更多示例
 
 ### c版本
-- 事件循环: [examples/hloop_test.c](examples/hloop_test.c)
+- 事件循环:     [examples/hloop_test.c](examples/hloop_test.c)
 - TCP回显服务:  [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
 - TCP聊天服务:  [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
 - UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
 - UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
 - SOCKS5代理服务: [examples/socks5_proxy_server.c](examples/socks5_proxy_server.c)
-- TinyHttpd示例:[examples/tinyhttpd.c](examples/tinyhttpd.c)
-- TinyProxyd示例:[examples/tinyproxyd.c](examples/tinyproxyd.c)
+- HTTP服务:     [examples/tinyhttpd.c](examples/tinyhttpd.c)
+- HTTP代理服务: [examples/tinyproxyd.c](examples/tinyproxyd.c)
 - jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
-- MQTT示例: [examples/mqtt](examples/mqtt)
+- MQTT示例:     [examples/mqtt](examples/mqtt)
 - 多accept进程模式: [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
 - 多accept线程模式: [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
 - 一个accept线程+多worker线程: [examples/multi-thread/one-acceptor-multi-workers.c](examples/multi-thread/one-acceptor-multi-workers.c)
@@ -432,7 +440,7 @@ int main() {
 - 网络扫描工具: [examples/nmap](examples/nmap)
 - HTTP服务程序: [examples/httpd](examples/httpd)
 - HTTP压测工具: [examples/wrk](examples/wrk.cpp)
-- URL请求工具: [examples/curl](examples/curl.cpp)
+- URL请求工具:  [examples/curl](examples/curl.cpp)
 - 文件下载工具: [examples/wget](examples/wget.cpp)
 - 服务注册与发现: [examples/consul](examples/consul)
 

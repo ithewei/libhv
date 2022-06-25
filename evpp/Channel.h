@@ -125,6 +125,15 @@ public:
         return write(str.data(), str.size());
     }
 
+    // iobuf setting
+    void setMaxReadBufsize(uint32_t size) {
+        if (io_ == NULL) return;
+        hio_set_max_read_bufsize(io_, size);
+    }
+    void setMaxWriteBufsize(uint32_t size) {
+        if (io_ == NULL) return;
+        hio_set_max_write_bufsize(io_, size);
+    }
     size_t writeBufsize() {
         if (io_ == NULL) return 0;
         return hio_write_bufsize(io_);
@@ -216,6 +225,11 @@ public:
     int newSslCtx(hssl_ctx_opt_t* opt) {
         if (io_ == NULL) return -1;
         return hio_new_ssl_ctx(io_, opt);
+    }
+    // for hssl_set_sni_hostname
+    int setHostname(const std::string& hostname) {
+        if (io_ == NULL) return -1;
+        return hio_set_hostname(io_, hostname.c_str());
     }
 
     // timeout

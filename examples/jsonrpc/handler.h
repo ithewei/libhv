@@ -21,7 +21,8 @@ void bad_request(cJSON* jreq, cJSON* jres) {
 void calc_add(cJSON* jreq, cJSON* jres) {
     cJSON* jparams = cJSON_GetObjectItem(jreq, "params");
     if (cJSON_GetArraySize(jparams) != 2) {
-        return bad_request(jreq, jres);
+        bad_request(jreq, jres);
+        return;
     }
     cJSON* jnum1 = cJSON_GetArrayItem(jparams, 0);
     int num1 = cJSON_GetNumberValue(jnum1);
@@ -34,7 +35,8 @@ void calc_add(cJSON* jreq, cJSON* jres) {
 void calc_sub(cJSON* jreq, cJSON* jres) {
     cJSON* jparams = cJSON_GetObjectItem(jreq, "params");
     if (cJSON_GetArraySize(jparams) != 2) {
-        return bad_request(jreq, jres);
+        bad_request(jreq, jres);
+        return;
     }
     cJSON* jnum1 = cJSON_GetArrayItem(jparams, 0);
     int num1 = cJSON_GetNumberValue(jnum1);
@@ -47,7 +49,8 @@ void calc_sub(cJSON* jreq, cJSON* jres) {
 void calc_mul(cJSON* jreq, cJSON* jres) {
     cJSON* jparams = cJSON_GetObjectItem(jreq, "params");
     if (cJSON_GetArraySize(jparams) != 2) {
-        return bad_request(jreq, jres);
+        bad_request(jreq, jres);
+        return;
     }
     cJSON* jnum1 = cJSON_GetArrayItem(jparams, 0);
     int num1 = cJSON_GetNumberValue(jnum1);
@@ -60,14 +63,16 @@ void calc_mul(cJSON* jreq, cJSON* jres) {
 void calc_div(cJSON* jreq, cJSON* jres) {
     cJSON* jparams = cJSON_GetObjectItem(jreq, "params");
     if (cJSON_GetArraySize(jparams) != 2) {
-        return bad_request(jreq, jres);
+        bad_request(jreq, jres);
+        return;
     }
     cJSON* jnum1 = cJSON_GetArrayItem(jparams, 0);
     int num1 = cJSON_GetNumberValue(jnum1);
     cJSON* jnum2 = cJSON_GetArrayItem(jparams, 1);
     int num2 = cJSON_GetNumberValue(jnum2);
     if (num2 == 0) {
-        return bad_request(jreq, jres);
+        bad_request(jreq, jres);
+        return;
     } else {
         int result = num1 / num2;
         cJSON_AddItemToObject(jres, "result", cJSON_CreateNumber(result));

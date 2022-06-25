@@ -4,6 +4,7 @@ list(APPEND EXAMPLES
     nc
     tinyhttpd
     tinyproxyd
+    tcp_client_test
     tcp_echo_server
     tcp_chat_server
     tcp_proxy_server
@@ -30,6 +31,9 @@ target_link_libraries(tinyhttpd ${HV_LIBRARIES})
 
 add_executable(tinyproxyd tinyproxyd.c)
 target_link_libraries(tinyproxyd ${HV_LIBRARIES})
+
+add_executable(tcp_client_test tcp_client_test.c)
+target_link_libraries(tcp_client_test ${HV_LIBRARIES})
 
 add_executable(tcp_echo_server tcp_echo_server.c)
 target_link_libraries(tcp_echo_server ${HV_LIBRARIES})
@@ -146,7 +150,10 @@ if(WITH_MQTT)
     add_executable(mqtt_pub mqtt/mqtt_pub.c)
     target_link_libraries(mqtt_pub ${HV_LIBRARIES})
 
-    list(APPEND EXAMPLES mqtt_sub mqtt_pub)
+    add_executable(mqtt_client_test mqtt/mqtt_client_test.cpp)
+    target_link_libraries(mqtt_client_test ${HV_LIBRARIES})
+
+    list(APPEND EXAMPLES mqtt_sub mqtt_pub mqtt_client_test)
 endif()
 
 add_custom_target(examples DEPENDS ${EXAMPLES})

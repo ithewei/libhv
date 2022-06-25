@@ -263,8 +263,7 @@ int main(int argc, char* argv[]) {
             req.method = HTTP_POST;
         }
     }
-    // http://127.0.0.1:8080@user:pswd/path?k1=v1&k2=v2#fragment
-    req.url = url_escape(url, ":/@?=&#");
+    req.url = HUrl::escapeUrl(url);
     req.http_cb = [](HttpMessage* res, http_parser_state state, const char* data, size_t size) {
         if (state == HP_HEADERS_COMPLETE) {
             if (verbose) {

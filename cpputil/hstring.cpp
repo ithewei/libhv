@@ -7,7 +7,8 @@
 
 namespace hv {
 
-std::string empty_string;
+std::string                         empty_string;
+std::map<std::string, std::string>  empty_map;
 
 std::string& toupper(std::string& str) {
     // std::transform(str.begin(), str.end(), str.begin(), ::toupper);
