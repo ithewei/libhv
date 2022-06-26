@@ -429,6 +429,7 @@ int main(int argc, char** argv) {
 - HTTP客户端: [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+- kcptun隧道: [examples/kcptun](examples/kcptun)
 - protobufRPC示例: [examples/protorpc](examples/protorpc)
 - Qt中使用libhv示例: [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
 

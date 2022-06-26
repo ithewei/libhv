@@ -369,6 +369,7 @@ int main(int argc, char** argv) {
 - [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+- [examples/kcptun](examples/kcptun)
 - [examples/protorpc](examples/protorpc)
 - [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
 
