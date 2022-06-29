@@ -330,6 +330,7 @@ void hio_handle_read(hio_t* io, void* buf, int readbytes) {
 #if WITH_KCP
     if (io->io_type == HIO_TYPE_KCP) {
         hio_read_kcp(io, buf, readbytes);
+        io->readbuf.head = io->readbuf.tail = 0;
         return;
     }
 #endif
