@@ -70,9 +70,7 @@ static void ssl_server_handshake(hio_t* io) {
     int ret = hssl_accept(io->ssl);
     if (ret == 0) {
         // handshake finish
-        iowatcher_del_event(io->loop, io->fd, HV_READ);
-        io->events &= ~HV_READ;
-        io->cb = NULL;
+        hio_del(io, HV_READ);
         printd("ssl handshake finished.\n");
         __accept_cb(io);
     }
@@ -93,9 +91,7 @@ static void ssl_client_handshake(hio_t* io) {
     int ret = hssl_connect(io->ssl);
     if (ret == 0) {
         // handshake finish
-        iowatcher_del_event(io->loop, io->fd, HV_READ);
-        io->events &= ~HV_READ;
-        io->cb = NULL;
+        hio_del(io, HV_READ);
         printd("ssl handshake finished.\n");
         __connect_cb(io);
     }
@@ -399,8 +395,7 @@ static void hio_handle_events(hio_t* io) {
         // NOTE: del HV_WRITE, if write_queue empty
         hrecursive_mutex_lock(&io->write_mutex);
         if (write_queue_empty(&io->write_queue)) {
-            iowatcher_del_event(io->loop, io->fd, HV_WRITE);
-            io->events &= ~HV_WRITE;
+            hio_del(io, HV_WRITE);
         }
         hrecursive_mutex_unlock(&io->write_mutex);
         if (io->connect) {
