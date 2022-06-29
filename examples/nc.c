@@ -12,42 +12,43 @@
  *          > [Enter]
  */
 
+/*
+ * @test    udp client
+ * @build   ./configure && make examples
+ * @client  bin/nc -u 127.0.0.1 1234
+ *
+ */
+
+/*
+ * @test    ssl client
+ * @build   ./configure --with-openssl && make clean && make
+ * @client  bin/nc -s 127.0.0.1 1234
+ *
+ */
+
+/*
+ * @test    kcp client
+ * @build   ./configure --with-kcp && make clean && make
+ * @client  bin/nc -k 127.0.0.1 1234
+ *
+ */
+
 #include "hloop.h"
 #include "hbase.h"
 #include "hsocket.h"
 #include "hssl.h"
 
-/*
- * @test    ssl_client
- * #define  TEST_SSL 1
- *
- * @build   ./configure --with-openssl && make clean && make
- *
- */
-#define TEST_SSL 0
-
-/*
- * @test    kcp_client
- * #define  TEST_KCP 1
- *
- * @build   ./configure --with-kcp && make clean && make
- * @server  bin/udp_echo_server 1234
- * @client  bin/nc -u 127.0.0.1 1234
- *
- */
-#define TEST_KCP 0
-
 #define RECV_BUFSIZE    8192
 static char recvbuf[RECV_BUFSIZE];
 
-// 1:tcp 2:udp
-int protocol = 1;
+static char protocol = 't';
+static const char* protocolname = "tcp";
 // for stdin
-hio_t*      stdinio = NULL;
+static hio_t* stdinio = NULL;
 // for socket
-hio_t*      sockio = NULL;
+static hio_t* sockio = NULL;
 
-int verbose = 0;
+static int verbose = 0;
 
 static void send_heartbeat(hio_t* io) {
     static char buf[] = "PING\r\n";
@@ -125,12 +126,10 @@ static void on_stdin(hio_t* io, void* buf, int readbytes) {
 
     hio_write(sockio, buf, readbytes);
 
-#if TEST_KCP
     if (strncmp(str, "CLOSE", 5) == 0) {
         printf("call hio_close\n");
         hio_close(sockio);
     }
-#endif
 }
 
 static void on_close(hio_t* io) {
@@ -156,27 +155,28 @@ static void on_connect(hio_t* io) {
 int main(int argc, char** argv) {
     if (argc < 3) {
         printf("\
-Usage: nc [-ut] host port\n\
+Usage: nc [-tusk] host port\n\
 Options:\n\
   -t        Use tcp protocol (default)\n\
   -u        Use udp protocol\n\
+  -s        Use ssl protocol\n\
+  -k        Use kcp protocol\n\
 Examples: nc 127.0.0.1 80\n\
           nc -u 127.0.0.1 80\n");
         return -10;
     }
 
     int index = 1;
-    const char* protocolname;
     if (argv[1][0] == '-') {
+        protocol = argv[1][1];
+        switch(protocol) {
+        case 't': protocolname = "tcp"; break;
+        case 'u': protocolname = "udp"; break;
+        case 's': protocolname = "ssl"; break;
+        case 'k': protocolname = "kcp"; break;
+        default:  fprintf(stderr, "Unsupported protocol '%c'\n", protocol); exit(1);
+        }
         ++index;
-        if (argv[1][1] == 't') {
-            protocol = 1;
-            protocolname = "tcp";
-        }
-        else if (argv[1][1] == 'u') {
-            protocol = 2;
-            protocolname = "udp";
-        }
     }
     const char* host = argv[index++];
     int port = atoi(argv[index++]);
@@ -195,33 +195,38 @@ Examples: nc 127.0.0.1 80\n\
     }
 
     // socket
-    if (protocol == 1) {
-#if TEST_SSL
-        // ssl
-        sockio = hloop_create_ssl_client(loop, host, port, on_connect, on_close);
-#else
+    if (protocol == 't' || protocol == 's') {
         // tcp
         sockio = hloop_create_tcp_client(loop, host, port, on_connect, on_close);
-#endif
+        if (sockio == NULL) {
+            return -20;
+        }
+        if (protocol == 's') {
+            if (strcmp(hssl_backend(), "nossl") == 0) {
+                fprintf(stderr, "Please recompile WITH_SSL!\n");
+                exit(1);
+            }
+            hio_enable_ssl(sockio);
+        }
     }
-    else if (protocol == 2) {
+    else if (protocol == 'u' || protocol == 'k') {
         // udp
         sockio = hloop_create_udp_client(loop, host, port);
-#if TEST_KCP
-        static kcp_setting_t s_kcp_setting;
-        memset(&s_kcp_setting, 0, sizeof(kcp_setting_t));
-        s_kcp_setting.conv = 123456;
-        // fast mode
-        s_kcp_setting.nodelay = 1;
-        s_kcp_setting.interval = 10;
-        s_kcp_setting.fastresend = 2;
-        s_kcp_setting.nocwnd = 1;
-        hio_set_kcp(sockio, &s_kcp_setting);
+        if (sockio == NULL) {
+            return -20;
+        }
+        if (protocol == 'k') {
+#if WITH_KCP
+            static kcp_setting_t s_kcp_setting;
+            kcp_setting_init_with_normal_mode(&s_kcp_setting);
+            s_kcp_setting.conv = hv_rand(1, 999999);
+            hio_set_kcp(sockio, &s_kcp_setting);
+#else
+            fprintf(stderr, "Please recompile WITH_KCP!\n");
+            exit(1);
 #endif
+        }
         hio_read(sockio);
-    }
-    if (sockio == NULL) {
-        return -20;
     }
     // printf("sockfd=%d\n", hio_fd(sockio));
     hio_setcb_close(sockio, on_close);

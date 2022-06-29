@@ -324,7 +324,9 @@ read:
     return;
 read_error:
 disconnect:
-    hio_close(io);
+    if (io->io_type & HIO_TYPE_SOCK_STREAM) {
+        hio_close(io);
+    }
 }
 
 static void nio_write(hio_t* io) {
@@ -378,7 +380,9 @@ write:
 write_error:
 disconnect:
     hrecursive_mutex_unlock(&io->write_mutex);
-    hio_close(io);
+    if (io->io_type & HIO_TYPE_SOCK_STREAM) {
+        hio_close(io);
+    }
 }
 
 static void hio_handle_events(hio_t* io) {
@@ -533,7 +537,9 @@ disconnect:
      * if hio_close_sync, we have to be very careful to avoid using freed resources.
      * But if hio_close_async, we do not have to worry about this.
      */
-    hio_close_async(io);
+    if (io->io_type & HIO_TYPE_SOCK_STREAM) {
+        hio_close_async(io);
+    }
     return nwrite < 0 ? nwrite : -1;
 }
 
