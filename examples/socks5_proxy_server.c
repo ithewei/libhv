@@ -386,11 +386,11 @@ static void on_accept(hio_t* io) {
 }
 
 int main(int argc, char** argv) {
-    //if (argc < 2) {
-    //    printf("Usage: %s proxy_port [username] [password]\n", argv[0]);
-    //    return -10;
-    //}
-    proxy_port = 1085;//atoi(argv[1]);
+    if (argc < 2) {
+        printf("Usage: %s proxy_port [username] [password]\n", argv[0]);
+        return -10;
+    }
+    proxy_port = atoi(argv[1]);
     if (argc > 3) {
         auth_username = argv[2];
         auth_password = argv[3];
