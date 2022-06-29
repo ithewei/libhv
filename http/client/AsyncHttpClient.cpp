@@ -159,6 +159,10 @@ int AsyncHttpClient::sendRequest(const SocketChannelPtr& channel) {
     char* data = NULL;
     size_t len = 0;
     while (ctx->parser->GetSendData(&data, &len)) {
+        // NOTE: ensure write buffer size is enough
+        if (len > (1 << 22) /* 4M */) {
+            channel->setMaxWriteBufsize(len);
+        }
         channel->write(data, len);
     }
     channel->startRead();
