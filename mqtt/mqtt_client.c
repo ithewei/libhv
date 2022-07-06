@@ -46,6 +46,12 @@ static int mqtt_send_head_with_mid(hio_t* io, int type, unsigned short mid) {
 }
 
 static void mqtt_send_ping(hio_t* io) {
+    mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(io);
+    if (++cli->ping_cnt > 3) {
+        hloge("mqtt no pong!");
+        hio_close(io);
+        return;
+    }
     mqtt_send_head(io, MQTT_TYPE_PINGREQ, 0);
 }
 
@@ -296,9 +302,13 @@ static void on_packet(hio_t* io, void* buf, int len) {
     }
         break;
     case MQTT_TYPE_PINGREQ:
+        // printf("recv ping\n");
+        // printf("send pong\n");
         mqtt_send_pong(io);
         return;
     case MQTT_TYPE_PINGRESP:
+        // printf("recv pong\n");
+        cli->ping_cnt = 0;
         return;
     case MQTT_TYPE_DISCONNECT:
         hio_close(io);

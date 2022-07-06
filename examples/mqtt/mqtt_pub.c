@@ -83,6 +83,7 @@ static void on_mqtt(mqtt_client_t* cli, int type) {
 static int mqtt_publish(const char* host, int port, const char* topic, const char* payload) {
     mqtt_client_t* cli = mqtt_client_new(NULL);
     if (cli == NULL) return -1;
+    cli->keepalive = 10;
 
     // client_id
     char client_id[64];

@@ -73,6 +73,8 @@ int main(int argc, char** argv) {
     cli.setReconnect(&reconn);
 #endif
 
+    cli.setPingInterval(10);
+
     int ssl = 0;
 #if TEST_SSL
     ssl = 1;

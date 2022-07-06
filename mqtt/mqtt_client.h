@@ -29,6 +29,7 @@ struct mqtt_client_s {
     unsigned char   alloced_ssl_ctx: 1; // intern
     unsigned char   connected : 1;
     unsigned short  keepalive;
+    int             ping_cnt;
     char client_id[64];
     // will
     mqtt_message_t* will;
@@ -175,6 +176,10 @@ public:
 
     void setAuth(const char* username, const char* password) {
         mqtt_client_set_auth(client, username, password);
+    }
+
+    void setPingInterval(int sec) {
+        client->keepalive = sec;
     }
 
     int lastError() {
