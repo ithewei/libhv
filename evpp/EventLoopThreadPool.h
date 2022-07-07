@@ -2,6 +2,7 @@
 #define HV_EVENT_LOOP_THREAD_POOL_HPP_
 
 #include "EventLoopThread.h"
+#include "hsocket.h"
 #include "hbase.h"
 
 namespace hv {
@@ -28,23 +29,34 @@ public:
         thread_num_ = num;
     }
 
-    EventLoopPtr nextLoop(load_balance_e lb = LB_RoundRobin) {
+    EventLoopPtr nextLoop(load_balance_e lb = LB_RoundRobin, sockaddr_u* peerAddr = nullptr) {
         int numLoops = loop_threads_.size();
         if (numLoops == 0) return NULL;
         int idx = 0;
-        if (lb == LB_RoundRobin) {
-            if (++next_loop_idx_ >= numLoops) next_loop_idx_ = 0;
+        switch (lb) {
+        case LB_RoundRobin:
+            if (++next_loop_idx_ >= numLoops) 
+                next_loop_idx_ = 0;
             idx = next_loop_idx_;
-        } else if (lb == LB_Random) {
+            break;
+        case LB_Random:
             idx = hv_rand(0, numLoops - 1);
-        } else if (lb == LB_LeastConnections) {
+            break;
+        case LB_LeastConnections:
             for (int i = 1; i < numLoops; ++i) {
                 if (loop_threads_[i]->loop()->connectionNum < loop_threads_[idx]->loop()->connectionNum) {
                     idx = i;
                 }
             }
-        } else {
-            // Not Implemented
+            break;
+        case LB_IpHash:
+            if (peerAddr) {
+                uint64_t hash = sockaddr_hash(peerAddr, false);
+                idx = hash % numLoops;
+            }
+            break;
+        default:
+            break;
         }
         return loop_threads_[idx]->loop();
     }

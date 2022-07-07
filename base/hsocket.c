@@ -133,7 +133,7 @@ int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port) {
     return 0;
 }
 
-socklen_t sockaddr_len(sockaddr_u* addr) {
+socklen_t sockaddr_len(const sockaddr_u* addr) {
     if (addr->sa.sa_family == AF_INET) {
         return sizeof(struct sockaddr_in);
     }
@@ -167,6 +167,39 @@ const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
     }
 #endif
     return buf;
+}
+
+int sockaddr_comp(const sockaddr_u* a1, const sockaddr_u* a2) {
+    if (a1 == a2) return 0;
+    int ret = a1->sa.sa_family - a2->sa.sa_family;
+    if (ret == 0)
+        ret = memcmp(a1, a2, sockaddr_len(a1));
+    return ret;
+}
+
+uint64_t sockaddr_hash(const sockaddr_u* addr, char care_port) {
+    uint64_t ret = 0, *p = NULL;
+    switch (addr->sa.sa_family) {
+    case AF_INET:
+        ret = addr->sin.sin_addr.s_addr;
+        if (care_port)
+            ret |= addr->sin.sin_port;
+        break;
+    case AF_INET6:
+        p = (uint64_t*)&(addr->sin6.sin6_addr);
+        ret = p[0] | p[1];
+        if (care_port)
+            ret |= addr->sin6.sin6_port;
+        break;
+    default:
+        p = (uint64_t*)addr;
+        for (size_t i = 0; i < sizeof(sockaddr_u); i += 8) {
+            ret |= *p;
+            p++;
+        }
+        break;
+    }
+    return ret;
 }
 
 static int sockaddr_bind(sockaddr_u* localaddr, int type) {

@@ -30,7 +30,9 @@ public:
     EventLoopPtr loop(int idx = -1) {
         return worker_threads.loop(idx);
     }
-
+    EventLoopPtr nextLoop(sockaddr_u* addr) {
+        return worker_threads.nextLoop(load_balance, addr);
+    }
     //@retval >=0 listenfd, <0 error
     int createsocket(int port, const char* host = "0.0.0.0") {
         listenfd = Listen(port, host);
@@ -227,7 +229,7 @@ private:
         TcpServerEventLoopTmpl* server = (TcpServerEventLoopTmpl*)hevent_userdata(connio);
         // NOTE: detach from acceptor loop
         hio_detach(connio);
-        EventLoopPtr worker_loop = server->worker_threads.nextLoop(server->load_balance);
+        EventLoopPtr worker_loop = server->nextLoop((sockaddr_u*)hio_peeraddr(connio));
         if (worker_loop == NULL) {
             worker_loop = server->acceptor_loop;
         }
@@ -270,7 +272,7 @@ public:
         stop(true);
     }
 
-    const EventLoopPtr& loop(int idx = -1) {
+    EventLoopPtr loop(int idx = -1) {
         return TcpServerEventLoopTmpl<TSocketChannel>::loop(idx);
     }
 

@@ -101,9 +101,10 @@ HV_EXPORT uint16_t sockaddr_port(sockaddr_u* addr);
 HV_EXPORT int sockaddr_set_ip(sockaddr_u* addr, const char* host);
 HV_EXPORT void sockaddr_set_port(sockaddr_u* addr, int port);
 HV_EXPORT int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port);
-HV_EXPORT socklen_t sockaddr_len(sockaddr_u* addr);
+HV_EXPORT socklen_t sockaddr_len(const sockaddr_u* addr);
 HV_EXPORT const char* sockaddr_str(sockaddr_u* addr, char* buf, int len);
-
+HV_EXPORT int sockaddr_comp(const sockaddr_u* a1, const sockaddr_u* a2);
+HV_EXPORT uint64_t sockaddr_hash(const sockaddr_u* addr, char care_port);
 //#define INET_ADDRSTRLEN   16
 //#define INET6_ADDRSTRLEN  46
 #ifdef ENABLE_UDS
