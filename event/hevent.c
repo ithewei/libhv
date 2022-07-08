@@ -60,7 +60,7 @@ static void hio_socket_init(hio_t* io) {
     int ret = getsockname(io->fd, io->localaddr, &addrlen);
     printd("getsockname fd=%d ret=%d errno=%d\n", io->fd, ret, socket_errno());
     // NOTE: udp peeraddr set by recvfrom/sendto
-    if (io->io_type & HIO_TYPE_SOCK_STREAM) {
+    if ((io->io_type & HIO_TYPE_SOCK_STREAM) || (io->io_type & HIO_TYPE_SOCK_DGRAM)) {
         addrlen = sizeof(sockaddr_u);
         ret = getpeername(io->fd, io->peeraddr, &addrlen);
         printd("getpeername fd=%d ret=%d errno=%d\n", io->fd, ret, socket_errno());

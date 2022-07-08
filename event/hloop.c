@@ -950,6 +950,15 @@ hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e t
             return NULL;
         }
 #endif
+#ifdef SO_REUSEPORT
+        // NOTE: SO_REUSEPORT allow to reuse sockaddr of TIME_WAIT status
+        int reuseport = 1;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuseport, sizeof(int)) < 0) {
+            perror("setsockopt SO_REUSEPORT");
+            closesocket(sockfd);
+            return NULL;
+        }
+#endif
         if (bind(sockfd, &addr.sa, sockaddr_len(&addr)) < 0) {
             perror("bind");
             closesocket(sockfd);
@@ -1015,4 +1024,45 @@ hio_t* hloop_create_udp_server(hloop_t* loop, const char* host, int port) {
 
 hio_t* hloop_create_udp_client(hloop_t* loop, const char* host, int port) {
     return hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_CLIENT_SIDE);
+}
+
+int hio_accept_udp_fd(hio_t* server) {
+    sockaddr_u* localAddr = (sockaddr_u*)hio_localaddr(server);
+    int addrlen = sockaddr_len(localAddr);
+    int sockfd = socket(localAddr->sa.sa_family, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        perror("socket");
+        return NULL;
+    }
+
+#ifdef SO_REUSEADDR
+    // NOTE: SO_REUSEADDR allow to reuse sockaddr of TIME_WAIT status
+    int reuseaddr = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
+        perror("setsockopt SO_REUSEADDR");
+        closesocket(sockfd);
+        return NULL;
+    }
+#endif
+#ifdef SO_REUSEPORT
+    // NOTE: SO_REUSEPORT allow to reuse sockaddr of TIME_WAIT status
+    int reuseport = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuseport, sizeof(int)) < 0) {
+        perror("setsockopt SO_REUSEPORT");
+        closesocket(sockfd);
+        return NULL;
+    }
+#endif
+    if (bind(sockfd, (struct sockaddr*)localAddr, addrlen) < 0) {
+        perror("bind");
+        closesocket(sockfd);
+        return NULL;
+    }
+    struct sockaddr* peerAddr = hio_peeraddr(server);
+    if (connect(sockfd, peerAddr, addrlen) < 0) {
+        perror("connect");
+        closesocket(sockfd);
+        return NULL;
+    }
+    return sockfd;
 }

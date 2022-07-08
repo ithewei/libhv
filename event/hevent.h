@@ -207,8 +207,8 @@ uint32_t hio_next_id();
 
 void hio_accept_cb(hio_t* io);
 void hio_connect_cb(hio_t* io);
-void hio_handle_read(hio_t* io, void* buf, int readbytes);
-void hio_read_cb(hio_t* io, void* buf, int len);
+HV_EXPORT void hio_handle_read(hio_t* io, void* buf, int readbytes);
+HV_EXPORT void hio_read_cb(hio_t* io, void* buf, int len);
 void hio_write_cb(hio_t* io, const void* buf, int len);
 void hio_close_cb(hio_t* io);
 
