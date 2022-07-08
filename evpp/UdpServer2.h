@@ -149,7 +149,7 @@ public:
         return broadcast(str.data(), str.size());
     }
 
-    void Accept(hio_t* io, EventLoopPtr loop = nullptr) {
+    void accept(hio_t* io, EventLoopPtr loop = nullptr) {
         sockaddr_u* peerAddr = (sockaddr_u*)hio_peeraddr(io);
         int fd = hio_accept_udp_fd(io);
         if (loop == NULL)
@@ -157,7 +157,6 @@ public:
         if (loop == NULL)
             loop = acceptor_loop;
         ++loop->connectionNum;
-        std::lock_guard<std::mutex> locker(mutex_);
         clientMap[*peerAddr] = { loop , fd };
         loop->runInLoop([this, fd]() {newConnEvent(fd); });
     }
@@ -232,11 +231,11 @@ private:
                 onNewClient(io, &tmp);
             }
             else
-                Accept(io);
+                accept(io);
             it = clientMap.find(*addr);
             // may lost msg
             if (it == clientMap.end()) {
-                hlogw("no cliMap will drop %d msg from %s", len, strAddr);
+                hlogd("no cliMap will drop %d msg from %s", len, strAddr);
                 return;
             }
             hlogi("associate %d[%s] with thread %ld", it->second.fd, strAddr, it->second.loop->tid());
@@ -249,13 +248,15 @@ private:
             // hlogi("dispatch %d msg %ld->%ld", len, hv_gettid(), cli.loop->tid());
             cli.loop->runInLoop([tmp, cli](){
                 hio_t* io = hio_get(cli.loop->loop(), cli.fd);
-                hio_read_cb(io, tmp->data(), tmp->size());
+                hio_set_readbuf(io, tmp->data(), tmp->size());
+                hio_handle_read(io, tmp->data(), tmp->size());
                 delete tmp;
             });
         }
         else {
             hio_t* io = hio_get(cli.loop->loop(), cli.fd);
-            hio_read_cb(io, buf, len);
+            hio_set_readbuf(io, buf, len);
+            hio_handle_read(io, buf, len);
         }
     }
 
@@ -263,11 +264,14 @@ public:
     hio_t*                     listenio;
 
     // Callback
+    // run in accpet_loop, and use accept to accept udpClient
     std::function<void(hio_t*, Buffer*)>                    onNewClient;
+    // the below functions run in io's loop, every channel has their own loop
     std::function<void(const TSocketChannelPtr&)>           onConnection;
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
     // NOTE: Use Channel::isWriteComplete in onWriteComplete callback to determine whether all data has been written.
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
+
     int                     keepalive_timeout;
     uint32_t                max_connections;
     load_balance_e          load_balance;

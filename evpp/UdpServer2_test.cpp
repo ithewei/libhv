@@ -27,12 +27,12 @@ int main(int argc, char* argv[]) {
         return -20;
     }
     printf("server listen on port %d, listenfd=%d ...\n", port, listenfd);
-    srv.onNewClient = [&srv](hio_t* io, Buffer* data) {
-        // select loop with data
-        EventLoopPtr loop = srv.loop();
-        srv.Accept(io, loop);
-    };
 
+    srv.onNewClient = [&srv](hio_t* io, Buffer* data) {
+        // @todo select loop with data or peerAddr
+        EventLoopPtr loop = srv.loop();
+        srv.accept(io, loop);
+    };
     srv.onConnection = [&srv](const SocketChannelPtr& channel) {
         char msg[256];
         std::string peeraddr = channel->peeraddr();
@@ -48,10 +48,12 @@ int main(int argc, char* argv[]) {
     };
     srv.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
         // echo
-        printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
+        printf("%d< %.*s\n", channel->id(), (int)buf->size(), (char*)buf->data());
         channel->write(buf);
     };
-
+    srv.onWriteComplete = [](const SocketChannelPtr& channel, Buffer* buf) {
+        printf("%d> %.*s\n", channel->id(), (int)buf->size(), (char*)buf->data());
+    };
     srv.setThreadNum(4);
     srv.setLoadBalance(LB_LeastConnections);
 
