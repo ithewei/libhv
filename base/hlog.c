@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
-
+#include "hthread.h"
 //#include "hmutex.h"
 #ifdef _WIN32
 #include <windows.h>
@@ -297,7 +297,7 @@ static int i2a(int i, char* buf, int len) {
     return len;
 }
 
-int logger_print(logger_t* logger, int level, const char* fmt, ...) {
+int logger_print(logger_t* logger, int level, const char* file, int line, const char* fmt, ...) {
     if (level < logger->level)
         return -10;
 
@@ -326,7 +326,6 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     sec      = tm->tm_sec;
     us       = tv.tv_usec;
 #endif
-
     const char* pcolor = "";
     const char* plevel = "";
 #define XXX(id, str, clr) \
@@ -377,6 +376,18 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
                 case 'Z':
                     len += i2a(us, buf + len, 6);
                     break;
+                case 't':
+                    len += sprintf(buf + len, "%ld", hv_gettid());
+                    break;
+                case 'p':
+                    len += sprintf(buf + len, "%ld", hv_getpid());
+                    break;
+                case 'f':
+                    len += sprintf(buf + len, "%s", file);
+                    break;
+                case 'n':
+                    len += sprintf(buf + len, "%d", line);
+                    break;
                 case 'l':
                     buf[len++] = *plevel;
                     break;
@@ -404,9 +415,9 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
             ++p;
         }
     } else {
-        len += snprintf(buf + len, bufsize - len, "%04d-%02d-%02d %02d:%02d:%02d.%03d %s ",
+        len += snprintf(buf + len, bufsize - len, "%04d-%02d-%02d %02d:%02d:%02d.%03d %ld %s:%d %s ",
             year, month, day, hour, min, sec, us/1000,
-            plevel);
+            hv_gettid(), file, line, plevel);
 
         va_list ap;
         va_start(ap, fmt);
@@ -417,7 +428,8 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     if (logger->enable_color) {
         len += snprintf(buf + len, bufsize - len, "%s", CLR_CLR);
     }
-
+    if (buf[len-1] != '\n')
+        buf[len++] = '\n';
     if (logger->handler) {
         logger->handler(level, buf, len);
     }
