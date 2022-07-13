@@ -115,6 +115,9 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
     switch (ContentType()) {
     case APPLICATION_JSON:
     {
+        if (json.empty()) {
+            ParseBody();
+        }
         if (!json.is_object()) {
             return defvalue;
         }
@@ -139,6 +142,9 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
         break;
     case MULTIPART_FORM_DATA:
     {
+        if (form.empty()) {
+            ParseBody();
+        }
         auto iter = form.find(key);
         if (iter != form.end()) {
             return iter->second.content;
@@ -147,6 +153,9 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
         break;
     case APPLICATION_URLENCODED:
     {
+        if (kv.empty()) {
+            ParseBody();
+        }
         auto iter = kv.find(key);
         if (iter != kv.end()) {
             return iter->second;
@@ -162,6 +171,9 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
 template<>
 HV_EXPORT int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
     if (ContentType() == APPLICATION_JSON) {
+        if (json.empty()) {
+            ParseBody();
+        }
         if (!json.is_object()) {
             return defvalue;
         }
@@ -198,6 +210,9 @@ HV_EXPORT int HttpMessage::Get(const char* key, int defvalue) {
 template<>
 HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
     if (ContentType() == APPLICATION_JSON) {
+        if (json.empty()) {
+            ParseBody();
+        }
         if (!json.is_object()) {
             return defvalue;
         }
@@ -230,6 +245,9 @@ HV_EXPORT float HttpMessage::Get(const char* key, float defvalue) {
 template<>
 HV_EXPORT bool HttpMessage::Get(const char* key, bool defvalue) {
     if (ContentType() == APPLICATION_JSON) {
+        if (json.empty()) {
+            ParseBody();
+        }
         if (!json.is_object()) {
             return defvalue;
         }

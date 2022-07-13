@@ -274,9 +274,9 @@ public:
 #endif
     }
 
-    // structured-content -> content_type <-> headers Content-Type
+    // structured-content -> content_type <-> headers["Content-Type"]
     void FillContentType();
-    // body.size -> content_length <-> headers Content-Length
+    // body.size -> content_length <-> headers["Content-Length"]
     void FillContentLength();
 
     bool IsChunked();
@@ -329,6 +329,12 @@ public:
             FillContentType();
         }
         return content_type;
+    }
+    void SetContentType(http_content_type type) {
+        content_type = type;
+    }
+    void SetContentType(const char* type) {
+        content_type = http_content_type_enum(type);
     }
     void SetContentTypeByFilename(const char* filepath) {
         const char* suffix = hv_suffixname(filepath);
