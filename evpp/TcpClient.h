@@ -234,7 +234,11 @@ public:
 
     // start thread-safe
     void start(bool wait_threads_started = true) {
-        EventLoopThread::start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
+        if (isRunning()) {
+            TcpClientEventLoopTmpl<TSocketChannel>::start();
+        } else {
+            EventLoopThread::start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
+        }
     }
 
     // stop thread-safe

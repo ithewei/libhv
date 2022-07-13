@@ -125,7 +125,11 @@ public:
 
     // start thread-safe
     void start(bool wait_threads_started = true) {
-        EventLoopThread::start(wait_threads_started, std::bind(&UdpClientTmpl::startRecv, this));
+        if (isRunning()) {
+            UdpClientEventLoopTmpl<TSocketChannel>::start();
+        } else {
+            EventLoopThread::start(wait_threads_started, std::bind(&UdpClientTmpl::startRecv, this));
+        }
     }
 
     // stop thread-safe
