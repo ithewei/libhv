@@ -21,7 +21,8 @@ struct WebSocketService {
     int ping_interval;
 
     WebSocketService() {
-        ping_interval = 10000; // ms
+        ping_interval = 0;
+        // ping_interval = 10000; // ms
     }
 };
 
