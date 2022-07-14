@@ -39,7 +39,12 @@ public:
     // closesocket thread-safe
     void closesocket() {
         if (listenfd >= 0) {
-            hio_close_async(hio_get(acceptor_loop->loop(), listenfd));
+            hloop_t* loop = acceptor_loop->loop();
+            if (loop) {
+                hio_t* listenio = hio_get(loop, listenfd);
+                assert(listenio != NULL);
+                hio_close_async(listenio);
+            }
             listenfd = -1;
         }
     }
@@ -58,13 +63,25 @@ public:
     }
 
     int startAccept() {
-        assert(listenfd >= 0);
-        hio_t* listenio = haccept(acceptor_loop->loop(), listenfd, onAccept);
+        if (listenfd < 0) return -1;
+        hloop_t* loop = acceptor_loop->loop();
+        if (loop == NULL) return -2;
+        hio_t* listenio = haccept(loop, listenfd, onAccept);
+        assert(listenio != NULL);
         hevent_set_userdata(listenio, this);
         if (tls) {
             hio_enable_ssl(listenio);
         }
         return 0;
+    }
+
+    int stopAccept() {
+        if (listenfd < 0) return -1;
+        hloop_t* loop = acceptor_loop->loop();
+        if (loop == NULL) return -2;
+        hio_t* listenio = hio_get(loop, listenfd);
+        assert(listenio != NULL);
+        return hio_del(listenio, HV_READ);
     }
 
     // start thread-safe
@@ -76,6 +93,7 @@ public:
     }
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
+        closesocket();
         if (worker_threads.threadNum() > 0) {
             worker_threads.stop(wait_threads_stopped);
         }

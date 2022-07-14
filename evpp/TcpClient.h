@@ -69,7 +69,7 @@ public:
     }
 
     int startConnect() {
-        assert(channel != NULL);
+        if (channel == NULL) return -1;
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
         }
@@ -243,7 +243,7 @@ public:
 
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
-        TcpClientTmpl::setReconnect(NULL);
+        TcpClientEventLoopTmpl<TSocketChannel>::closesocket();
         EventLoopThread::stop(wait_threads_stopped);
     }
 };

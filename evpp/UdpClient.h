@@ -43,7 +43,7 @@ public:
     }
 
     int startRecv() {
-        assert(channel != NULL);
+        if (channel == NULL) return -1;
         channel->onread = [this](Buffer* buf) {
             if (onMessage) {
                 onMessage(channel, buf);
@@ -60,6 +60,11 @@ public:
         }
 #endif
         return channel->startRead();
+    }
+
+    int stopRecv() {
+        if (channel == NULL) return -1;
+        return channel->stopRead();
     }
 
     // start thread-safe
@@ -134,6 +139,7 @@ public:
 
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
+        UdpClientEventLoopTmpl<TSocketChannel>::closesocket();
         EventLoopThread::stop(wait_threads_stopped);
     }
 };
