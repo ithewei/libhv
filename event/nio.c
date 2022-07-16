@@ -580,6 +580,7 @@ int hio_close (hio_t* io) {
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     }
+    hio_free(io);
     return 0;
 }
 #endif

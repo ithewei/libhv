@@ -356,7 +356,7 @@ static void hloop_cleanup(hloop_t* loop) {
     for (int i = 0; i < loop->ios.maxsize; ++i) {
         hio_t* io = loop->ios.ptr[i];
         if (io) {
-            hio_free(io);
+            hio_close(io);
         }
     }
     io_array_cleanup(&loop->ios);
@@ -744,7 +744,7 @@ void hio_attach(hloop_t* loop, hio_t* io) {
     // so we need to free it if fd exists to avoid memory leak.
     hio_t* preio = loop->ios.ptr[fd];
     if (preio != NULL && preio != io) {
-        hio_free(preio);
+        hio_close(preio);
     }
 
     io->loop = loop;
