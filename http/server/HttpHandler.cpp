@@ -84,6 +84,7 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
     ws_parser.reset(new WebSocketParser);
     ws_channel.reset(new hv::WebSocketChannel(io, WS_SERVER));
     ws_parser->onMessage = [this](int opcode, const std::string& msg){
+        ws_channel->opcode = (enum ws_opcode)opcode;
         switch(opcode) {
         case WS_OPCODE_CLOSE:
             ws_channel->close(true);

@@ -21,6 +21,8 @@ public:
     std::function<void()> onopen;
     std::function<void()> onclose;
     std::function<void(const std::string& msg)> onmessage;
+    // PATCH: onmessage not given opcode
+    enum ws_opcode opcode() { return channel ? channel->opcode : WS_OPCODE_CLOSE; }
 
     WebSocketClient();
     ~WebSocketClient();

@@ -308,7 +308,7 @@ int main(int argc, char** argv) {
         printf("onopen: GET %s\n", url.c_str());
     };
     ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
+        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
     };
     ws.onclose = [](const WebSocketChannelPtr& channel) {
         printf("onclose\n");
@@ -335,7 +335,7 @@ int main(int argc, char** argv) {
         printf("onopen\n");
     };
     ws.onmessage = [](const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
+        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
     };
     ws.onclose = []() {
         printf("onclose\n");

@@ -99,6 +99,8 @@ protected:
         return write(sendbuf_.base, frame_size);
     }
 
+public:
+    enum ws_opcode  opcode;
 private:
     Buffer      sendbuf_;
     std::mutex  mutex_;

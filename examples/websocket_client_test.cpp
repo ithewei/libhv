@@ -23,11 +23,12 @@ int main(int argc, char** argv) {
     ws.onopen = []() {
         printf("onopen\n");
     };
+    ws.onmessage = [&ws](const std::string& msg) {
+        printf("onmessage(type=%s len=%d): %.*s\n", ws.opcode() == WS_OPCODE_TEXT ? "text" : "binary",
+            (int)msg.size(), (int)msg.size(), msg.data());
+    };
     ws.onclose = []() {
         printf("onclose\n");
-    };
-    ws.onmessage = [](const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
     };
 
     // reconnect: 1,2,4,8,10,10,10...
