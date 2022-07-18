@@ -4,6 +4,7 @@
 
 #include "hevent.h"
 #include "hlog.h"
+#include "hthread.h"
 
 static kcp_setting_t s_kcp_setting;
 
@@ -75,7 +76,36 @@ kcp_t* hio_get_kcp(hio_t* io, uint32_t conv) {
     return kcp;
 }
 
+static void hio_write_kcp_event_cb(hevent_t* ev) {
+    hio_t* io = (hio_t*)ev->userdata;
+    hbuf_t* buf = (hbuf_t*)ev->privdata;
+
+    hio_write_kcp(io, buf->base, buf->len);
+
+    HV_FREE(buf->base);
+    HV_FREE(buf);
+}
+
+static int hio_write_kcp_async(hio_t* io, const void* buf, size_t len) {
+    hbuf_t* newbuf = NULL;
+    HV_ALLOC_SIZEOF(newbuf);
+    newbuf->len = len;
+    HV_ALLOC(newbuf->base, len);
+    memcpy(newbuf->base, buf, len);
+
+    hevent_t ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.cb = hio_write_kcp_event_cb;
+    ev.userdata = io;
+    ev.privdata = newbuf;
+    hloop_post_event(io->loop, &ev);
+    return 0;
+}
+
 int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
+    if (hv_gettid() != io->loop->tid) {
+        return hio_write_kcp_async(io, buf, len);
+    }
     IUINT32 conv = io->kcp_setting ? io->kcp_setting->conv : 0;
     kcp_t* kcp = hio_get_kcp(io, conv);
     // printf("hio_write_kcp conv=%u=%u\n", conv, kcp->conv);

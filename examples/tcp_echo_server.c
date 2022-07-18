@@ -17,6 +17,8 @@
  * #define  TEST_SSL 1
  *
  * @build   ./configure --with-openssl && make clean && make
+ * @server  bin/tcp_echo_server 1234
+ * @client  bin/nc -s 127.0.0.1 1234
  *
  */
 #define TEST_SSL        0

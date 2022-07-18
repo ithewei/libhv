@@ -17,7 +17,7 @@
  *
  * @build   ./configure --with-kcp && make clean && make
  * @server  bin/udp_echo_server 1234
- * @client  bin/nc -u 127.0.0.1 1234
+ * @client  bin/nc -k 127.0.0.1 1234
  *
  */
 #define TEST_KCP 0
