@@ -74,6 +74,7 @@ HV_INLINE Response uploadFormFile(const char* url, const char* name, const char*
     Request req(new HttpRequest);
     req->method = method;
     req->url = url;
+    req->timeout = 600; // 10min
     req->content_type = MULTIPART_FORM_DATA;
     req->SetFormFile(name, filepath);
     for (auto& param : params) {

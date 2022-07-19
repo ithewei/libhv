@@ -635,6 +635,7 @@
 - mqtt_client_publish
 - mqtt_client_subscribe
 - mqtt_client_unsubscribe
+- class MqttClient
 
 ## other
 - class HThreadPool

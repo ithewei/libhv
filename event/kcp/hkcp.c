@@ -82,24 +82,23 @@ static void hio_write_kcp_event_cb(hevent_t* ev) {
 
     hio_write_kcp(io, buf->base, buf->len);
 
-    HV_FREE(buf->base);
     HV_FREE(buf);
 }
 
-static int hio_write_kcp_async(hio_t* io, const void* buf, size_t len) {
-    hbuf_t* newbuf = NULL;
-    HV_ALLOC_SIZEOF(newbuf);
-    newbuf->len = len;
-    HV_ALLOC(newbuf->base, len);
-    memcpy(newbuf->base, buf, len);
+static int hio_write_kcp_async(hio_t* io, const void* data, size_t len) {
+    hbuf_t* buf = NULL;
+    HV_ALLOC(buf, sizeof(hbuf_t) + len);
+    buf->base = (char*)buf + sizeof(hbuf_t);
+    buf->len = len;
+    memcpy(buf->base, data, len);
 
     hevent_t ev;
     memset(&ev, 0, sizeof(ev));
     ev.cb = hio_write_kcp_event_cb;
     ev.userdata = io;
-    ev.privdata = newbuf;
+    ev.privdata = buf;
     hloop_post_event(io->loop, &ev);
-    return 0;
+    return len;
 }
 
 int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
