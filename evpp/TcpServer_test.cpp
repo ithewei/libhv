@@ -7,6 +7,8 @@
  *
  */
 
+#include <iostream>
+
 #include "TcpServer.h"
 
 using namespace hv;
@@ -55,8 +57,19 @@ int main(int argc, char* argv[]) {
 
     srv.start();
 
-    // press Enter to stop
-    while (getchar() != '\n');
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (str == "close") {
+            srv.closesocket();
+        } else if (str == "start") {
+            srv.start();
+        } else if (str == "stop") {
+            srv.stop();
+            break;
+        } else {
+            srv.broadcast(str.data(), str.size());
+        }
+    }
 
     return 0;
 }

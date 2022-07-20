@@ -62,14 +62,23 @@ public:
     }
     // closesocket thread-safe
     void closesocket() {
-        setReconnect(NULL);
         if (channel) {
+            setReconnect(NULL);
             channel->close(true);
         }
     }
 
     int startConnect() {
-        if (channel == NULL) return -1;
+        if (channel == NULL || channel->isClosed()) {
+            int connfd = createsocket(&remote_addr.sa);
+            if (connfd < 0) {
+                hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, connfd);
+                return connfd;
+            }
+        }
+        if (channel == NULL || channel->status >= SocketChannel::CONNECTING) {
+            return -1;
+        }
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
         }
@@ -111,10 +120,6 @@ public:
             // reconnect
             if (reconn_setting) {
                 startReconnect();
-            } else {
-                channel = NULL;
-                // NOTE: channel should be destroyed,
-                // so in this lambda function, no code should be added below.
             }
         };
         return channel->startConnect();
@@ -126,7 +131,6 @@ public:
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
         loop_->setTimeout(delay, [this](TimerID timerID){
             hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
-            if (createsocket(&remote_addr.sa) < 0) return;
             startConnect();
         });
         return 0;
@@ -221,7 +225,7 @@ template<class TSocketChannel = SocketChannel>
 class TcpClientTmpl : private EventLoopThread, public TcpClientEventLoopTmpl<TSocketChannel> {
 public:
     TcpClientTmpl(EventLoopPtr loop = NULL)
-        : EventLoopThread()
+        : EventLoopThread(loop)
         , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
     {}
     virtual ~TcpClientTmpl() {

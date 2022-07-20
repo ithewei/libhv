@@ -31,6 +31,8 @@ public:
     int createsocket(int port, const char* host = "0.0.0.0") {
         hio_t* io = hloop_create_udp_server(loop_->loop(), host, port);
         if (io == NULL) return -1;
+        this->host = host;
+        this->port = port;
         channel.reset(new TSocketChannel(io));
         return channel->fd();
     }
@@ -42,7 +44,16 @@ public:
     }
 
     int startRecv() {
-        if (channel == NULL) return -1;
+        if (channel == NULL || channel->isClosed()) {
+            int bindfd = createsocket(port, host.c_str());
+            if (bindfd < 0) {
+                hloge("createsocket %s:%d return %d!\n", host.c_str(), port, bindfd);
+                return bindfd;
+            }
+        }
+        if (channel == NULL || channel->isClosed()) {
+            return -1;
+        }
         channel->onread = [this](Buffer* buf) {
             if (onMessage) {
                 onMessage(channel, buf);
@@ -86,6 +97,8 @@ public:
     }
 
 public:
+    std::string             host;
+    int                     port;
     TSocketChannelPtr       channel;
 #if WITH_KCP
     bool                    enable_kcp;
@@ -105,7 +118,7 @@ template<class TSocketChannel = SocketChannel>
 class UdpServerTmpl : private EventLoopThread, public UdpServerEventLoopTmpl<TSocketChannel> {
 public:
     UdpServerTmpl(EventLoopPtr loop = NULL)
-        : EventLoopThread()
+        : EventLoopThread(loop)
         , UdpServerEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
     {}
     virtual ~UdpServerTmpl() {
@@ -118,7 +131,11 @@ public:
 
     // start thread-safe
     void start(bool wait_threads_started = true) {
-        EventLoopThread::start(wait_threads_started, std::bind(&UdpServerTmpl::startRecv, this));
+        if (isRunning()) {
+            UdpServerEventLoopTmpl<TSocketChannel>::start();
+        } else {
+            EventLoopThread::start(wait_threads_started, std::bind(&UdpServerTmpl::startRecv, this));
+        }
     }
 
     // stop thread-safe

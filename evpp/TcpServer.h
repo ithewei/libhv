@@ -34,6 +34,9 @@ public:
     //@retval >=0 listenfd, <0 error
     int createsocket(int port, const char* host = "0.0.0.0") {
         listenfd = Listen(port, host);
+        if (listenfd < 0) return listenfd;
+        this->host = host;
+        this->port = port;
         return listenfd;
     }
     // closesocket thread-safe
@@ -63,7 +66,13 @@ public:
     }
 
     int startAccept() {
-        if (listenfd < 0) return -1;
+        if (listenfd < 0) {
+            listenfd = createsocket(port, host.c_str());
+            if (listenfd < 0) {
+                hloge("createsocket %s:%d return %d!\n", host.c_str(), port, listenfd);
+                return listenfd;
+            }
+        }
         hloop_t* loop = acceptor_loop->loop();
         if (loop == NULL) return -2;
         hio_t* listenio = haccept(loop, listenfd, onAccept);
@@ -227,6 +236,8 @@ private:
     }
 
 public:
+    std::string             host;
+    int                     port;
     int                     listenfd;
     bool                    tls;
     unpack_setting_t        unpack_setting;
@@ -252,7 +263,7 @@ template<class TSocketChannel = SocketChannel>
 class TcpServerTmpl : private EventLoopThread, public TcpServerEventLoopTmpl<TSocketChannel> {
 public:
     TcpServerTmpl(EventLoopPtr loop = NULL)
-        : EventLoopThread()
+        : EventLoopThread(loop)
         , TcpServerEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
     {}
     virtual ~TcpServerTmpl() {

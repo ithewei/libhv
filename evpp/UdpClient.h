@@ -32,6 +32,8 @@ public:
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
         hio_t* io = hloop_create_udp_client(loop_->loop(), remote_host, remote_port);
         if (io == NULL) return -1;
+        this->remote_host = remote_host;
+        this->remote_port = remote_port;
         channel.reset(new TSocketChannel(io));
         return channel->fd();
     }
@@ -43,7 +45,16 @@ public:
     }
 
     int startRecv() {
-        if (channel == NULL) return -1;
+        if (channel == NULL || channel->isClosed()) {
+            int sockfd = createsocket(remote_port, remote_host.c_str());
+            if (sockfd < 0) {
+                hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, sockfd);
+                return sockfd;
+            }
+        }
+        if (channel == NULL || channel->isClosed()) {
+            return -1;
+        }
         channel->onread = [this](Buffer* buf) {
             if (onMessage) {
                 onMessage(channel, buf);
@@ -99,6 +110,10 @@ public:
 
 public:
     TSocketChannelPtr       channel;
+
+    std::string             remote_host;
+    int                     remote_port;
+
 #if WITH_KCP
     bool                    enable_kcp;
     kcp_setting_t           kcp_setting;
@@ -117,7 +132,7 @@ template<class TSocketChannel = SocketChannel>
 class UdpClientTmpl : private EventLoopThread, public UdpClientEventLoopTmpl<TSocketChannel> {
 public:
     UdpClientTmpl(EventLoopPtr loop = NULL)
-        : EventLoopThread()
+        : EventLoopThread(loop)
         , UdpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
     {}
     virtual ~UdpClientTmpl() {

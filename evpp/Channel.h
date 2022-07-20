@@ -144,11 +144,9 @@ public:
 
     // close thread-safe
     int close(bool async = false) {
-        if (!isOpened()) return -1;
-        if (async) {
-            return hio_close_async(io_);
-        }
-        return hio_close(io_);
+        if (isClosed()) return -1;
+        status = CLOSED;
+        return async ? hio_close_async(io_) : hio_close(io_);
     }
 
 public:
