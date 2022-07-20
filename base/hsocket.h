@@ -65,7 +65,10 @@ HV_INLINE int nonblocking(int sockfd) {
 
 typedef int         SOCKET;
 #define INVALID_SOCKET  -1
-#define closesocket(fd) close(fd)
+
+HV_INLINE int closesocket(int sockfd) {
+    return close(sockfd);
+}
 
 #endif
 
