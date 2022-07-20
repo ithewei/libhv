@@ -7,8 +7,8 @@
 
 namespace hv {
 
-WebSocketClient::WebSocketClient()
-    : TcpClientTmpl<WebSocketChannel>()
+WebSocketClient::WebSocketClient(EventLoopPtr loop)
+    : TcpClientTmpl<WebSocketChannel>(loop)
 {
     state = WS_CLOSED;
     ping_interval = DEFAULT_WS_PING_INTERVAL;
@@ -16,7 +16,7 @@ WebSocketClient::WebSocketClient()
 }
 
 WebSocketClient::~WebSocketClient() {
-    close();
+    stop();
 }
 
 /*
@@ -45,6 +45,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
 
     int connfd = createsocket(http_req_->port, http_req_->host.c_str());
     if (connfd < 0) {
+        hloge("createsocket %s:%d return %d!", http_req_->host.c_str(), http_req_->port, connfd);
         return connfd;
     }
 
@@ -181,9 +182,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
 }
 
 int WebSocketClient::close() {
-    if (channel == NULL) return -1;
-    channel->close();
-    stop();
+    closesocket();
     state = WS_CLOSED;
     return 0;
 }

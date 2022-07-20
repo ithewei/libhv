@@ -15,9 +15,9 @@
 
 using namespace hv;
 
-class MyTcpClient : public TcpClientEventLoopTmpl<SocketChannel> {
+class MyTcpClient : public TcpClient {
 public:
-    MyTcpClient(EventLoopPtr loop = NULL) : TcpClientEventLoopTmpl<SocketChannel>(loop) {
+    MyTcpClient(EventLoopPtr loop = NULL) : TcpClient(loop) {
         onConnection = [this](const SocketChannelPtr& channel) {
             std::string peeraddr = channel->peeraddr();
             if (channel->isConnected()) {
@@ -67,7 +67,8 @@ public:
         withTLS();
 #endif
         printf("client connect to port %d, connfd=%d ...\n", port, connfd);
-        return startConnect();
+        start();
+        return connfd;
     }
 };
 typedef std::shared_ptr<MyTcpClient> MyTcpClientPtr;
@@ -79,15 +80,19 @@ int main(int argc, char* argv[]) {
     }
     int port = atoi(argv[1]);
 
-    EventLoopPtr loop(new EventLoop);
+    EventLoopThreadPtr loop_thread(new EventLoopThread);
+    loop_thread->start();
 
-    MyTcpClientPtr cli1(new MyTcpClient(loop));
+    MyTcpClientPtr cli1(new MyTcpClient(loop_thread->loop()));
     cli1->connect(port);
 
-    MyTcpClientPtr cli2(new MyTcpClient(loop));
+    MyTcpClientPtr cli2(new MyTcpClient(loop_thread->loop()));
     cli2->connect(port);
 
-    loop->run();
+    // press Enter to stop
+    while (getchar() != '\n');
+    loop_thread->stop();
+    loop_thread->join();
 
     return 0;
 }

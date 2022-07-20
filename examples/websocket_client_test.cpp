@@ -45,12 +45,17 @@ int main(int argc, char** argv) {
 
     std::string str;
     while (std::getline(std::cin, str)) {
-        if (!ws.isConnected()) break;
-        if (str == "quit") {
+        if (str == "close") {
             ws.close();
+        } else if (str == "open") {
+            ws.open(url, headers);
+        } else if (str == "stop") {
+            ws.stop();
             break;
+        } else {
+            if (!ws.isConnected()) break;
+            ws.send(str);
         }
-        ws.send(str);
     }
 
     return 0;
