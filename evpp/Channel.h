@@ -42,6 +42,10 @@ public:
 
     virtual ~Channel() {
         close();
+        // NOTE: Detach after destructor to avoid triggering onclose
+        if (io_ && id_ == hio_id(io_)) {
+            hio_set_context(io_, NULL);
+        }
     }
 
     hio_t*      io() { return io_; }

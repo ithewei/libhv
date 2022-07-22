@@ -1,6 +1,7 @@
 #ifndef HV_ASYNC_HTTP_CLIENT_H_
 #define HV_ASYNC_HTTP_CLIENT_H_
 
+#include <map>
 #include <list>
 
 #include "EventLoopThread.h"
@@ -8,8 +9,6 @@
 
 #include "HttpMessage.h"
 #include "HttpParser.h"
-
-// async => keepalive => connect_pool
 
 namespace hv {
 
@@ -96,14 +95,15 @@ struct HttpClientContext {
     }
 };
 
-class AsyncHttpClient {
+class HV_EXPORT AsyncHttpClient : private EventLoopThread {
 public:
-    AsyncHttpClient() {
-        loop_thread.start(true);
+    AsyncHttpClient(EventLoopPtr loop = NULL) : EventLoopThread(loop) {
+        if (loop == NULL) {
+            EventLoopThread::start(true);
+        }
     }
     ~AsyncHttpClient() {
-        // NOTE: ~EventLoopThread will stop and join
-        // loop_thread.stop(true);
+        EventLoopThread::stop(true);
     }
 
     // thread-safe
@@ -111,7 +111,7 @@ public:
         HttpClientTaskPtr task(new HttpClientTask);
         task->req = req;
         task->cb = std::move(resp_cb);
-        task->start_time = hloop_now_hrtime(loop_thread.hloop());
+        task->start_time = hloop_now_hrtime(EventLoopThread::hloop());
         if (req->retry_count > 0 && req->retry_delay > 0) {
             req->retry_count = MIN(req->retry_count, req->timeout * 1000 / req->retry_delay - 1);
         }
@@ -119,7 +119,7 @@ public:
     }
 
     int send(const HttpClientTaskPtr& task) {
-        loop_thread.loop()->queueInLoop(std::bind(&AsyncHttpClient::sendInLoop, this, task));
+        EventLoopThread::loop()->queueInLoop(std::bind(&AsyncHttpClient::sendInLoop, this, task));
         return 0;
     }
 
@@ -160,7 +160,6 @@ private:
     std::map<int, SocketChannelPtr>         channels;
     // peeraddr => ConnPool
     std::map<std::string, ConnPool<int>>    conn_pools;
-    EventLoopThread                         loop_thread;
 };
 
 }

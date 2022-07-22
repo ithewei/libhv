@@ -8,7 +8,7 @@ namespace hv {
 int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     const HttpRequestPtr& req = task->req;
     // queueInLoop timeout?
-    uint64_t now_hrtime = hloop_now_hrtime(loop_thread.hloop());
+    uint64_t now_hrtime = hloop_now_hrtime(EventLoopThread::hloop());
     int elapsed_ms = (now_hrtime - task->start_time) / 1000;
     int timeout_ms = req->timeout * 1000;
     if (timeout_ms > 0 && elapsed_ms >= timeout_ms) {
@@ -43,7 +43,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             perror("socket");
             return -30;
         }
-        hio_t* connio = hio_get(loop_thread.hloop(), connfd);
+        hio_t* connio = hio_get(EventLoopThread::hloop(), connfd);
         assert(connio != NULL);
         hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
         addChannel(connio);
