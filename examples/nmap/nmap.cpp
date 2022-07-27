@@ -96,9 +96,7 @@ int nmap_discover(Nmap* nmap) {
                 return -socket_errno();
             }
             nonblocking(sockfd);
-            int len = 425984; // 416K
-            socklen_t optlen = sizeof(len);
-            setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char*)&len, optlen);
+            so_sndbuf(sockfd, 425984); // 416K
 
             io = hio_get(loop, sockfd);
             if (io == NULL) return -1;

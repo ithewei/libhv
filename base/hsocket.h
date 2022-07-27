@@ -166,7 +166,7 @@ HV_INLINE int tcp_nopush(int sockfd, int on DEFAULT(1)) {
 #elif defined(TCP_CORK)
     return setsockopt(sockfd, IPPROTO_TCP, TCP_CORK, (const char*)&on, sizeof(int));
 #else
-    return -10;
+    return 0;
 #endif
 }
 
@@ -208,6 +208,51 @@ HV_INLINE int so_rcvtimeo(int sockfd, int timeout) {
 #else
     struct timeval tv = {timeout/1000, (timeout%1000)*1000};
     return setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+#endif
+}
+
+// send buffer size
+HV_INLINE int so_sndbuf(int sockfd, int len) {
+    return setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF, (const char*)&len, sizeof(int));
+}
+
+// recv buffer size
+HV_INLINE int so_rcvbuf(int sockfd, int len) {
+    return setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (const char*)&len, sizeof(int));
+}
+
+HV_INLINE int so_reuseaddr(int sockfd, int on DEFAULT(1)) {
+#ifdef SO_REUSEADDR
+    // NOTE: SO_REUSEADDR allow to reuse sockaddr of TIME_WAIT status
+    return setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(int));
+#else
+    return 0;
+#endif
+}
+
+HV_INLINE int so_reuseport(int sockfd, int on DEFAULT(1)) {
+#ifdef SO_REUSEPORT
+    // NOTE: SO_REUSEPORT allow multiple sockets to bind same port
+    return setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&on, sizeof(int));
+#else
+    return 0;
+#endif
+}
+
+HV_INLINE int so_linger(int sockfd, int timeout DEFAULT(1)) {
+#ifdef SO_LINGER
+    struct linger linger;
+    if (timeout >= 0) {
+        linger.l_onoff = 1;
+        linger.l_linger = timeout;
+    } else {
+        linger.l_onoff = 0;
+        linger.l_linger = 0;
+    }
+    // NOTE: SO_LINGER change the default behavior of close, send RST, avoid TIME_WAIT
+    return setsockopt(sockfd, SOL_SOCKET, SO_LINGER, (const char*)&linger, sizeof(linger));
+#else
+    return 0;
 #endif
 }
 
