@@ -169,7 +169,7 @@ int main_ctx_init(int argc, char** argv) {
     return 0;
 }
 
-void main_ctx_free() {
+void main_ctx_free(void) {
     if (g_main_ctx.save_argv) {
         SAFE_FREE(g_main_ctx.save_argv[0]);
         SAFE_FREE(g_main_ctx.save_argv);
@@ -377,7 +377,7 @@ int create_pidfile() {
     return 0;
 }
 
-void delete_pidfile() {
+void delete_pidfile(void) {
     hlogi("delete_pidfile('%s') pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
     remove(g_main_ctx.pidfile);
 }
@@ -508,7 +508,7 @@ static void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PT
     }
 }
 
-static void signal_cleanup() {
+static void signal_cleanup(void) {
     //CloseHandle(s_hEventTerm);
     //s_hEventTerm = NULL;
     CloseHandle(s_hEventReload);

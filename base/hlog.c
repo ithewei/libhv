@@ -8,6 +8,7 @@
 
 //#include "hmutex.h"
 #ifdef _WIN32
+#pragma warning (disable: 4244) // conversion loss of data
 #include <windows.h>
 #define hmutex_t            CRITICAL_SECTION
 #define hmutex_init         InitializeCriticalSection

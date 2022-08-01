@@ -277,7 +277,7 @@ void HV_SHA1Final(
 void HV_SHA1(
     char *hash_out,
     const char *str,
-    int len)
+    uint32_t len)
 {
     HV_SHA1_CTX ctx;
     unsigned int ii;

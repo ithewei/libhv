@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
         }
     }
     // print up hosts
-    printf("Up hosts %lu:\n", up_hosts.size());
+    printf("Up hosts %lu:\n", (unsigned long)up_hosts.size());
     for (auto& host : up_hosts) {
         inet_ntop(AF_INET, (void*)&host, ip, sizeof(ip));
         printf("%s\n", ip);

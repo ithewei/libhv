@@ -136,7 +136,7 @@ int nmap_discover(Nmap* nmap) {
         ++iter;
     }
     printd("Nmap done: %lu IP addresses (%d hosts up) scanned in %.2f seconds\n",
-            nmap->size(), ctx.up_cnt, (end_hrtime-start_hrtime)/1000000.0f);
+            (unsigned long)nmap->size(), ctx.up_cnt, (end_hrtime-start_hrtime)/1000000.0f);
 
     return ctx.up_cnt;
 }

@@ -61,7 +61,7 @@ void on_stdin(hio_t* io, void* buf, int readbytes) {
 }
 
 void on_custom_events(hevent_t* ev) {
-    printf("on_custom_events event_type=%d userdata=%ld\n", (int)ev->event_type, (long)ev->userdata);
+    printf("on_custom_events event_type=%d userdata=%ld\n", (int)ev->event_type, (long)(intptr_t)ev->userdata);
 }
 
 int main() {
