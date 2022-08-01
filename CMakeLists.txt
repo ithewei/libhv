@@ -212,10 +212,14 @@ endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
 
+file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
+file(INSTALL ${LIBHV_HEADERS} DESTINATION ${PROJECT_SOURCE_DIR}/include/hv)
+
 if(BUILD_SHARED)
     add_library(hv SHARED ${LIBHV_SRCS})
     target_compile_definitions(hv PRIVATE HV_DYNAMICLIB)
-    target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS})
+    target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS}
+        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
     target_link_libraries(hv ${LIBS})
     install(TARGETS hv
         EXPORT libhvConfig
@@ -227,8 +231,9 @@ endif()
 
 if(BUILD_STATIC)
     add_library(hv_static STATIC ${LIBHV_SRCS})
-    target_compile_definitions(hv_static PRIVATE HV_STATICLIB)
-    target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS})
+    target_compile_definitions(hv_static PUBLIC HV_STATICLIB)
+    target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS}
+        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
     target_link_libraries(hv_static ${LIBS})
     install(TARGETS hv_static
         EXPORT libhvConfig
@@ -236,7 +241,6 @@ if(BUILD_STATIC)
     add_custom_target(libhv_static DEPENDS hv_static)
 endif()
 
-file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
 install(EXPORT libhvConfig DESTINATION lib/cmake/libhv)
 
