@@ -438,7 +438,7 @@ logger_t* hv_default_logger() {
     }
     return s_logger;
 }
-void hv_destroy_default_logger() {
+void hv_destroy_default_logger(void) {
     if (s_logger) {
         logger_fsync(s_logger);
         logger_destroy(s_logger);
