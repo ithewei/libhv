@@ -183,6 +183,7 @@ protected:
         data.id = thread->get_id();
         data.status = RUNNING;
         data.start_time = time(NULL);
+        data.stop_time = 0;
         threads.emplace_back(data);
         thread_mutex.unlock();
     }

@@ -108,7 +108,7 @@ int main() {
         memset(&ev, 0, sizeof(ev));
         ev.event_type = (hevent_type_e)(HEVENT_TYPE_CUSTOM + i);
         ev.cb = on_custom_events;
-        ev.userdata = (void*)(long)i;
+        ev.userdata = (void*)(intptr_t)i;
         hloop_post_event(loop, &ev);
     }
 
