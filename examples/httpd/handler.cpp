@@ -228,6 +228,7 @@ int Handler::recvLargeFile(const HttpContextPtr& ctx, http_parser_state state, c
             }
             ctx->userdata = file;
         }
+        break;
     case HP_BODY:
         {
             HFile* file = (HFile*)ctx->userdata;
@@ -241,14 +242,20 @@ int Handler::recvLargeFile(const HttpContextPtr& ctx, http_parser_state state, c
     case HP_MESSAGE_COMPLETE:
         {
             HFile* file = (HFile*)ctx->userdata;
-            delete file;
+            if (file) {
+                delete file;
+                ctx->userdata = NULL;
+            }
             return response_status(ctx, HTTP_STATUS_OK);
         }
         break;
     case HP_ERROR:
         {
             HFile* file = (HFile*)ctx->userdata;
-            delete file;
+            if (file) {
+                delete file;
+                ctx->userdata = NULL;
+            }
         }
         break;
     default:
