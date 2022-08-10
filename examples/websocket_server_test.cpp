@@ -58,8 +58,8 @@ int main(int argc, char** argv) {
     });
 
     WebSocketService ws;
-    ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
-        printf("onopen: GET %s\n", url.c_str());
+    ws.onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
+        printf("onopen: GET %s\n", req->Path().c_str());
         MyContext* ctx = channel->newContext<MyContext>();
         // send(time) every 1s
         ctx->timerID = setInterval(1000, [channel](TimerID id) {

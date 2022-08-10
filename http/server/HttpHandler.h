@@ -79,7 +79,7 @@ public:
     void WebSocketOnOpen() {
         ws_channel->status = hv::SocketChannel::CONNECTED;
         if (ws_service && ws_service->onopen) {
-            ws_service->onopen(ws_channel, req->url);
+            ws_service->onopen(ws_channel, req);
         }
     }
     void WebSocketOnClose() {

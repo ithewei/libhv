@@ -186,6 +186,7 @@ int main() {
 
 **c++版本**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 ```c++
+#include <iostream>
 #include "TcpClient.h"
 using namespace hv;
 
@@ -200,7 +201,6 @@ int main() {
         std::string peeraddr = channel->peeraddr();
         if (channel->isConnected()) {
             printf("connected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
-            channel->write("hello");
         } else {
             printf("disconnected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
         }
@@ -210,8 +210,20 @@ int main() {
     };
     cli.start();
 
-    // press Enter to stop
-    while (getchar() != '\n');
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (str == "close") {
+            cli.closesocket();
+        } else if (str == "start") {
+            cli.start();
+        } else if (str == "stop") {
+            cli.stop();
+            break;
+        } else {
+            if (!cli.isConnected()) break;
+            cli.send(str);
+        }
+    }
     return 0;
 }
 ```
@@ -341,8 +353,8 @@ using namespace hv;
 
 int main(int argc, char** argv) {
     WebSocketService ws;
-    ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
-        printf("onopen: GET %s\n", url.c_str());
+    ws.onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
+        printf("onopen: GET %s\n", req->Path().c_str());
     };
     ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
         printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
