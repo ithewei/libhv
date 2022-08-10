@@ -55,6 +55,10 @@
     #define ARCH_ARM
 #elif defined(__aarch64__) || defined(__ARM64__)
     #define ARCH_ARM64
+#elif defined(__mips__)
+    #define ARCH_MIPS
+#elif defined(__mips64__)
+    #define ARCH_MIPS64
 #else
     #warning "Untested hardware architecture!"
 #endif
