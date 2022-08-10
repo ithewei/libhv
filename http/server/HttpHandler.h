@@ -39,6 +39,8 @@ public:
     HttpResponsePtr         resp;
     HttpResponseWriterPtr   writer;
     HttpParserPtr           parser;
+    HttpContextPtr          ctx;
+    http_handler*           api_handler;
 
     // for sendfile
     FileCache               *files;
@@ -94,6 +96,9 @@ private:
     int  sendFile();
     void closeFile();
     bool isFileOpened();
+
+    const HttpContextPtr& getHttpContext();
+    void onHeadersComplete();
 
     int defaultRequestHandler();
     int defaultStaticHandler();

@@ -62,84 +62,6 @@ int Handler::errorHandler(const HttpContextPtr& ctx) {
     return response_status(ctx, error_code);
 }
 
-int Handler::largeFileHandler(const HttpContextPtr& ctx) {
-    std::thread([ctx](){
-        ctx->writer->Begin();
-        std::string filepath = ctx->service->document_root + ctx->request->Path();
-        HFile file;
-        if (file.open(filepath.c_str(), "rb") != 0) {
-            ctx->writer->WriteStatus(HTTP_STATUS_NOT_FOUND);
-            ctx->writer->WriteHeader("Content-Type", "text/html");
-            ctx->writer->WriteBody("<center><h1>404 Not Found</h1></center>");
-            ctx->writer->End();
-            return;
-        }
-        http_content_type content_type = CONTENT_TYPE_NONE;
-        const char* suffix = hv_suffixname(filepath.c_str());
-        if (suffix) {
-            content_type = http_content_type_enum_by_suffix(suffix);
-        }
-        if (content_type == CONTENT_TYPE_NONE || content_type == CONTENT_TYPE_UNDEFINED) {
-            content_type = APPLICATION_OCTET_STREAM;
-        }
-        size_t filesize = file.size();
-        ctx->writer->WriteHeader("Content-Type", http_content_type_str(content_type));
-        ctx->writer->WriteHeader("Content-Length", filesize);
-        // ctx->writer->WriteHeader("Transfer-Encoding", "chunked");
-        ctx->writer->EndHeaders();
-
-        char* buf = NULL;
-        int len = 40960; // 40K
-        SAFE_ALLOC(buf, len);
-        size_t total_readbytes = 0;
-        int last_progress = 0;
-        int sleep_ms_per_send = 0;
-        if (ctx->service->limit_rate <= 0) {
-            // unlimited
-        } else {
-            sleep_ms_per_send = len * 1000 / 1024 / ctx->service->limit_rate;
-        }
-        if (sleep_ms_per_send == 0) sleep_ms_per_send = 1;
-        int sleep_ms = sleep_ms_per_send;
-        auto start_time = std::chrono::steady_clock::now();
-        auto end_time = start_time;
-        while (total_readbytes < filesize) {
-            if (!ctx->writer->isConnected()) {
-                break;
-            }
-            if (!ctx->writer->isWriteComplete()) {
-                hv_delay(1);
-                continue;
-            }
-            size_t readbytes = file.read(buf, len);
-            if (readbytes <= 0) {
-                // read file error!
-                ctx->writer->close();
-                break;
-            }
-            int nwrite = ctx->writer->WriteBody(buf, readbytes);
-            if (nwrite < 0) {
-                // disconnected!
-                break;
-            }
-            total_readbytes += readbytes;
-            int cur_progress = total_readbytes * 100 / filesize;
-            if (cur_progress > last_progress) {
-                // printf("<< %s progress: %ld/%ld = %d%%\n",
-                //     ctx->request->path.c_str(), (long)total_readbytes, (long)filesize, (int)cur_progress);
-                last_progress = cur_progress;
-            }
-            end_time += std::chrono::milliseconds(sleep_ms);
-            std::this_thread::sleep_until(end_time);
-        }
-        ctx->writer->End();
-        SAFE_FREE(buf);
-        // auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
-        // printf("<< %s taked %ds\n", ctx->request->path.c_str(), (int)elapsed_time.count());
-    }).detach();
-    return HTTP_STATUS_UNFINISHED;
-}
-
 int Handler::sleep(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
     writer->WriteHeader("X-Response-tid", hv_gettid());
     unsigned long long start_ms = gettimeofday_ms();
@@ -281,12 +203,136 @@ int Handler::login(const HttpContextPtr& ctx) {
 
 int Handler::upload(const HttpContextPtr& ctx) {
     int status_code = 200;
+    std::string save_path = "html/uploads/";
     if (ctx->is(MULTIPART_FORM_DATA)) {
-        status_code = ctx->request->SaveFormFile("file", "html/uploads/");
+        status_code = ctx->request->SaveFormFile("file", save_path.c_str());
     } else {
-        status_code = ctx->request->SaveFile("html/uploads/upload.txt");
+        std::string filename = ctx->param("filename", "unnamed.txt");
+        std::string filepath = save_path + filename;
+        status_code = ctx->request->SaveFile(filepath.c_str());
     }
     return response_status(ctx, status_code);
+}
+
+int Handler::recvLargeFile(const HttpContextPtr& ctx, http_parser_state state, const char* data, size_t size) {
+    switch (state) {
+    case HP_HEADERS_COMPLETE:
+        {
+            ctx->setContentType(APPLICATION_JSON);
+            std::string save_path = "html/uploads/";
+            std::string filename = ctx->param("filename", "unnamed.txt");
+            std::string filepath = save_path + filename;
+            HFile* file = new HFile;
+            if (file->open(filepath.c_str(), "wb") != 0) {
+                return response_status(ctx, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+            }
+            ctx->userdata = file;
+        }
+    case HP_BODY:
+        {
+            HFile* file = (HFile*)ctx->userdata;
+            if (file && data && size) {
+                if (file->write(data, size) != size) {
+                    return response_status(ctx, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+                }
+            }
+        }
+        break;
+    case HP_MESSAGE_COMPLETE:
+        {
+            HFile* file = (HFile*)ctx->userdata;
+            delete file;
+            return response_status(ctx, HTTP_STATUS_OK);
+        }
+        break;
+    case HP_ERROR:
+        {
+            HFile* file = (HFile*)ctx->userdata;
+            delete file;
+        }
+        break;
+    default:
+        break;
+    }
+    return HTTP_STATUS_UNFINISHED;
+}
+
+int Handler::sendLargeFile(const HttpContextPtr& ctx) {
+    std::thread([ctx](){
+        ctx->writer->Begin();
+        std::string filepath = ctx->service->document_root + ctx->request->Path();
+        HFile file;
+        if (file.open(filepath.c_str(), "rb") != 0) {
+            ctx->writer->WriteStatus(HTTP_STATUS_NOT_FOUND);
+            ctx->writer->WriteHeader("Content-Type", "text/html");
+            ctx->writer->WriteBody("<center><h1>404 Not Found</h1></center>");
+            ctx->writer->End();
+            return;
+        }
+        http_content_type content_type = CONTENT_TYPE_NONE;
+        const char* suffix = hv_suffixname(filepath.c_str());
+        if (suffix) {
+            content_type = http_content_type_enum_by_suffix(suffix);
+        }
+        if (content_type == CONTENT_TYPE_NONE || content_type == CONTENT_TYPE_UNDEFINED) {
+            content_type = APPLICATION_OCTET_STREAM;
+        }
+        size_t filesize = file.size();
+        ctx->writer->WriteHeader("Content-Type", http_content_type_str(content_type));
+        ctx->writer->WriteHeader("Content-Length", filesize);
+        // ctx->writer->WriteHeader("Transfer-Encoding", "chunked");
+        ctx->writer->EndHeaders();
+
+        char* buf = NULL;
+        int len = 40960; // 40K
+        SAFE_ALLOC(buf, len);
+        size_t total_readbytes = 0;
+        int last_progress = 0;
+        int sleep_ms_per_send = 0;
+        if (ctx->service->limit_rate <= 0) {
+            // unlimited
+        } else {
+            sleep_ms_per_send = len * 1000 / 1024 / ctx->service->limit_rate;
+        }
+        if (sleep_ms_per_send == 0) sleep_ms_per_send = 1;
+        int sleep_ms = sleep_ms_per_send;
+        auto start_time = std::chrono::steady_clock::now();
+        auto end_time = start_time;
+        while (total_readbytes < filesize) {
+            if (!ctx->writer->isConnected()) {
+                break;
+            }
+            if (!ctx->writer->isWriteComplete()) {
+                hv_delay(1);
+                continue;
+            }
+            size_t readbytes = file.read(buf, len);
+            if (readbytes <= 0) {
+                // read file error!
+                ctx->writer->close();
+                break;
+            }
+            int nwrite = ctx->writer->WriteBody(buf, readbytes);
+            if (nwrite < 0) {
+                // disconnected!
+                break;
+            }
+            total_readbytes += readbytes;
+            int cur_progress = total_readbytes * 100 / filesize;
+            if (cur_progress > last_progress) {
+                // printf("<< %s progress: %ld/%ld = %d%%\n",
+                //     ctx->request->path.c_str(), (long)total_readbytes, (long)filesize, (int)cur_progress);
+                last_progress = cur_progress;
+            }
+            end_time += std::chrono::milliseconds(sleep_ms);
+            std::this_thread::sleep_until(end_time);
+        }
+        ctx->writer->End();
+        SAFE_FREE(buf);
+        // auto elapsed_time = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
+        // printf("<< %s taked %ds\n", ctx->request->path.c_str(), (int)elapsed_time.count());
+    }).detach();
+    return HTTP_STATUS_UNFINISHED;
 }
 
 int Handler::sse(const HttpContextPtr& ctx) {

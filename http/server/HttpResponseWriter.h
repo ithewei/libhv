@@ -52,6 +52,11 @@ public:
         return 0;
     }
 
+    int WriteCookie(const HttpCookie& cookie) {
+        response->cookies.push_back(cookie);
+        return 0;
+    }
+
     int EndHeaders(const char* key = NULL, const char* value = NULL) {
         if (state != SEND_BEGIN) return -1;
         if (key && value) {

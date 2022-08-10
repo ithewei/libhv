@@ -16,6 +16,7 @@ HttpHandler::HttpHandler() {
     ssl = false;
     service = NULL;
     ws_service = NULL;
+    api_handler = NULL;
     last_send_ping_time = 0;
     last_recv_pong_time = 0;
 
@@ -49,6 +50,15 @@ bool HttpHandler::Init(int http_version, hio_t* io) {
         writer.reset(new hv::HttpResponseWriter(io, resp));
         writer->status = hv::SocketChannel::CONNECTED;
     }
+    // NOTE: hook http_cb
+    req->http_cb = [this](HttpMessage* msg, http_parser_state state, const char* data, size_t size) {
+        if (state == HP_HEADERS_COMPLETE) {
+            onHeadersComplete();
+        }
+        if (api_handler && api_handler->state_handler) {
+            api_handler->state_handler(getHttpContext(), state, data, size);
+        }
+    };
     return true;
 }
 
@@ -57,6 +67,8 @@ void HttpHandler::Reset() {
     req->Reset();
     resp->Reset();
     parser->InitRequest(req.get());
+    ctx = NULL;
+    api_handler = NULL;
     closeFile();
     if (writer) {
         writer->Begin();
@@ -127,6 +139,17 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
     return true;
 }
 
+const HttpContextPtr& HttpHandler::getHttpContext() {
+    if (!ctx) {
+        ctx = std::make_shared<hv::HttpContext>();
+        ctx->service = service;
+        ctx->request = req;
+        ctx->response = resp;
+        ctx->writer = writer;
+    }
+    return ctx;
+}
+
 int HttpHandler::customHttpHandler(const http_handler& handler) {
     return invokeHttpHandler(&handler);
 }
@@ -141,18 +164,40 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
         hv::async(std::bind(handler->async_handler, req, writer));
         status_code = HTTP_STATUS_UNFINISHED;
     } else if (handler->ctx_handler) {
-        HttpContextPtr ctx(new hv::HttpContext);
-        ctx->service = service;
-        ctx->request = req;
-        ctx->response = resp;
-        ctx->writer = writer;
         // NOTE: ctx_handler run on IO thread, you can easily post HttpContextPtr to your consumer thread for processing.
-        status_code = handler->ctx_handler(ctx);
-        if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
-            status_code = HTTP_STATUS_UNFINISHED;
-        }
+        status_code = handler->ctx_handler(getHttpContext());
+    } else if (handler->state_handler) {
+        status_code = resp->status_code;
     }
     return status_code;
+}
+
+void HttpHandler::onHeadersComplete() {
+    HttpRequest* pReq = req.get();
+    pReq->scheme = ssl ? "https" : "http";
+    pReq->client_addr.ip = ip;
+    pReq->client_addr.port = port;
+    pReq->ParseUrl();
+
+    if (service->api_handlers.size() != 0) {
+        service->GetApi(pReq, &api_handler);
+    }
+    if (api_handler && api_handler->state_handler) {
+        writer->onclose = [this](){
+            // HP_ERROR
+            if (!parser->IsComplete()) {
+                if (api_handler && api_handler->state_handler) {
+                    api_handler->state_handler(getHttpContext(), HP_ERROR, NULL, 0);
+                }
+            }
+        };
+    } else {
+        // TODO: forward proxy
+        // TODO: reverse proxy
+        // TODO: rewrite
+        // NOTE: not hook http_cb
+        req->http_cb = NULL;
+    }
 }
 
 int HttpHandler::HandleHttpRequest() {
@@ -161,10 +206,6 @@ int HttpHandler::HandleHttpRequest() {
     HttpRequest* pReq = req.get();
     HttpResponse* pResp = resp.get();
 
-    pReq->scheme = ssl ? "https" : "http";
-    pReq->client_addr.ip = ip;
-    pReq->client_addr.port = port;
-    pReq->ParseUrl();
     // NOTE: Not all users want to parse body, we comment it out.
     // pReq->ParseBody();
 
@@ -206,6 +247,9 @@ postprocessor:
         customHttpHandler(service->postprocessor);
     }
 
+    if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
+        status_code = 0;
+    }
     if (status_code == 0) {
         state = HANDLE_CONTINUE;
     } else {
@@ -217,14 +261,9 @@ postprocessor:
 
 int HttpHandler::defaultRequestHandler() {
     int status_code = HTTP_STATUS_OK;
-    http_handler* handler = NULL;
 
-    if (service->api_handlers.size() != 0) {
-        service->GetApi(req.get(), &handler);
-    }
-
-    if (handler) {
-        status_code = invokeHttpHandler(handler);
+    if (api_handler) {
+        status_code = invokeHttpHandler(api_handler);
     }
     else if (req->method == HTTP_GET || req->method == HTTP_HEAD) {
         // static handler

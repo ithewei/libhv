@@ -8,9 +8,7 @@ public:
     // preprocessor => api_handlers => postprocessor
     static int preprocessor(HttpRequest* req, HttpResponse* resp);
     static int postprocessor(HttpRequest* req, HttpResponse* resp);
-
     static int errorHandler(const HttpContextPtr& ctx);
-    static int largeFileHandler(const HttpContextPtr& ctx);
 
     static int sleep(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer);
     static int setTimeout(const HttpContextPtr& ctx);
@@ -28,6 +26,10 @@ public:
     static int upload(const HttpContextPtr& ctx);
     // SSE: Server Send Events
     static int sse(const HttpContextPtr& ctx);
+
+    // LargeFile
+    static int sendLargeFile(const HttpContextPtr& ctx);
+    static int recvLargeFile(const HttpContextPtr& ctx, http_parser_state state, const char* data, size_t size);
 
 private:
     static int response_status(HttpResponse* resp, int code = 200, const char* message = NULL) {

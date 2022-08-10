@@ -13,6 +13,7 @@ struct HV_EXPORT HttpContext {
     HttpRequestPtr          request;
     HttpResponsePtr         response;
     HttpResponseWriterPtr   writer;
+    void*                   userdata;
 
     // HttpRequest aliases
     // return request->xxx

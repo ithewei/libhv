@@ -20,7 +20,8 @@ enum http_parser_state {
     HP_CHUNK_HEADER,
     HP_BODY,
     HP_CHUNK_COMPLETE,
-    HP_MESSAGE_COMPLETE
+    HP_MESSAGE_COMPLETE,
+    HP_ERROR
 };
 
 // http_status
