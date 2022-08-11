@@ -215,44 +215,48 @@ int Handler::upload(const HttpContextPtr& ctx) {
 }
 
 int Handler::recvLargeFile(const HttpContextPtr& ctx, http_parser_state state, const char* data, size_t size) {
+    // printf("recvLargeFile state=%d\n", (int)state);
+    int status_code = HTTP_STATUS_UNFINISHED;
+    HFile* file = (HFile*)ctx->userdata;
     switch (state) {
     case HP_HEADERS_COMPLETE:
         {
-            ctx->setContentType(APPLICATION_JSON);
             std::string save_path = "html/uploads/";
             std::string filename = ctx->param("filename", "unnamed.txt");
             std::string filepath = save_path + filename;
-            HFile* file = new HFile;
+            file = new HFile;
             if (file->open(filepath.c_str(), "wb") != 0) {
-                return response_status(ctx, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+                ctx->close();
+                return HTTP_STATUS_INTERNAL_SERVER_ERROR;
             }
             ctx->userdata = file;
         }
         break;
     case HP_BODY:
         {
-            HFile* file = (HFile*)ctx->userdata;
             if (file && data && size) {
                 if (file->write(data, size) != size) {
-                    return response_status(ctx, HTTP_STATUS_INTERNAL_SERVER_ERROR);
+                    ctx->close();
+                    return HTTP_STATUS_INTERNAL_SERVER_ERROR;
                 }
             }
         }
         break;
     case HP_MESSAGE_COMPLETE:
         {
-            HFile* file = (HFile*)ctx->userdata;
+            status_code = HTTP_STATUS_OK;
+            ctx->setContentType(APPLICATION_JSON);
+            response_status(ctx, status_code);
             if (file) {
                 delete file;
                 ctx->userdata = NULL;
             }
-            return response_status(ctx, HTTP_STATUS_OK);
         }
         break;
     case HP_ERROR:
         {
-            HFile* file = (HFile*)ctx->userdata;
             if (file) {
+                file->remove();
                 delete file;
                 ctx->userdata = NULL;
             }
@@ -261,7 +265,7 @@ int Handler::recvLargeFile(const HttpContextPtr& ctx, http_parser_state state, c
     default:
         break;
     }
-    return HTTP_STATUS_UNFINISHED;
+    return status_code;
 }
 
 int Handler::sendLargeFile(const HttpContextPtr& ctx) {

@@ -112,14 +112,14 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
 
 success:
     file.close();
-    ret = rename(filepath_download.c_str(), filepath);
+    ret = file.rename(filepath);
     if (ret != 0) {
         fprintf(stderr, "mv %s => %s failed: %s:%d\n", filepath_download.c_str(), filepath, strerror(ret), ret);
     }
     return ret;
 error:
     file.close();
-    // remove(filepath_download.c_str());
+    // file.remove();
     return ret;
 }
 

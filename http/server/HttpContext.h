@@ -15,6 +15,11 @@ struct HV_EXPORT HttpContext {
     HttpResponseWriterPtr   writer;
     void*                   userdata;
 
+    HttpContext() {
+        service = NULL;
+        userdata = NULL;
+    }
+
     // HttpRequest aliases
     // return request->xxx
     std::string ip() {
@@ -144,7 +149,9 @@ struct HV_EXPORT HttpContext {
 
     // response->sendXxx
     int send() {
-        writer->End();
+        if (writer) {
+            writer->End();
+        }
         return response->status_code;
     }
 
@@ -185,6 +192,9 @@ struct HV_EXPORT HttpContext {
     }
 #endif
 
+    int close() {
+        return writer ? writer->close(true) : -1;
+    }
 };
 
 } // end namespace hv

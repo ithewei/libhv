@@ -34,6 +34,16 @@ public:
         return fp != NULL;
     }
 
+    int remove() {
+        close();
+        return ::remove(filepath);
+    }
+
+    int rename(const char* newpath) {
+        close();
+        return ::rename(filepath, newpath);
+    }
+
     size_t read(void* ptr, size_t len) {
         return fread(ptr, 1, len, fp);
     }
