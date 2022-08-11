@@ -45,11 +45,31 @@ bool HttpHandler::Init(int http_version, hio_t* io) {
         resp->http_major = req->http_major = 2;
         resp->http_minor = req->http_minor = 0;
     }
-    parser->InitRequest(req.get());
     if (io) {
         writer.reset(new hv::HttpResponseWriter(io, resp));
         writer->status = hv::SocketChannel::CONNECTED;
     }
+    initRequest();
+    return true;
+}
+
+void HttpHandler::Reset() {
+    state = WANT_RECV;
+    req->Reset();
+    resp->Reset();
+    ctx = NULL;
+    api_handler = NULL;
+    closeFile();
+    if (writer) {
+        writer->Begin();
+        writer->onwrite = NULL;
+        writer->onclose = NULL;
+    }
+    initRequest();
+}
+
+void HttpHandler::initRequest() {
+    parser->InitRequest(req.get());
     // NOTE: hook http_cb
     req->http_cb = [this](HttpMessage* msg, http_parser_state state, const char* data, size_t size) {
         if (state == HP_HEADERS_COMPLETE) {
@@ -59,21 +79,6 @@ bool HttpHandler::Init(int http_version, hio_t* io) {
             api_handler->state_handler(getHttpContext(), state, data, size);
         }
     };
-    return true;
-}
-
-void HttpHandler::Reset() {
-    state = WANT_RECV;
-    req->Reset();
-    resp->Reset();
-    parser->InitRequest(req.get());
-    ctx = NULL;
-    api_handler = NULL;
-    closeFile();
-    if (writer) {
-        writer->Begin();
-        writer->onwrite = NULL;
-    }
 }
 
 bool HttpHandler::SwitchHTTP2() {

@@ -98,6 +98,7 @@ private:
     bool isFileOpened();
 
     const HttpContextPtr& getHttpContext();
+    void initRequest();
     void onHeadersComplete();
 
     int defaultRequestHandler();
