@@ -18,7 +18,7 @@ public:
 
     int open(const char* filepath, const char* mode) {
         close();
-        strncpy(this->filepath, filepath, MAX_PATH);
+        strncpy(this->filepath, filepath, MAX_PATH - 1);
         fp = fopen(filepath, mode);
         return fp ? 0 : errno;
     }
