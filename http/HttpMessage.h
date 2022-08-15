@@ -211,7 +211,11 @@ public:
             ParseBody();
             if (form.empty()) return HTTP_STATUS_BAD_REQUEST;
         }
-        const hv::FormData& formdata = form[name];
+        auto iter = form.find(name);
+        if (iter == form.end()) {
+            return HTTP_STATUS_BAD_REQUEST;
+        }
+        const auto& formdata = iter->second;
         if (formdata.content.empty()) {
             return HTTP_STATUS_BAD_REQUEST;
         }

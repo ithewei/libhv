@@ -92,7 +92,7 @@ protected:
             has_mask = true;
         }
         int frame_size = ws_calc_frame_size(len, has_mask);
-        if (sendbuf_.len < frame_size) {
+        if (sendbuf_.len < (size_t)frame_size) {
             sendbuf_.resize(ceil2e(frame_size));
         }
         ws_build_frame(sendbuf_.base, buf, len, mask, has_mask, opcode, fin);
