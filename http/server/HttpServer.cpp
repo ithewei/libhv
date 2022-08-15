@@ -70,17 +70,22 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         return;
     }
 
+    hloop_t* loop = hevent_loop(io);
+    HttpParser* parser = handler->parser.get();
+    HttpRequest* req = handler->req.get();
+    HttpResponse* resp = handler->resp.get();
+
+    if (handler->proxy) {
+        return;
+    }
+
     if (protocol == HttpHandler::WEBSOCKET) {
         return;
     }
 
-    HttpParser* parser = handler->parser.get();
     if (parser->WantRecv()) {
         return;
     }
-
-    HttpRequest* req = handler->req.get();
-    HttpResponse* resp = handler->resp.get();
 
     // Server:
     static char s_Server[64] = {'\0'};
@@ -90,12 +95,8 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     resp->headers["Server"] = s_Server;
 
     // Connection:
-    bool keepalive = req->IsKeepAlive();
-    if (keepalive) {
-        resp->headers["Connection"] = "keep-alive";
-    } else {
-        resp->headers["Connection"] = "close";
-    }
+    bool keepalive = handler->keepalive;
+    resp->headers["Connection"] = keepalive ? "keep-alive" : "close";
 
     // Upgrade:
     bool upgrade = false;
@@ -161,7 +162,6 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     }
 
     // LOG
-    hloop_t* loop = hevent_loop(io);
     hlogi("[%ld-%ld][%s:%d][%s %s]=>[%d %s]",
         hloop_pid(loop), hloop_tid(loop),
         handler->ip, handler->port,
@@ -187,18 +187,24 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
 static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
-    if (handler) {
-        if (handler->protocol == HttpHandler::WEBSOCKET) {
-            // onclose
-            handler->WebSocketOnClose();
-        } else {
-            if (handler->writer && handler->writer->onclose) {
-                handler->writer->onclose();
-            }
-        }
-        hevent_set_userdata(io, NULL);
-        delete handler;
+    if (handler == NULL) return;
+
+    // close proxy
+    if (handler->proxy) {
+        hio_close_upstream(io);
     }
+
+    // onclose
+    if (handler->protocol == HttpHandler::WEBSOCKET) {
+        handler->WebSocketOnClose();
+    } else {
+        if (handler->writer && handler->writer->onclose) {
+            handler->writer->onclose();
+        }
+    }
+
+    hevent_set_userdata(io, NULL);
+    delete handler;
 }
 
 static void on_accept(hio_t* io) {
@@ -216,7 +222,9 @@ static void on_accept(hio_t* io) {
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_read(io);
-    hio_set_keepalive_timeout(io, service->keepalive_timeout);
+    if (service->keepalive_timeout > 0) {
+        hio_set_keepalive_timeout(io, service->keepalive_timeout);
+    }
 
     // new HttpHandler, delete on_close
     HttpHandler* handler = new HttpHandler;

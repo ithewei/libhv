@@ -4,6 +4,7 @@
 #include "herr.h"
 #include "hlog.h"
 #include "htime.h"
+#include "hurl.h"
 #include "hasync.h" // import hv::async for http_async_handler
 #include "http_page.h"
 
@@ -182,6 +183,31 @@ void HttpHandler::onHeadersComplete() {
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
     pReq->client_addr.port = port;
+
+    // keepalive
+    keepalive = pReq->IsKeepAlive();
+
+    // NOTE: Detect proxy before ParseUrl
+    proxy = 0;
+    if (hv::startswith(pReq->url, "http")) {
+        // forward proxy
+        proxy = 1;
+        auto iter = pReq->headers.find("Proxy-Connection");
+        if (iter != pReq->headers.end()) {
+            const char* keepalive_value = iter->second.c_str();
+            if (stricmp(keepalive_value, "keep-alive") == 0) {
+                keepalive = true;
+            }
+            else if (stricmp(keepalive_value, "close") == 0) {
+                keepalive = false;
+            }
+            else if (stricmp(keepalive_value, "upgrade") == 0) {
+                keepalive = true;
+            }
+        }
+    }
+
+    // printf("url=%s\n", pReq->url.c_str());
     pReq->ParseUrl();
 
     if (service->api_handlers.size() != 0) {
@@ -197,12 +223,84 @@ void HttpHandler::onHeadersComplete() {
             }
         };
     } else {
-        // TODO: forward proxy
-        // TODO: reverse proxy
-        // TODO: rewrite
         // NOTE: not hook http_cb
-        req->http_cb = NULL;
+        pReq->http_cb = NULL;
+
+        if (!proxy && service->proxies.size() != 0) {
+            // reverse proxy
+            std::string proxy_url = service->GetProxyUrl(pReq->path.c_str());
+            if (!proxy_url.empty()) {
+                proxy = 1;
+                pReq->url = proxy_url;
+            }
+        }
+
+        if (proxy) {
+            proxyConnect(pReq->url);
+        } else {
+            // TODO: rewrite
+        }
     }
+}
+
+void HttpHandler::onProxyConnect(hio_t* upstream_io) {
+    // printf("onProxyConnect\n");
+    HttpHandler* handler = (HttpHandler*)hevent_userdata(upstream_io);
+    hio_t* io = hio_get_upstream(upstream_io);
+    assert(handler != NULL && io != NULL);
+
+    HttpRequest* req = handler->req.get();
+    // NOTE: send head + received body
+    req->headers.erase("Proxy-Connection");
+    req->headers["Connection"] = handler->keepalive ? "keep-alive" : "close";
+    req->headers["X-Origin-IP"] = handler->ip;
+    std::string msg = req->Dump(true, true);
+    // printf("%s\n", msg.c_str());
+    hio_write(upstream_io, msg.c_str(), msg.size());
+
+    // NOTE: start recv body continue then upstream
+    hio_setcb_read(io, hio_write_upstream);
+    hio_read_start(io);
+    hio_setcb_read(upstream_io, hio_write_upstream);
+    hio_read_start(upstream_io);
+}
+
+int HttpHandler::proxyConnect(const std::string& strUrl) {
+    if (!writer) return ERR_NULL_POINTER;
+    hio_t* io = writer->io();
+    hloop_t* loop = hevent_loop(io);
+
+    HUrl url;
+    if (!url.parse(strUrl)) {
+        return ERR_PARSE;
+    }
+
+    hlogi("proxy_pass %s", strUrl.c_str());
+    hio_t* upstream_io = hio_create_socket(loop, url.host.c_str(), url.port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (upstream_io == NULL) {
+        hio_close_async(io);
+        return ERR_SOCKET;
+    }
+    if (url.scheme == "https") {
+        hio_enable_ssl(upstream_io);
+    }
+    hevent_set_userdata(upstream_io, this);
+    hio_setup_upstream(io, upstream_io);
+    hio_setcb_connect(upstream_io, HttpHandler::onProxyConnect);
+    hio_setcb_close(upstream_io, hio_close_upstream);
+    if (service->proxy_connect_timeout > 0) {
+        hio_set_connect_timeout(upstream_io, service->proxy_connect_timeout);
+    }
+    if (service->proxy_read_timeout > 0) {
+        hio_set_read_timeout(io, service->proxy_read_timeout);
+    }
+    if (service->proxy_write_timeout > 0) {
+        hio_set_write_timeout(io, service->proxy_write_timeout);
+    }
+    hio_connect(upstream_io);
+    // NOTE: wait upstream_io connected then start read
+    hio_read_stop(io);
+    return 0;
 }
 
 int HttpHandler::HandleHttpRequest() {

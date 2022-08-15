@@ -55,7 +55,7 @@
 - 可靠UDP支持: WITH_KCP
 - SSL/TLS加密通信（可选WITH_OPENSSL、WITH_GNUTLS、WITH_MBEDTLS）
 - HTTP服务端/客户端（支持https http1/x http2 grpc）
-- HTTP支持静态文件服务、目录服务、同步/异步API处理函数
+- HTTP支持静态文件服务、目录服务、代理服务、同步/异步API处理函数
 - HTTP支持RESTful风格、URI路由、keep-alive长连接、chunked分块等特性
 - WebSocket服务端/客户端
 - MQTT客户端

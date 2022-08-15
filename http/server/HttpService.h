@@ -109,7 +109,7 @@ struct HV_EXPORT HttpService {
     http_handler        processor;
     http_handler        postprocessor;
 
-    // api service (that is http.APIServer)
+    // api service (that is http.ApiServer)
     std::string         base_url;
     http_api_handlers   api_handlers;
 
@@ -119,11 +119,18 @@ struct HV_EXPORT HttpService {
     std::string     document_root;
     std::string     home_page;
     std::string     error_page;
-    // location => root
+    // nginx: location => root
     std::map<std::string, std::string, std::greater<std::string>> staticDirs;
     // indexof service (that is http.DirectoryServer)
     std::string     index_of;
     http_handler    errorHandler;
+
+    // proxy service (that is http.ProxyServer)
+    // nginx: location => proxy_pass
+    std::map<std::string, std::string, std::greater<std::string>> proxies;
+    int proxy_connect_timeout;
+    int proxy_read_timeout;
+    int proxy_write_timeout;
 
     // options
     int keepalive_timeout;
@@ -146,6 +153,10 @@ struct HV_EXPORT HttpService {
         // error_page = DEFAULT_ERROR_PAGE;
         // index_of = DEFAULT_INDEXOF_DIR;
 
+        proxy_connect_timeout = DEFAULT_CONNECT_TIMEOUT;
+        proxy_read_timeout = 0;
+        proxy_write_timeout = 0;
+
         keepalive_timeout = DEFAULT_KEEPALIVE_TIMEOUT;
         max_file_cache_size = MAX_FILE_CACHE_SIZE;
         file_cache_stat_interval = DEFAULT_FILE_CACHE_STAT_INTERVAL;
@@ -163,6 +174,11 @@ struct HV_EXPORT HttpService {
     void Static(const char* path, const char* dir);
     // @retval / => /var/www/html/index.html
     std::string GetStaticFilepath(const char* path);
+
+    // Proxy("/api/v1/", "http://www.httpbin.org/");
+    void Proxy(const char* path, const char* url);
+    // @retval /api/v1/test => http://www.httpbin.org/test
+    std::string GetProxyUrl(const char* path);
 
     hv::StringList Paths() {
         hv::StringList paths;

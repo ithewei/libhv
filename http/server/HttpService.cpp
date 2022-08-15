@@ -155,4 +155,19 @@ std::string HttpService::GetStaticFilepath(const char* path) {
     return filepath;
 }
 
+void HttpService::Proxy(const char* path, const char* url) {
+    proxies[path] = url;
+}
+
+std::string HttpService::GetProxyUrl(const char* path) {
+    std::string url;
+    for (auto iter = proxies.begin(); iter != proxies.end(); ++iter) {
+        if (hv_strstartswith(path, iter->first.c_str())) {
+            url = iter->second + (path + iter->first.length());
+            break;
+        }
+    }
+    return url;
+}
+
 }

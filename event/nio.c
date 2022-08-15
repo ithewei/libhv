@@ -226,6 +226,23 @@ connect_error:
     hio_close(io);
 }
 
+static void nio_connect_event_cb(hevent_t* ev) {
+    hio_t* io = (hio_t*)ev->userdata;
+    uint32_t id = (uintptr_t)ev->privdata;
+    if (io->id != id) return;
+    nio_connect(io);
+}
+
+static int nio_connect_async(hio_t* io) {
+    hevent_t ev;
+    memset(&ev, 0, sizeof(ev));
+    ev.cb = nio_connect_event_cb;
+    ev.userdata = io;
+    ev.privdata = (void*)(uintptr_t)io->id;
+    hloop_post_event(io->loop, &ev);
+    return 0;
+}
+
 static int __nio_read(hio_t* io, void* buf, int len) {
     int nread = 0;
     switch (io->io_type) {
@@ -431,12 +448,12 @@ int hio_connect(hio_t* io) {
 #endif
         perror("connect");
         io->error = socket_errno();
-        hio_close(io);
+        hio_close_async(io);
         return ret;
     }
     if (ret == 0) {
         // connect ok
-        nio_connect(io);
+        nio_connect_async(io);
         return 0;
     }
     int timeout = io->connect_timeout ? io->connect_timeout : HIO_DEFAULT_CONNECT_TIMEOUT;

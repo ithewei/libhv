@@ -28,8 +28,12 @@ public:
         SEND_DONE,
     } state;
 
+    // flags
+    unsigned ssl:           1;
+    unsigned keepalive:     1;
+    unsigned proxy:         1;
+
     // peeraddr
-    bool                    ssl;
     char                    ip[64];
     int                     port;
 
@@ -100,6 +104,10 @@ private:
     const HttpContextPtr& getHttpContext();
     void initRequest();
     void onHeadersComplete();
+
+    // proxy
+    int proxyConnect(const std::string& url);
+    static void onProxyConnect(hio_t* upstream_io);
 
     int defaultRequestHandler();
     int defaultStaticHandler();
