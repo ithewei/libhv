@@ -563,11 +563,13 @@ static void __read_timeout_cb(htimer_t* timer) {
     if (inactive_ms + 100 < io->read_timeout) {
         htimer_reset(io->read_timer, io->read_timeout - inactive_ms);
     } else {
-        char localaddrstr[SOCKADDR_STRLEN] = {0};
-        char peeraddrstr[SOCKADDR_STRLEN] = {0};
-        hlogw("read timeout [%s] <=> [%s]",
-                SOCKADDR_STR(io->localaddr, localaddrstr),
-                SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        if (io->io_type & HIO_TYPE_SOCKET) {
+            char localaddrstr[SOCKADDR_STRLEN] = {0};
+            char peeraddrstr[SOCKADDR_STRLEN] = {0};
+            hlogw("read timeout [%s] <=> [%s]",
+                    SOCKADDR_STR(io->localaddr, localaddrstr),
+                    SOCKADDR_STR(io->peeraddr, peeraddrstr));            
+        }
         io->error = ETIMEDOUT;
         hio_close(io);
     }
@@ -597,11 +599,13 @@ static void __write_timeout_cb(htimer_t* timer) {
     if (inactive_ms + 100 < io->write_timeout) {
         htimer_reset(io->write_timer, io->write_timeout - inactive_ms);
     } else {
-        char localaddrstr[SOCKADDR_STRLEN] = {0};
-        char peeraddrstr[SOCKADDR_STRLEN] = {0};
-        hlogw("write timeout [%s] <=> [%s]",
-                SOCKADDR_STR(io->localaddr, localaddrstr),
-                SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        if (io->io_type & HIO_TYPE_SOCKET) {
+            char localaddrstr[SOCKADDR_STRLEN] = {0};
+            char peeraddrstr[SOCKADDR_STRLEN] = {0};
+            hlogw("write timeout [%s] <=> [%s]",
+                    SOCKADDR_STR(io->localaddr, localaddrstr),
+                    SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        }
         io->error = ETIMEDOUT;
         hio_close(io);
     }
