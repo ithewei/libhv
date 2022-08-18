@@ -568,7 +568,7 @@ static void __read_timeout_cb(htimer_t* timer) {
             char peeraddrstr[SOCKADDR_STRLEN] = {0};
             hlogw("read timeout [%s] <=> [%s]",
                     SOCKADDR_STR(io->localaddr, localaddrstr),
-                    SOCKADDR_STR(io->peeraddr, peeraddrstr));            
+                    SOCKADDR_STR(io->peeraddr, peeraddrstr));
         }
         io->error = ETIMEDOUT;
         hio_close(io);
@@ -636,11 +636,13 @@ static void __keepalive_timeout_cb(htimer_t* timer) {
     if (inactive_ms + 100 < io->keepalive_timeout) {
         htimer_reset(io->keepalive_timer, io->keepalive_timeout - inactive_ms);
     } else {
-        char localaddrstr[SOCKADDR_STRLEN] = {0};
-        char peeraddrstr[SOCKADDR_STRLEN] = {0};
-        hlogw("keepalive timeout [%s] <=> [%s]",
-                SOCKADDR_STR(io->localaddr, localaddrstr),
-                SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        if (io->io_type & HIO_TYPE_SOCKET) {
+            char localaddrstr[SOCKADDR_STRLEN] = {0};
+            char peeraddrstr[SOCKADDR_STRLEN] = {0};
+            hlogw("keepalive timeout [%s] <=> [%s]",
+                    SOCKADDR_STR(io->localaddr, localaddrstr),
+                    SOCKADDR_STR(io->peeraddr, peeraddrstr));
+        }
         io->error = ETIMEDOUT;
         hio_close(io);
     }
