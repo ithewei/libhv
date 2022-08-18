@@ -203,6 +203,11 @@ static void on_close(hio_t* io) {
         }
     }
 
+    EventLoop* loop = currentThreadEventLoop;
+    if (loop) {
+        --loop->connectionNum;
+    }
+
     hevent_set_userdata(io, NULL);
     delete handler;
 }
@@ -218,6 +223,14 @@ static void on_accept(hio_t* io) {
             SOCKADDR_STR(hio_localaddr(io), localaddrstr),
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
+
+    EventLoop* loop = currentThreadEventLoop;
+    if (loop->connectionNum >= server->worker_connections) {
+        hlogw("over worker_connections");
+        hio_close(io);
+        return;
+    }
+    ++loop->connectionNum;
 
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
