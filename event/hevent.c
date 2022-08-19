@@ -826,9 +826,6 @@ void hio_set_unpack(hio_t* io, unpack_setting_t* setting) {
         }
     }
     else if (io->unpack_setting->mode == UNPACK_BY_LENGTH_FIELD) {
-        assert(io->unpack_setting->body_offset >=
-               io->unpack_setting->length_field_offset +
-               io->unpack_setting->length_field_bytes);
     }
 
     // NOTE: unpack must have own readbuf
