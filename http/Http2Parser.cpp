@@ -215,6 +215,10 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
         name = header.first.c_str();
         value = header.second.c_str();
         hv_strlower((char*)name);
+        if (strcmp(name, "host") == 0) {
+            // :authority
+            continue;
+        }
         if (strcmp(name, "connection") == 0) {
             // HTTP2 default keep-alive
             continue;
