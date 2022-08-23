@@ -21,9 +21,8 @@ public:
 public:
     // setTimer, setTimeout, killTimer, resetTimer thread-safe
     TimerID setTimer(int timeout_ms, TimerCallback cb, uint32_t repeat = INFINITE) {
-        printf("TimerThread::setTimer\n");
         TimerID timerID = ++nextTimerID;
-        loop()->runInLoop(std::bind(&EventLoop::setTimer, loop(), timeout_ms, cb, repeat, timerID));
+        loop()->setTimerInLoop(timeout_ms, cb, repeat, timerID);
         return timerID;
     }
     // alias javascript setTimeout, setInterval
@@ -35,11 +34,11 @@ public:
     }
 
     void killTimer(TimerID timerID) {
-        loop()->runInLoop(std::bind(&EventLoop::killTimer, loop(), timerID));
+        loop()->killTimer(timerID);
     }
 
     void resetTimer(TimerID timerID, int timeout_ms = 0) {
-        loop()->runInLoop(std::bind(&EventLoop::resetTimer, loop(), timerID, timeout_ms));
+        loop()->resetTimer(timerID, timeout_ms);
     }
 };
 
