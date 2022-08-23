@@ -33,6 +33,7 @@ public:
             is_loop_owner = true;
         }
         connectionNum = 0;
+        curTimerID = 1000;
         setStatus(kInitialized);
     }
 
@@ -88,19 +89,25 @@ public:
     // Timer interfaces: setTimer, killTimer, resetTimer
     TimerID setTimer(int timeout_ms, TimerCallback cb, uint32_t repeat = INFINITE, TimerID timerID = INVALID_TIMER_ID) {
         if (loop_ == NULL) return INVALID_TIMER_ID;
-        htimer_t* htimer = htimer_add(loop_, onTimer, timeout_ms, repeat);
-        if (timerID == INVALID_TIMER_ID) {
-            timerID = hevent_id(htimer);
-        } else {
-            hevent_set_id(htimer, timerID);
-        }
-
-        TimerPtr timer = std::make_shared<Timer>(htimer, cb, repeat);
-        hevent_set_userdata(htimer, this);
-
         mutex_.lock();
+        if (timerID == INVALID_TIMER_ID) {
+            timerID = curTimerID++;
+        }
+        TimerPtr timer = std::make_shared<Timer>(nullptr, cb, repeat);
+        timer->timeout_ms = timeout_ms;
         timers[timerID] = std::move(timer);
         mutex_.unlock();
+        runInLoop([timerID, this](){
+            std::lock_guard<std::mutex> locker(mutex_);
+            auto iter = timers.find(timerID);
+            if (iter != timers.end()) {
+                TimerPtr timer = iter->second;
+                htimer_t* htimer = htimer_add(loop_, onTimer, timer->timeout_ms, timer->repeat);
+                hevent_set_id(htimer, timerID);
+                hevent_set_userdata(htimer, this);
+                timer->timer = htimer;
+            }
+        });
         return timerID;
     }
 
@@ -116,7 +123,11 @@ public:
         std::lock_guard<std::mutex> locker(mutex_);
         auto iter = timers.find(timerID);
         if (iter != timers.end()) {
-            htimer_del(iter->second->timer);
+            if (htimer_t* timer = iter->second->timer) {
+                runInLoop([timer](){
+                    htimer_del(timer);
+                });
+            }
             timers.erase(iter);
         }
     }
@@ -125,9 +136,15 @@ public:
         std::lock_guard<std::mutex> locker(mutex_);
         auto iter = timers.find(timerID);
         if (iter != timers.end()) {
-            htimer_reset(iter->second->timer, timeout_ms);
+            iter->second->timeout_ms = timeout_ms;
             if (iter->second->repeat == 0) {
                 iter->second->repeat = 1;
+            }
+
+            if (htimer_t* timer = iter->second->timer) {
+                runInLoop([timer, timeout_ms](){
+                    htimer_reset(timer, timeout_ms);
+                });
             }
         }
     }
@@ -163,14 +180,9 @@ public:
     void postEvent(EventCallback cb) {
         if (loop_ == NULL) return;
 
-        EventPtr ev(new Event(cb));
-        hevent_set_userdata(&ev->event, this);
+        auto ev = new Event(cb);
+        hevent_set_userdata(&ev->event, ev);
         ev->event.cb = onCustomEvent;
-
-        mutex_.lock();
-        customEvents.push(ev);
-        mutex_.unlock();
-
         hloop_post_event(loop_, &ev->event);
     }
 
@@ -201,23 +213,21 @@ private:
     }
 
     static void onCustomEvent(hevent_t* hev) {
-        EventLoop* loop = (EventLoop*)hevent_userdata(hev);
-
-        loop->mutex_.lock();
-        EventPtr ev = loop->customEvents.front();
-        loop->customEvents.pop();
-        loop->mutex_.unlock();
-
-        if (ev && ev->cb) ev->cb(ev.get());
+        Event* ev = (Event*)hevent_userdata(hev);
+        if (ev) {
+            if (ev->cb) 
+                ev->cb(ev);
+            delete ev;
+        }
     }
 
 public:
     std::atomic<uint32_t>       connectionNum;  // for LB_LeastConnections
+    std::atomic<uint64_t>       curTimerID;
 private:
     hloop_t*                    loop_;
     bool                        is_loop_owner;
     std::mutex                  mutex_;
-    std::queue<EventPtr>        customEvents;   // GUAREDE_BY(mutex_)
     std::map<TimerID, TimerPtr> timers;         // GUAREDE_BY(mutex_)
 };
 

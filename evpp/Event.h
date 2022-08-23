@@ -31,7 +31,7 @@ struct Timer {
     htimer_t*       timer;
     TimerCallback   cb;
     uint32_t        repeat;
-
+    int             timeout_ms;
     Timer(htimer_t* timer = NULL, TimerCallback cb = NULL, uint32_t repeat = INFINITE) {
         this->timer = timer;
         this->cb = std::move(cb);
