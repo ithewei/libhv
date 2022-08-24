@@ -382,8 +382,7 @@ void hio_handle_read(hio_t* io, void* buf, int readbytes) {
             // scale up * 2
             hio_alloc_readbuf(io, io->readbuf.len * 2);
         } else {
-            // [head, tail] => [base, tail - head]
-            memmove(io->readbuf.base, io->readbuf.base + io->readbuf.head, io->readbuf.tail - io->readbuf.head);
+            hio_memmove_readbuf(io);
         }
     } else {
         size_t small_size = io->readbuf.len / 2;
@@ -720,6 +719,21 @@ void hio_free_readbuf(hio_t* io) {
     }
 }
 
+void hio_memmove_readbuf(hio_t* io) {
+    fifo_buf_t* buf = &io->readbuf;
+    if (buf->tail == buf->head) {
+        buf->head = buf->tail = 0;
+        return;
+    }
+    if (buf->tail > buf->head) {
+        size_t size = buf->tail - buf->head;
+        // [head, tail] => [0, tail - head]
+        memmove(buf->base, buf->base + buf->head, size);
+        buf->head = 0;
+        buf->tail = size;
+    }
+}
+
 void hio_set_readbuf(hio_t* io, void* buf, size_t len) {
     assert(io && buf && len != 0);
     hio_free_readbuf(io);
@@ -763,10 +777,14 @@ int hio_read_until_length(hio_t* io, unsigned int len) {
     }
     io->read_flags = HIO_READ_UNTIL_LENGTH;
     io->read_until_length = len;
+    if (io->readbuf.head > 1024 || io->readbuf.tail - io->readbuf.head < 1024) {
+        hio_memmove_readbuf(io);
+    }
     // NOTE: prepare readbuf
+    int need_len = io->readbuf.head + len;
     if (hio_is_loop_readbuf(io) ||
-        io->readbuf.len < len) {
-        hio_alloc_readbuf(io, len);
+        io->readbuf.len < need_len) {
+        hio_alloc_readbuf(io, need_len);
     }
     return hio_read_once(io);
 }

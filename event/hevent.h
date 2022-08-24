@@ -227,6 +227,7 @@ static inline bool hio_is_alloced_readbuf(hio_t* io) {
 }
 void hio_alloc_readbuf(hio_t* io, int len);
 void hio_free_readbuf(hio_t* io);
+void hio_memmove_readbuf(hio_t* io);
 
 #define EVENT_ENTRY(p)          container_of(p, hevent_t, pending_node)
 #define IDLE_ENTRY(p)           container_of(p, hidle_t,  node)
