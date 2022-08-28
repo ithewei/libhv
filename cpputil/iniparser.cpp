@@ -285,8 +285,19 @@ int IniParser::SaveAs(const char* filepath) {
     return 0;
 }
 
-std::list<std::string> IniParser::GetKeys(const std::string& section)
-{
+std::list<std::string> IniParser::GetSections() {
+    std::list<std::string> ret;
+    if (root_ == NULL) return std::move(ret);
+
+    for (auto pNode : root_->children) {
+        if (pNode->type == IniNode::INI_NODE_TYPE_SECTION) {
+            ret.push_back(pNode->label);
+        }
+    }
+    return std::move(ret);
+}
+
+std::list<std::string> IniParser::GetKeys(const std::string& section) {
     std::list<std::string> ret;
     if (root_ == NULL) return std::move(ret);
 

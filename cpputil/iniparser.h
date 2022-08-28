@@ -25,7 +25,8 @@ public:
     std::string DumpString();
     int Save();
     int SaveAs(const char* filepath);
-    
+
+    std::list<std::string> GetSections();
     std::list<std::string> GetKeys(const std::string& section = "");
     std::string GetValue(const std::string& key, const std::string& section = "");
     void        SetValue(const std::string& key, const std::string& value, const std::string& section = "");
