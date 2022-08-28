@@ -103,7 +103,7 @@ cmake --build . --target hv_static --config Release
 ### compile without c++
 ```
 ./configure --without-evpp
-make clean && make
+make clean && make libhv
 ```
 
 ### compile WITH_OPENSSL

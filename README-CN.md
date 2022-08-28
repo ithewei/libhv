@@ -272,6 +272,13 @@ int main() {
     return 0;
 }
 ```
+
+**注意**:
+
+上面示例直接运行在`main`主线程，`server.run()`会阻塞当前线程运行，所以`router`和`server`对象不会被析构，
+如使用`server.start()`内部会另起线程运行，不会阻塞当前线程，但需要注意`router`和`server`的生命周期，
+不要定义为局部变量被析构了，可定义为类成员变量或者全局变量，下面的`WebSocket`服务同理。
+
 #### HTTP客户端
 见[examples/http_client_test.cpp](examples/http_client_test.cpp)
 
