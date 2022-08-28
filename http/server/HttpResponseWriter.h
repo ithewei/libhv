@@ -83,8 +83,8 @@ public:
         int chunked_header_len = snprintf(chunked_header, sizeof(chunked_header), "%x\r\n", len);
         write(chunked_header, chunked_header_len);
         if (buf && len) {
-            ret = write(buf, len);
             state = SEND_CHUNKED;
+            ret = write(buf, len);
         } else {
             state = SEND_CHUNKED_END;
         }
@@ -132,8 +132,9 @@ public:
 
     int End(const char* buf = NULL, int len = -1) {
         if (state == SEND_END) return 0;
+        state = SEND_END;
+
         if (!isConnected()) {
-            state = SEND_END;
             return -1;
         }
 
@@ -164,7 +165,6 @@ public:
             }
         }
 
-        state = SEND_END;
         if (!keepAlive) {
             close(true);
         }
