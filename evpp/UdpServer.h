@@ -96,6 +96,17 @@ public:
         return sendto(str.data(), str.size(), peeraddr);
     }
 
+#if WITH_KCP
+    void setKcp(kcp_setting_t* setting) {
+        if (setting) {
+            enable_kcp = true;
+            kcp_setting = *setting;
+        } else {
+            enable_kcp = false;
+        }
+    }
+#endif
+
 public:
     std::string             host;
     int                     port;
