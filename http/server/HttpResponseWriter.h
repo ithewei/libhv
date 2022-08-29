@@ -10,13 +10,13 @@ class HttpResponseWriter : public SocketChannel {
 public:
     HttpResponsePtr response;
     enum State {
-        SEND_BEGIN,
+        SEND_BEGIN = 0,
         SEND_HEADER,
         SEND_BODY,
         SEND_CHUNKED,
         SEND_CHUNKED_END,
         SEND_END,
-    } state;
+    } state: 8, end: 8;
     HttpResponseWriter(hio_t* io, const HttpResponsePtr& resp)
         : SocketChannel(io)
         , response(resp)
@@ -32,7 +32,7 @@ public:
     // Begin -> EndHeaders("Transfer-Encoding", "chunked") -> WriteChunked -> WriteChunked -> ... -> End
 
     int Begin() {
-        state = SEND_BEGIN;
+        state = end = SEND_BEGIN;
         return 0;
     }
 
@@ -131,8 +131,8 @@ public:
     }
 
     int End(const char* buf = NULL, int len = -1) {
-        if (state == SEND_END) return 0;
-        state = SEND_END;
+        if (end == SEND_END) return 0;
+        end = SEND_END;
 
         if (!isConnected()) {
             return -1;
