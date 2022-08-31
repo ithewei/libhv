@@ -75,8 +75,15 @@ void HttpHandler::initRequest() {
     req->http_cb = [this](HttpMessage* msg, http_parser_state state, const char* data, size_t size) {
         if (state == HP_HEADERS_COMPLETE) {
             onHeadersComplete();
+        } else if (state == HP_BODY) {
+            if (api_handler && api_handler->state_handler) {
+                // goto cb;
+            } else {
+                msg->body.append(data, size);
+            }
         }
         if (api_handler && api_handler->state_handler) {
+// cb:
             api_handler->state_handler(getHttpContext(), state, data, size);
         }
     };
@@ -223,9 +230,6 @@ void HttpHandler::onHeadersComplete() {
             }
         };
     } else {
-        // NOTE: not hook http_cb
-        pReq->http_cb = NULL;
-
         if (!proxy && service->proxies.size() != 0) {
             // reverse proxy
             std::string proxy_url = service->GetProxyUrl(pReq->path.c_str());
