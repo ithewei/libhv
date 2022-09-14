@@ -50,18 +50,20 @@ static void new_conn_event(hevent_t* ev) {
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_read(io);
+    HV_FREE(ev);
 }
 
 static void on_accept(hio_t* io) {
     hio_detach(io);
 
     hloop_t* worker_loop = get_next_loop();
-    hevent_t ev;
-    memset(&ev, 0, sizeof(ev));
-    ev.loop = worker_loop;
-    ev.cb = new_conn_event;
-    ev.userdata = io;
-    hloop_post_event(worker_loop, &ev);
+    hevent_t *ev = NULL;
+    HV_ALLOC(ev, sizeof(hevent_t));
+    memset(ev, 0, sizeof(hevent_t));
+    ev->loop = worker_loop;
+    ev->cb = new_conn_event;
+    ev->userdata = io;
+    hloop_post_event(worker_loop, ev);
 }
 
 static HTHREAD_ROUTINE(worker_thread) {
