@@ -96,6 +96,11 @@ install:
 	$(CP) lib/libhv.*  $(INSTALL_LIBDIR)
 	@echo "make install done."
 
+uninstall: clean
+	$(RM) $(PREFIX)/include/hv
+	$(RM) $(PREFIX)/lib/libhv.*
+	@echo "make uninstall done."
+
 hmain_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS=". base cpputil" SRCS="examples/hmain_test.cpp"
 
@@ -274,4 +279,4 @@ echo-servers:
 echo-benchmark: echo-servers
 	bash echo-servers/benchmark.sh
 
-.PHONY: clean prepare install libhv examples unittest evpp echo-servers
+.PHONY: clean prepare install uninstall libhv examples unittest evpp echo-servers
