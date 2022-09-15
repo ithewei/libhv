@@ -68,6 +68,9 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
 
         if (param->verify_peer) {
             mode = SSL_VERIFY_PEER;
+            if (param->endpoint == HSSL_SERVER) {
+                mode |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+            }
         }
     }
     if (mode == SSL_VERIFY_PEER && !ca_file && !ca_path) {
