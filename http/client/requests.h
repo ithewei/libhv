@@ -62,6 +62,7 @@ HV_INLINE Response uploadFile(const char* url, const char* filepath, http_method
     Request req(new HttpRequest);
     req->method = method;
     req->url = url;
+    req->timeout = 600; // 10min
     if (req->File(filepath) != 200) return NULL;
     if (&headers != &DefaultHeaders) {
         req->headers = headers;
@@ -107,6 +108,7 @@ HV_INLINE size_t downloadFile(const char* url, const char* filepath, download_pr
     size_t received_bytes = 0;
     req->http_cb = [&file, &content_length, &received_bytes, &progress_cb]
         (HttpMessage* resp, http_parser_state state, const char* data, size_t size) {
+        if (!resp->headers["Location"].empty()) return;
         if (state == HP_HEADERS_COMPLETE) {
             content_length = hv::from_string<size_t>(resp->GetHeader("Content-Length"));
         } else if (state == HP_BODY) {
