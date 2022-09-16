@@ -4,6 +4,7 @@
 #include "iniparser.h"
 
 #include "HttpServer.h"
+#include "hasync.h"     // import hv::async
 
 #include "router.h"
 
@@ -258,6 +259,21 @@ int main(int argc, char** argv) {
     // http_server
     Router::Register(g_http_service);
     g_http_server.registerHttpService(&g_http_service);
+
+#if 0
+    std::atomic_flag init_flag = ATOMIC_FLAG_INIT;
+    g_http_server.onWorkerStart = [&init_flag](){
+        if (!init_flag.test_and_set()) {
+            hv::async::startup();
+        }
+    };
+    g_http_server.onWorkerStop = [&init_flag](){
+        if (init_flag.test_and_set()) {
+            hv::async::cleanup();
+        }
+    };
+#endif
+
     g_http_server.run();
     return ret;
 }

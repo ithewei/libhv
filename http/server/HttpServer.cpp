@@ -161,7 +161,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         }
     }
 
-    // LOG
+    // access log
     hlogi("[%ld-%ld][%s:%d][%s %s]=>[%d %s]",
         hloop_pid(loop), hloop_tid(loop),
         handler->ip, handler->port,
@@ -310,7 +310,19 @@ static void loop_thread(void* userdata) {
     privdata->loops.push_back(loop);
     privdata->mutex_.unlock();
 
+    hlogi("EventLoop started, pid=%ld tid=%ld", hv_getpid(), hv_gettid());
+    if (server->onWorkerStart) {
+        loop->queueInLoop([server](){
+            server->onWorkerStart();
+        });
+    }
+
     loop->run();
+
+    if (server->onWorkerStop) {
+        server->onWorkerStop();
+    }
+    hlogi("EventLoop stopped, pid=%ld tid=%ld", hv_getpid(), hv_gettid());
 }
 
 int http_server_run(http_server_t* server, int wait) {

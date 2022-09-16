@@ -21,9 +21,11 @@ typedef struct http_server_s {
     HttpService* service; // http service
     WebSocketService* ws; // websocket service
     void* userdata;
-//private:
     int listenfd[2]; // 0: http, 1: https
     void* privdata;
+    // hooks
+    std::function<void()> onWorkerStart;
+    std::function<void()> onWorkerStop;
 
 #ifdef __cplusplus
     http_server_s() {
