@@ -85,7 +85,12 @@ public:
         if (tls) {
             channel->enableSSL();
             if (tls_setting) {
-                channel->newSslCtx(tls_setting);
+                int ret = channel->newSslCtx(tls_setting);
+                if (ret != 0) {
+                    hloge("new SSL_CTX failed: %d", ret);
+                    closesocket();
+                    return ret;
+                }
             }
             if (!is_ipaddr(remote_host.c_str())) {
                 channel->setHostname(remote_host);
