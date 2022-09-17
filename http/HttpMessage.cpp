@@ -334,7 +334,7 @@ append:
 void HttpMessage::FillContentLength() {
     auto iter = headers.find("Content-Length");
     if (iter != headers.end()) {
-        content_length = atoi(iter->second.c_str());
+        content_length = atoll(iter->second.c_str());
     }
     if (content_length == 0) {
         DumpBody();
@@ -439,7 +439,7 @@ void HttpMessage::DumpBody() {
 void HttpMessage::DumpBody(std::string& str) {
     DumpBody();
     const char* content = (const char*)Content();
-    int content_length = ContentLength();
+    size_t content_length = ContentLength();
     if (content && content_length) {
         str.append(content, content_length);
     }
