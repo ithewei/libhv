@@ -266,7 +266,7 @@ int Bind(int port, const char* host, int type) {
 }
 
 int Listen(int port, const char* host) {
-    int sockfd = Bind(port, host, SOCK_STREAM);
+    int sockfd = Bind(port, host, SOCK_STREAM|SOCK_CLOEXEC);
     if (sockfd < 0) return sockfd;
     return ListenFD(sockfd);
 }
