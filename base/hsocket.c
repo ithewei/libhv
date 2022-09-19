@@ -266,7 +266,11 @@ int Bind(int port, const char* host, int type) {
 }
 
 int Listen(int port, const char* host) {
+#ifdef OS_LINUX
+    int sockfd = Bind(port, host, SOCK_STREAM|SOCK_CLOEXEC);
+#else
     int sockfd = Bind(port, host, SOCK_STREAM);
+#endif
     if (sockfd < 0) return sockfd;
     return ListenFD(sockfd);
 }
