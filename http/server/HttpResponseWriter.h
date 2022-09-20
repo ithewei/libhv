@@ -161,6 +161,7 @@ public:
             }
             if (is_dump_body) {
                 std::string msg = response->Dump(is_dump_headers, is_dump_body);
+                state = SEND_BODY;
                 ret = write(msg);
             }
         }
