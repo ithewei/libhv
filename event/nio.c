@@ -222,7 +222,7 @@ static void nio_connect(hio_t* io) {
     }
 
 connect_error:
-    hlogw("connfd=%d connect error: %s:%d\n", io->fd, socket_strerror(io->error), io->error);
+    hlogw("connfd=%d connect error: %s:%d", io->fd, socket_strerror(io->error), io->error);
     hio_close(io);
 }
 
