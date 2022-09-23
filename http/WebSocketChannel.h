@@ -83,6 +83,10 @@ public:
         return write(WS_SERVER_PONG_FRAME, WS_SERVER_MIN_FRAME_SIZE);
     }
 
+    int close() {
+        return SocketChannel::close(type == WS_SERVER);
+    }
+
 protected:
     int sendFrame(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY, bool fin = true) {
         bool has_mask = false;

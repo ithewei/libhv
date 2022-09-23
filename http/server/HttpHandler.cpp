@@ -112,7 +112,7 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
         ws_channel->opcode = (enum ws_opcode)opcode;
         switch(opcode) {
         case WS_OPCODE_CLOSE:
-            ws_channel->close(true);
+            ws_channel->close();
             break;
         case WS_OPCODE_PING:
             // printf("recv ping\n");
@@ -141,7 +141,7 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
         ws_channel->setHeartbeat(ping_interval, [this](){
             if (last_recv_pong_time < last_send_ping_time) {
                 hlogw("[%s:%d] websocket no pong!", ip, port);
-                ws_channel->close(true);
+                ws_channel->close();
             } else {
                 // printf("send ping\n");
                 ws_channel->sendPing();

@@ -25,7 +25,7 @@ public:
     enum ws_opcode opcode() { return channel ? channel->opcode : WS_OPCODE_CLOSE; }
 
     WebSocketClient(EventLoopPtr loop = NULL);
-    ~WebSocketClient();
+    virtual ~WebSocketClient();
 
     // url = ws://ip:port/path
     // url = wss://ip:port/path
