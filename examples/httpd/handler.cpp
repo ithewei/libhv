@@ -290,8 +290,11 @@ int Handler::sendLargeFile(const HttpContextPtr& ctx) {
         }
         size_t filesize = file.size();
         ctx->writer->WriteHeader("Content-Type", http_content_type_str(content_type));
+#if USE_TRANSFER_ENCODING_CHUNKED
+        ctx->writer->WriteHeader("Transfer-Encoding", "chunked");
+#else
         ctx->writer->WriteHeader("Content-Length", filesize);
-        // ctx->writer->WriteHeader("Transfer-Encoding", "chunked");
+#endif
         ctx->writer->EndHeaders();
 
         char* buf = NULL;
