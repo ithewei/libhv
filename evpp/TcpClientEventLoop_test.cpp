@@ -73,21 +73,16 @@ public:
 };
 typedef std::shared_ptr<MyTcpClient> MyTcpClientPtr;
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        printf("Usage: %s port\n", argv[0]);
-        return -10;
-    }
-    int port = atoi(argv[1]);
-
+int TestMultiClientsRunInOneEventLoop(int port, int nclients) {
     EventLoopThreadPtr loop_thread(new EventLoopThread);
     loop_thread->start();
 
-    MyTcpClientPtr cli1(new MyTcpClient(loop_thread->loop()));
-    cli1->connect(port);
-
-    MyTcpClientPtr cli2(new MyTcpClient(loop_thread->loop()));
-    cli2->connect(port);
+    std::map<int, MyTcpClientPtr> clients;
+    for (int i = 0; i < nclients; ++i) {
+        MyTcpClient* client = new MyTcpClient(loop_thread->loop());
+        client->connect(port);
+        clients[i] = MyTcpClientPtr(client);
+    }
 
     // press Enter to stop
     while (getchar() != '\n');
@@ -95,4 +90,19 @@ int main(int argc, char* argv[]) {
     loop_thread->join();
 
     return 0;
+}
+
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        printf("Usage: %s port\n", argv[0]);
+        return -10;
+    }
+    int port = atoi(argv[1]);
+
+    int nclients = 100;
+    if (argc > 2) {
+        nclients = atoi(argv[2]);
+    }
+
+    return TestMultiClientsRunInOneEventLoop(port, nclients);
 }
