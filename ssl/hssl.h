@@ -78,6 +78,10 @@ HV_EXPORT int hssl_close(hssl_t ssl);
 
 HV_EXPORT int hssl_set_sni_hostname(hssl_t ssl, const char* hostname);
 
+#ifdef WITH_OPENSSL
+HV_EXPORT int hssl_ctx_set_alpn_protos(hssl_ctx_t ssl_ctx, const unsigned char* protos, unsigned int protos_len);
+#endif
+
 END_EXTERN_C
 
 #endif // HV_SSL_H_

@@ -40,6 +40,12 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
     HttpHandler::ProtocolType protocol = handler->protocol;
     if (protocol == HttpHandler::UNKNOWN) {
+        int http_version = 1;
+#if WITH_NGHTTP2
+        if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
+            http_version = 2;
+        }
+#else
         // check request-line
         if (readbytes < MIN_HTTP_REQUEST_LEN) {
             hloge("[%s:%d] http request-line too small", handler->ip, handler->port);
@@ -53,10 +59,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
                 return;
             }
         }
-        int http_version = 1;
-        if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
-            http_version = 2;
-        }
+#endif
         if (!handler->Init(http_version, io)) {
             hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, http_version);
             hio_close(io);
@@ -334,6 +337,13 @@ int http_server_run(http_server_t* server, int wait) {
     }
     // https_port
     if (server->https_port > 0 && hssl_ctx_instance() != NULL) {
+#ifdef WITH_NGHTTP2
+#ifdef WITH_OPENSSL
+        static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1\x08http/1.0\x08http/0.9";
+        hssl_ctx_t ssl_ctx = hssl_ctx_instance();
+        hssl_ctx_set_alpn_protos(ssl_ctx, s_alpn_protos, sizeof(s_alpn_protos) - 1);
+#endif
+#endif
         server->listenfd[1] = Listen(server->https_port, server->host);
         if (server->listenfd[1] < 0) return server->listenfd[1];
         hlogi("https server listening on %s:%d", server->host, server->https_port);
