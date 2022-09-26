@@ -15,6 +15,8 @@ HttpHandler::HttpHandler() {
     protocol = UNKNOWN;
     state = WANT_RECV;
     ssl = false;
+    keepalive = true;
+    proxy = false;
     service = NULL;
     ws_service = NULL;
     api_handler = NULL;
