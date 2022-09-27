@@ -40,6 +40,11 @@ if(WIN32)
     endif()
 endif()
 
+if(IOS)
+    set(BUILD_SHARED OFF)
+    set(BUILD_EXAMPLES OFF)
+endif()
+
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 include(utils)
 include(vars)
