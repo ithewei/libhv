@@ -232,18 +232,26 @@ void HttpHandler::onHeadersComplete() {
             }
         };
     } else {
-        if (!proxy && service->proxies.size() != 0) {
+        if (proxy) {
+            // forward proxy
+            if (service->enable_forward_proxy) {
+                proxyConnect(pReq->url);
+            } else {
+                proxy = 0;
+                resp->status_code = HTTP_STATUS_FORBIDDEN;
+                hlogw("Forbidden to forward proxy %s", pReq->url.c_str());
+            }
+        }
+        else if (service->proxies.size() != 0) {
             // reverse proxy
             std::string proxy_url = service->GetProxyUrl(pReq->path.c_str());
             if (!proxy_url.empty()) {
                 proxy = 1;
                 pReq->url = proxy_url;
+                proxyConnect(pReq->url);
             }
         }
-
-        if (proxy) {
-            proxyConnect(pReq->url);
-        } else {
+        else {
             // TODO: rewrite
         }
     }
@@ -311,12 +319,16 @@ int HttpHandler::proxyConnect(const std::string& strUrl) {
 
 int HttpHandler::HandleHttpRequest() {
     // preprocessor -> processor -> postprocessor
-    int status_code = HTTP_STATUS_OK;
     HttpRequest* pReq = req.get();
     HttpResponse* pResp = resp.get();
 
     // NOTE: Not all users want to parse body, we comment it out.
     // pReq->ParseBody();
+
+    int status_code = pResp->status_code;
+    if (status_code != HTTP_STATUS_OK) {
+        goto postprocessor;
+    }
 
 preprocessor:
     state = HANDLE_BEGIN;
