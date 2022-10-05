@@ -117,6 +117,12 @@ int parse_confile(const char* confile) {
     }
     g_http_server.worker_threads = LIMIT(0, worker_threads, 64);
 
+    // worker_connections
+    str = ini.GetValue("worker_connections");
+    if (str.size() != 0) {
+        g_http_server.worker_connections = atoi(str.c_str());
+    }
+
     // http_port
     int port = 0;
     const char* szPort = get_arg("p");
