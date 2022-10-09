@@ -247,7 +247,7 @@ public:
     }
 
     int unsubscribe(const char* topic, MqttCallback ack_cb = NULL) {
-        int mid = mqtt_client_subscribe(client, topic);
+        int mid = mqtt_client_unsubscribe(client, topic);
         if (mid >= 0 && ack_cb) {
             setAckCallback(mid, ack_cb);
         }
