@@ -562,6 +562,12 @@ public:
         from = to = total = 0;
         return false;
     }
+
+    int Redirect(const std::string& location, http_status status = HTTP_STATUS_MOVED_PERMANENTLY) {
+        status_code = status;
+        headers["Location"] = location;
+        return status_code;
+    }
 };
 
 typedef std::shared_ptr<HttpRequest>    HttpRequestPtr;

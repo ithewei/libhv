@@ -13,6 +13,14 @@ int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
     // printf("%s:%d\n", req->client_addr.ip.c_str(), req->client_addr.port);
     // printf("%s\n", req->Dump(true, true).c_str());
 
+#if REDIRECT_HTTP_TO_HTTPS
+    // 301
+    if (req->scheme == "http") {
+        std::string location = hv::asprintf("https://%s:%d%s", req->host.c_str(), 8443, req->path.c_str());
+        return resp->Redirect(location);
+    }
+#endif
+
     // cors
     resp->headers["Access-Control-Allow-Origin"] = "*";
     if (req->method == HTTP_OPTIONS) {
@@ -350,18 +358,16 @@ int Handler::sendLargeFile(const HttpContextPtr& ctx) {
 }
 
 int Handler::sse(const HttpContextPtr& ctx) {
-    ctx->writer->EndHeaders("Content-Type", "text/event-stream");
-    // send(message) every 1s
+    // SSEvent(message) every 1s
     hv::setInterval(1000, [ctx](hv::TimerID timerID) {
-        char szTime[DATETIME_FMT_BUFLEN] = {0};
-        datetime_t now = datetime_now();
-        datetime_fmt(&now, szTime);
-        // @test html/EventSource.html EventSource.onmessage
-        std::string msg("event: message\n");
-        msg += "data: ";
-        msg += szTime;
-        msg += "\n\n";
-        ctx->writer->write(msg);
+        if (ctx->writer->isConnected()) {
+            char szTime[DATETIME_FMT_BUFLEN] = {0};
+            datetime_t now = datetime_now();
+            datetime_fmt(&now, szTime);
+            ctx->writer->SSEvent(szTime);
+        } else {
+            hv::killTimer(timerID);
+        }
     });
     return HTTP_STATUS_UNFINISHED;
 }

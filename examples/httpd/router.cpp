@@ -137,5 +137,6 @@ void Router::Register(hv::HttpService& router) {
     router.POST("/upload/{filename}", Handler::recvLargeFile);
 
     // SSE: Server Send Events
+    // @test html/EventSource.html EventSource.onmessage
     router.GET("/sse", Handler::sse);
 }
