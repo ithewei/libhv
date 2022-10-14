@@ -508,8 +508,21 @@ public:
     }
     void FillHost(const char* host, int port = DEFAULT_HTTP_PORT);
     void SetHost(const char* host, int port = DEFAULT_HTTP_PORT);
+
     void SetProxy(const char* host, int port);
     bool IsProxy() { return proxy; }
+
+    void SetTimeout(int sec) { timeout = sec; }
+    void SetConnectTimeout(int sec) { connect_timeout = sec; }
+
+    void AllowRedirect(bool on = true) { redirect = on; }
+
+    // NOTE: SetRetry just for AsyncHttpClient
+    void SetRetry(int count = DEFAULT_HTTP_FAIL_RETRY_COUNT,
+                  int delay = DEFAULT_HTTP_FAIL_RETRY_DELAY) {
+        retry_count = count;
+        retry_delay = delay;
+    }
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1) {
@@ -563,7 +576,7 @@ public:
         return false;
     }
 
-    int Redirect(const std::string& location, http_status status = HTTP_STATUS_MOVED_PERMANENTLY) {
+    int Redirect(const std::string& location, http_status status = HTTP_STATUS_FOUND) {
         status_code = status;
         headers["Location"] = location;
         return status_code;

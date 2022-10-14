@@ -26,6 +26,10 @@ struct HV_EXPORT HttpContext {
         return request->client_addr.ip;
     }
 
+    int port() {
+        return request->client_addr.port;
+    }
+
     http_method method() {
         return request->method;
     }
@@ -191,6 +195,11 @@ struct HV_EXPORT HttpContext {
         return send();
     }
 #endif
+
+    int redirect(const std::string& location, http_status status = HTTP_STATUS_FOUND) {
+        response->Redirect(location, status);
+        return send();
+    }
 
     int close() {
         return writer ? writer->close(true) : -1;

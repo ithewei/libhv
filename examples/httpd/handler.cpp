@@ -17,7 +17,7 @@ int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
     // 301
     if (req->scheme == "http") {
         std::string location = hv::asprintf("https://%s:%d%s", req->host.c_str(), 8443, req->path.c_str());
-        return resp->Redirect(location);
+        return resp->Redirect(location, HTTP_STATUS_MOVED_PERMANENTLY);
     }
 #endif
 
@@ -229,6 +229,11 @@ int Handler::recvLargeFile(const HttpContextPtr& ctx, http_parser_state state, c
     switch (state) {
     case HP_HEADERS_COMPLETE:
         {
+            if (ctx->is(MULTIPART_FORM_DATA)) {
+                // NOTE: You can use multipart_parser if you want to use multipart/form-data.
+                ctx->close();
+                return HTTP_STATUS_BAD_REQUEST;
+            }
             std::string save_path = "html/uploads/";
             std::string filename = ctx->param("filename", "unnamed.txt");
             std::string filepath = save_path + filename;
