@@ -51,10 +51,10 @@
 #elif defined(__x86_64) || defined(__x86_64__) || defined(__amd64) || defined(_M_X64)
     #define ARCH_X64
     #define ARCH_X86_64
-#elif defined(__arm__)
-    #define ARCH_ARM
-#elif defined(__aarch64__) || defined(__ARM64__)
+#elif defined(__aarch64__) || defined(__ARM64__) || defined(_M_ARM64)
     #define ARCH_ARM64
+#elif defined(__arm__) || defined(_M_ARM)
+    #define ARCH_ARM
 #elif defined(__mips__)
     #define ARCH_MIPS
 #elif defined(__mips64__)
