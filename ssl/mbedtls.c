@@ -119,14 +119,16 @@ void hssl_ctx_free(hssl_ctx_t ssl_ctx) {
 
 static int __mbedtls_net_send(void *ctx, const unsigned char *buf, size_t len) {
     int fd = (intptr_t)ctx;
-    int n = write(fd, buf, len);
+    // int n = write(fd, buf, len);
+    int n = send(fd, (char*)(buf), (int)(len), 0);
     if (n >= 0) return n;
     return ((errno == EAGAIN || errno == EINPROGRESS) ? MBEDTLS_ERR_SSL_WANT_WRITE : -1);
 }
 
 static int __mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len) {
     int fd = (intptr_t)ctx;
-    int n = read(fd, buf, len);
+    // int n = read(fd, buf, len);
+    int n = recv(fd, (char*)(buf), (int)(len), 0);
     if (n >= 0) return n;
     return ((errno == EAGAIN || errno == EINPROGRESS) ? MBEDTLS_ERR_SSL_WANT_READ : -1);
 }
