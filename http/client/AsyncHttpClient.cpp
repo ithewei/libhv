@@ -75,8 +75,22 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             return;
         }
         if (ctx->parser->IsComplete()) {
-            bool keepalive = ctx->task->req->IsKeepAlive() && ctx->resp->IsKeepAlive();
-            ctx->successCallback();
+            auto& req = ctx->task->req;
+            auto& resp = ctx->resp;
+            bool keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
+            if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
+                std::string location = resp->headers["Location"];
+                if (!location.empty()) {
+                    hlogi("redirect %s => %s", req->url.c_str(), location.c_str());
+                    req->url = location;
+                    req->ParseUrl();
+                    req->headers["Host"] = req->host;
+                    resp->Reset();
+                    send(ctx->task);
+                }
+            } else {
+                ctx->successCallback();
+            }
             if (keepalive) {
                 // NOTE: add into conn_pools to reuse
                 // hlogd("add into conn_pools");
