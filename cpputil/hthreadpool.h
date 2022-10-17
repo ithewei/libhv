@@ -123,7 +123,7 @@ public:
     template<class Fn, class... Args>
     auto commit(Fn&& fn, Args&&... args) -> std::future<decltype(fn(args...))> {
         if (status == STOP) start();
-        if (idle_thread_num == 0 && cur_thread_num < max_thread_num) {
+        if (idle_thread_num <= tasks.size() && cur_thread_num < max_thread_num) {
             createThread();
         }
         using RetType = decltype(fn(args...));
