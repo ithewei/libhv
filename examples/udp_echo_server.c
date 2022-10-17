@@ -53,6 +53,7 @@ int main(int argc, char** argv) {
 #if ENABLE_UDS
     if (port == 0) {
         host = argv[1];
+        port = -1;
     }
 #endif
 
