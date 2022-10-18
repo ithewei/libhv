@@ -189,8 +189,9 @@ ifeq ($(OS), Android)
 	LDFLAGS += -lstdc++ -lm -llog -ldl
 else
 	LDFLAGS += -lstdc++ -lpthread -lm -ldl
-ifneq ($(findstring gcc, $(CC_VERSION)), )
-	LDFLAGS += -lrt # for clock_gettime, clang not -lrt
+	LINK_RT=$(shell echo "int main(){return 0;}" | $(CC) -x c - -lrt 2>&1)
+ifeq ($(LINK_RT), )
+	LDFLAGS += -lrt
 endif
 endif
 endif
