@@ -1,7 +1,7 @@
 #include "httpdef.h"
 
 #include <string.h>
-//#include "hbase.h"
+
 static int strstartswith(const char* str, const char* start) {
     while (*str && *start && *str == *start) {
         ++str;
