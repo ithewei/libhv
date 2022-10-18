@@ -267,7 +267,7 @@ void HttpHandler::onProxyConnect(hio_t* upstream_io) {
     // NOTE: send head + received body
     req->headers.erase("Proxy-Connection");
     req->headers["Connection"] = handler->keepalive ? "keep-alive" : "close";
-    req->headers["X-Origin-IP"] = handler->ip;
+    req->headers["X-Real-IP"] = handler->ip;
     std::string msg = req->Dump(true, true);
     // printf("%s\n", msg.c_str());
     hio_write(upstream_io, msg.c_str(), msg.size());
