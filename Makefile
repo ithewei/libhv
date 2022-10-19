@@ -94,6 +94,7 @@ install:
 	$(MKDIR) $(INSTALL_LIBDIR)
 	$(CP) include/hv/* $(INSTALL_INCDIR)
 	$(CP) lib/libhv.*  $(INSTALL_LIBDIR)
+	$(LDCONFIG)
 	@echo "make install done."
 
 uninstall: clean
