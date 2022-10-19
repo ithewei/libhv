@@ -249,7 +249,7 @@ enum http_content_type {
 #define XX(name, string, suffix)   name,
     CONTENT_TYPE_NONE           = 0,
 
-    CONTENT_TYPE_TEXT_BEGIN     = 100,
+    CONTENT_TYPE_TEXT           = 100,
     MIME_TYPE_TEXT_MAP(XX)
 
     CONTENT_TYPE_APPLICATION    = 200,
