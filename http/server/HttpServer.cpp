@@ -330,19 +330,14 @@ static void loop_thread(void* userdata) {
 
 int http_server_run(http_server_t* server, int wait) {
     // http_port
-    if (server->port >= 0) {
-        server->listenfd[0] = Listen(server->port, server->host);
+    if (server->port > 0) {
+        if (server->listenfd[0] < 0)
+            server->listenfd[0] = Listen(server->port, server->host);
         if (server->listenfd[0] < 0) return server->listenfd[0];
-        if (!server->port) {
-            sockaddr_u addr;
-            socklen_t len = sizeof(addr);
-            getsockname(server->listenfd[0], &addr.sa, &len);
-            server->port = sockaddr_port(&addr);
-        }
         hlogi("http server listening on %s:%d", server->host, server->port);
     }
     // https_port
-    if (server->https_port >= 0 && hssl_ctx_instance() != NULL) {
+    if (server->https_port > 0 && hssl_ctx_instance() != NULL) {
 #ifdef WITH_NGHTTP2
 #ifdef WITH_OPENSSL
         static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1\x08http/1.0\x08http/0.9";
@@ -350,14 +345,9 @@ int http_server_run(http_server_t* server, int wait) {
         hssl_ctx_set_alpn_protos(ssl_ctx, s_alpn_protos, sizeof(s_alpn_protos) - 1);
 #endif
 #endif
-        server->listenfd[1] = Listen(server->https_port, server->host);
+        if (server->listenfd[1] < 0)
+            server->listenfd[1] = Listen(server->https_port, server->host);
         if (server->listenfd[1] < 0) return server->listenfd[1];
-        if (!server->https_port) {
-            sockaddr_u addr;
-            socklen_t len = sizeof(addr);
-            getsockname(server->listenfd[1], &addr.sa, &len);
-            server->https_port = sockaddr_port(&addr);
-        }
         hlogi("https server listening on %s:%d", server->host, server->https_port);
     }
 

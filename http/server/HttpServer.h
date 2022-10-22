@@ -34,7 +34,7 @@ typedef struct http_server_s {
         // https_port = DEFAULT_HTTPS_PORT;
         // port = 8080;
         // https_port = 8443;
-        port = https_port = -1;
+        port = https_port = 0;
         http_version = 1;
         worker_processes = 0;
         worker_threads = 0;
@@ -88,10 +88,42 @@ public:
     void setHost(const char* host = "0.0.0.0") {
         if (host) strcpy(this->host, host);
     }
-
-    void setPort(int port = -1, int ssl_port = -1) {
+    //@retval >=0 listenfd, <0 error
+    int bindHttp(int port) {
+        int fd =  Listen(port, host);
+        if (fd < 0) {
+            return fd;
+        }
+        if (!port) {
+            sockaddr_u addr;
+            socklen_t len = sizeof(addr);
+            getsockname(fd, &addr.sa, &len);
+            port = sockaddr_port(&addr);
+        }
+        this->listenfd[0] = fd;
         this->port = port;
-        this->https_port = ssl_port;
+        return fd;
+    }
+    //@retval >=0 listenfd, <0 error
+    int bindHttps(int port) {
+        int fd =  Listen(port, host);
+        if (fd < 0) {
+            return fd;
+        }
+        if (!port) {
+            sockaddr_u addr;
+            socklen_t len = sizeof(addr);
+            getsockname(fd, &addr.sa, &len);
+            port = sockaddr_port(&addr);
+        }
+        this->listenfd[1] = fd;
+        this->https_port = port;
+        return fd;
+    }
+
+    void setPort(int port = 0, int ssl_port = 0) {
+        if (port != 0) this->port = port;
+        if (ssl_port != 0) this->https_port = ssl_port;
     }
 
     void setProcessNum(int num) {
