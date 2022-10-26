@@ -45,20 +45,20 @@
 #endif
 
 // ARCH
-#if defined(__i386) || defined(__i386__) || defined(_M_IX86)
-    #define ARCH_X86
-    #define ARCH_X86_32
-#elif defined(__x86_64) || defined(__x86_64__) || defined(__amd64) || defined(_M_X64)
+#if defined(__x86_64) || defined(__x86_64__) || defined(__amd64) || defined(_M_X64)
     #define ARCH_X64
     #define ARCH_X86_64
+#elif defined(__i386) || defined(__i386__) || defined(_M_IX86)
+    #define ARCH_X86
+    #define ARCH_X86_32
 #elif defined(__aarch64__) || defined(__ARM64__) || defined(_M_ARM64)
     #define ARCH_ARM64
 #elif defined(__arm__) || defined(_M_ARM)
     #define ARCH_ARM
-#elif defined(__mips__)
-    #define ARCH_MIPS
 #elif defined(__mips64__)
     #define ARCH_MIPS64
+#elif defined(__mips__)
+    #define ARCH_MIPS
 #else
     #warning "Untested hardware architecture!"
 #endif
@@ -117,9 +117,6 @@
 #pragma warning (disable: 4819) // Unicode
 #pragma warning (disable: 4996) // _CRT_SECURE_NO_WARNINGS
 
-#elif defined(__MINGW32__) || defined(__MINGW64__)
-#define COMPILER_MINGW
-
 #elif defined(__GNUC__)
 #define COMPILER_GCC
 
@@ -129,6 +126,15 @@
 
 #elif defined(__clang__)
 #define COMPILER_CLANG
+
+#elif defined(__MINGW32__) || defined(__MINGW64__)
+#define COMPILER_MINGW
+
+#elif defined(__MSYS__)
+#define COMPILER_MSYS
+
+#elif defined(__CYGWIN__)
+#define COMPILER_CYGWIN
 
 #else
 #warning "Untested compiler!"
@@ -231,11 +237,15 @@
 
 // BYTE_ORDER
 #ifndef BYTE_ORDER
-#if defined(ARCH_X86) || defined(ARCH_X86_64) || \
-    defined(__ARMEL__) || defined(__AARCH64EL__)
-#define BYTE_ORDER      LITTLE_ENDIAN
-#elif defined(__ARMEB__) || defined(__AARCH64EB__)
-#define BYTE_ORDER      BIG_ENDIAN
+#if defined(ARCH_X86)  || defined(ARCH_X86_64)   || \
+    defined(__ARMEL__) || defined(__AARCH64EL__) || \
+    defined(__MIPSEL)  || defined(__MIPS64EL)
+    #define BYTE_ORDER  LITTLE_ENDIAN
+#elif defined(__ARMEB__) || defined(__AARCH64EB__) || \
+      defined(__MIPSEB)  || defined(__MIPS64EB)
+    #define BYTE_ORDER  BIG_ENDIAN
+#else
+    #warning "Unknown byte order!"
 #endif
 #endif
 
