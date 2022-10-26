@@ -1,6 +1,10 @@
 #ifndef HV_THREAD_POOL_H_
 #define HV_THREAD_POOL_H_
 
+/*
+ * @usage unittest/threadpool_test.cpp
+ */
+
 #include <time.h>
 #include <thread>
 #include <list>
@@ -104,8 +108,8 @@ public:
     }
 
     int wait() {
-        while (1) {
-            if (status == STOP || (tasks.empty() && idle_thread_num == cur_thread_num)) {
+        while (status != STOP) {
+            if (tasks.empty() && idle_thread_num == cur_thread_num) {
                 break;
             }
             std::this_thread::yield();
