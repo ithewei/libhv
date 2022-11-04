@@ -200,6 +200,7 @@
     #include <netinet/tcp.h>
     #include <netinet/udp.h>
     #include <netdb.h>  // for gethostbyname
+    #include <sys/ioctl.h> // for ioctl
 
     #define hv_sleep(s)     sleep(s)
     #define hv_msleep(ms)   usleep((ms) * 1000)

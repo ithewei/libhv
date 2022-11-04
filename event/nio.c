@@ -7,8 +7,6 @@
 #include "herr.h"
 #include "hthread.h"
 
-#include <sys/ioctl.h>
-
 
 static void __connect_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
@@ -303,7 +301,7 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
 
 static int nio_get_readble_bytes(hio_t* io)
 {
-#if defined(FIONREAD) && defined(_WIN32)
+#if defined(FIONREAD) && defined(OS_WIN)
     unsigned long lng = 0;
     if (ioctlsocket(io->fd, FIONREAD, &lng) < 0)
         return -1;
