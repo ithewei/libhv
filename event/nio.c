@@ -7,6 +7,9 @@
 #include "herr.h"
 #include "hthread.h"
 
+#include <sys/ioctl.h>
+
+
 static void __connect_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
     if (io) {
@@ -298,6 +301,23 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
     return nwrite;
 }
 
+static int nio_get_readble_bytes(hio_t* io)
+{
+#if defined(FIONREAD) && defined(_WIN32)
+    unsigned long lng = 0;
+    if (ioctlsocket(io->fd, FIONREAD, &lng) < 0)
+        return -1;
+    return (int)lng;
+#elif defined(FIONREAD)
+    int n = 0;
+    if (ioctl(io->fd, FIONREAD, &n) < 0)
+        return -1;
+    return n;
+#else
+    return 0;
+#endif
+}
+
 static void nio_read(hio_t* io) {
     // printd("nio_read fd=%d\n", io->fd);
     void* buf;
@@ -308,6 +328,16 @@ read:
         len = io->read_until_length - (io->readbuf.tail - io->readbuf.head);
     } else {
         len = io->readbuf.len - io->readbuf.tail;
+    }
+    // check readable bytes:
+    // io->readbuf have default buffer size, but udp message maybe send more
+    // we should check readable bytes
+    nread = nio_get_readble_bytes(io);
+    if (nread > len) {
+        // expand readbuf size
+        hio_alloc_readbuf(io, nread);
+        len = io->readbuf.len - io->readbuf.tail;
+        buf = io->readbuf.base + io->readbuf.tail;
     }
     assert(len > 0);
     nread = __nio_read(io, buf, len);
