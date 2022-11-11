@@ -21,15 +21,6 @@ int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
     }
 #endif
 
-    // cors
-    resp->headers["Access-Control-Allow-Origin"] = "*";
-    if (req->method == HTTP_OPTIONS) {
-        resp->headers["Access-Control-Allow-Origin"] = req->GetHeader("Origin", "*");
-        resp->headers["Access-Control-Allow-Methods"] = req->GetHeader("Access-Control-Request-Method", "OPTIONS, HEAD, GET, POST, PUT, DELETE, PATCH");
-        resp->headers["Access-Control-Allow-Headers"] = req->GetHeader("Access-Control-Request-Headers", "Content-Type");
-        return HTTP_STATUS_NO_CONTENT;
-    }
-
     // Unified verification request Content-Type?
     // if (req->content_type != APPLICATION_JSON) {
     //     return response_status(resp, HTTP_STATUS_BAD_REQUEST);

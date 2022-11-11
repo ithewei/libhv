@@ -144,6 +144,8 @@ struct HV_EXPORT HttpService {
      * @client  bin/wget http://127.0.0.1:8080/downloads/test.zip
      */
     int limit_rate; // limit send rate, unit: KB/s
+
+    unsigned allow_cors             :1;
     unsigned enable_forward_proxy   :1;
 
     HttpService() {
@@ -163,6 +165,8 @@ struct HV_EXPORT HttpService {
         file_cache_stat_interval = DEFAULT_FILE_CACHE_STAT_INTERVAL;
         file_cache_expired_time = DEFAULT_FILE_CACHE_EXPIRED_TIME;
         limit_rate = -1; // unlimited
+
+        allow_cors = 0;
         enable_forward_proxy = 0;
     }
 
@@ -177,8 +181,11 @@ struct HV_EXPORT HttpService {
     // @retval / => /var/www/html/index.html
     std::string GetStaticFilepath(const char* path);
 
+    // CORS
+    void AllowCORS() { allow_cors = 1; }
+
     // forward proxy
-    void enableForwardProxy() { enable_forward_proxy = 1; }
+    void EnableForwardProxy() { enable_forward_proxy = 1; }
     // reverse proxy
     // Proxy("/api/v1/", "http://www.httpbin.org/");
     void Proxy(const char* path, const char* url);

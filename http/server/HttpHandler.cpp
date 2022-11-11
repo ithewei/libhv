@@ -332,6 +332,15 @@ int HttpHandler::HandleHttpRequest() {
 
 preprocessor:
     state = HANDLE_BEGIN;
+    if (service->allow_cors) {
+        resp->headers["Access-Control-Allow-Origin"] = req->GetHeader("Origin", "*");
+        if (req->method == HTTP_OPTIONS) {
+            resp->headers["Access-Control-Allow-Methods"] = req->GetHeader("Access-Control-Request-Method", "OPTIONS, HEAD, GET, POST, PUT, DELETE, PATCH");
+            resp->headers["Access-Control-Allow-Headers"] = req->GetHeader("Access-Control-Request-Headers", "Content-Type");
+            status_code = HTTP_STATUS_NO_CONTENT;
+            goto postprocessor;
+        }
+    }
     if (service->preprocessor) {
         status_code = customHttpHandler(service->preprocessor);
         if (status_code != 0) {

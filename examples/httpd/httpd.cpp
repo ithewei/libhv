@@ -175,6 +175,13 @@ int parse_confile(const char* confile) {
     if (str.size() != 0) {
         g_http_service.limit_rate = atoi(str.c_str());
     }
+    // cors
+    if (ini.Get<bool>("cors")) {
+        g_http_service.AllowCORS();
+    }
+    if (ini.Get<bool>("forward_proxy")) {
+        g_http_service.EnableForwardProxy();
+    }
     // ssl
     if (g_http_server.https_port > 0) {
         std::string crt_file = ini.GetValue("ssl_certificate");
