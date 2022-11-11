@@ -73,6 +73,7 @@
 - gettimeofday_us
 - gethrtime_us
 - datetime_now
+- datetime_localtime
 - datetime_mktime
 - datetime_past
 - datetime_future

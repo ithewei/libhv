@@ -51,32 +51,36 @@ unsigned long long gethrtime_us() {
 }
 
 datetime_t datetime_now() {
-    datetime_t  dt;
 #ifdef OS_WIN
     SYSTEMTIME tm;
     GetLocalTime(&tm);
-    dt.year     = tm.wYear;
-    dt.month    = tm.wMonth;
-    dt.day      = tm.wDay;
-    dt.hour     = tm.wHour;
-    dt.min      = tm.wMinute;
-    dt.sec      = tm.wSecond;
-    dt.ms       = tm.wMilliseconds;
+    datetime_t dt;
+    dt.year  = tm.wYear;
+    dt.month = tm.wMonth;
+    dt.day   = tm.wDay;
+    dt.hour  = tm.wHour;
+    dt.min   = tm.wMinute;
+    dt.sec   = tm.wSecond;
+    dt.ms    = tm.wMilliseconds;
+    return dt;
 #else
     struct timeval tv;
-    struct tm* tm = NULL;
     gettimeofday(&tv, NULL);
-    time_t tt = tv.tv_sec;
-    tm = localtime(&tt);
-
-    dt.year     = tm->tm_year + 1900;
-    dt.month    = tm->tm_mon  + 1;
-    dt.day      = tm->tm_mday;
-    dt.hour     = tm->tm_hour;
-    dt.min      = tm->tm_min;
-    dt.sec      = tm->tm_sec;
-    dt.ms       = tv.tv_usec/1000;
+    datetime_t dt = datetime_localtime(tv.tv_sec);
+    dt.ms = tv.tv_usec / 1000;
+    return dt;
 #endif
+}
+
+datetime_t datetime_localtime(time_t seconds) {
+    struct tm* tm = localtime(&seconds);
+    datetime_t dt;
+    dt.year  = tm->tm_year + 1900;
+    dt.month = tm->tm_mon  + 1;
+    dt.day   = tm->tm_mday;
+    dt.hour  = tm->tm_hour;
+    dt.min   = tm->tm_min;
+    dt.sec   = tm->tm_sec;
     return dt;
 }
 
@@ -86,12 +90,12 @@ time_t datetime_mktime(datetime_t* dt) {
     time(&ts);
     struct tm* ptm = localtime(&ts);
     memcpy(&tm, ptm, sizeof(struct tm));
-    tm.tm_year  = dt->year   - 1900;
-    tm.tm_mon   = dt->month  - 1;
-    tm.tm_mday  = dt->day;
-    tm.tm_hour  = dt->hour;
-    tm.tm_min   = dt->min;
-    tm.tm_sec   = dt->sec;
+    tm.tm_year = dt->year  - 1900;
+    tm.tm_mon  = dt->month - 1;
+    tm.tm_mday = dt->day;
+    tm.tm_hour = dt->hour;
+    tm.tm_min  = dt->min;
+    tm.tm_sec  = dt->sec;
     return mktime(&tm);
 }
 
