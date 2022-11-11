@@ -283,6 +283,7 @@ public:
     }
 
     // heartbeat
+    // NOTE: Beware of circular reference problems caused by passing SocketChannelPtr by value.
     void setHeartbeat(int interval_ms, std::function<void()> fn) {
         if (io_ == NULL) return;
         heartbeat = std::move(fn);
