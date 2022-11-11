@@ -203,7 +203,7 @@ public:
     }
 
     int connect(const char* host, int port = DEFAULT_MQTT_PORT, int ssl = 0) {
-        return mqtt_client_connect(client, host, port);
+        return mqtt_client_connect(client, host, port, ssl);
     }
 
     int reconnect() {
