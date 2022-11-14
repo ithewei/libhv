@@ -27,8 +27,8 @@ public:
         return loop_;
     }
 
-    //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
-    //@retval >=0 sockfd, <0 error
+    // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
+    // @retval >=0 sockfd, <0 error
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
         hio_t* io = hloop_create_udp_client(loop_->loop(), remote_host, remote_port);
         if (io == NULL) return -1;
@@ -37,6 +37,24 @@ public:
         channel.reset(new TSocketChannel(io));
         return channel->fd();
     }
+
+    int bind(int local_port, const char* local_host = "0.0.0.0") {
+        if (channel == NULL || channel->isClosed()) {
+            return -1;
+        }
+        sockaddr_u local_addr;
+        memset(&local_addr, 0, sizeof(local_addr));
+        int ret = sockaddr_set_ipport(&local_addr, local_host, local_port);
+        if (ret != 0) {
+            return NABS(ret);
+        }
+        ret = ::bind(channel->fd(), &local_addr.sa, SOCKADDR_LEN(&local_addr));
+        if (ret != 0) {
+            perror("bind");
+        }
+        return ret;
+    }
+
     // closesocket thread-safe
     void closesocket() {
         if (channel) {

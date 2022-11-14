@@ -34,20 +34,21 @@ public:
         return loop_;
     }
 
-    //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
-    //@retval >=0 connfd, <0 error
+    // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
+    // @retval >=0 connfd, <0 error
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
         memset(&remote_addr, 0, sizeof(remote_addr));
         int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
         if (ret != 0) {
-            return -1;
+            return NABS(ret);
         }
         this->remote_host = remote_host;
         this->remote_port = remote_port;
         return createsocket(&remote_addr.sa);
     }
+
     int createsocket(struct sockaddr* remote_addr) {
-        int connfd = socket(remote_addr->sa_family, SOCK_STREAM, 0);
+        int connfd = ::socket(remote_addr->sa_family, SOCK_STREAM, 0);
         // SOCKADDR_PRINT(remote_addr);
         if (connfd < 0) {
             perror("socket");
@@ -60,6 +61,28 @@ public:
         channel.reset(new TSocketChannel(io));
         return connfd;
     }
+
+    int bind(int local_port, const char* local_host = "0.0.0.0") {
+        sockaddr_u local_addr;
+        memset(&local_addr, 0, sizeof(local_addr));
+        int ret = sockaddr_set_ipport(&local_addr, local_host, local_port);
+        if (ret != 0) {
+            return NABS(ret);
+        }
+        return bind(&local_addr.sa);
+    }
+
+    int bind(struct sockaddr* local_addr) {
+        if (channel == NULL || channel->isClosed()) {
+            return -1;
+        }
+        int ret = ::bind(channel->fd(), local_addr, SOCKADDR_LEN(local_addr));
+        if (ret != 0) {
+            perror("bind");
+        }
+        return ret;
+    }
+
     // closesocket thread-safe
     void closesocket() {
         if (channel) {
