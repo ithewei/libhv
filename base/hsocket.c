@@ -171,6 +171,9 @@ const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
 
 static int sockaddr_bind(sockaddr_u* localaddr, int type) {
     // socket -> setsockopt -> bind
+#ifdef SOCK_CLOEXEC
+    type |= SOCK_CLOEXEC;
+#endif
     int sockfd = socket(localaddr->sa.sa_family, type, 0);
     if (sockfd < 0) {
         perror("socket");
@@ -266,11 +269,7 @@ int Bind(int port, const char* host, int type) {
 }
 
 int Listen(int port, const char* host) {
-#ifdef OS_LINUX
-    int sockfd = Bind(port, host, SOCK_STREAM|SOCK_CLOEXEC);
-#else
     int sockfd = Bind(port, host, SOCK_STREAM);
-#endif
     if (sockfd < 0) return sockfd;
     return ListenFD(sockfd);
 }
