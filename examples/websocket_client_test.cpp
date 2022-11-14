@@ -20,8 +20,10 @@ public:
 
     int connect(const char* url) {
         // set callbacks
-        onopen = []() {
-            printf("onopen\n");
+        onopen = [this]() {
+            const HttpResponsePtr& resp = getHttpResponse();
+            printf("onopen\n%s\n", resp->body.c_str());
+            // printf("response:\n%s\n", resp->Dump(true, true).c_str());
         };
         onmessage = [this](const std::string& msg) {
             printf("onmessage(type=%s len=%d): %.*s\n", opcode() == WS_OPCODE_TEXT ? "text" : "binary",
@@ -38,6 +40,16 @@ public:
         reconn.max_delay = 10000;
         reconn.delay_policy = 2;
         setReconnect(&reconn);
+
+        /*
+        HttpRequestPtr req = std::make_shared<HttpRequest>();
+        req->method = HTTP_POST;
+        req->headers["Origin"] = "http://example.com";
+        req->json["app_id"] = "123456";
+        req->json["app_secret"] = "abcdefg";
+        printf("request:\n%s\n", req->Dump(true, true).c_str());
+        setHttpRequest(req);
+        */
 
         http_headers headers;
         headers["Origin"] = "http://example.com/";
