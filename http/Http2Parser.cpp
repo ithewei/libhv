@@ -215,6 +215,10 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
         name = header.first.c_str();
         value = header.second.c_str();
         hv_strlower((char*)name);
+        if (strcmp(name, "host") == 0) {
+            // :authority
+            continue;
+        }
         if (strcmp(name, "connection") == 0) {
             // HTTP2 default keep-alive
             continue;
@@ -405,6 +409,9 @@ int on_frame_recv_callback(nghttp2_session *session,
     default:
         break;
     }
+    if (hp->state == H2_RECV_HEADERS && hp->parsed->http_cb) {
+        hp->parsed->http_cb(hp->parsed, HP_HEADERS_COMPLETE, NULL, 0);
+    }
     if (frame->hd.stream_id >= hp->stream_id) {
         hp->stream_id = frame->hd.stream_id;
         hp->stream_closed = 0;
@@ -412,10 +419,8 @@ int on_frame_recv_callback(nghttp2_session *session,
             printd("on_stream_closed stream_id=%d\n", hp->stream_id);
             hp->stream_closed = 1;
             hp->frame_type_when_stream_closed = frame->hd.type;
-            if (hp->parsed->http_cb) {
-                if (hp->state == H2_RECV_HEADERS) {
-                    hp->parsed->http_cb(hp->parsed, HP_HEADERS_COMPLETE, NULL, 0);
-                } else if (hp->state == H2_RECV_DATA) {
+            if (hp->state == H2_RECV_HEADERS || hp->state == H2_RECV_DATA) {
+                if (hp->parsed->http_cb) {
                     hp->parsed->http_cb(hp->parsed, HP_MESSAGE_COMPLETE, NULL, 0);
                 }
             }

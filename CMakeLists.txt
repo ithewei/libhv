@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.6)
 
-project(hv VERSION 1.2.6)
+project(hv VERSION 1.3.0)
 
 option(BUILD_SHARED "build shared library" ON)
 option(BUILD_STATIC "build static library" ON)
@@ -38,6 +38,11 @@ if(WIN32)
         set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
     endif()
+endif()
+
+if(IOS)
+    set(BUILD_SHARED OFF)
+    set(BUILD_EXAMPLES OFF)
 endif()
 
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
@@ -145,7 +150,7 @@ if(WITH_MBEDTLS)
 endif()
 
 if(WIN32)
-    add_definitions(-D_WIN32_WINNT=0x0600)
+    add_definitions(-DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0600)
     set(LIBS ${LIBS} winmm iphlpapi ws2_32)
     if(ENABLE_WINDUMP)
         add_definitions(-DENABLE_WINDUMP)
@@ -212,10 +217,14 @@ endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
 
+file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
+file(INSTALL ${LIBHV_HEADERS} DESTINATION ${PROJECT_SOURCE_DIR}/include/hv)
+
 if(BUILD_SHARED)
     add_library(hv SHARED ${LIBHV_SRCS})
     target_compile_definitions(hv PRIVATE HV_DYNAMICLIB)
-    target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS})
+    target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS}
+        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
     target_link_libraries(hv ${LIBS})
     install(TARGETS hv
         EXPORT libhvConfig
@@ -227,8 +236,9 @@ endif()
 
 if(BUILD_STATIC)
     add_library(hv_static STATIC ${LIBHV_SRCS})
-    target_compile_definitions(hv_static PRIVATE HV_STATICLIB)
-    target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS})
+    target_compile_definitions(hv_static PUBLIC HV_STATICLIB)
+    target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS}
+        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
     target_link_libraries(hv_static ${LIBS})
     install(TARGETS hv_static
         EXPORT libhvConfig
@@ -236,7 +246,6 @@ if(BUILD_STATIC)
     add_custom_target(libhv_static DEPENDS hv_static)
 endif()
 
-file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
 install(EXPORT libhvConfig DESTINATION lib/cmake/libhv)
 

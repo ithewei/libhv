@@ -17,7 +17,7 @@
  *
  * @build   ./configure --with-kcp && make clean && make
  * @server  bin/udp_echo_server 1234
- * @client  bin/nc -u 127.0.0.1 1234
+ * @client  bin/nc -k 127.0.0.1 1234
  *
  */
 #define TEST_KCP 0
@@ -53,6 +53,7 @@ int main(int argc, char** argv) {
 #if ENABLE_UDS
     if (port == 0) {
         host = argv[1];
+        port = -1;
     }
 #endif
 

@@ -17,12 +17,15 @@ typedef struct http_server_s {
     int http_version;
     int worker_processes;
     int worker_threads;
+    uint32_t worker_connections; // max_connections = workers * worker_connections
     HttpService* service; // http service
     WebSocketService* ws; // websocket service
     void* userdata;
-//private:
     int listenfd[2]; // 0: http, 1: https
     void* privdata;
+    // hooks
+    std::function<void()> onWorkerStart;
+    std::function<void()> onWorkerStop;
 
 #ifdef __cplusplus
     http_server_s() {
@@ -35,6 +38,7 @@ typedef struct http_server_s {
         http_version = 1;
         worker_processes = 0;
         worker_threads = 0;
+        worker_connections = 1024;
         service = NULL;
         ws = NULL;
         listenfd[0] = listenfd[1] = -1;

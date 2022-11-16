@@ -32,7 +32,7 @@
 - CR, LF, CRLF
 - FLOAT_EQUAL_ZERO
 - INFINITE
-- IS_ALPHA, IS_NUM, IS_ALPHANUM
+- IS_ALPHA, IS_DIGIT, IS_ALPHANUM
 - IS_CNTRL, IS_GRAPH
 - IS_HEX
 - IS_LOWER, IS_UPPER
@@ -73,6 +73,7 @@
 - gettimeofday_us
 - gethrtime_us
 - datetime_now
+- datetime_localtime
 - datetime_mktime
 - datetime_past
 - datetime_future
@@ -635,6 +636,7 @@
 - mqtt_client_publish
 - mqtt_client_subscribe
 - mqtt_client_unsubscribe
+- class MqttClient
 
 ## other
 - class HThreadPool

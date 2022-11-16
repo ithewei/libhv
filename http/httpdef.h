@@ -20,7 +20,8 @@ enum http_parser_state {
     HP_CHUNK_HEADER,
     HP_BODY,
     HP_CHUNK_COMPLETE,
-    HP_MESSAGE_COMPLETE
+    HP_MESSAGE_COMPLETE,
+    HP_ERROR
 };
 
 // http_status
@@ -156,40 +157,120 @@ enum http_method {
 };
 
 // MIME: https://www.iana.org/assignments/media-types/media-types.xhtml
-// http_content_type
 // XX(name, mime, suffix)
-#define HTTP_CONTENT_TYPE_MAP(XX) \
+#define MIME_TYPE_TEXT_MAP(XX) \
     XX(TEXT_PLAIN,              text/plain,               txt)          \
     XX(TEXT_HTML,               text/html,                html)         \
     XX(TEXT_CSS,                text/css,                 css)          \
+    XX(TEXT_CSV,                text/csv,                 csv)          \
+    XX(TEXT_MARKDOWN,           text/markdown,            md)           \
     XX(TEXT_EVENT_STREAM,       text/event-stream,        sse)          \
+
+#define MIME_TYPE_APPLICATION_MAP(XX) \
+    XX(APPLICATION_JAVASCRIPT,  application/javascript,             js)     \
+    XX(APPLICATION_JSON,        application/json,                   json)   \
+    XX(APPLICATION_XML,         application/xml,                    xml)    \
+    XX(APPLICATION_URLENCODED,  application/x-www-form-urlencoded,  kv)     \
+    XX(APPLICATION_OCTET_STREAM,application/octet-stream,           bin)    \
+    XX(APPLICATION_ZIP,         application/zip,                    zip)    \
+    XX(APPLICATION_GZIP,        application/gzip,                   gzip)   \
+    XX(APPLICATION_7Z,          application/x-7z-compressed,        7z)     \
+    XX(APPLICATION_RAR,         application/x-rar-compressed,       rar)    \
+    XX(APPLICATION_PDF,         application/pdf,                    pdf)    \
+    XX(APPLICATION_RTF,         application/rtf,                    rtf)    \
+    XX(APPLICATION_GRPC,        application/grpc,                   grpc)   \
+    XX(APPLICATION_WASM,        application/wasm,                   wasm)   \
+    XX(APPLICATION_JAR,         application/java-archive,           jar)    \
+    XX(APPLICATION_XHTML,       application/xhtml+xml,              xhtml)  \
+    XX(APPLICATION_ATOM,        application/atom+xml,               atom)   \
+    XX(APPLICATION_RSS,         application/rss+xml,                rss)    \
+    XX(APPLICATION_WORD,        application/msword,                 doc)    \
+    XX(APPLICATION_EXCEL,       application/vnd.ms-excel,           xls)    \
+    XX(APPLICATION_PPT,         application/vnd.ms-powerpoint,      ppt)    \
+    XX(APPLICATION_EOT,         application/vnd.ms-fontobject,      eot)    \
+    XX(APPLICATION_M3U8,        application/vnd.apple.mpegurl,      m3u8)   \
+    XX(APPLICATION_DOCX,        application/vnd.openxmlformats-officedocument.wordprocessingml.document,    docx) \
+    XX(APPLICATION_XLSX,        application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,          xlsx) \
+    XX(APPLICATION_PPTX,        application/vnd.openxmlformats-officedocument.presentationml.presentation,  pptx) \
+
+#define MIME_TYPE_MULTIPART_MAP(XX) \
+    XX(MULTIPART_FORM_DATA,     multipart/form-data,                mp) \
+
+#define MIME_TYPE_IMAGE_MAP(XX) \
     XX(IMAGE_JPEG,              image/jpeg,               jpg)          \
     XX(IMAGE_PNG,               image/png,                png)          \
     XX(IMAGE_GIF,               image/gif,                gif)          \
-    XX(IMAGE_BMP,               image/bmp,                bmp)          \
-    XX(IMAGE_SVG,               image/svg,                svg)          \
-    XX(VIDEO_AVI,               video/x-msvideo,          avi)          \
-    XX(VIDEO_TS,                video/mp2t,               ts)           \
-    XX(VIDEO_WEBM,              video/webm,               webm)         \
-    XX(VIDEO_FLV,               video/x-flv,              flv)          \
+    XX(IMAGE_ICO,               image/x-icon,             ico)          \
+    XX(IMAGE_BMP,               image/x-ms-bmp,           bmp)          \
+    XX(IMAGE_SVG,               image/svg+xml,            svg)          \
+    XX(IMAGE_TIFF,              image/tiff,               tiff)         \
+    XX(IMAGE_WEBP,              image/webp,               webp)         \
+
+#define MIME_TYPE_VIDEO_MAP(XX) \
     XX(VIDEO_MP4,               video/mp4,                mp4)          \
+    XX(VIDEO_FLV,               video/x-flv,              flv)          \
+    XX(VIDEO_M4V,               video/x-m4v,              m4v)          \
+    XX(VIDEO_MNG,               video/x-mng,              mng)          \
+    XX(VIDEO_TS,                video/mp2t,               ts)           \
+    XX(VIDEO_MPEG,              video/mpeg,               mpeg)         \
+    XX(VIDEO_WEBM,              video/webm,               webm)         \
+    XX(VIDEO_MOV,               video/quicktime,          mov)          \
+    XX(VIDEO_3GPP,              video/3gpp,               3gpp)         \
+    XX(VIDEO_AVI,               video/x-msvideo,          avi)          \
+    XX(VIDEO_WMV,               video/x-ms-wmv,           wmv)          \
+    XX(VIDEO_ASF,               video/x-ms-asf,           asf)          \
+
+#define MIME_TYPE_AUDIO_MAP(XX) \
     XX(AUDIO_MP3,               audio/mpeg,               mp3)          \
     XX(AUDIO_OGG,               audio/ogg,                ogg)          \
-    XX(APPLICATION_OCTET_STREAM,application/octet-stream, bin)          \
-    XX(APPLICATION_JAVASCRIPT,  application/javascript,   js)           \
-    XX(APPLICATION_XML,         application/xml,          xml)          \
-    XX(APPLICATION_JSON,        application/json,         json)         \
-    XX(APPLICATION_GRPC,        application/grpc,         grpc)         \
-    XX(APPLICATION_URLENCODED,  application/x-www-form-urlencoded, kv)  \
-    XX(MULTIPART_FORM_DATA,     multipart/form-data,               mp)  \
+    XX(AUDIO_M4A,               audio/x-m4a,              m4a)          \
+    XX(AUDIO_AAC,               audio/aac,                aac)          \
+    XX(AUDIO_PCMA,              audio/PCMA,               pcma)         \
+    XX(AUDIO_OPUS,              audio/opus,               opus)         \
+
+#define MIME_TYPE_FONT_MAP(XX) \
+    XX(FONT_TTF,                font/ttf,                 ttf)          \
+    XX(FONT_OTF,                font/otf,                 otf)          \
+    XX(FONT_WOFF,               font/woff,                woff)         \
+    XX(FONT_WOFF2,              font/woff2,               woff2)        \
+
+#define HTTP_CONTENT_TYPE_MAP(XX)   \
+    MIME_TYPE_TEXT_MAP(XX)          \
+    MIME_TYPE_APPLICATION_MAP(XX)   \
+    MIME_TYPE_MULTIPART_MAP(XX)     \
+    MIME_TYPE_IMAGE_MAP(XX)         \
+    MIME_TYPE_VIDEO_MAP(XX)         \
+    MIME_TYPE_AUDIO_MAP(XX)         \
+    MIME_TYPE_FONT_MAP(XX)          \
 
 #define X_WWW_FORM_URLENCODED   APPLICATION_URLENCODED // for compatibility
 
 enum http_content_type {
 #define XX(name, string, suffix)   name,
-    CONTENT_TYPE_NONE,
-    HTTP_CONTENT_TYPE_MAP(XX)
-    CONTENT_TYPE_UNDEFINED
+    CONTENT_TYPE_NONE           = 0,
+
+    CONTENT_TYPE_TEXT           = 100,
+    MIME_TYPE_TEXT_MAP(XX)
+
+    CONTENT_TYPE_APPLICATION    = 200,
+    MIME_TYPE_APPLICATION_MAP(XX)
+
+    CONTENT_TYPE_MULTIPART      = 300,
+    MIME_TYPE_MULTIPART_MAP(XX)
+
+    CONTENT_TYPE_IMAGE          = 400,
+    MIME_TYPE_IMAGE_MAP(XX)
+
+    CONTENT_TYPE_VIDEO          = 500,
+    MIME_TYPE_VIDEO_MAP(XX)
+
+    CONTENT_TYPE_AUDIO          = 600,
+    MIME_TYPE_AUDIO_MAP(XX)
+
+    CONTENT_TYPE_FONT           = 700,
+    MIME_TYPE_FONT_MAP(XX)
+
+    CONTENT_TYPE_UNDEFINED      = 1000
 #undef XX
 };
 

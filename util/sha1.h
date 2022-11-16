@@ -43,7 +43,7 @@ HV_EXPORT void HV_SHA1Final(
 HV_EXPORT void HV_SHA1(
     char *hash_out,
     const char *str,
-    int len);
+    uint32_t len);
 
 HV_EXPORT void hv_sha1(unsigned char* input, uint32_t inputlen, unsigned char digest[20]);
 

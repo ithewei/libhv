@@ -8,6 +8,7 @@
 
 //#include "hmutex.h"
 #ifdef _WIN32
+#pragma warning (disable: 4244) // conversion loss of data
 #include <windows.h>
 #define hmutex_t            CRITICAL_SECTION
 #define hmutex_init         InitializeCriticalSection
@@ -437,7 +438,7 @@ logger_t* hv_default_logger() {
     }
     return s_logger;
 }
-void hv_destroy_default_logger() {
+void hv_destroy_default_logger(void) {
     if (s_logger) {
         logger_fsync(s_logger);
         logger_destroy(s_logger);

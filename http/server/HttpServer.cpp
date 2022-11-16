@@ -40,6 +40,12 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
     HttpHandler::ProtocolType protocol = handler->protocol;
     if (protocol == HttpHandler::UNKNOWN) {
+        int http_version = 1;
+#if WITH_NGHTTP2
+        if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
+            http_version = 2;
+        }
+#else
         // check request-line
         if (readbytes < MIN_HTTP_REQUEST_LEN) {
             hloge("[%s:%d] http request-line too small", handler->ip, handler->port);
@@ -53,10 +59,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
                 return;
             }
         }
-        int http_version = 1;
-        if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
-            http_version = 2;
-        }
+#endif
         if (!handler->Init(http_version, io)) {
             hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, http_version);
             hio_close(io);
@@ -70,17 +73,22 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         return;
     }
 
+    hloop_t* loop = hevent_loop(io);
+    HttpParser* parser = handler->parser.get();
+    HttpRequest* req = handler->req.get();
+    HttpResponse* resp = handler->resp.get();
+
+    if (handler->proxy) {
+        return;
+    }
+
     if (protocol == HttpHandler::WEBSOCKET) {
         return;
     }
 
-    HttpParser* parser = handler->parser.get();
     if (parser->WantRecv()) {
         return;
     }
-
-    HttpRequest* req = handler->req.get();
-    HttpResponse* resp = handler->resp.get();
 
     // Server:
     static char s_Server[64] = {'\0'};
@@ -90,12 +98,8 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
     resp->headers["Server"] = s_Server;
 
     // Connection:
-    bool keepalive = req->IsKeepAlive();
-    if (keepalive) {
-        resp->headers["Connection"] = "keep-alive";
-    } else {
-        resp->headers["Connection"] = "close";
-    }
+    bool keepalive = handler->keepalive;
+    resp->headers["Connection"] = keepalive ? "keep-alive" : "close";
 
     // Upgrade:
     bool upgrade = false;
@@ -160,8 +164,7 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
         }
     }
 
-    // LOG
-    hloop_t* loop = hevent_loop(io);
+    // access log
     hlogi("[%ld-%ld][%s:%d][%s %s]=>[%d %s]",
         hloop_pid(loop), hloop_tid(loop),
         handler->ip, handler->port,
@@ -187,18 +190,29 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
 
 static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
-    if (handler) {
-        if (handler->protocol == HttpHandler::WEBSOCKET) {
-            // onclose
-            handler->WebSocketOnClose();
-        } else {
-            if (handler->writer && handler->writer->onclose) {
-                handler->writer->onclose();
-            }
-        }
-        hevent_set_userdata(io, NULL);
-        delete handler;
+    if (handler == NULL) return;
+
+    // close proxy
+    if (handler->proxy) {
+        hio_close_upstream(io);
     }
+
+    // onclose
+    if (handler->protocol == HttpHandler::WEBSOCKET) {
+        handler->WebSocketOnClose();
+    } else {
+        if (handler->writer && handler->writer->onclose) {
+            handler->writer->onclose();
+        }
+    }
+
+    EventLoop* loop = currentThreadEventLoop;
+    if (loop) {
+        --loop->connectionNum;
+    }
+
+    hevent_set_userdata(io, NULL);
+    delete handler;
 }
 
 static void on_accept(hio_t* io) {
@@ -213,10 +227,20 @@ static void on_accept(hio_t* io) {
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
 
+    EventLoop* loop = currentThreadEventLoop;
+    if (loop->connectionNum >= server->worker_connections) {
+        hlogw("over worker_connections");
+        hio_close(io);
+        return;
+    }
+    ++loop->connectionNum;
+
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_read(io);
-    hio_set_keepalive_timeout(io, service->keepalive_timeout);
+    if (service->keepalive_timeout > 0) {
+        hio_set_keepalive_timeout(io, service->keepalive_timeout);
+    }
 
     // new HttpHandler, delete on_close
     HttpHandler* handler = new HttpHandler;
@@ -289,7 +313,19 @@ static void loop_thread(void* userdata) {
     privdata->loops.push_back(loop);
     privdata->mutex_.unlock();
 
+    hlogi("EventLoop started, pid=%ld tid=%ld", hv_getpid(), hv_gettid());
+    if (server->onWorkerStart) {
+        loop->queueInLoop([server](){
+            server->onWorkerStart();
+        });
+    }
+
     loop->run();
+
+    if (server->onWorkerStop) {
+        server->onWorkerStop();
+    }
+    hlogi("EventLoop stopped, pid=%ld tid=%ld", hv_getpid(), hv_gettid());
 }
 
 int http_server_run(http_server_t* server, int wait) {
@@ -301,6 +337,13 @@ int http_server_run(http_server_t* server, int wait) {
     }
     // https_port
     if (server->https_port > 0 && hssl_ctx_instance() != NULL) {
+#ifdef WITH_NGHTTP2
+#ifdef WITH_OPENSSL
+        static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1\x08http/1.0\x08http/0.9";
+        hssl_ctx_t ssl_ctx = hssl_ctx_instance();
+        hssl_ctx_set_alpn_protos(ssl_ctx, s_alpn_protos, sizeof(s_alpn_protos) - 1);
+#endif
+#endif
         server->listenfd[1] = Listen(server->https_port, server->host);
         if (server->listenfd[1] < 0) return server->listenfd[1];
         hlogi("https server listening on %s:%d", server->host, server->https_port);

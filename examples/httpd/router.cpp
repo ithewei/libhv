@@ -9,8 +9,8 @@ void Router::Register(hv::HttpService& router) {
     // preprocessor => Handler => postprocessor
     router.preprocessor = Handler::preprocessor;
     router.postprocessor = Handler::postprocessor;
-    // router.largeFileHandler = Handler::largeFileHandler;
     // router.errorHandler = Handler::errorHandler;
+    // router.largeFileHandler = Handler::sendLargeFile;
 
     // curl -v http://ip:port/ping
     router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
@@ -130,10 +130,13 @@ void Router::Register(hv::HttpService& router) {
     // curl -v http://ip:port/login -H "Content-Type:application/json" -d '{"username":"admin","password":"123456"}'
     router.POST("/login", Handler::login);
 
-    // curl -v http://ip:port/upload -d '@LICENSE'
+    // curl -v http://ip:port/upload?filename=LICENSE -d '@LICENSE'
     // curl -v http://ip:port/upload -F 'file=@LICENSE'
     router.POST("/upload", Handler::upload);
+    // curl -v http://ip:port/upload/README.md -d '@README.md'
+    router.POST("/upload/{filename}", Handler::recvLargeFile);
 
     // SSE: Server Send Events
+    // @test html/EventSource.html EventSource.onmessage
     router.GET("/sse", Handler::sse);
 }

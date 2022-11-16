@@ -4,6 +4,7 @@
 #include "herr.h"
 #include "hlog.h"
 #include "htime.h"
+#include "hurl.h"
 #include "hasync.h" // import hv::async for http_async_handler
 #include "http_page.h"
 
@@ -14,8 +15,11 @@ HttpHandler::HttpHandler() {
     protocol = UNKNOWN;
     state = WANT_RECV;
     ssl = false;
+    keepalive = true;
+    proxy = false;
     service = NULL;
     ws_service = NULL;
+    api_handler = NULL;
     last_send_ping_time = 0;
     last_recv_pong_time = 0;
 
@@ -44,11 +48,11 @@ bool HttpHandler::Init(int http_version, hio_t* io) {
         resp->http_major = req->http_major = 2;
         resp->http_minor = req->http_minor = 0;
     }
-    parser->InitRequest(req.get());
     if (io) {
         writer.reset(new hv::HttpResponseWriter(io, resp));
         writer->status = hv::SocketChannel::CONNECTED;
     }
+    initRequest();
     return true;
 }
 
@@ -56,12 +60,35 @@ void HttpHandler::Reset() {
     state = WANT_RECV;
     req->Reset();
     resp->Reset();
-    parser->InitRequest(req.get());
+    ctx = NULL;
+    api_handler = NULL;
     closeFile();
     if (writer) {
         writer->Begin();
         writer->onwrite = NULL;
+        writer->onclose = NULL;
     }
+    initRequest();
+}
+
+void HttpHandler::initRequest() {
+    parser->InitRequest(req.get());
+    // NOTE: hook http_cb
+    req->http_cb = [this](HttpMessage* msg, http_parser_state state, const char* data, size_t size) {
+        if (state == HP_HEADERS_COMPLETE) {
+            onHeadersComplete();
+        } else if (state == HP_BODY) {
+            if (api_handler && api_handler->state_handler) {
+                // goto cb;
+            } else {
+                msg->body.append(data, size);
+            }
+        }
+        if (api_handler && api_handler->state_handler) {
+// cb:
+            api_handler->state_handler(getHttpContext(), state, data, size);
+        }
+    };
 }
 
 bool HttpHandler::SwitchHTTP2() {
@@ -84,9 +111,10 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
     ws_parser.reset(new WebSocketParser);
     ws_channel.reset(new hv::WebSocketChannel(io, WS_SERVER));
     ws_parser->onMessage = [this](int opcode, const std::string& msg){
+        ws_channel->opcode = (enum ws_opcode)opcode;
         switch(opcode) {
         case WS_OPCODE_CLOSE:
-            ws_channel->close(true);
+            ws_channel->close();
             break;
         case WS_OPCODE_PING:
             // printf("recv ping\n");
@@ -108,14 +136,14 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
             break;
         }
     };
-    // NOTE: cancel keepalive timer, judge alive by heartbeat.
-    ws_channel->setKeepaliveTimeout(0);
     if (ws_service && ws_service->ping_interval > 0) {
+        // NOTE: cancel keepalive timer, judge alive by heartbeat.
+        ws_channel->setKeepaliveTimeout(0);
         int ping_interval = MAX(ws_service->ping_interval, 1000);
         ws_channel->setHeartbeat(ping_interval, [this](){
             if (last_recv_pong_time < last_send_ping_time) {
                 hlogw("[%s:%d] websocket no pong!", ip, port);
-                ws_channel->close(true);
+                ws_channel->close();
             } else {
                 // printf("send ping\n");
                 ws_channel->sendPing();
@@ -124,6 +152,17 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
         });
     }
     return true;
+}
+
+const HttpContextPtr& HttpHandler::getHttpContext() {
+    if (!ctx) {
+        ctx = std::make_shared<hv::HttpContext>();
+        ctx->service = service;
+        ctx->request = req;
+        ctx->response = resp;
+        ctx->writer = writer;
+    }
+    return ctx;
 }
 
 int HttpHandler::customHttpHandler(const http_handler& handler) {
@@ -140,35 +179,168 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
         hv::async(std::bind(handler->async_handler, req, writer));
         status_code = HTTP_STATUS_UNFINISHED;
     } else if (handler->ctx_handler) {
-        HttpContextPtr ctx(new hv::HttpContext);
-        ctx->service = service;
-        ctx->request = req;
-        ctx->response = resp;
-        ctx->writer = writer;
         // NOTE: ctx_handler run on IO thread, you can easily post HttpContextPtr to your consumer thread for processing.
-        status_code = handler->ctx_handler(ctx);
-        if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
-            status_code = HTTP_STATUS_UNFINISHED;
-        }
+        status_code = handler->ctx_handler(getHttpContext());
+    } else if (handler->state_handler) {
+        status_code = resp->status_code;
     }
     return status_code;
 }
 
-int HttpHandler::HandleHttpRequest() {
-    // preprocessor -> processor -> postprocessor
-    int status_code = HTTP_STATUS_OK;
+void HttpHandler::onHeadersComplete() {
     HttpRequest* pReq = req.get();
-    HttpResponse* pResp = resp.get();
-
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
     pReq->client_addr.port = port;
+
+    // keepalive
+    keepalive = pReq->IsKeepAlive();
+
+    // NOTE: Detect proxy before ParseUrl
+    proxy = 0;
+    if (hv::startswith(pReq->url, "http")) {
+        // forward proxy
+        proxy = 1;
+        auto iter = pReq->headers.find("Proxy-Connection");
+        if (iter != pReq->headers.end()) {
+            const char* keepalive_value = iter->second.c_str();
+            if (stricmp(keepalive_value, "keep-alive") == 0) {
+                keepalive = true;
+            }
+            else if (stricmp(keepalive_value, "close") == 0) {
+                keepalive = false;
+            }
+            else if (stricmp(keepalive_value, "upgrade") == 0) {
+                keepalive = true;
+            }
+        }
+    }
+
+    // printf("url=%s\n", pReq->url.c_str());
     pReq->ParseUrl();
+
+    if (service->api_handlers.size() != 0) {
+        service->GetApi(pReq, &api_handler);
+    }
+    if (api_handler && api_handler->state_handler) {
+        writer->onclose = [this](){
+            // HP_ERROR
+            if (!parser->IsComplete()) {
+                if (api_handler && api_handler->state_handler) {
+                    api_handler->state_handler(getHttpContext(), HP_ERROR, NULL, 0);
+                }
+            }
+        };
+    } else {
+        if (proxy) {
+            // forward proxy
+            if (service->enable_forward_proxy) {
+                proxyConnect(pReq->url);
+            } else {
+                proxy = 0;
+                resp->status_code = HTTP_STATUS_FORBIDDEN;
+                hlogw("Forbidden to forward proxy %s", pReq->url.c_str());
+            }
+        }
+        else if (service->proxies.size() != 0) {
+            // reverse proxy
+            std::string proxy_url = service->GetProxyUrl(pReq->path.c_str());
+            if (!proxy_url.empty()) {
+                proxy = 1;
+                pReq->url = proxy_url;
+                proxyConnect(pReq->url);
+            }
+        }
+        else {
+            // TODO: rewrite
+        }
+    }
+}
+
+void HttpHandler::onProxyConnect(hio_t* upstream_io) {
+    // printf("onProxyConnect\n");
+    HttpHandler* handler = (HttpHandler*)hevent_userdata(upstream_io);
+    hio_t* io = hio_get_upstream(upstream_io);
+    assert(handler != NULL && io != NULL);
+
+    HttpRequest* req = handler->req.get();
+    // NOTE: send head + received body
+    req->headers.erase("Proxy-Connection");
+    req->headers["Connection"] = handler->keepalive ? "keep-alive" : "close";
+    req->headers["X-Real-IP"] = handler->ip;
+    std::string msg = req->Dump(true, true);
+    // printf("%s\n", msg.c_str());
+    hio_write(upstream_io, msg.c_str(), msg.size());
+
+    // NOTE: start recv body continue then upstream
+    hio_setcb_read(io, hio_write_upstream);
+    hio_read_start(io);
+    hio_setcb_read(upstream_io, hio_write_upstream);
+    hio_read_start(upstream_io);
+}
+
+int HttpHandler::proxyConnect(const std::string& strUrl) {
+    if (!writer) return ERR_NULL_POINTER;
+    hio_t* io = writer->io();
+    hloop_t* loop = hevent_loop(io);
+
+    HUrl url;
+    if (!url.parse(strUrl)) {
+        return ERR_PARSE;
+    }
+
+    hlogi("proxy_pass %s", strUrl.c_str());
+    hio_t* upstream_io = hio_create_socket(loop, url.host.c_str(), url.port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (upstream_io == NULL) {
+        hio_close_async(io);
+        return ERR_SOCKET;
+    }
+    if (url.scheme == "https") {
+        hio_enable_ssl(upstream_io);
+    }
+    hevent_set_userdata(upstream_io, this);
+    hio_setup_upstream(io, upstream_io);
+    hio_setcb_connect(upstream_io, HttpHandler::onProxyConnect);
+    hio_setcb_close(upstream_io, hio_close_upstream);
+    if (service->proxy_connect_timeout > 0) {
+        hio_set_connect_timeout(upstream_io, service->proxy_connect_timeout);
+    }
+    if (service->proxy_read_timeout > 0) {
+        hio_set_read_timeout(io, service->proxy_read_timeout);
+    }
+    if (service->proxy_write_timeout > 0) {
+        hio_set_write_timeout(io, service->proxy_write_timeout);
+    }
+    hio_connect(upstream_io);
+    // NOTE: wait upstream_io connected then start read
+    hio_read_stop(io);
+    return 0;
+}
+
+int HttpHandler::HandleHttpRequest() {
+    // preprocessor -> processor -> postprocessor
+    HttpRequest* pReq = req.get();
+    HttpResponse* pResp = resp.get();
+
     // NOTE: Not all users want to parse body, we comment it out.
     // pReq->ParseBody();
 
+    int status_code = pResp->status_code;
+    if (status_code != HTTP_STATUS_OK) {
+        goto postprocessor;
+    }
+
 preprocessor:
     state = HANDLE_BEGIN;
+    if (service->allow_cors) {
+        resp->headers["Access-Control-Allow-Origin"] = req->GetHeader("Origin", "*");
+        if (req->method == HTTP_OPTIONS) {
+            resp->headers["Access-Control-Allow-Methods"] = req->GetHeader("Access-Control-Request-Method", "OPTIONS, HEAD, GET, POST, PUT, DELETE, PATCH");
+            resp->headers["Access-Control-Allow-Headers"] = req->GetHeader("Access-Control-Request-Headers", "Content-Type");
+            status_code = HTTP_STATUS_NO_CONTENT;
+            goto postprocessor;
+        }
+    }
     if (service->preprocessor) {
         status_code = customHttpHandler(service->preprocessor);
         if (status_code != 0) {
@@ -205,6 +377,9 @@ postprocessor:
         customHttpHandler(service->postprocessor);
     }
 
+    if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
+        status_code = 0;
+    }
     if (status_code == 0) {
         state = HANDLE_CONTINUE;
     } else {
@@ -216,14 +391,9 @@ postprocessor:
 
 int HttpHandler::defaultRequestHandler() {
     int status_code = HTTP_STATUS_OK;
-    http_handler* handler = NULL;
 
-    if (service->api_handlers.size() != 0) {
-        service->GetApi(req.get(), &handler);
-    }
-
-    if (handler) {
-        status_code = invokeHttpHandler(handler);
+    if (api_handler) {
+        status_code = invokeHttpHandler(api_handler);
     }
     else if (req->method == HTTP_GET || req->method == HTTP_HEAD) {
         // static handler

@@ -10,13 +10,13 @@ class HttpResponseWriter : public SocketChannel {
 public:
     HttpResponsePtr response;
     enum State {
-        SEND_BEGIN,
+        SEND_BEGIN = 0,
         SEND_HEADER,
         SEND_BODY,
         SEND_CHUNKED,
         SEND_CHUNKED_END,
         SEND_END,
-    } state;
+    } state: 8, end: 8;
     HttpResponseWriter(hio_t* io, const HttpResponsePtr& resp)
         : SocketChannel(io)
         , response(resp)
@@ -32,7 +32,7 @@ public:
     // Begin -> EndHeaders("Transfer-Encoding", "chunked") -> WriteChunked -> WriteChunked -> ... -> End
 
     int Begin() {
-        state = SEND_BEGIN;
+        state = end = SEND_BEGIN;
         return 0;
     }
 
@@ -49,6 +49,11 @@ public:
     template<typename T>
     int WriteHeader(const char* key, T num) {
         response->headers[key] = hv::to_string(num);
+        return 0;
+    }
+
+    int WriteCookie(const HttpCookie& cookie) {
+        response->cookies.push_back(cookie);
         return 0;
     }
 
@@ -78,8 +83,8 @@ public:
         int chunked_header_len = snprintf(chunked_header, sizeof(chunked_header), "%x\r\n", len);
         write(chunked_header, chunked_header_len);
         if (buf && len) {
-            ret = write(buf, len);
             state = SEND_CHUNKED;
+            ret = write(buf, len);
         } else {
             state = SEND_CHUNKED_END;
         }
@@ -125,10 +130,22 @@ public:
         return write(msg);
     }
 
+    int SSEvent(const std::string& data, const char* event = "message") {
+        if (state == SEND_BEGIN) {
+            EndHeaders("Content-Type", "text/event-stream");
+        }
+        std::string msg;
+        msg =  "event: "; msg += event; msg += "\n";
+        msg += "data: ";  msg += data;  msg += "\n\n";
+        state = SEND_BODY;
+        return write(msg);
+    }
+
     int End(const char* buf = NULL, int len = -1) {
-        if (state == SEND_END) return 0;
+        if (end == SEND_END) return 0;
+        end = SEND_END;
+
         if (!isConnected()) {
-            state = SEND_END;
             return -1;
         }
 
@@ -155,11 +172,11 @@ public:
             }
             if (is_dump_body) {
                 std::string msg = response->Dump(is_dump_headers, is_dump_body);
+                state = SEND_BODY;
                 ret = write(msg);
             }
         }
 
-        state = SEND_END;
         if (!keepAlive) {
             close(true);
         }

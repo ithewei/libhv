@@ -7,6 +7,8 @@
  *
  */
 
+#include <iostream>
+
 #include "UdpClient.h"
 #include "htime.h"
 
@@ -38,8 +40,19 @@ int main(int argc, char* argv[]) {
         cli.sendto(str);
     });
 
-    // press Enter to stop
-    while (getchar() != '\n');
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (str == "close") {
+            cli.closesocket();
+        } else if (str == "start") {
+            cli.start();
+        } else if (str == "stop") {
+            cli.stop();
+            break;
+        } else {
+            cli.sendto(str);
+        }
+    }
 
     return 0;
 }

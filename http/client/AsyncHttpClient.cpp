@@ -8,7 +8,7 @@ namespace hv {
 int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     const HttpRequestPtr& req = task->req;
     // queueInLoop timeout?
-    uint64_t now_hrtime = hloop_now_hrtime(loop_thread.hloop());
+    uint64_t now_hrtime = hloop_now_hrtime(EventLoopThread::hloop());
     int elapsed_ms = (now_hrtime - task->start_time) / 1000;
     int timeout_ms = req->timeout * 1000;
     if (timeout_ms > 0 && elapsed_ms >= timeout_ms) {
@@ -43,7 +43,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             perror("socket");
             return -30;
         }
-        hio_t* connio = hio_get(loop_thread.hloop(), connfd);
+        hio_t* connio = hio_get(EventLoopThread::hloop(), connfd);
         assert(connio != NULL);
         hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
         addChannel(connio);
@@ -75,8 +75,22 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             return;
         }
         if (ctx->parser->IsComplete()) {
-            bool keepalive = ctx->task->req->IsKeepAlive() && ctx->resp->IsKeepAlive();
-            ctx->successCallback();
+            auto& req = ctx->task->req;
+            auto& resp = ctx->resp;
+            bool keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
+            if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
+                std::string location = resp->headers["Location"];
+                if (!location.empty()) {
+                    hlogi("redirect %s => %s", req->url.c_str(), location.c_str());
+                    req->url = location;
+                    req->ParseUrl();
+                    req->headers["Host"] = req->host;
+                    resp->Reset();
+                    send(ctx->task);
+                }
+            } else {
+                ctx->successCallback();
+            }
             if (keepalive) {
                 // NOTE: add into conn_pools to reuse
                 // hlogd("add into conn_pools");
@@ -159,6 +173,10 @@ int AsyncHttpClient::sendRequest(const SocketChannelPtr& channel) {
     char* data = NULL;
     size_t len = 0;
     while (ctx->parser->GetSendData(&data, &len)) {
+        // NOTE: ensure write buffer size is enough
+        if (len > (1 << 22) /* 4M */) {
+            channel->setMaxWriteBufsize(len);
+        }
         channel->write(data, len);
     }
     channel->startRead();

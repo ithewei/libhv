@@ -13,8 +13,8 @@ void ws_encode_key(const char* key, char accept[]) {
     unsigned char digest[20] = {0};
     HV_SHA1_CTX ctx;
     HV_SHA1Init(&ctx);
-    HV_SHA1Update(&ctx, (unsigned char*)key, strlen(key));
-    HV_SHA1Update(&ctx, (unsigned char*)magic, strlen(magic));
+    HV_SHA1Update(&ctx, (unsigned char*)key, (uint32_t)strlen(key));
+    HV_SHA1Update(&ctx, (unsigned char*)magic, (uint32_t)strlen(magic));
     HV_SHA1Final(digest, &ctx);
     hv_base64_encode(digest, 20, accept);
 }
@@ -42,5 +42,5 @@ int ws_build_frame(
     int flags = opcode;
     if (fin) flags |= WS_FIN;
     if (has_mask) flags |=  WS_HAS_MASK;
-    return websocket_build_frame(out, (websocket_flags)flags, mask, data, data_len);
+    return (int)websocket_build_frame(out, (websocket_flags)flags, mask, data, data_len);
 }

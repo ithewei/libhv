@@ -135,6 +135,10 @@ struct s
 
 // MSVC ports
 #ifdef _MSC_VER
+
+#pragma warning (disable: 4251) // STL dll
+#pragma warning (disable: 4275) // dll-interface
+
 #if _MSC_VER < 1900 // < VS2015
 
 #ifndef __cplusplus

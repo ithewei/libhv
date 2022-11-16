@@ -21,9 +21,11 @@ public:
     std::function<void()> onopen;
     std::function<void()> onclose;
     std::function<void(const std::string& msg)> onmessage;
+    // PATCH: onmessage not given opcode
+    enum ws_opcode opcode() { return channel ? channel->opcode : WS_OPCODE_CLOSE; }
 
-    WebSocketClient();
-    ~WebSocketClient();
+    WebSocketClient(EventLoopPtr loop = NULL);
+    virtual ~WebSocketClient();
 
     // url = ws://ip:port/path
     // url = wss://ip:port/path
@@ -35,6 +37,16 @@ public:
     // setConnectTimeout / setPingInterval / setReconnect
     void setPingInterval(int ms) {
         ping_interval = ms;
+    }
+
+    // NOTE: call before open
+    void setHttpRequest(const HttpRequestPtr& req) {
+        http_req_ = req;
+    }
+
+    // NOTE: call when onopen
+    const HttpResponsePtr& getHttpResponse() {
+        return http_resp_;
     }
 
 private:

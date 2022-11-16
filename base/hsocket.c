@@ -171,36 +171,17 @@ const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
 
 static int sockaddr_bind(sockaddr_u* localaddr, int type) {
     // socket -> setsockopt -> bind
+#ifdef SOCK_CLOEXEC
+    type |= SOCK_CLOEXEC;
+#endif
     int sockfd = socket(localaddr->sa.sa_family, type, 0);
     if (sockfd < 0) {
         perror("socket");
         return socket_errno_negative();
     }
 
-
-#ifdef SO_REUSEADDR
-    {
-        // NOTE: SO_REUSEADDR allow to reuse sockaddr of TIME_WAIT status
-        int reuseaddr = 1;
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuseaddr, sizeof(int)) < 0) {
-            perror("setsockopt");
-            goto error;
-        }
-    }
-#endif
-
-/*
-#ifdef SO_REUSEPORT
-    {
-        // NOTE: SO_REUSEPORT allow multiple sockets to bind same port
-        int reuseport = 1;
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, (const char*)&reuseport, sizeof(int)) < 0) {
-            perror("setsockopt");
-            goto error;
-        }
-    }
-#endif
-*/
+    so_reuseaddr(sockfd, 1);
+    // so_reuseport(sockfd, 1);
 
     if (bind(sockfd, &localaddr->sa, sockaddr_len(localaddr)) < 0) {
         perror("bind");

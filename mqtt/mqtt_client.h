@@ -29,6 +29,7 @@ struct mqtt_client_s {
     unsigned char   alloced_ssl_ctx: 1; // intern
     unsigned char   connected : 1;
     unsigned short  keepalive;
+    int             ping_cnt;
     char client_id[64];
     // will
     mqtt_message_t* will;
@@ -177,6 +178,10 @@ public:
         mqtt_client_set_auth(client, username, password);
     }
 
+    void setPingInterval(int sec) {
+        client->keepalive = sec;
+    }
+
     int lastError() {
         return mqtt_client_get_last_error(client);
     }
@@ -198,7 +203,7 @@ public:
     }
 
     int connect(const char* host, int port = DEFAULT_MQTT_PORT, int ssl = 0) {
-        return mqtt_client_connect(client, host, port);
+        return mqtt_client_connect(client, host, port, ssl);
     }
 
     int reconnect() {
@@ -242,7 +247,7 @@ public:
     }
 
     int unsubscribe(const char* topic, MqttCallback ack_cb = NULL) {
-        int mid = mqtt_client_subscribe(client, topic);
+        int mid = mqtt_client_unsubscribe(client, topic);
         if (mid >= 0 && ack_cb) {
             setAckCallback(mid, ack_cb);
         }

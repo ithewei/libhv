@@ -211,7 +211,11 @@ public:
             ParseBody();
             if (form.empty()) return HTTP_STATUS_BAD_REQUEST;
         }
-        const hv::FormData& formdata = form[name];
+        auto iter = form.find(name);
+        if (iter == form.end()) {
+            return HTTP_STATUS_BAD_REQUEST;
+        }
+        const auto& formdata = iter->second;
         if (formdata.content.empty()) {
             return HTTP_STATUS_BAD_REQUEST;
         }
@@ -274,9 +278,9 @@ public:
 #endif
     }
 
-    // structured-content -> content_type <-> headers Content-Type
+    // structured-content -> content_type <-> headers["Content-Type"]
     void FillContentType();
-    // body.size -> content_length <-> headers Content-Length
+    // body.size -> content_length <-> headers["Content-Length"]
     void FillContentLength();
 
     bool IsChunked();
@@ -329,6 +333,12 @@ public:
             FillContentType();
         }
         return content_type;
+    }
+    void SetContentType(http_content_type type) {
+        content_type = type;
+    }
+    void SetContentType(const char* type) {
+        content_type = http_content_type_enum(type);
     }
     void SetContentTypeByFilename(const char* filepath) {
         const char* suffix = hv_suffixname(filepath);
@@ -498,8 +508,21 @@ public:
     }
     void FillHost(const char* host, int port = DEFAULT_HTTP_PORT);
     void SetHost(const char* host, int port = DEFAULT_HTTP_PORT);
+
     void SetProxy(const char* host, int port);
     bool IsProxy() { return proxy; }
+
+    void SetTimeout(int sec) { timeout = sec; }
+    void SetConnectTimeout(int sec) { connect_timeout = sec; }
+
+    void AllowRedirect(bool on = true) { redirect = on; }
+
+    // NOTE: SetRetry just for AsyncHttpClient
+    void SetRetry(int count = DEFAULT_HTTP_FAIL_RETRY_COUNT,
+                  int delay = DEFAULT_HTTP_FAIL_RETRY_DELAY) {
+        retry_count = count;
+        retry_delay = delay;
+    }
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1) {
@@ -551,6 +574,12 @@ public:
         }
         from = to = total = 0;
         return false;
+    }
+
+    int Redirect(const std::string& location, http_status status = HTTP_STATUS_FOUND) {
+        status_code = status;
+        headers["Location"] = location;
+        return status_code;
     }
 };
 

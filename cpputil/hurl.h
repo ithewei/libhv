@@ -10,7 +10,7 @@ public:
     static std::string escape(const std::string& str, const char* unescaped_chars = "");
     static std::string unescape(const std::string& str);
     static inline std::string escapeUrl(const std::string& url) {
-        return escape(url, ":/@?=&#");
+        return escape(url, ":/@?=&#+");
     }
 
     HUrl() : port(0) {}

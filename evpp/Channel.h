@@ -41,7 +41,13 @@ public:
     }
 
     virtual ~Channel() {
-        close();
+        if (isOpened()) {
+            close();
+            // NOTE: Detach after destructor to avoid triggering onclose
+            if (io_ && id_ == hio_id(io_)) {
+                hio_set_context(io_, NULL);
+            }
+        }
     }
 
     hio_t*      io() { return io_; }
@@ -71,6 +77,29 @@ public:
             delete (T*)ctx_;
             ctx_ = NULL;
         }
+    }
+
+    // contextPtr
+    std::shared_ptr<void> contextPtr() {
+        return contextPtr_;
+    }
+    void setContextPtr(const std::shared_ptr<void>& ctx) {
+        contextPtr_ = ctx;
+    }
+    void setContextPtr(std::shared_ptr<void>&& ctx) {
+        contextPtr_ = std::move(ctx);
+    }
+    template<class T>
+    std::shared_ptr<T> newContextPtr() {
+        contextPtr_ = std::make_shared<T>();
+        return std::static_pointer_cast<T>(contextPtr_);
+    }
+    template<class T>
+    std::shared_ptr<T> getContextPtr() {
+        return std::static_pointer_cast<T>(contextPtr_);
+    }
+    void deleteContextPtr() {
+        contextPtr_.reset();
     }
 
     bool isOpened() {
@@ -144,11 +173,9 @@ public:
 
     // close thread-safe
     int close(bool async = false) {
-        if (!isOpened()) return -1;
-        if (async) {
-            return hio_close_async(io_);
-        }
-        return hio_close(io_);
+        if (isClosed()) return -1;
+        status = CLOSED;
+        return async ? hio_close_async(io_) : hio_close(io_);
     }
 
 public:
@@ -167,6 +194,7 @@ public:
     // NOTE: Use Channel::isWriteComplete in onwrite callback to determine whether all data has been written.
     std::function<void(Buffer*)> onwrite;
     std::function<void()>        onclose;
+    std::shared_ptr<void>        contextPtr_;
 
 private:
     static void on_read(hio_t* io, void* data, int readbytes) {
@@ -255,6 +283,7 @@ public:
     }
 
     // heartbeat
+    // NOTE: Beware of circular reference problems caused by passing SocketChannelPtr by value.
     void setHeartbeat(int interval_ms, std::function<void()> fn) {
         if (io_ == NULL) return;
         heartbeat = std::move(fn);

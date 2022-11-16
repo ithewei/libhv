@@ -68,7 +68,7 @@ typedef struct option_s {
 } option_t;
 
 HV_EXPORT int  main_ctx_init(int argc, char** argv);
-HV_EXPORT void main_ctx_free();
+HV_EXPORT void main_ctx_free(void);
 
 // ls -a -l
 // ls -al
@@ -86,7 +86,7 @@ HV_EXPORT void setproctitle(const char* fmt, ...);
 
 // pidfile
 HV_EXPORT int   create_pidfile();
-HV_EXPORT void  delete_pidfile();
+HV_EXPORT void  delete_pidfile(void);
 HV_EXPORT pid_t getpid_from_pidfile();
 
 // signal=[start,stop,restart,status,reload]

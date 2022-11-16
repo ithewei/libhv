@@ -18,7 +18,7 @@ public:
 
     int open(const char* filepath, const char* mode) {
         close();
-        strncpy(this->filepath, filepath, MAX_PATH);
+        strncpy(this->filepath, filepath, MAX_PATH - 1);
         fp = fopen(filepath, mode);
         return fp ? 0 : errno;
     }
@@ -32,6 +32,16 @@ public:
 
     bool isopen() {
         return fp != NULL;
+    }
+
+    int remove() {
+        close();
+        return ::remove(filepath);
+    }
+
+    int rename(const char* newpath) {
+        close();
+        return ::rename(filepath, newpath);
     }
 
     size_t read(void* ptr, size_t len) {

@@ -83,7 +83,7 @@ make libhv
 ```
 mkdir build
 cd build
-cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS
+cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS -DDEPLOYMENT_TARGET=9.0 -DARCHS="arm64"
 cmake --build . --target hv_static --config Release
 ```
 
@@ -103,7 +103,7 @@ cmake --build . --target hv_static --config Release
 ### compile without c++
 ```
 ./configure --without-evpp
-make clean && make
+make clean && make libhv
 ```
 
 ### compile WITH_OPENSSL

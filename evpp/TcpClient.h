@@ -34,20 +34,21 @@ public:
         return loop_;
     }
 
-    //NOTE: By default, not bind local port. If necessary, you can call system api bind() after createsocket().
-    //@retval >=0 connfd, <0 error
+    // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
+    // @retval >=0 connfd, <0 error
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
         memset(&remote_addr, 0, sizeof(remote_addr));
         int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
         if (ret != 0) {
-            return -1;
+            return NABS(ret);
         }
         this->remote_host = remote_host;
         this->remote_port = remote_port;
         return createsocket(&remote_addr.sa);
     }
+
     int createsocket(struct sockaddr* remote_addr) {
-        int connfd = socket(remote_addr->sa_family, SOCK_STREAM, 0);
+        int connfd = ::socket(remote_addr->sa_family, SOCK_STREAM, 0);
         // SOCKADDR_PRINT(remote_addr);
         if (connfd < 0) {
             perror("socket");
@@ -60,23 +61,63 @@ public:
         channel.reset(new TSocketChannel(io));
         return connfd;
     }
+
+    int bind(int local_port, const char* local_host = "0.0.0.0") {
+        sockaddr_u local_addr;
+        memset(&local_addr, 0, sizeof(local_addr));
+        int ret = sockaddr_set_ipport(&local_addr, local_host, local_port);
+        if (ret != 0) {
+            return NABS(ret);
+        }
+        return bind(&local_addr.sa);
+    }
+
+    int bind(struct sockaddr* local_addr) {
+        if (channel == NULL || channel->isClosed()) {
+            return -1;
+        }
+        int ret = ::bind(channel->fd(), local_addr, SOCKADDR_LEN(local_addr));
+        if (ret != 0) {
+            perror("bind");
+        }
+        return ret;
+    }
+
     // closesocket thread-safe
     void closesocket() {
-        setReconnect(NULL);
         if (channel) {
-            channel->close(true);
+            loop_->runInLoop([this](){
+                if (channel) {
+                    setReconnect(NULL);
+                    channel->close();
+                }
+            });
         }
     }
 
     int startConnect() {
-        assert(channel != NULL);
+        if (channel == NULL || channel->isClosed()) {
+            int connfd = createsocket(&remote_addr.sa);
+            if (connfd < 0) {
+                hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, connfd);
+                return connfd;
+            }
+        }
+        if (channel == NULL || channel->status >= SocketChannel::CONNECTING) {
+            return -1;
+        }
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
         }
         if (tls) {
             channel->enableSSL();
             if (tls_setting) {
-                channel->newSslCtx(tls_setting);
+                int ret = channel->newSslCtx(tls_setting);
+                if (ret != 0) {
+                    hloge("new SSL_CTX failed: %d", ret);
+                    closesocket();
+                    return ret;
+                }
             }
             if (!is_ipaddr(remote_host.c_str())) {
                 channel->setHostname(remote_host);
@@ -111,10 +152,6 @@ public:
             // reconnect
             if (reconn_setting) {
                 startReconnect();
-            } else {
-                channel = NULL;
-                // NOTE: channel should be destroyed,
-                // so in this lambda function, no code should be added below.
             }
         };
         return channel->startConnect();
@@ -124,9 +161,8 @@ public:
         if (!reconn_setting) return -1;
         if (!reconn_setting_can_retry(reconn_setting)) return -2;
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
+        hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
         loop_->setTimeout(delay, [this](TimerID timerID){
-            hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
-            if (createsocket(&remote_addr.sa) < 0) return;
             startConnect();
         });
         return 0;
@@ -221,7 +257,7 @@ template<class TSocketChannel = SocketChannel>
 class TcpClientTmpl : private EventLoopThread, public TcpClientEventLoopTmpl<TSocketChannel> {
 public:
     TcpClientTmpl(EventLoopPtr loop = NULL)
-        : EventLoopThread()
+        : EventLoopThread(loop)
         , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
     {}
     virtual ~TcpClientTmpl() {
@@ -234,12 +270,16 @@ public:
 
     // start thread-safe
     void start(bool wait_threads_started = true) {
-        EventLoopThread::start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
+        if (isRunning()) {
+            TcpClientEventLoopTmpl<TSocketChannel>::start();
+        } else {
+            EventLoopThread::start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
+        }
     }
 
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
-        TcpClientTmpl::setReconnect(NULL);
+        TcpClientEventLoopTmpl<TSocketChannel>::closesocket();
         EventLoopThread::stop(wait_threads_stopped);
     }
 };

@@ -117,9 +117,9 @@ int on_headers_complete(http_parser* parser) {
     }
     iter = hp->parsed->headers.find("content-length");
     if (iter != hp->parsed->headers.end()) {
-        int content_length = atoi(iter->second.c_str());
+        size_t content_length = atoll(iter->second.c_str());
         hp->parsed->content_length = content_length;
-        int reserve_length = MIN(content_length + 1, MAX_CONTENT_LENGTH);
+        size_t reserve_length = MIN(content_length + 1, MAX_CONTENT_LENGTH);
         if ((!skip_body) && reserve_length > hp->parsed->body.capacity()) {
             hp->parsed->body.reserve(reserve_length);
         }

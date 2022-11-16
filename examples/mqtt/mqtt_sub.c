@@ -73,6 +73,7 @@ static void on_mqtt(mqtt_client_t* cli, int type) {
 static int mqtt_subscribe(const char* host, int port, const char* topic) {
     mqtt_client_t* cli = mqtt_client_new(NULL);
     if (cli == NULL) return -1;
+    cli->keepalive = 10;
 
 #if TEST_AUTH
     mqtt_client_set_auth(cli, "test", "123456");

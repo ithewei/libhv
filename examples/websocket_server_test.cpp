@@ -31,13 +31,16 @@ using namespace hv;
 class MyContext {
 public:
     MyContext() {
+        printf("MyContext::MyContext()\n");
         timerID = INVALID_TIMER_ID;
     }
     ~MyContext() {
+        printf("MyContext::~MyContext()\n");
     }
 
-    int handleMessage(const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
+    int handleMessage(const std::string& msg, enum ws_opcode opcode) {
+        printf("onmessage(type=%s len=%d): %.*s\n", opcode == WS_OPCODE_TEXT ? "text" : "binary",
+            (int)msg.size(), (int)msg.size(), msg.data());
         return msg.size();
     }
 
@@ -57,9 +60,9 @@ int main(int argc, char** argv) {
     });
 
     WebSocketService ws;
-    ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
-        printf("onopen: GET %s\n", url.c_str());
-        MyContext* ctx = channel->newContext<MyContext>();
+    ws.onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
+        printf("onopen: GET %s\n", req->Path().c_str());
+        auto ctx = channel->newContextPtr<MyContext>();
         // send(time) every 1s
         ctx->timerID = setInterval(1000, [channel](TimerID id) {
             if (channel->isConnected() && channel->isWriteComplete()) {
@@ -71,16 +74,17 @@ int main(int argc, char** argv) {
         });
     };
     ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
-        MyContext* ctx = channel->getContext<MyContext>();
-        ctx->handleMessage(msg);
+        auto ctx = channel->getContextPtr<MyContext>();
+        ctx->handleMessage(msg, channel->opcode);
     };
     ws.onclose = [](const WebSocketChannelPtr& channel) {
         printf("onclose\n");
-        MyContext* ctx = channel->getContext<MyContext>();
+        auto ctx = channel->getContextPtr<MyContext>();
         if (ctx->timerID != INVALID_TIMER_ID) {
             killTimer(ctx->timerID);
+            ctx->timerID = INVALID_TIMER_ID;
         }
-        channel->deleteContext<MyContext>();
+        // channel->deleteContextPtr();
     };
 
     websocket_server_t server;

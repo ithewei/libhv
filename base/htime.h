@@ -67,6 +67,7 @@ HV_INLINE unsigned long long gettimeofday_us() {
 HV_EXPORT unsigned long long gethrtime_us();
 
 HV_EXPORT datetime_t datetime_now();
+HV_EXPORT datetime_t datetime_localtime(time_t seconds);
 HV_EXPORT time_t     datetime_mktime(datetime_t* dt);
 
 HV_EXPORT datetime_t* datetime_past(datetime_t* dt, int days DEFAULT(1));

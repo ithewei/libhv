@@ -9,7 +9,7 @@ void HttpService::AddApi(const char* path, http_method method, const http_handle
     auto iter = api_handlers.find(path);
     if (iter == api_handlers.end()) {
         // add path
-        method_handlers = std::shared_ptr<http_method_handlers>(new http_method_handlers);
+        method_handlers = std::make_shared<http_method_handlers>();
         api_handlers[path] = method_handlers;
     }
     else {
@@ -153,6 +153,21 @@ std::string HttpService::GetStaticFilepath(const char* path) {
         filepath += home_page;
     }
     return filepath;
+}
+
+void HttpService::Proxy(const char* path, const char* url) {
+    proxies[path] = url;
+}
+
+std::string HttpService::GetProxyUrl(const char* path) {
+    std::string url;
+    for (auto iter = proxies.begin(); iter != proxies.end(); ++iter) {
+        if (hv_strstartswith(path, iter->first.c_str())) {
+            url = iter->second + (path + iter->first.length());
+            break;
+        }
+    }
+    return url;
 }
 
 }

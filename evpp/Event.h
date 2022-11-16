@@ -12,7 +12,7 @@ struct Event;
 struct Timer;
 
 typedef uint64_t            TimerID;
-#define INVALID_TIMER_ID    ((TimerID)-1)
+#define INVALID_TIMER_ID    ((hv::TimerID)-1)
 
 typedef std::function<void(Event*)>     EventCallback;
 typedef std::function<void(TimerID)>    TimerCallback;

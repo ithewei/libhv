@@ -15,13 +15,14 @@
 namespace hv {
 
 struct WebSocketService {
-    std::function<void(const WebSocketChannelPtr&, const std::string&)> onopen;
-    std::function<void(const WebSocketChannelPtr&, const std::string&)> onmessage;
-    std::function<void(const WebSocketChannelPtr&)>                     onclose;
+    std::function<void(const WebSocketChannelPtr&, const HttpRequestPtr&)>  onopen;
+    std::function<void(const WebSocketChannelPtr&, const std::string&)>     onmessage;
+    std::function<void(const WebSocketChannelPtr&)>                         onclose;
     int ping_interval;
 
     WebSocketService() {
-        ping_interval = 10000; // ms
+        ping_interval = 0;
+        // ping_interval = 10000; // ms
     }
 };
 

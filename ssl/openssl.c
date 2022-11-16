@@ -68,6 +68,9 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
 
         if (param->verify_peer) {
             mode = SSL_VERIFY_PEER;
+            if (param->endpoint == HSSL_SERVER) {
+                mode |= SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+            }
         }
     }
     if (mode == SSL_VERIFY_PEER && !ca_file && !ca_path) {
@@ -149,6 +152,37 @@ int hssl_set_sni_hostname(hssl_t ssl, const char* hostname) {
     SSL_set_tlsext_host_name((SSL*)ssl, hostname);
 #endif
     return 0;
+}
+
+#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
+static int hssl_ctx_alpn_select_cb(SSL *ssl,
+    const unsigned char **out, unsigned char *outlen,
+    const unsigned char *in, unsigned int inlen,
+    void *arg) {
+    const unsigned char* protos = (unsigned char*)arg;
+    unsigned int protos_len = strlen((char*)protos);
+    // printf("hssl_ctx_alpn_select_cb(in=%*.s:%u out=%.*s:%u protos=%.*s:%u)\n", inlen, in, inlen, (int)*outlen, (char*)out, (int)*outlen, protos_len, protos, protos_len);
+    if (SSL_select_next_proto((unsigned char **) out, outlen, protos, protos_len, in, inlen) != OPENSSL_NPN_NEGOTIATED) {
+        fprintf(stderr, "SSL_select_next_proto failed!\n");
+        return SSL_TLSEXT_ERR_ALERT_FATAL;
+    }
+    // printf("SSL_select_next_proto(out=%.*s:%u)\n", (int)*outlen, (char*)*out, (int)*outlen);
+    return SSL_TLSEXT_ERR_OK;
+}
+#endif
+
+int hssl_ctx_set_alpn_protos(hssl_ctx_t ssl_ctx, const unsigned char* protos, unsigned int protos_len) {
+    int ret = -1;
+    // printf("hssl_ctx_set_alpn_protos(%.*s:%u)\n", protos_len, protos, protos_len);
+#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
+    // for HSSL_CLIENT
+    // ret = SSL_CTX_set_alpn_protos((SSL_CTX*)ssl_ctx, (const unsigned char*)protos, protos_len);
+
+    // for HSSL_SERVER
+    SSL_CTX_set_alpn_select_cb((SSL_CTX*)ssl_ctx, hssl_ctx_alpn_select_cb, (void*)protos);
+    ret = 0;
+#endif
+    return ret;
 }
 
 #endif // WITH_OPENSSL

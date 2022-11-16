@@ -17,6 +17,7 @@
 #include "HttpContext.h"
 #include "HttpServer.h"
 #include "HttpHandler.h"
+#include "HttpResponseWriter.h"
 
 #include "WebSocketChannel.h"
 #include "WebSocketParser.h"
@@ -51,6 +52,7 @@ int main() {
     printf("sizeof(class HttpContext)=%lu\n", sizeof(HttpContext));
     printf("sizeof(class HttpServer)=%lu\n", sizeof(HttpServer));
     printf("sizeof(class HttpHandler)=%lu\n", sizeof(HttpHandler));
+    printf("sizeof(class HttpResponseWrite)=%lu\n", sizeof(HttpResponseWriter));
     // websocket
     printf("sizeof(class WebSocketChannel)=%lu\n", sizeof(WebSocketChannel));
     printf("sizeof(class WebSocketParser)=%lu\n", sizeof(WebSocketParser));

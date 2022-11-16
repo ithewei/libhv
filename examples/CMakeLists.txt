@@ -54,9 +54,11 @@ add_executable(socks5_proxy_server socks5_proxy_server.c)
 target_link_libraries(socks5_proxy_server ${HV_LIBRARIES})
 
 add_executable(jsonrpc_client jsonrpc/jsonrpc_client.c jsonrpc/cJSON.c)
+target_compile_definitions(jsonrpc_client PRIVATE CJSON_HIDE_SYMBOLS)
 target_link_libraries(jsonrpc_client ${HV_LIBRARIES})
 
 add_executable(jsonrpc_server jsonrpc/jsonrpc_server.c jsonrpc/cJSON.c)
+target_compile_definitions(jsonrpc_server PRIVATE CJSON_HIDE_SYMBOLS)
 target_link_libraries(jsonrpc_server ${HV_LIBRARIES})
 
 if(WITH_EVPP)

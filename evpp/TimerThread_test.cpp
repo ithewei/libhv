@@ -40,7 +40,7 @@ SINGLETON_IMPL(GlobalTimerThread)
 
 int main(int argc, char* argv[]) {
     hv::GlobalTimerThread::setTimeout(3000, [](hv::TimerID timerID) {
-        printf("setTimeou timerID=%lu time=%lus\n", (unsigned long)timerID, (unsigned long)time(NULL));
+        printf("setTimeout timerID=%lu time=%lus\n", (unsigned long)timerID, (unsigned long)time(NULL));
     });
 
     hv::GlobalTimerThread::setInterval(1000, [](hv::TimerID timerID) {

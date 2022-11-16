@@ -28,8 +28,12 @@ public:
         SEND_DONE,
     } state;
 
+    // flags
+    unsigned ssl:           1;
+    unsigned keepalive:     1;
+    unsigned proxy:         1;
+
     // peeraddr
-    bool                    ssl;
     char                    ip[64];
     int                     port;
 
@@ -39,6 +43,8 @@ public:
     HttpResponsePtr         resp;
     HttpResponseWriterPtr   writer;
     HttpParserPtr           parser;
+    HttpContextPtr          ctx;
+    http_handler*           api_handler;
 
     // for sendfile
     FileCache               *files;
@@ -79,7 +85,7 @@ public:
     void WebSocketOnOpen() {
         ws_channel->status = hv::SocketChannel::CONNECTED;
         if (ws_service && ws_service->onopen) {
-            ws_service->onopen(ws_channel, req->url);
+            ws_service->onopen(ws_channel, req);
         }
     }
     void WebSocketOnClose() {
@@ -94,6 +100,14 @@ private:
     int  sendFile();
     void closeFile();
     bool isFileOpened();
+
+    const HttpContextPtr& getHttpContext();
+    void initRequest();
+    void onHeadersComplete();
+
+    // proxy
+    int proxyConnect(const std::string& url);
+    static void onProxyConnect(hio_t* upstream_io);
 
     int defaultRequestHandler();
     int defaultStaticHandler();

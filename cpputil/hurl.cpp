@@ -77,13 +77,16 @@ std::string HUrl::unescape(const std::string& str) {
             p += 3;
         }
         else {
-            ostr += *p;
+            if (*p == '+') {
+                ostr += ' ';
+            } else {
+                ostr += *p;
+            }
             ++p;
         }
     }
     return ostr;
 }
-
 
 bool HUrl::parse(const std::string& url) {
     reset();

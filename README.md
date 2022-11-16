@@ -31,7 +31,7 @@ but simpler api and richer protocols.
 - RUDP support: WITH_KCP
 - SSL/TLS support: (via WITH_OPENSSL or WITH_GNUTLS or WITH_MBEDTLS)
 - HTTP client/server (support https http1/x http2 grpc)
-- HTTP static file service, indexof service, sync/async API handler
+- HTTP supports static service, indexof service, proxy service, sync/async API handler
 - HTTP supports RESTful, URI router, keep-alive, chunked, etc.
 - WebSocket client/server
 - MQTT client
@@ -149,6 +149,7 @@ int main() {
 
 **c++ version**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 ```c++
+#include <iostream>
 #include "TcpClient.h"
 using namespace hv;
 
@@ -163,7 +164,6 @@ int main() {
         std::string peeraddr = channel->peeraddr();
         if (channel->isConnected()) {
             printf("connected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
-            channel->write("hello");
         } else {
             printf("disconnected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
         }
@@ -173,8 +173,20 @@ int main() {
     };
     cli.start();
 
-    // press Enter to stop
-    while (getchar() != '\n');
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (str == "close") {
+            cli.closesocket();
+        } else if (str == "start") {
+            cli.start();
+        } else if (str == "stop") {
+            cli.stop();
+            break;
+        } else {
+            if (!cli.isConnected()) break;
+            cli.send(str);
+        }
+    }
     return 0;
 }
 ```
@@ -249,52 +261,6 @@ int main() {
 }
 ```
 
-**js axios style**
-```c++
-#include "axios.h"
-
-int main() {
-    const char* strReq = R"({
-        "method": "POST",
-        "url": "http://127.0.0.1:8080/echo",
-        "params": {
-            "page_no": "1",
-            "page_size": "10"
-        },
-        "headers": {
-            "Content-Type": "application/json"
-        },
-        "body": {
-            "app_id": "123456",
-            "app_secret": "abcdefg"
-        }
-    })";
-
-    // sync
-    auto resp = axios::axios(strReq);
-    if (resp == NULL) {
-        printf("request failed!\n");
-    } else {
-        printf("%s\n", resp->body.c_str());
-    }
-
-    // async
-    int finished = 0;
-    axios::axios(strReq, [&finished](const HttpResponsePtr& resp) {
-        if (resp == NULL) {
-            printf("request failed!\n");
-        } else {
-            printf("%s\n", resp->body.c_str());
-        }
-        finished = 1;
-    });
-
-    // wait async finished
-    while (!finished) hv_sleep(1);
-    return 0;
-}
-```
-
 ### WebSocket
 #### WebSocket server
 see [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
@@ -304,11 +270,11 @@ using namespace hv;
 
 int main(int argc, char** argv) {
     WebSocketService ws;
-    ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
-        printf("onopen: GET %s\n", url.c_str());
+    ws.onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
+        printf("onopen: GET %s\n", req->Path().c_str());
     };
     ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
+        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
     };
     ws.onclose = [](const WebSocketChannelPtr& channel) {
         printf("onclose\n");
@@ -335,7 +301,7 @@ int main(int argc, char** argv) {
         printf("onopen\n");
     };
     ws.onmessage = [](const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
+        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
     };
     ws.onclose = []() {
         printf("onclose\n");

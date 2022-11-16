@@ -66,11 +66,14 @@ cmd="bin/curl -v localhost:8080/json -H 'Content-Type:application/json' -d '{\"u
 cmd="bin/curl -v localhost:8080/form -F 'user=admin' -F 'pswd=123456'" && echo_cmd
      bin/curl -v localhost:8080/form -F 'user=admin' -F 'pswd=123456'
 
-cmd="bin/curl -v localhost:8080/upload -d '@LICENSE'" && echo_cmd
-     bin/curl -v localhost:8080/upload -d '@LICENSE'
+cmd="bin/curl -v localhost:8080/upload?filename=LICENSE -d '@LICENSE'" && echo_cmd
+     bin/curl -v localhost:8080/upload?filename=LICENSE -d '@LICENSE'
 
 cmd="bin/curl -v localhost:8080/upload -F 'file=@LICENSE'" && echo_cmd
      bin/curl -v localhost:8080/upload -F 'file=@LICENSE'
+
+cmd="bin/curl -v localhost:8080/upload/README.md -d '@README.md'" && echo_cmd
+     bin/curl -v localhost:8080/upload/README.md -d '@README.md'
 
 cmd="bin/curl -v localhost:8080/test -H 'Content-Type:application/x-www-form-urlencoded' -d 'bool=1&int=123&float=3.14&string=hello'" && echo_cmd
      bin/curl -v localhost:8080/test -H 'Content-Type:application/x-www-form-urlencoded' -d 'bool=1&int=123&float=3.14&string=hello'

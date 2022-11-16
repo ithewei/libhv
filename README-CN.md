@@ -55,7 +55,7 @@
 - 可靠UDP支持: WITH_KCP
 - SSL/TLS加密通信（可选WITH_OPENSSL、WITH_GNUTLS、WITH_MBEDTLS）
 - HTTP服务端/客户端（支持https http1/x http2 grpc）
-- HTTP支持静态文件服务、目录服务、同步/异步API处理函数
+- HTTP支持静态文件服务、目录服务、代理服务、同步/异步API处理函数
 - HTTP支持RESTful风格、URI路由、keep-alive长连接、chunked分块等特性
 - WebSocket服务端/客户端
 - MQTT客户端
@@ -186,6 +186,7 @@ int main() {
 
 **c++版本**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 ```c++
+#include <iostream>
 #include "TcpClient.h"
 using namespace hv;
 
@@ -200,7 +201,6 @@ int main() {
         std::string peeraddr = channel->peeraddr();
         if (channel->isConnected()) {
             printf("connected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
-            channel->write("hello");
         } else {
             printf("disconnected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
         }
@@ -210,8 +210,20 @@ int main() {
     };
     cli.start();
 
-    // press Enter to stop
-    while (getchar() != '\n');
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (str == "close") {
+            cli.closesocket();
+        } else if (str == "start") {
+            cli.start();
+        } else if (str == "stop") {
+            cli.stop();
+            break;
+        } else {
+            if (!cli.isConnected()) break;
+            cli.send(str);
+        }
+    }
     return 0;
 }
 ```
@@ -260,6 +272,13 @@ int main() {
     return 0;
 }
 ```
+
+**注意**:
+
+上面示例直接运行在`main`主线程，`server.run()`会阻塞当前线程运行，所以`router`和`server`对象不会被析构，
+如使用`server.start()`内部会另起线程运行，不会阻塞当前线程，但需要注意`router`和`server`的生命周期，
+不要定义为局部变量被析构了，可定义为类成员变量或者全局变量，下面的`WebSocket`服务同理。
+
 #### HTTP客户端
 见[examples/http_client_test.cpp](examples/http_client_test.cpp)
 
@@ -286,52 +305,6 @@ int main() {
 }
 ```
 
-**js axios 风格**
-```c++
-#include "axios.h"
-
-int main() {
-    const char* strReq = R"({
-        "method": "POST",
-        "url": "http://127.0.0.1:8080/echo",
-        "params": {
-            "page_no": "1",
-            "page_size": "10"
-        },
-        "headers": {
-            "Content-Type": "application/json"
-        },
-        "body": {
-            "app_id": "123456",
-            "app_secret": "abcdefg"
-        }
-    })";
-
-    // sync
-    auto resp = axios::axios(strReq);
-    if (resp == NULL) {
-        printf("request failed!\n");
-    } else {
-        printf("%s\n", resp->body.c_str());
-    }
-
-    // async
-    int finished = 0;
-    axios::axios(strReq, [&finished](const HttpResponsePtr& resp) {
-        if (resp == NULL) {
-            printf("request failed!\n");
-        } else {
-            printf("%s\n", resp->body.c_str());
-        }
-        finished = 1;
-    });
-
-    // wait async finished
-    while (!finished) hv_sleep(1);
-    return 0;
-}
-```
-
 ### WebSocket
 #### WebSocket服务端
 见[examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
@@ -341,11 +314,11 @@ using namespace hv;
 
 int main(int argc, char** argv) {
     WebSocketService ws;
-    ws.onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
-        printf("onopen: GET %s\n", url.c_str());
+    ws.onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
+        printf("onopen: GET %s\n", req->Path().c_str());
     };
     ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
+        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
     };
     ws.onclose = [](const WebSocketChannelPtr& channel) {
         printf("onclose\n");
@@ -372,7 +345,7 @@ int main(int argc, char** argv) {
         printf("onopen\n");
     };
     ws.onmessage = [](const std::string& msg) {
-        printf("onmessage: %s\n", msg.c_str());
+        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
     };
     ws.onclose = []() {
         printf("onclose\n");

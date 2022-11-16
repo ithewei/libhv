@@ -93,6 +93,7 @@ set(HTTP_CLIENT_HEADERS
     http/client/http_client.h
     http/client/requests.h
     http/client/axios.h
+    http/client/AsyncHttpClient.h
     http/client/WebSocketClient.h)
 
 set(HTTP_SERVER_HEADERS

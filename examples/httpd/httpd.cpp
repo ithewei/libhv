@@ -4,6 +4,7 @@
 #include "iniparser.h"
 
 #include "HttpServer.h"
+#include "hasync.h"     // import hv::async
 
 #include "router.h"
 
@@ -116,6 +117,12 @@ int parse_confile(const char* confile) {
     }
     g_http_server.worker_threads = LIMIT(0, worker_threads, 64);
 
+    // worker_connections
+    str = ini.GetValue("worker_connections");
+    if (str.size() != 0) {
+        g_http_server.worker_connections = atoi(str.c_str());
+    }
+
     // http_port
     int port = 0;
     const char* szPort = get_arg("p");
@@ -167,6 +174,13 @@ int parse_confile(const char* confile) {
     str = ini.GetValue("limit_rate");
     if (str.size() != 0) {
         g_http_service.limit_rate = atoi(str.c_str());
+    }
+    // cors
+    if (ini.Get<bool>("cors")) {
+        g_http_service.AllowCORS();
+    }
+    if (ini.Get<bool>("forward_proxy")) {
+        g_http_service.EnableForwardProxy();
     }
     // ssl
     if (g_http_server.https_port > 0) {
@@ -258,6 +272,21 @@ int main(int argc, char** argv) {
     // http_server
     Router::Register(g_http_service);
     g_http_server.registerHttpService(&g_http_service);
+
+#if 0
+    std::atomic_flag init_flag = ATOMIC_FLAG_INIT;
+    g_http_server.onWorkerStart = [&init_flag](){
+        if (!init_flag.test_and_set()) {
+            hv::async::startup();
+        }
+    };
+    g_http_server.onWorkerStop = [&init_flag](){
+        if (init_flag.test_and_set()) {
+            hv::async::cleanup();
+        }
+    };
+#endif
+
     g_http_server.run();
     return ret;
 }

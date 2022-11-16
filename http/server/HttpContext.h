@@ -13,11 +13,21 @@ struct HV_EXPORT HttpContext {
     HttpRequestPtr          request;
     HttpResponsePtr         response;
     HttpResponseWriterPtr   writer;
+    void*                   userdata;
+
+    HttpContext() {
+        service = NULL;
+        userdata = NULL;
+    }
 
     // HttpRequest aliases
     // return request->xxx
     std::string ip() {
         return request->client_addr.ip;
+    }
+
+    int port() {
+        return request->client_addr.port;
     }
 
     http_method method() {
@@ -143,7 +153,9 @@ struct HV_EXPORT HttpContext {
 
     // response->sendXxx
     int send() {
-        writer->End();
+        if (writer) {
+            writer->End();
+        }
         return response->status_code;
     }
 
@@ -184,6 +196,14 @@ struct HV_EXPORT HttpContext {
     }
 #endif
 
+    int redirect(const std::string& location, http_status status = HTTP_STATUS_FOUND) {
+        response->Redirect(location, status);
+        return send();
+    }
+
+    int close() {
+        return writer ? writer->close(true) : -1;
+    }
 };
 
 } // end namespace hv

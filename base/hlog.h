@@ -119,7 +119,7 @@ HV_EXPORT const char* logger_get_cur_file(logger_t* logger);
 
 // hlog: default logger instance
 HV_EXPORT logger_t* hv_default_logger();
-HV_EXPORT void      hv_destroy_default_logger();
+HV_EXPORT void      hv_destroy_default_logger(void);
 
 // macro hlog*
 #define hlog                            hv_default_logger()

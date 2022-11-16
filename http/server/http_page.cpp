@@ -54,7 +54,7 @@ void make_index_of_page(const char* dir, std::string& page, const char* url) {
     for (auto& item : dirs) {
         if (item.name[0] == '.' && item.name[1] == '\0') continue;
         page += "    <tr>\n";
-        int len = strlen(item.name) + (item.type == 'd');
+        size_t len = strlen(item.name) + (item.type == 'd');
         // name
         snprintf(c_str, sizeof(c_str), "<a href=\"%s%s\">%s%s</a>",
                 item.name,
