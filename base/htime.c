@@ -254,7 +254,7 @@ time_t cron_next_timeout(int minute, int hour, int day, int week, int month) {
 
     tt_round = mktime(&tm);
     if (week >= 0) {
-        tt_round = tt + (week-tm.tm_wday)*SECONDS_PER_DAY;
+        tt_round += (week-tm.tm_wday)*SECONDS_PER_DAY;
     }
     if (tt_round > tt) {
         return tt_round;
