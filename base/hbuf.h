@@ -118,7 +118,7 @@ private:
 class HVLBuf : public HBuf {
 public:
     HVLBuf() : HBuf() {_offset = _size = 0;}
-    HVLBuf(void* data, size_t len) : HBuf(data, len) {_offset = 0; _size = len;}
+    HVLBuf(void* data, size_t len) : HBuf(data, len) {_offset = _size = 0;}
     HVLBuf(size_t cap) : HBuf(cap) {_offset = _size = 0;}
     virtual ~HVLBuf() {}
 
