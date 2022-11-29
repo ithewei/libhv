@@ -237,13 +237,19 @@
 
 // BYTE_ORDER
 #ifndef BYTE_ORDER
-#if defined(ARCH_X86)  || defined(ARCH_X86_64)   || \
-    defined(__ARMEL__) || defined(__AARCH64EL__) || \
-    defined(__MIPSEL)  || defined(__MIPS64EL)
+#if defined(__BYTE_ORDER)
+    #define BYTE_ORDER  __BYTE_ORDER
+#elif defined(__BYTE_ORDER__)
+    #define BYTE_ORDER  __BYTE_ORDER__
+#elif defined(ARCH_X86)  || defined(ARCH_X86_64)   || \
+      defined(__ARMEL__) || defined(__AARCH64EL__) || \
+      defined(__MIPSEL)  || defined(__MIPS64EL)
     #define BYTE_ORDER  LITTLE_ENDIAN
 #elif defined(__ARMEB__) || defined(__AARCH64EB__) || \
       defined(__MIPSEB)  || defined(__MIPS64EB)
     #define BYTE_ORDER  BIG_ENDIAN
+#elif defined(OS_WIN)
+    #define BYTE_ORDER  LITTLE_ENDIAN
 #else
     #warning "Unknown byte order!"
 #endif
