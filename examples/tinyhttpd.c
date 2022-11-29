@@ -93,6 +93,9 @@ typedef struct {
     http_state_e    state;
     http_msg_t      request;
     http_msg_t      response;
+    // for http_serve_file
+    FILE*           fp;
+    hbuf_t          filebuf;
 } http_conn_t;
 
 static char s_date[32] = {0};
@@ -152,6 +155,33 @@ static int http_reply(http_conn_t* conn,
     return nwrite < 0 ? nwrite : msglen;
 }
 
+static void http_send_file(http_conn_t* conn) {
+    if (!conn || !conn->fp) return;
+    // alloc filebuf
+    if (!conn->filebuf.base) {
+        conn->filebuf.len = 4096;
+        HV_ALLOC(conn->filebuf, conn->filebuf.len);
+    }
+    char* filebuf = conn->filebuf.base;
+    size_t filebuflen = conn->filebuf.len;
+    // read file
+    int nread = fread(filebuf, 1, filebuflen, conn->fp);
+    if (nread <= 0) {
+        // eof or error
+        hio_close(conn->io);
+        return;
+    }
+    // send file
+    hio_write(conn->io, filebuf, nread);
+}
+
+static void on_write(hio_t* io, const void* buf, int writebytes) {
+    if (!io) return;
+    if (!hio_write_is_complete(io)) return;
+    http_conn_t* conn = (http_conn_t*)hevent_userdata(io);
+    http_send_file(conn);
+}
+
 static int http_serve_file(http_conn_t* conn) {
     http_msg_t* req = &conn->request;
     http_msg_t* resp = &conn->response;
@@ -161,12 +191,12 @@ static int http_serve_file(http_conn_t* conn) {
     if (*filepath == '\0') {
         filepath = "index.html";
     }
-    FILE* fp = fopen(filepath, "rb");
-    if (!fp) {
+    // open file
+    conn->fp = fopen(filepath, "rb");
+    if (!conn->fp) {
         http_reply(conn, 404, NOT_FOUND, TEXT_HTML, HTML_TAG_BEGIN NOT_FOUND HTML_TAG_END, 0);
         return 404;
     }
-    char buf[4096] = {0};
     // send head
     size_t filesize = hv_filesize(filepath);
     resp->content_length = filesize;
@@ -177,22 +207,9 @@ static int http_serve_file(http_conn_t* conn) {
     } else {
         // TODO: set content_type by suffix
     }
+    hio_setcb_write(conn->io, on_write);
     int nwrite = http_reply(conn, 200, "OK", content_type, NULL, 0);
     if (nwrite < 0) return nwrite; // disconnected
-    // send file
-    int nread = 0;
-    while (1) {
-        nread = fread(buf, 1, sizeof(buf), fp);
-        if (nread <= 0) break;
-        nwrite = hio_write(conn->io, buf, nread);
-        if (nwrite < 0) return nwrite; // disconnected
-        if (nwrite == 0) {
-            // send too fast or peer recv too slow
-            // WARN: too large file should control sending rate, just delay a while in the demo!
-            hv_delay(10);
-        }
-    }
-    fclose(fp);
     return 200;
 }
 
@@ -263,6 +280,13 @@ static void on_close(hio_t* io) {
     // printf("on_close fd=%d error=%d\n", hio_fd(io), hio_error(io));
     http_conn_t* conn = (http_conn_t*)hevent_userdata(io);
     if (conn) {
+        if (conn->fp) {
+            // close file
+            fclose(conn->fp);
+            conn->fp = NULL;
+        }
+        // free filebuf
+        HV_FREE(conn->filebuf.base);
         HV_FREE(conn);
         hevent_set_userdata(io, NULL);
     }

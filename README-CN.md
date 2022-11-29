@@ -178,8 +178,16 @@ int main() {
 以上示例只是简单的`echo`服务，TCP是流式协议，实际应用中请务必添加边界进行拆包。<br>
 文本协议建议加上`\0`或者`\r\n`分隔符，可参考 [examples/jsonrpc](examples/jsonrpc);<br>
 二进制协议建议加上自定义协议头，通过头部长度字段表明负载长度，可参考 [examples/protorpc](examples/protorpc);<br>
-然后通过`hio_set_unpack`、`TcpServer::setUnpack`设置拆包规则。<br>
+通过`setUnpack`（c接口即`hio_set_unpack`）设置拆包规则，支持固定包长、分隔符、头部长度字段三种常见的拆包方式，<br>
+内部根据拆包规则处理粘包与分包，保证`onMessage`回调上来的是完整的一包数据，大大节省了上层处理粘包与分包的成本。<br>
 不想自定义协议和拆包组包的可直接使用现成的`HTTP/WebSocket`协议。<br>
+<br>
+`channel->write`（c接口即`hio_write`）是非阻塞的（事件循环异步编程里所有的一切都要求是非阻塞的），且多线程安全的。<br>
+发送大数据时应该做流控，通过`onWriteComplete`监听写完成事件，在可写时再发送下一帧数据。<br>
+具体示例代码可参考 [examples/tinyhttpd.c](examples/tinyhttpd.c) 中的 `http_serve_file`。<br>
+<br>
+`channel->close`（c接口即`hio_close`) 也是多线程安全的，这可以让网络IO事件循环线程里接收数据、拆包组包、反序列化后放入队列，<br>
+消费者线程/线程池从队列里取出数据、处理后发送响应和关闭连接，变得更加简单。<br>
 
 #### TCP客户端
 **c版本**: [examples/tcp_client_test.c](examples/tcp_client_test.c)
