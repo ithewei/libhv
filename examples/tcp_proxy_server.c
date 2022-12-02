@@ -26,6 +26,8 @@
 #include "hloop.h"
 #include "hsocket.h"
 
+#define FLOW_CONTROL_THRESHOLD (8 * 1024 * 1024) // 8MB
+
 static char proxy_host[64] = "0.0.0.0";
 static int  proxy_port = 1080;
 static int  proxy_ssl = 0;
@@ -33,6 +35,24 @@ static int  proxy_ssl = 0;
 static char backend_host[64] = "127.0.0.1";
 static int  backend_port = 80;
 static int  backend_ssl = 0;
+
+static void flow_control_on_write(hio_t* io, const void* buf, int bytes) {
+    if (!io) return;
+    hio_t* upstream_io = hio_get_upstream(io);
+    if (hio_write_bufsize(io) < FLOW_CONTROL_THRESHOLD) {
+        hio_read(upstream_io);
+    }
+}
+
+static void flow_control_on_read(hio_t* io, void* buf, int bytes) {
+    hio_t* upstream_io = hio_get_upstream(io);
+    if (hio_write_bufsize(upstream_io) + bytes >= FLOW_CONTROL_THRESHOLD) {
+        hio_del(io, HV_READ);
+    }
+    if (upstream_io) {
+        hio_write(upstream_io, buf, bytes);
+    }
+}
 
 // hloop_create_tcp_server -> on_accept -> hio_setup_tcp_upstream
 
@@ -47,7 +67,15 @@ static void on_accept(hio_t* io) {
     */
 
     if (backend_port % 1000 == 443) backend_ssl = 1;
-    hio_setup_tcp_upstream(io, backend_host, backend_port, backend_ssl);
+    hio_t* upstream_io = hio_setup_tcp_upstream(io, backend_host, backend_port, backend_ssl);
+    hio_setcb_write(io, flow_control_on_write);
+    hio_setcb_write(upstream_io, flow_control_on_write);
+    hio_setcb_read(io, flow_control_on_read);
+    hio_setcb_read(upstream_io, flow_control_on_read);
+    hio_set_max_read_bufsize(io, FLOW_CONTROL_THRESHOLD);
+    hio_set_max_read_bufsize(upstream_io, FLOW_CONTROL_THRESHOLD);
+    hio_set_max_write_bufsize(io, FLOW_CONTROL_THRESHOLD * 2);
+    hio_set_max_write_bufsize(upstream_io, FLOW_CONTROL_THRESHOLD * 2);
 }
 
 int main(int argc, char** argv) {
