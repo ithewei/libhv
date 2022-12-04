@@ -334,6 +334,7 @@ int main(int argc, char** argv) {
 ## 🍭 More examples
 ### c version
 - [examples/hloop_test.c](examples/hloop_test.c)
+- [examples/htimer_test.c](examples/htimer_test.c)
 - [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
 - [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
 - [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
@@ -352,6 +353,7 @@ int main(int argc, char** argv) {
 - [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
 - [evpp/EventLoopThread_test.cpp](evpp/EventLoopThread_test.cpp)
 - [evpp/EventLoopThreadPool_test.cpp](evpp/EventLoopThreadPool_test.cpp)
+- [evpp/TimerThread_test.cpp](evpp/TimerThread_test.cpp)
 - [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
 - [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 - [evpp/UdpServer_test.cpp](evpp/UdpServer_test.cpp)

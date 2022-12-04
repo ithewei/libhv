@@ -494,17 +494,20 @@ typedef struct unpack_setting_s {
             unsigned char   delimiter[PACKAGE_MAX_DELIMITER_BYTES];
             unsigned short  delimiter_bytes;
         };
-        // UNPACK_BY_LENGTH_FIELD
-        /* package_len = head_len + body_len + length_adjustment
+        /*
+         * UNPACK_BY_LENGTH_FIELD
+         *
+         * package_len = head_len + body_len + length_adjustment
          *
          * if (length_field_coding == ENCODE_BY_VARINT) head_len = body_offset + varint_bytes - length_field_bytes;
          * else head_len = body_offset;
          *
-         * body_len calc by length_field
+         * length_field stores body length, exclude head length,
+         * if length_field = head_len + body_len, then length_adjustment should be set to -head_len.
          *
          */
         struct {
-            unsigned short  body_offset;
+            unsigned short  body_offset; // Equal to head length usually
             unsigned short  length_field_offset;
             unsigned short  length_field_bytes;
                      short  length_adjustment;
@@ -528,7 +531,13 @@ typedef struct unpack_setting_s {
 #endif
 } unpack_setting_t;
 
-// @see examples/jsonrpc examples/protorpc
+/*
+ * @see examples/jsonrpc examples/protorpc
+ *
+ * NOTE: unpack_setting_t of multiple IOs of the same function also are same,
+ *       so only the pointer of unpack_setting_t is stored in hio_t,
+ *       the life time and of unpack_setting_t shoud be guaranteed by caller.
+ */
 HV_EXPORT void hio_set_unpack(hio_t* io, unpack_setting_t* setting);
 HV_EXPORT void hio_unset_unpack(hio_t* io);
 

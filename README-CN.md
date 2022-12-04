@@ -387,6 +387,7 @@ int main(int argc, char** argv) {
 
 ### c版本
 - 事件循环:     [examples/hloop_test.c](examples/hloop_test.c)
+- 定时器:       [examples/htimer_test.c](examples/htimer_test.c)
 - TCP回显服务:  [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
 - TCP聊天服务:  [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
@@ -405,6 +406,7 @@ int main(int argc, char** argv) {
 - 事件循环: [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
 - 事件循环线程: [evpp/EventLoopThread_test.cpp](evpp/EventLoopThread_test.cpp)
 - 事件循环线程池: [evpp/EventLoopThreadPool_test.cpp](evpp/EventLoopThreadPool_test.cpp)
+- 定时器:    [evpp/TimerThread_test.cpp](evpp/TimerThread_test.cpp)
 - TCP服务端: [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
 - TCP客户端: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 - UDP服务端: [evpp/UdpServer_test.cpp](evpp/UdpServer_test.cpp)
