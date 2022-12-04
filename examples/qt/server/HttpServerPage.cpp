@@ -86,8 +86,8 @@ bool HttpServerPage::start(int port, const char* host)
     };
 
     ws = new hv::WebSocketService;
-    ws->onopen = [](const WebSocketChannelPtr& channel, const std::string& url) {
-        g_mainwnd->postMessage(QString("ws onopen: ") + QString::fromStdString(url));
+    ws->onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
+        g_mainwnd->postMessage(QString("ws onopen: ") + QString::fromStdString(req->Path()));
     };
     ws->onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
         g_mainwnd->postMessage(QString("ws onmessage: ") + QString::fromStdString(msg));
