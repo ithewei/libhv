@@ -361,7 +361,7 @@ int main(int argc, char** argv) {
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
 - [examples/protorpc](examples/protorpc)
-- [examples/qt](examples/qt)
+- [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
 
 ### simulate well-known command line tools
 - [examples/nc](examples/nc.c)

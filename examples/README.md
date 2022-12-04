@@ -8,7 +8,6 @@
 ├── multi-thread/           多线程网络编程示例
 ├── nmap/                   网络扫描工具
 ├── protorpc/               protobuf RPC示例
-├── qt/                     在qt里使用libhv示例
 ├── curl.cpp                HTTP请求工具
 ├── hloop_test.c            事件循环测试代码
 ├── hmain_test.cpp          命令行程序示例代码
