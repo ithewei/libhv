@@ -295,7 +295,7 @@ public:
      *
      * NOTE: unpack_setting_t of multiple IOs of the same function also are same,
      *       so only the pointer of unpack_setting_t is stored in hio_t,
-     *       the life time and of unpack_setting_t shoud be guaranteed by caller.
+     *       the life time of unpack_setting_t shoud be guaranteed by caller.
      */
     void setUnpack(unpack_setting_t* setting) {
         if (io_ == NULL) return;
