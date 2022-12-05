@@ -437,6 +437,8 @@ HV_EXPORT hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int p
 // hio_read(io)
 // hio_read(io->upstream_io)
 HV_EXPORT void   hio_read_upstream(hio_t* io);
+// on_write(io) -> hio_write_is_complete(io) -> hio_read(io->upstream_io)
+HV_EXPORT void   hio_read_upstream_on_write_complete(hio_t* io, const void* buf, int writebytes);
 // hio_write(io->upstream_io, buf, bytes)
 HV_EXPORT void   hio_write_upstream(hio_t* io, void* buf, int bytes);
 // hio_close(io->upstream_io)

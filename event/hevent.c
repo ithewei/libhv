@@ -878,10 +878,22 @@ void hio_read_upstream(hio_t* io) {
     }
 }
 
+void hio_read_upstream_on_write_complete(hio_t* io, const void* buf, int writebytes) {
+    hio_t* upstream_io = io->upstream_io;
+    if (upstream_io && hio_write_is_complete(io)) {
+        hio_read(upstream_io);
+    }
+}
+
 void hio_write_upstream(hio_t* io, void* buf, int bytes) {
     hio_t* upstream_io = io->upstream_io;
     if (upstream_io) {
-        hio_write(upstream_io, buf, bytes);
+        int nwrite = hio_write(upstream_io, buf, bytes);
+        // if (!hio_write_is_complete(upstream_io)) {
+        if (nwrite >= 0 && nwrite < bytes) {
+            hio_read_stop(io);
+            hio_setcb_write(upstream_io, hio_read_upstream_on_write_complete);
+        }
     }
 }
 
