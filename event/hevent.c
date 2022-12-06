@@ -881,6 +881,7 @@ void hio_read_upstream(hio_t* io) {
 void hio_read_upstream_on_write_complete(hio_t* io, const void* buf, int writebytes) {
     hio_t* upstream_io = io->upstream_io;
     if (upstream_io && hio_write_is_complete(io)) {
+        hio_setcb_write(io, NULL);
         hio_read(upstream_io);
     }
 }
