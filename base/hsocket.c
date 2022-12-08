@@ -180,8 +180,10 @@ static int sockaddr_bind(sockaddr_u* localaddr, int type) {
         return socket_errno_negative();
     }
 
+#ifdef OS_UNIX
     so_reuseaddr(sockfd, 1);
     // so_reuseport(sockfd, 1);
+#endif
 
     if (bind(sockfd, &localaddr->sa, sockaddr_len(localaddr)) < 0) {
         perror("bind");
