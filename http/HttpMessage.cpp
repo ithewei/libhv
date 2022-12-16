@@ -54,15 +54,15 @@ bool HttpCookie::parse(const std::string& str) {
                         stricmp(val.c_str(), "None")   == 0 ? HttpCookie::SameSite::None   :
                                                               HttpCookie::SameSite::Default;
         }
-        else if (value.empty() && !val.empty()) {
+        else if (name.empty()) {
             name = key;
             value = val;
         }
         else {
-            hlogw("Unrecognized key '%s'", key.c_str());
+            hlogw("Unrecognized key or multiple names '%s'", key.c_str());
         }
     }
-    return !name.empty() && !value.empty();
+    return !name.empty();
 }
 
 std::string HttpCookie::dump() const {
