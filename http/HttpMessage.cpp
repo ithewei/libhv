@@ -66,7 +66,7 @@ bool HttpCookie::parse(const std::string& str) {
 }
 
 std::string HttpCookie::dump() const {
-    assert(!name.empty() && !value.empty());
+    assert(!name.empty());
     std::string res;
     res = name;
     res += "=";
@@ -500,7 +500,9 @@ std::string HttpMessage::Dump(bool is_dump_headers, bool is_dump_body) {
 
 void HttpRequest::DumpUrl() {
     std::string str;
-    if (url.size() != 0 && strstr(url.c_str(), "://") != NULL) {
+    if (url.size() != 0 &&
+        *url.c_str() != '/' &&
+        strstr(url.c_str(), "://") != NULL) {
         // have been complete url
         goto query;
     }

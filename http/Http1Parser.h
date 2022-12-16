@@ -22,7 +22,7 @@ public:
     virtual ~Http1Parser();
 
     void handle_header() {
-        if (header_field.size() != 0 && header_value.size() != 0) {
+        if (header_field.size() != 0) {
             if (stricmp(header_field.c_str(), "Set-CooKie") == 0 ||
                 stricmp(header_field.c_str(), "Cookie") == 0) {
                 HttpCookie cookie;
