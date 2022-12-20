@@ -16,51 +16,57 @@ char HttpMessage::s_date[32] = {0};
 bool HttpCookie::parse(const std::string& str) {
     std::stringstream ss;
     ss << str;
-    std::string kv;
+    std::string line;
     std::string::size_type pos;
     std::string key;
     std::string val;
-    while (std::getline(ss, kv, ';')) {
-        pos = kv.find_first_of('=');
+
+    reset();
+    while (std::getline(ss, line, ';')) {
+        pos = line.find_first_of('=');
         if (pos != std::string::npos) {
-            key = trim(kv.substr(0, pos));
-            val = trim(kv.substr(pos+1));
+            key = trim(line.substr(0, pos));
+            val = trim(line.substr(pos+1));
+            const char* pkey = key.c_str();
+            if (stricmp(pkey, "Domain") == 0) {
+                domain = val;
+            }
+            else if (stricmp(pkey, "Path") == 0) {
+                path = val;
+            }
+            else if (stricmp(pkey, "Expires") == 0) {
+                expires = val;
+            }
+            else if (stricmp(pkey, "Max-Age") == 0) {
+                max_age = atoi(val.c_str());
+            }
+            else if (stricmp(pkey, "SameSite") == 0) {
+                samesite =  stricmp(val.c_str(), "Strict") == 0 ? HttpCookie::SameSite::Strict :
+                            stricmp(val.c_str(), "Lax")    == 0 ? HttpCookie::SameSite::Lax    :
+                            stricmp(val.c_str(), "None")   == 0 ? HttpCookie::SameSite::None   :
+                                                                  HttpCookie::SameSite::Default;
+            }
+            else {
+                if (name.empty()) {
+                    name = key;
+                    value = val;
+                }
+                kv[key] = val;
+            }
         } else {
-            key = trim(kv);
+            key = trim(line);
+            const char* pkey = key.c_str();
+            if (stricmp(pkey, "Secure") == 0) {
+                secure = true;
+            }
+            else if (stricmp(pkey, "HttpOnly") == 0) {
+                httponly = true;
+            }
+            else {
+                hlogw("Unrecognized key '%s'", key.c_str());
+            }
         }
 
-        const char* pkey = key.c_str();
-        if (stricmp(pkey, "Domain") == 0) {
-            domain = val;
-        }
-        else if (stricmp(pkey, "Path") == 0) {
-            path = val;
-        }
-        else if (stricmp(pkey, "Expires") == 0) {
-            expires = val;
-        }
-        else if (stricmp(pkey, "Max-Age") == 0) {
-            max_age = atoi(val.c_str());
-        }
-        else if (stricmp(pkey, "Secure") == 0) {
-            secure = true;
-        }
-        else if (stricmp(pkey, "HttpOnly") == 0) {
-            httponly = true;
-        }
-        else if (stricmp(pkey, "SameSite") == 0) {
-            samesite =  stricmp(val.c_str(), "Strict") == 0 ? HttpCookie::SameSite::Strict :
-                        stricmp(val.c_str(), "Lax")    == 0 ? HttpCookie::SameSite::Lax    :
-                        stricmp(val.c_str(), "None")   == 0 ? HttpCookie::SameSite::None   :
-                                                              HttpCookie::SameSite::Default;
-        }
-        else if (name.empty()) {
-            name = key;
-            value = val;
-        }
-        else {
-            hlogw("Unrecognized key or multiple names '%s'", key.c_str());
-        }
     }
     return !name.empty();
 }
@@ -68,9 +74,19 @@ bool HttpCookie::parse(const std::string& str) {
 std::string HttpCookie::dump() const {
     assert(!name.empty());
     std::string res;
-    res = name;
-    res += "=";
-    res += value;
+
+    if (!name.empty()) {
+        res = name;
+        res += "=";
+        res += value;
+    }
+
+    for (auto& pair : kv) {
+        if (!res.empty()) res += "; ";
+        res += pair.first;
+        res += "=";
+        res += pair.second;
+    }
 
     if (!domain.empty()) {
         res += "; Domain=";
