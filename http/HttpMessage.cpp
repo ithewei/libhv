@@ -75,17 +75,17 @@ std::string HttpCookie::dump() const {
     assert(!name.empty() || !kv.empty());
     std::string res;
 
-    if (!name.empty()) {
+    if (!kv.empty()) {
+        for (auto& pair : kv) {
+            if (!res.empty()) res += "; ";
+            res += pair.first;
+            res += "=";
+            res += pair.second;
+        }
+    } else {
         res = name;
         res += "=";
         res += value;
-    }
-
-    for (auto& pair : kv) {
-        if (!res.empty()) res += "; ";
-        res += pair.first;
-        res += "=";
-        res += pair.second;
     }
 
     if (!domain.empty()) {
