@@ -76,6 +76,12 @@ struct HV_EXPORT HttpCookie {
         Lax,
         None
     } samesite;
+    enum Priority {
+        NotSet,
+        Low,
+        Medium,
+        High,
+    } priority;
     hv::KeyValue kv; // for multiple names
 
     HttpCookie() {
@@ -87,6 +93,7 @@ struct HV_EXPORT HttpCookie {
         secure = false;
         httponly = false;
         samesite = Default;
+        priority = NotSet;
     }
 
     void reset() {

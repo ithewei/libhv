@@ -46,6 +46,12 @@ bool HttpCookie::parse(const std::string& str) {
                             stricmp(val.c_str(), "None")   == 0 ? HttpCookie::SameSite::None   :
                                                                   HttpCookie::SameSite::Default;
             }
+            else if (stricmp(pkey, "Priority") == 0) {
+                priority =  stricmp(val.c_str(), "Low")    == 0 ? HttpCookie::Priority::Low    :
+                            stricmp(val.c_str(), "Medium") == 0 ? HttpCookie::Priority::Medium :
+                            stricmp(val.c_str(), "High")   == 0 ? HttpCookie::Priority::High   :
+                                                                  HttpCookie::Priority::NotSet ;
+            }
             else {
                 if (name.empty()) {
                     name = key;
@@ -75,17 +81,18 @@ std::string HttpCookie::dump() const {
     assert(!name.empty() || !kv.empty());
     std::string res;
 
-    if (!kv.empty()) {
-        for (auto& pair : kv) {
-            if (!res.empty()) res += "; ";
-            res += pair.first;
-            res += "=";
-            res += pair.second;
-        }
-    } else {
+    if (!name.empty()) {
         res = name;
         res += "=";
         res += value;
+    }
+
+    for (auto& pair : kv) {
+        if (pair.first == name) continue;
+        if (!res.empty()) res += "; ";
+        res += pair.first;
+        res += "=";
+        res += pair.second;
     }
 
     if (!domain.empty()) {
@@ -111,6 +118,13 @@ std::string HttpCookie::dump() const {
         res += samesite == HttpCookie::SameSite::Strict ? "Strict" :
                samesite == HttpCookie::SameSite::Lax    ? "Lax"    :
                                                           "None"   ;
+    }
+
+    if (priority != HttpCookie::Priority::NotSet) {
+        res += "; Priority=";
+        res += priority == HttpCookie::Priority::Low    ? "Low"    :
+               priority == HttpCookie::Priority::Medium ? "Medium" :
+                                                          "High"   ;
     }
 
     if (secure) {
