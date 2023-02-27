@@ -28,6 +28,13 @@ struct WebSocketService {
 
 class WebSocketServer : public HttpServer {
 public:
+    WebSocketServer(WebSocketService* service = NULL)
+        : HttpServer()
+    {
+        this->ws = service;
+    }
+    ~WebSocketServer() { stop(); }
+
     void registerWebSocketService(WebSocketService* service) {
         this->ws = service;
     }

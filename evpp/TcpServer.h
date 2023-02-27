@@ -19,12 +19,15 @@ public:
         acceptor_loop = loop ? loop : std::make_shared<EventLoop>();
         listenfd = -1;
         tls = false;
-        unpack_setting.mode = UNPACK_MODE_NONE;
+        tls_setting = NULL;
+        unpack_setting = NULL;
         max_connections = 0xFFFFFFFF;
         load_balance = LB_RoundRobin;
     }
 
     virtual ~TcpServerEventLoopTmpl() {
+        HV_FREE(tls_setting);
+        HV_FREE(unpack_setting);
     }
 
     EventLoopPtr loop(int idx = -1) {
@@ -80,6 +83,14 @@ public:
         hevent_set_userdata(listenio, this);
         if (tls) {
             hio_enable_ssl(listenio);
+            if (tls_setting) {
+                int ret = hio_new_ssl_ctx(listenio, tls_setting);
+                if (ret != 0) {
+                    hloge("new SSL_CTX failed: %d", ret);
+                    closesocket();
+                    return ret;
+                }
+            }
         }
         return 0;
     }
@@ -111,21 +122,24 @@ public:
     int withTLS(hssl_ctx_opt_t* opt = NULL) {
         tls = true;
         if (opt) {
-            opt->endpoint = HSSL_SERVER;
-            if (hssl_ctx_init(opt) == NULL) {
-                fprintf(stderr, "hssl_ctx_init failed!\n");
-                return -1;
+            if (tls_setting == NULL) {
+                HV_ALLOC_SIZEOF(tls_setting);
             }
+            opt->endpoint = HSSL_SERVER;
+            *tls_setting = *opt;
         }
         return 0;
     }
 
     void setUnpack(unpack_setting_t* setting) {
-        if (setting) {
-            unpack_setting = *setting;
-        } else {
-            unpack_setting.mode = UNPACK_MODE_NONE;
+        if (setting == NULL) {
+            HV_FREE(unpack_setting);
+            return;
         }
+        if (unpack_setting == NULL) {
+            HV_ALLOC_SIZEOF(unpack_setting);
+        }
+        *unpack_setting = *setting;
     }
 
     // channel
@@ -214,8 +228,8 @@ private:
             // so in this lambda function, no code should be added below.
         };
 
-        if (server->unpack_setting.mode != UNPACK_MODE_NONE) {
-            channel->setUnpack(&server->unpack_setting);
+        if (server->unpack_setting) {
+            channel->setUnpack(server->unpack_setting);
         }
         channel->startRead();
         if (server->onConnection) {
@@ -240,7 +254,8 @@ public:
     int                     port;
     int                     listenfd;
     bool                    tls;
-    unpack_setting_t        unpack_setting;
+    hssl_ctx_opt_t*         tls_setting;
+    unpack_setting_t*       unpack_setting;
     // Callback
     std::function<void(const TSocketChannelPtr&)>           onConnection;
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;

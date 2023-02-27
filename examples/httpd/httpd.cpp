@@ -188,13 +188,13 @@ int parse_confile(const char* confile) {
         std::string key_file = ini.GetValue("ssl_privatekey");
         std::string ca_file = ini.GetValue("ssl_ca_certificate");
         hlogi("SSL backend is %s", hssl_backend());
-        hssl_ctx_init_param_t param;
+        hssl_ctx_opt_t param;
         memset(&param, 0, sizeof(param));
         param.crt_file = crt_file.c_str();
         param.key_file = key_file.c_str();
         param.ca_file = ca_file.c_str();
         param.endpoint = HSSL_SERVER;
-        if (hssl_ctx_init(&param) == NULL) {
+        if (g_http_server.newSslCtx(&param) != 0) {
             hloge("SSL certificate verify failed!");
             exit(0);
         }

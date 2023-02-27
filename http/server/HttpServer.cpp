@@ -1,7 +1,6 @@
 #include "HttpServer.h"
 
 #include "hv.h"
-#include "hssl.h"
 #include "hmain.h"
 
 #include "httpdef.h"
@@ -276,6 +275,9 @@ static void loop_thread(void* userdata) {
         hio_t* listenio = haccept(hloop, server->listenfd[1], on_accept);
         hevent_set_userdata(listenio, server);
         hio_enable_ssl(listenio);
+        if (server->ssl_ctx) {
+            hio_set_ssl_ctx(listenio, server->ssl_ctx);
+        }
     }
 
     HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
@@ -336,17 +338,26 @@ int http_server_run(http_server_t* server, int wait) {
         hlogi("http server listening on %s:%d", server->host, server->port);
     }
     // https_port
-    if (server->https_port > 0 && hssl_ctx_instance() != NULL) {
-#ifdef WITH_NGHTTP2
-#ifdef WITH_OPENSSL
-        static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1\x08http/1.0\x08http/0.9";
-        hssl_ctx_t ssl_ctx = hssl_ctx_instance();
-        hssl_ctx_set_alpn_protos(ssl_ctx, s_alpn_protos, sizeof(s_alpn_protos) - 1);
-#endif
-#endif
+    if (server->https_port > 0 && HV_WITH_SSL) {
         server->listenfd[1] = Listen(server->https_port, server->host);
         if (server->listenfd[1] < 0) return server->listenfd[1];
         hlogi("https server listening on %s:%d", server->host, server->https_port);
+    }
+    // SSL_CTX
+    if (server->listenfd[1] >= 0) {
+        if (server->ssl_ctx == NULL) {
+            server->ssl_ctx = hssl_ctx_instance();
+        }
+        if (server->ssl_ctx == NULL) {
+            hloge("new SSL_CTX failed!");
+            return ERR_NEW_SSL_CTX;
+        }
+#ifdef WITH_NGHTTP2
+#ifdef WITH_OPENSSL
+        static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1\x08http/1.0\x08http/0.9";
+        hssl_ctx_set_alpn_protos(server->ssl_ctx, s_alpn_protos, sizeof(s_alpn_protos) - 1);
+#endif
+#endif
     }
 
     HttpServerPrivdata* privdata = new HttpServerPrivdata;
@@ -412,6 +423,12 @@ int http_server_stop(http_server_t* server) {
     // join all threads
     for (auto& thrd : privdata->threads) {
         hthread_join(thrd);
+    }
+
+    if (server->alloced_ssl_ctx && server->ssl_ctx) {
+        hssl_ctx_free(server->ssl_ctx);
+        server->alloced_ssl_ctx = 0;
+        server->ssl_ctx = NULL;
     }
 
     delete privdata;
