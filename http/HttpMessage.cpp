@@ -138,6 +138,35 @@ std::string HttpCookie::dump() const {
     return res;
 }
 
+HttpMessage::HttpMessage() {
+    type = HTTP_BOTH;
+    Init();
+}
+
+HttpMessage::~HttpMessage() {
+
+}
+
+void HttpMessage::Init() {
+    http_major = 1;
+    http_minor = 1;
+    content = NULL;
+    content_length = 0;
+    content_type = CONTENT_TYPE_NONE;
+}
+
+void HttpMessage::Reset() {
+    Init();
+    headers.clear();
+    cookies.clear();
+    body.clear();
+#ifndef WITHOUT_HTTP_CONTENT
+    json.clear();
+    form.clear();
+    kv.clear();
+#endif
+}
+
 #ifndef WITHOUT_HTTP_CONTENT
 // NOTE: json ignore number/string, 123/"123"
 
@@ -403,6 +432,37 @@ bool HttpMessage::IsKeepAlive() {
     return keepalive;
 }
 
+
+// headers
+void HttpMessage::SetHeader(const char* key, const std::string& value) {
+    headers[key] = value;
+}
+std::string HttpMessage::GetHeader(const char* key, const std::string& defvalue) {
+    auto iter = headers.find(key);
+    return iter == headers.end() ? defvalue : iter->second;
+}
+
+// cookies
+void HttpMessage::AddCookie(const HttpCookie& cookie) {
+    cookies.push_back(cookie);
+}
+const HttpCookie& HttpMessage::GetCookie(const std::string& name) {
+    for (auto iter = cookies.begin(); iter != cookies.end(); ++iter) {
+        if (iter->name == name) {
+            return *iter;
+        }
+    }
+    return NoCookie;
+}
+
+// body
+void HttpMessage::SetBody(const std::string& body) {
+    this->body = body;
+}
+const std::string& HttpMessage::Body() {
+    return this->body;
+}
+
 void HttpMessage::DumpHeaders(std::string& str) {
     FillContentType();
     FillContentLength();
@@ -526,6 +586,35 @@ std::string HttpMessage::Dump(bool is_dump_headers, bool is_dump_body) {
         DumpBody(str);
     }
     return str;
+}
+
+
+HttpRequest::HttpRequest() : HttpMessage() {
+    type = HTTP_REQUEST;
+    Init();
+}
+
+void HttpRequest::Init() {
+    headers["User-Agent"] = DEFAULT_HTTP_USER_AGENT;
+    headers["Accept"] = "*/*";
+    method = HTTP_GET;
+    scheme = "http";
+    host = "127.0.0.1";
+    port = DEFAULT_HTTP_PORT;
+    path = "/";
+    timeout = DEFAULT_HTTP_TIMEOUT;
+    connect_timeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
+    retry_count = DEFAULT_HTTP_FAIL_RETRY_COUNT;
+    retry_delay = DEFAULT_HTTP_FAIL_RETRY_DELAY;
+    redirect = 1;
+    proxy = 0;
+}
+
+void HttpRequest::Reset() {
+    HttpMessage::Reset();
+    Init();
+    url.clear();
+    query_params.clear();
 }
 
 void HttpRequest::DumpUrl() {
@@ -656,6 +745,34 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     return str;
 }
 
+void HttpRequest::SetRange(long from, long to) {
+    SetHeader("Range", hv::asprintf("bytes=%ld-%ld", from, to));
+}
+
+bool HttpRequest::GetRange(long& from, long& to) {
+    auto iter = headers.find("Range");
+    if (iter != headers.end()) {
+        sscanf(iter->second.c_str(), "bytes=%ld-%ld", &from, &to);
+        return true;
+    }
+    from = to = 0;
+    return false;
+}
+
+HttpResponse::HttpResponse() : HttpMessage() {
+    type = HTTP_RESPONSE;
+    Init();
+}
+
+void HttpResponse::Init() {
+    status_code = HTTP_STATUS_OK;
+}
+
+void HttpResponse::Reset() {
+    HttpMessage::Reset();
+    Init();
+}
+
 std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
     char c_str[256] = {0};
     std::string str;
@@ -678,4 +795,18 @@ std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
         DumpBody(str);
     }
     return str;
+}
+
+void HttpResponse::SetRange(long from, long to, long total) {
+    SetHeader("Content-Range", hv::asprintf("bytes %ld-%ld/%ld", from, to, total));
+}
+
+bool HttpResponse::GetRange(long& from, long& to, long& total) {
+    auto iter = headers.find("Content-Range");
+    if (iter != headers.end()) {
+        sscanf(iter->second.c_str(), "bytes %ld-%ld/%ld", &from, &to, &total);
+        return true;
+    }
+    from = to = total = 0;
+    return false;
 }
