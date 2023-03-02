@@ -84,27 +84,10 @@ struct HV_EXPORT HttpCookie {
     } priority;
     hv::KeyValue kv; // for multiple names
 
-    HttpCookie() {
-        init();
-    }
+    HttpCookie();
 
-    void init()  {
-        max_age = 0;
-        secure = false;
-        httponly = false;
-        samesite = Default;
-        priority = NotSet;
-    }
-
-    void reset() {
-        init();
-        name.clear();
-        value.clear();
-        domain.clear();
-        path.clear();
-        expires.clear();
-        kv.clear();
-    }
+    void init();
+    void reset();
 
     bool parse(const std::string& str);
     std::string dump() const;

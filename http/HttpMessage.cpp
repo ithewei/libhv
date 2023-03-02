@@ -13,6 +13,28 @@ http_body    NoBody;
 HttpCookie   NoCookie;
 char HttpMessage::s_date[32] = {0};
 
+HttpCookie::HttpCookie() {
+    init();
+}
+
+void HttpCookie::init()  {
+    max_age = 0;
+    secure = false;
+    httponly = false;
+    samesite = Default;
+    priority = NotSet;
+}
+
+void HttpCookie::reset() {
+    init();
+    name.clear();
+    value.clear();
+    domain.clear();
+    path.clear();
+    expires.clear();
+    kv.clear();
+}
+
 bool HttpCookie::parse(const std::string& str) {
     std::stringstream ss;
     ss << str;
