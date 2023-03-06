@@ -16,6 +16,7 @@ public:
     WebSocketChannel(hio_t* io, ws_session_type type = WS_CLIENT)
         : SocketChannel(io)
         , type(type)
+        , opcode(WS_OPCODE_CLOSE)
     {}
     ~WebSocketChannel() {}
 

@@ -51,6 +51,8 @@ struct http_client_s {
         port = DEFAULT_HTTP_PORT;
         https = 0;
         timeout = DEFAULT_HTTP_TIMEOUT;
+        http_proxy_port = DEFAULT_HTTP_PORT;
+        https_proxy_port = DEFAULT_HTTP_PORT;
 #ifdef WITH_CURL
         curl = NULL;
 #endif
@@ -256,7 +258,7 @@ static size_t s_header_cb(char* buf, size_t size, size_t cnt, void* userdata) {
         if (strncmp(buf, "HTTP/", 5) == 0) {
             // status line
             //hlogd("%s", buf);
-            int http_major,http_minor,status_code;
+            int http_major = 1, http_minor = 1, status_code = 200;
             if (buf[5] == '1') {
                 // HTTP/1.1 200 OK\r\n
                 sscanf(buf, "HTTP/%d.%d %d", &http_major, &http_minor, &status_code);

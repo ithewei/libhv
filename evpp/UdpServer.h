@@ -15,6 +15,7 @@ public:
 
     UdpServerEventLoopTmpl(EventLoopPtr loop = NULL) {
         loop_ = loop ? loop : std::make_shared<EventLoop>();
+        port = 0;
 #if WITH_KCP
         enable_kcp = false;
 #endif

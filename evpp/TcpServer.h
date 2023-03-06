@@ -17,6 +17,7 @@ public:
 
     TcpServerEventLoopTmpl(EventLoopPtr loop = NULL) {
         acceptor_loop = loop ? loop : std::make_shared<EventLoop>();
+        port = 0;
         listenfd = -1;
         tls = false;
         tls_setting = NULL;

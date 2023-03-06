@@ -9,6 +9,7 @@
 class HFile {
 public:
     HFile() {
+        filepath[0] = '\0';
         fp = NULL;
     }
 

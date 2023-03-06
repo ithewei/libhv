@@ -914,9 +914,9 @@ hio_t* hsendto (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_c
 
 //-----------------top-level apis---------------------------------------------
 hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e type, hio_side_e side) {
-    int sock_type = type & HIO_TYPE_SOCK_STREAM ? SOCK_STREAM :
-                    type & HIO_TYPE_SOCK_DGRAM  ? SOCK_DGRAM :
-                    type & HIO_TYPE_SOCK_RAW    ? SOCK_RAW : -1;
+    int sock_type = (type & HIO_TYPE_SOCK_STREAM) ? SOCK_STREAM :
+                    (type & HIO_TYPE_SOCK_DGRAM)  ? SOCK_DGRAM :
+                    (type & HIO_TYPE_SOCK_RAW)    ? SOCK_RAW : -1;
     if (sock_type == -1) return NULL;
     sockaddr_u addr;
     memset(&addr, 0, sizeof(addr));

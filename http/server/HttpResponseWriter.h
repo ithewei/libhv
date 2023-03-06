@@ -21,6 +21,7 @@ public:
         : SocketChannel(io)
         , response(resp)
         , state(SEND_BEGIN)
+        , end(SEND_BEGIN)
     {}
     ~HttpResponseWriter() {}
 
