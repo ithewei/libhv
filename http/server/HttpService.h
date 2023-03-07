@@ -4,6 +4,7 @@
 #include <string>
 #include <map>
 #include <unordered_map>
+#include <vector>
 #include <list>
 #include <memory>
 #include <functional>
@@ -28,9 +29,10 @@
 /*
  * @param[in]  req:  parsed structured http request
  * @param[out] resp: structured http response
- * @return  0:                  handle unfinished
+ * @return  0:                  handle next
  *          http_status_code:   handle done
  */
+#define HTTP_STATUS_NEXT        0
 #define HTTP_STATUS_UNFINISHED  0
 // NOTE: http_sync_handler run on IO thread
 typedef std::function<int(HttpRequest* req, HttpResponse* resp)>                            http_sync_handler;
@@ -87,6 +89,8 @@ struct http_handler {
     }
 };
 
+typedef std::vector<http_handler>   http_handlers;
+
 struct http_method_handler {
     http_method         method;
     http_handler        handler;
@@ -97,21 +101,22 @@ struct http_method_handler {
 
 // method => http_method_handler
 typedef std::list<http_method_handler>                                          http_method_handlers;
-// path => http_method_handlers
-typedef std::unordered_map<std::string, std::shared_ptr<http_method_handlers>>  http_api_handlers;
+// path   => http_method_handlers
+typedef std::unordered_map<std::string, std::shared_ptr<http_method_handlers>>  http_path_handlers;
 
 namespace hv {
 
 struct HV_EXPORT HttpService {
-    // preprocessor -> processor -> postprocessor
+    // preprocessor -> middleware -> processor -> postprocessor
     http_handler        preprocessor;
-    // processor: api_handlers -> staticHandler -> errorHandler
+    http_handlers       middleware;
+    // processor: pathHandlers -> staticHandler -> errorHandler
     http_handler        processor;
     http_handler        postprocessor;
 
     // api service (that is http.ApiServer)
     std::string         base_url;
-    http_api_handlers   api_handlers;
+    http_path_handlers  pathHandlers;
 
     // file service (that is http.FileServer)
     http_handler    staticHandler;
@@ -145,7 +150,6 @@ struct HV_EXPORT HttpService {
      */
     int limit_rate; // limit send rate, unit: KB/s
 
-    unsigned allow_cors             :1;
     unsigned enable_forward_proxy   :1;
 
     HttpService() {
@@ -166,23 +170,22 @@ struct HV_EXPORT HttpService {
         file_cache_expired_time = DEFAULT_FILE_CACHE_EXPIRED_TIME;
         limit_rate = -1; // unlimited
 
-        allow_cors = 0;
         enable_forward_proxy = 0;
     }
 
-    void AddApi(const char* path, http_method method, const http_handler& handler);
+    void AddRoute(const char* path, http_method method, const http_handler& handler);
     // @retval 0 OK, else HTTP_STATUS_NOT_FOUND, HTTP_STATUS_METHOD_NOT_ALLOWED
-    int  GetApi(const char* url,  http_method method, http_handler** handler);
+    int  GetRoute(const char* url,  http_method method, http_handler** handler);
     // RESTful API /:field/ => req->query_params["field"]
-    int  GetApi(HttpRequest* req, http_handler** handler);
+    int  GetRoute(HttpRequest* req, http_handler** handler);
 
     // Static("/", "/var/www/html")
     void Static(const char* path, const char* dir);
     // @retval / => /var/www/html/index.html
     std::string GetStaticFilepath(const char* path);
 
-    // CORS
-    void AllowCORS() { allow_cors = 1; }
+    // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+    void AllowCORS();
 
     // forward proxy
     void EnableForwardProxy() { enable_forward_proxy = 1; }
@@ -194,137 +197,65 @@ struct HV_EXPORT HttpService {
 
     hv::StringList Paths() {
         hv::StringList paths;
-        for (auto& pair : api_handlers) {
+        for (auto& pair : pathHandlers) {
             paths.emplace_back(pair.first);
         }
         return paths;
     }
 
-    // github.com/gin-gonic/gin
-    void Handle(const char* httpMethod, const char* relativePath, http_sync_handler handlerFunc) {
-        AddApi(relativePath, http_method_enum(httpMethod), http_handler(handlerFunc));
+    // Handler = [ http_sync_handler, http_ctx_handler ]
+    template<typename Handler>
+    void Use(Handler handlerFunc) {
+        middleware.emplace_back(handlerFunc);
     }
-    void Handle(const char* httpMethod, const char* relativePath, http_async_handler handlerFunc) {
-        AddApi(relativePath, http_method_enum(httpMethod), http_handler(handlerFunc));
-    }
-    void Handle(const char* httpMethod, const char* relativePath, http_ctx_handler handlerFunc) {
-        AddApi(relativePath, http_method_enum(httpMethod), http_handler(handlerFunc));
-    }
-    void Handle(const char* httpMethod, const char* relativePath, http_state_handler handlerFunc) {
-        AddApi(relativePath, http_method_enum(httpMethod), http_handler(handlerFunc));
+
+    // Inspired by github.com/gin-gonic/gin
+    // Handler = [ http_sync_handler, http_async_handler, http_ctx_handler, http_state_handler ]
+    template<typename Handler>
+    void Handle(const char* httpMethod, const char* relativePath, Handler handlerFunc) {
+        AddRoute(relativePath, http_method_enum(httpMethod), http_handler(handlerFunc));
     }
 
     // HEAD
-    void HEAD(const char* relativePath, http_sync_handler handlerFunc) {
-        Handle("HEAD", relativePath, handlerFunc);
-    }
-    void HEAD(const char* relativePath, http_async_handler handlerFunc) {
-        Handle("HEAD", relativePath, handlerFunc);
-    }
-    void HEAD(const char* relativePath, http_ctx_handler handlerFunc) {
-        Handle("HEAD", relativePath, handlerFunc);
-    }
-    void HEAD(const char* relativePath, http_state_handler handlerFunc) {
+    template<typename Handler>
+    void HEAD(const char* relativePath, Handler handlerFunc) {
         Handle("HEAD", relativePath, handlerFunc);
     }
 
     // GET
-    void GET(const char* relativePath, http_sync_handler handlerFunc) {
-        Handle("GET", relativePath, handlerFunc);
-    }
-    void GET(const char* relativePath, http_async_handler handlerFunc) {
-        Handle("GET", relativePath, handlerFunc);
-    }
-    void GET(const char* relativePath, http_ctx_handler handlerFunc) {
-        Handle("GET", relativePath, handlerFunc);
-    }
-    void GET(const char* relativePath, http_state_handler handlerFunc) {
+    template<typename Handler>
+    void GET(const char* relativePath, Handler handlerFunc) {
         Handle("GET", relativePath, handlerFunc);
     }
 
     // POST
-    void POST(const char* relativePath, http_sync_handler handlerFunc) {
-        Handle("POST", relativePath, handlerFunc);
-    }
-    void POST(const char* relativePath, http_async_handler handlerFunc) {
-        Handle("POST", relativePath, handlerFunc);
-    }
-    void POST(const char* relativePath, http_ctx_handler handlerFunc) {
-        Handle("POST", relativePath, handlerFunc);
-    }
-    void POST(const char* relativePath, http_state_handler handlerFunc) {
+    template<typename Handler>
+    void POST(const char* relativePath, Handler handlerFunc) {
         Handle("POST", relativePath, handlerFunc);
     }
 
     // PUT
-    void PUT(const char* relativePath, http_sync_handler handlerFunc) {
-        Handle("PUT", relativePath, handlerFunc);
-    }
-    void PUT(const char* relativePath, http_async_handler handlerFunc) {
-        Handle("PUT", relativePath, handlerFunc);
-    }
-    void PUT(const char* relativePath, http_ctx_handler handlerFunc) {
-        Handle("PUT", relativePath, handlerFunc);
-    }
-    void PUT(const char* relativePath, http_state_handler handlerFunc) {
+    template<typename Handler>
+    void PUT(const char* relativePath, Handler handlerFunc) {
         Handle("PUT", relativePath, handlerFunc);
     }
 
     // DELETE
     // NOTE: Windows <winnt.h> #define DELETE as a macro, we have to replace DELETE with Delete.
-    void Delete(const char* relativePath, http_sync_handler handlerFunc) {
-        Handle("DELETE", relativePath, handlerFunc);
-    }
-    void Delete(const char* relativePath, http_async_handler handlerFunc) {
-        Handle("DELETE", relativePath, handlerFunc);
-    }
-    void Delete(const char* relativePath, http_ctx_handler handlerFunc) {
-        Handle("DELETE", relativePath, handlerFunc);
-    }
-    void Delete(const char* relativePath, http_state_handler handlerFunc) {
+    template<typename Handler>
+    void Delete(const char* relativePath, Handler handlerFunc) {
         Handle("DELETE", relativePath, handlerFunc);
     }
 
     // PATCH
-    void PATCH(const char* relativePath, http_sync_handler handlerFunc) {
-        Handle("PATCH", relativePath, handlerFunc);
-    }
-    void PATCH(const char* relativePath, http_async_handler handlerFunc) {
-        Handle("PATCH", relativePath, handlerFunc);
-    }
-    void PATCH(const char* relativePath, http_ctx_handler handlerFunc) {
-        Handle("PATCH", relativePath, handlerFunc);
-    }
-    void PATCH(const char* relativePath, http_state_handler handlerFunc) {
+    template<typename Handler>
+    void PATCH(const char* relativePath, Handler handlerFunc) {
         Handle("PATCH", relativePath, handlerFunc);
     }
 
     // Any
-    void Any(const char* relativePath, http_sync_handler handlerFunc) {
-        Handle("HEAD", relativePath, handlerFunc);
-        Handle("GET", relativePath, handlerFunc);
-        Handle("POST", relativePath, handlerFunc);
-        Handle("PUT", relativePath, handlerFunc);
-        Handle("DELETE", relativePath, handlerFunc);
-        Handle("PATCH", relativePath, handlerFunc);
-    }
-    void Any(const char* relativePath, http_async_handler handlerFunc) {
-        Handle("HEAD", relativePath, handlerFunc);
-        Handle("GET", relativePath, handlerFunc);
-        Handle("POST", relativePath, handlerFunc);
-        Handle("PUT", relativePath, handlerFunc);
-        Handle("DELETE", relativePath, handlerFunc);
-        Handle("PATCH", relativePath, handlerFunc);
-    }
-    void Any(const char* relativePath, http_ctx_handler handlerFunc) {
-        Handle("HEAD", relativePath, handlerFunc);
-        Handle("GET", relativePath, handlerFunc);
-        Handle("POST", relativePath, handlerFunc);
-        Handle("PUT", relativePath, handlerFunc);
-        Handle("DELETE", relativePath, handlerFunc);
-        Handle("PATCH", relativePath, handlerFunc);
-    }
-    void Any(const char* relativePath, http_state_handler handlerFunc) {
+    template<typename Handler>
+    void Any(const char* relativePath, Handler handlerFunc) {
         Handle("HEAD", relativePath, handlerFunc);
         Handle("GET", relativePath, handlerFunc);
         Handle("POST", relativePath, handlerFunc);
