@@ -32,7 +32,7 @@ but simpler api and richer protocols.
 - SSL/TLS support: (via WITH_OPENSSL or WITH_GNUTLS or WITH_MBEDTLS)
 - HTTP client/server (support https http1/x http2 grpc)
 - HTTP supports static service, indexof service, proxy service, sync/async API handler
-- HTTP supports RESTful, URI router, keep-alive, chunked, etc.
+- HTTP supports RESTful, router, middleware, keep-alive, chunked, SSE, etc.
 - WebSocket client/server
 - MQTT client
 
@@ -227,8 +227,7 @@ int main() {
         return ctx->send(ctx->body(), ctx->type());
     });
 
-    HttpServer server;
-    server.registerHttpService(&router);
+    HttpServer server(&router);
     server.setPort(8080);
     server.setThreadNum(4);
     server.run();
@@ -280,8 +279,7 @@ int main(int argc, char** argv) {
         printf("onclose\n");
     };
 
-    WebSocketServer server;
-    server.registerWebSocketService(&ws);
+    WebSocketServer server(&ws);
     server.setPort(9999);
     server.setThreadNum(4);
     server.run();

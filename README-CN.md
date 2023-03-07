@@ -56,7 +56,7 @@
 - SSL/TLS加密通信（可选WITH_OPENSSL、WITH_GNUTLS、WITH_MBEDTLS）
 - HTTP服务端/客户端（支持https http1/x http2 grpc）
 - HTTP支持静态文件服务、目录服务、代理服务、同步/异步API处理函数
-- HTTP支持RESTful风格、URI路由、keep-alive长连接、chunked分块等特性
+- HTTP支持RESTful风格、路由、中间件、keep-alive长连接、chunked分块、SSE等特性
 - WebSocket服务端/客户端
 - MQTT客户端
 
@@ -272,8 +272,7 @@ int main() {
         return ctx->send(ctx->body(), ctx->type());
     });
 
-    HttpServer server;
-    server.registerHttpService(&router);
+    HttpServer server(&router);
     server.setPort(8080);
     server.setThreadNum(4);
     server.run();
@@ -283,9 +282,9 @@ int main() {
 
 **注意**:
 
-上面示例直接运行在`main`主线程，`server.run()`会阻塞当前线程运行，所以`router`和`server`对象不会被析构，
-如使用`server.start()`内部会另起线程运行，不会阻塞当前线程，但需要注意`router`和`server`的生命周期，
-不要定义为局部变量被析构了，可定义为类成员变量或者全局变量，下面的`WebSocket`服务同理。
+上面示例直接运行在`main`主线程，`server.run()`会阻塞当前线程运行，所以`router`和`server`对象不会被析构，<br>
+如使用`server.start()`内部会另起线程运行，不会阻塞当前线程，但需要注意`router`和`server`的生命周期，<br>
+不要定义为局部变量被析构了，可定义为类成员变量或者全局变量，下面的`WebSocket`服务同理。<br>
 
 #### HTTP客户端
 见[examples/http_client_test.cpp](examples/http_client_test.cpp)
@@ -313,6 +312,13 @@ int main() {
 }
 ```
 
+附HTTP相关接口文档:
+
+- [class HttpMessage](docs/cn/HttpMessage.md)
+- [class HttpClient](docs/cn/HttpClient.md)
+- [class HttpServer](docs/cn/HttpServer.md)
+- [class HttpContext](docs/cn/HttpContext.md)
+
 ### WebSocket
 #### WebSocket服务端
 见[examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
@@ -332,8 +338,7 @@ int main(int argc, char** argv) {
         printf("onclose\n");
     };
 
-    WebSocketServer server;
-    server.registerWebSocketService(&ws);
+    WebSocketServer server(&ws);
     server.setPort(9999);
     server.setThreadNum(4);
     server.run();
