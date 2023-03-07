@@ -209,9 +209,6 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
         else if (value.is_number()) {
             return hv::to_string(value);
         }
-        else if (value.is_null()) {
-            return "null";
-        }
         else if (value.is_boolean()) {
             bool b = value;
             return b ? "true" : "false";
@@ -266,9 +263,6 @@ HV_EXPORT int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
             std::string str = value;
             return atoll(str.c_str());
         }
-        else if (value.is_null()) {
-            return 0;
-        }
         else if (value.is_boolean()) {
             bool b = value;
             return b ? 1 : 0;
@@ -305,9 +299,6 @@ HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
             std::string str = value;
             return atof(str.c_str());
         }
-        else if (value.is_null()) {
-            return 0.0f;
-        }
         else {
             return defvalue;
         }
@@ -339,9 +330,6 @@ HV_EXPORT bool HttpMessage::Get(const char* key, bool defvalue) {
         else if (value.is_string()) {
             std::string str = value;
             return hv_getboolean(str.c_str());
-        }
-        else if (value.is_null()) {
-            return false;
         }
         else if (value.is_number()) {
             return value != 0;
