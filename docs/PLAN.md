@@ -3,6 +3,7 @@
 - base: cross platfrom infrastructure
 - event: select/poll/epoll/kqueue/port
 - ssl: openssl/guntls/mbedtls
+- rudp: KCP
 - evpp: c++ EventLoop interface similar to muduo and evpp
 - http client/server: include https http1/x http2
 - websocket client/server
@@ -12,7 +13,9 @@
 
 - IOCP: fix bug, add SSL/TLS support, replace with wepoll?
 - wintls: SChannel is so hard :) need help
-- Path router: add filter chain, optimized matching via trie?
+- Path router: optimized matching via trie?
+- FileCache use LRUCache
+- HTTP TrustProxies
 
 ## Plan
 
@@ -21,7 +24,7 @@
 - lua binding
 - js binding
 - hrpc = libhv + protobuf
-- rudp: FEC, ARQ, KCP, UDT, QUIC
+- rudp: FEC, ARQ, UDT, QUIC
 - kcptun
 - have a taste of io_uring
 - coroutine

@@ -1,3 +1,5 @@
+HTTP 客户端类
+
 ```c++
 
 class HttpClient {
@@ -75,3 +77,5 @@ namespace requests {
 }
 
 ```
+
+测试代码见 [examples/http_client_test.cpp](../../examples/http_client_test.cpp)

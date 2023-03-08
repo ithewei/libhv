@@ -1,3 +1,5 @@
+HTTP 服务端类
+
 ```c++
 
 // HTTP服务类
@@ -40,10 +42,10 @@ class HttpService {
     // 添加静态资源映射
     void Static(const char* path, const char* dir);
 
-    // 允许跨越访问
+    // 允许跨域访问
     void AllowCORS();
 
-    // 开启转发代理
+    // 开启正向转发代理
     void EnableForwardProxy();
 
     // 添加反向代理映射
@@ -52,7 +54,7 @@ class HttpService {
     // 添加中间件
     void Use(Handler handlerFunc);
 
-    // 添加路由
+    // 添加路由处理器
     void Handle(const char* httpMethod, const char* relativePath, Handler handlerFunc);
 
     // 添加`HEAD`路由
@@ -99,9 +101,11 @@ class HttpService {
     int proxy_write_timeout;        // 代理写超时
 
     int keepalive_timeout;          // 长连接保活超时
-    int max_file_cache_size;        // 最多缓存小文件的数量
+    int max_file_cache_size;        // 文件缓存最大尺寸
     int file_cache_stat_interval;   // 文件缓存stat间隔，查询文件是否修改
     int file_cache_expired_time;    // 文件缓存过期时间，过期自动释放
+
+    int limit_rate;                 // 下载速度限制
 
 };
 
@@ -120,3 +124,5 @@ typedef std::function<int(const HttpContextPtr& ctx)>                           
 typedef std::function<int(const HttpContextPtr& ctx, http_parser_state state, const char* data, size_t size)> http_state_handler;
 
 ```
+
+测试代码见 [examples/http_server_test.cpp](../../examples/http_server_test.cpp)
