@@ -260,6 +260,7 @@ public:
     TcpClientTmpl(EventLoopPtr loop = NULL)
         : EventLoopThread(loop)
         , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
+        , is_loop_owner(loop == NULL)
     {}
     virtual ~TcpClientTmpl() {
         stop(true);
@@ -281,8 +282,13 @@ public:
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         TcpClientEventLoopTmpl<TSocketChannel>::closesocket();
-        EventLoopThread::stop(wait_threads_stopped);
+        if (is_loop_owner) {
+            EventLoopThread::stop(wait_threads_stopped);
+        }
     }
+
+private:
+    bool is_loop_owner;
 };
 
 typedef TcpClientTmpl<SocketChannel> TcpClient;
