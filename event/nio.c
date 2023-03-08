@@ -170,7 +170,8 @@ static void nio_accept(hio_t* io) {
 
 accept_error:
     hloge("listenfd=%d accept error: %s:%d", io->fd, socket_strerror(io->error), io->error);
-    hio_close(io);
+    // NOTE: Don't close listen fd automatically anyway.
+    // hio_close(io);
 }
 
 static void nio_connect(hio_t* io) {
