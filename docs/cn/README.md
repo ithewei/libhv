@@ -1,6 +1,8 @@
 ## c接口
 
 - [hloop: 事件循环](hloop.md)
+- [hbase: 基础函数](hbase.md)
+- [hlog:  日志](hlog.md)
 
 ## c++接口
 
