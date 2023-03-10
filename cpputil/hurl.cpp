@@ -88,6 +88,18 @@ std::string HUrl::unescape(const std::string& str) {
     return ostr;
 }
 
+void HUrl::reset() {
+    url.clear();
+    scheme.clear();
+    username.clear();
+    password.clear();
+    host.clear();
+    port = 0;
+    path.clear();
+    query.clear();
+    fragment.clear();
+}
+
 bool HUrl::parse(const std::string& url) {
     reset();
     this->url = url;
