@@ -104,7 +104,9 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         }
         printd("%s", resp.Dump(true, false).c_str());
         file.write(resp.body.data(), resp.body.size());
-        from = to + 1;
+        // fix: resp.body.size != range_bytes on some server
+        // from = to + 1;
+        from += resp.body.size();
 
         if (progress_cb) {
             progress_cb(from, content_length);
