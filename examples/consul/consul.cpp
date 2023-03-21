@@ -1,6 +1,6 @@
 #include "consul.h"
 
-#include "http_client.h"
+#include "HttpClient.h"
 using namespace hv;
 
 #include "json.hpp"

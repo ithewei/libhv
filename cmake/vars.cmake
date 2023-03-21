@@ -90,7 +90,7 @@ set(HTTP2_HEADERS
 )
 
 set(HTTP_CLIENT_HEADERS
-    http/client/http_client.h
+    http/client/HttpClient.h
     http/client/requests.h
     http/client/axios.h
     http/client/AsyncHttpClient.h

@@ -563,7 +563,7 @@
 - dump_json
 - dump_multipart
 
-### http_client.h
+### HttpClient.h
 - http_client_new
 - http_client_del
 - http_client_send

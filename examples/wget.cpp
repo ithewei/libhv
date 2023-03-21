@@ -4,7 +4,7 @@
  * @client bin/wget http://127.0.0.1:8080/
  */
 
-#include "http_client.h"
+#include "HttpClient.h"
 #include "htime.h"
 using namespace hv;
 

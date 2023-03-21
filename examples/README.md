@@ -5,6 +5,7 @@
 ├── consul/                 consul服务注册与发现
 ├── httpd/                  HTTP服务端
 ├── jsonrpc/                json RPC示例
+├── mqtt/                   MQTT发布订阅示例
 ├── multi-thread/           多线程网络编程示例
 ├── nmap/                   网络扫描工具
 ├── protorpc/               protobuf RPC示例

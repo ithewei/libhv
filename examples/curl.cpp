@@ -7,7 +7,7 @@
  *         bin/curl -v 127.0.0.1:8080/echo -d 'hello,world!'
  */
 
-#include "http_client.h"
+#include "HttpClient.h"
 #include "hurl.h"
 
 #ifdef _MSC_VER

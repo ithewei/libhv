@@ -31,7 +31,7 @@ int main() {
 **/
 
 #include <memory>
-#include "http_client.h"
+#include "HttpClient.h"
 
 namespace requests {
 
