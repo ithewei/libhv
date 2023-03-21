@@ -85,8 +85,6 @@ struct http_client_s {
     }
 };
 
-static int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp);
-
 http_client_t* http_client_new(const char* host, int port, int https) {
     http_client_t* cli = new http_client_t;
     if (host) cli->host = host;
@@ -99,12 +97,6 @@ http_client_t* http_client_new(const char* host, int port, int https) {
 int http_client_del(http_client_t* cli) {
     if (cli == NULL) return 0;
     delete cli;
-    return 0;
-}
-
-int http_client_close(http_client_t* cli) {
-    if (cli == NULL) return 0;
-    cli->Close();
     return 0;
 }
 
@@ -169,19 +161,6 @@ int http_client_add_no_proxy(http_client_t* cli, const char* host) {
     return 0;
 }
 
-static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
-    std::string location = resp->headers["Location"];
-    if (!location.empty()) {
-        hlogi("redirect %s => %s", req->url.c_str(), location.c_str());
-        req->url = location;
-        req->ParseUrl();
-        req->headers["Host"] = req->host;
-        resp->Reset();
-        return http_client_send(req, resp);
-    }
-    return 0;
-}
-
 static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
     if (req->url.empty() || *req->url.c_str() == '/') {
         req->scheme = cli->https ? "https" : "http";
@@ -223,28 +202,219 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
     return 0;
 }
 
-int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
-    if (!cli || !req || !resp) return ERR_NULL_POINTER;
-
-    http_client_make_request(cli, req);
-
-    if (req->http_cb) resp->http_cb = std::move(req->http_cb);
-
-    int ret = __http_client_send(cli, req, resp);
-    if (ret != 0) return ret;
-
-    // redirect
-    if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
-        return http_client_redirect(req, resp);
+int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout) {
+    int blocktime = DEFAULT_CONNECT_TIMEOUT;
+    if (timeout > 0) {
+        blocktime = MIN(timeout*1000, blocktime);
     }
+    int connfd = ConnectTimeout(host, port, blocktime);
+    if (connfd < 0) {
+        fprintf(stderr, "* connect %s:%d failed!\n", host, port);
+        hloge("connect %s:%d failed!", host, port);
+        return connfd;
+    }
+    tcp_nodelay(connfd, 1);
+
+    if (https && cli->ssl == NULL) {
+        // cli->ssl_ctx > g_ssl_ctx > hssl_ctx_new
+        hssl_ctx_t ssl_ctx = NULL;
+        if (cli->ssl_ctx) {
+            ssl_ctx = cli->ssl_ctx;
+        } else if (g_ssl_ctx) {
+            ssl_ctx = g_ssl_ctx;
+        } else {
+            cli->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
+            cli->alloced_ssl_ctx = true;
+        }
+        if (ssl_ctx == NULL) {
+            closesocket(connfd);
+            return NABS(ERR_NEW_SSL_CTX);
+        }
+        cli->ssl = hssl_new(ssl_ctx, connfd);
+        if (cli->ssl == NULL) {
+            closesocket(connfd);
+            return NABS(ERR_NEW_SSL);
+        }
+        if (!is_ipaddr(host)) {
+            hssl_set_sni_hostname(cli->ssl, host);
+        }
+        int ret = hssl_connect(cli->ssl);
+        if (ret != 0) {
+            fprintf(stderr, "* ssl handshake failed: %d\n", ret);
+            hloge("ssl handshake failed: %d", ret);
+            hssl_free(cli->ssl);
+            cli->ssl = NULL;
+            closesocket(connfd);
+            return NABS(ret);
+        }
+    }
+
+    cli->fd = connfd;
+    return connfd;
+}
+
+int http_client_close(http_client_t* cli) {
+    if (cli == NULL) return 0;
+    cli->Close();
     return 0;
 }
 
-int http_client_send(HttpRequest* req, HttpResponse* resp) {
-    if (!req || !resp) return ERR_NULL_POINTER;
+int http_client_send_data(http_client_t* cli, const char* data, int size) {
+    if (!cli || !data || size <= 0) return -1;
 
-    http_client_t cli;
-    return http_client_send(&cli, req, resp);
+    if (cli->ssl) {
+        return hssl_write(cli->ssl, data, size);
+    }
+
+    return send(cli->fd, data, size, 0);
+}
+
+int http_client_recv_data(http_client_t* cli, char* data, int size) {
+    if (!cli || !data || size <= 0) return -1;
+
+    if (cli->ssl) {
+        return hssl_read(cli->ssl, data, size);
+    }
+
+    return recv(cli->fd, data, size, 0);
+}
+
+static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
+    // connect -> send -> recv -> http_parser
+    int err = 0;
+    int timeout = req->timeout;
+    int connfd = cli->fd;
+    bool https = req->IsHttps() && !req->IsProxy();
+    bool keepalive = true;
+
+    time_t start_time = time(NULL);
+    time_t cur_time;
+    int fail_cnt = 0;
+    if (connfd <= 0) {
+connect:
+        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, MIN(req->connect_timeout, req->timeout));
+        if (connfd < 0) {
+            return connfd;
+        }
+    }
+
+    if (cli->parser == NULL) {
+        cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, (http_version)req->http_major));
+        if (cli->parser == NULL) {
+            hloge("New HttpParser failed!");
+            return ERR_NULL_POINTER;
+        }
+    }
+    cli->parser->SubmitRequest(req);
+    char recvbuf[1024] = {0};
+    int total_nsend, nsend, nrecv;
+    total_nsend = nsend = nrecv = 0;
+send:
+    char* data = NULL;
+    size_t len  = 0;
+    while (cli->parser->GetSendData(&data, &len)) {
+        total_nsend = 0;
+        while (total_nsend < len) {
+            if (timeout > 0) {
+                cur_time = time(NULL);
+                if (cur_time - start_time >= timeout) {
+                    return ERR_TASK_TIMEOUT;
+                }
+                so_sndtimeo(cli->fd, (timeout-(cur_time-start_time)) * 1000);
+            }
+            nsend = http_client_send_data(cli, data + total_nsend, len - total_nsend);
+            if (nsend <= 0) {
+                if (++fail_cnt == 1) {
+                    // maybe keep-alive timeout, try again
+                    cli->Close();
+                    goto connect;
+                }
+                else {
+                    err = socket_errno();
+                    if (err == EINTR) continue;
+                    goto disconnect;
+                }
+            }
+            total_nsend += nsend;
+        }
+    }
+    if (resp == NULL) return 0;
+    cli->parser->InitResponse(resp);
+recv:
+    do {
+        if (timeout > 0) {
+            cur_time = time(NULL);
+            if (cur_time - start_time >= timeout) {
+                return ERR_TASK_TIMEOUT;
+            }
+            so_rcvtimeo(cli->fd, (timeout-(cur_time-start_time)) * 1000);
+        }
+        nrecv = http_client_recv_data(cli, recvbuf, sizeof(recvbuf));
+        if (nrecv <= 0) {
+            if (resp->content_length == 0 && resp->http_major == 1 && resp->http_minor == 0) {
+                // HTTP/1.0, assume close after body
+                goto disconnect;
+            }
+            if (++fail_cnt == 1) {
+                // maybe keep-alive timeout, try again
+                cli->Close();
+                goto connect;
+            }
+            else {
+                err = socket_errno();
+                if (err == EINTR) continue;
+                goto disconnect;
+            }
+        }
+        int nparse = cli->parser->FeedRecvData(recvbuf, nrecv);
+        if (nparse != nrecv) {
+            return ERR_PARSE;
+        }
+    } while(!cli->parser->IsComplete());
+
+    keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
+    if (!keepalive) {
+        cli->Close();
+    }
+    return 0;
+disconnect:
+    cli->Close();
+    return err;
+}
+
+int http_client_send_header(http_client_t* cli, HttpRequest* req) {
+    if (!cli || !req) return ERR_NULL_POINTER;
+
+    http_client_make_request(cli, req);
+
+    return http_client_exec(cli, req, NULL);
+}
+
+int http_client_recv_response(http_client_t* cli, HttpResponse* resp) {
+    if (!cli || !resp) return ERR_NULL_POINTER;
+    if (!cli->parser) {
+        hloge("Call http_client_send_header first!");
+        return ERR_NULL_POINTER;
+    }
+
+    char recvbuf[1024] = {0};
+    cli->parser->InitResponse(resp);
+
+    do {
+        int nrecv = http_client_recv_data(cli, recvbuf, sizeof(recvbuf));
+        if (nrecv <= 0) {
+            int err = socket_errno();
+            if (err == EINTR) continue;
+            cli->Close();
+            return err;
+        }
+        int nparse = cli->parser->FeedRecvData(recvbuf, nrecv);
+        if (nparse != nrecv) {
+            return ERR_PARSE;
+        }
+    } while(!cli->parser->IsComplete());
+
+    return 0;
 }
 
 #ifdef WITH_CURL
@@ -302,7 +472,7 @@ static size_t s_body_cb(char* buf, size_t size, size_t cnt, void *userdata) {
     return len;
 }
 
-int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
+static int http_client_exec_curl(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     if (cli->curl == NULL) {
         cli->curl = curl_easy_init();
     }
@@ -434,170 +604,58 @@ int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp)
 const char* http_client_strerror(int errcode) {
     return curl_easy_strerror((CURLcode)errcode);
 }
+
 #else
-static int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout) {
-    int blocktime = DEFAULT_CONNECT_TIMEOUT;
-    if (timeout > 0) {
-        blocktime = MIN(timeout*1000, blocktime);
-    }
-    int connfd = ConnectTimeout(host, port, blocktime);
-    if (connfd < 0) {
-        fprintf(stderr, "* connect %s:%d failed!\n", host, port);
-        hloge("connect %s:%d failed!", host, port);
-        return connfd;
-    }
-    tcp_nodelay(connfd, 1);
-
-    if (https && cli->ssl == NULL) {
-        // cli->ssl_ctx > g_ssl_ctx > hssl_ctx_new
-        hssl_ctx_t ssl_ctx = NULL;
-        if (cli->ssl_ctx) {
-            ssl_ctx = cli->ssl_ctx;
-        } else if (g_ssl_ctx) {
-            ssl_ctx = g_ssl_ctx;
-        } else {
-            cli->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
-            cli->alloced_ssl_ctx = true;
-        }
-        if (ssl_ctx == NULL) {
-            closesocket(connfd);
-            return NABS(ERR_NEW_SSL_CTX);
-        }
-        cli->ssl = hssl_new(ssl_ctx, connfd);
-        if (cli->ssl == NULL) {
-            closesocket(connfd);
-            return NABS(ERR_NEW_SSL);
-        }
-        if (!is_ipaddr(host)) {
-            hssl_set_sni_hostname(cli->ssl, host);
-        }
-        int ret = hssl_connect(cli->ssl);
-        if (ret != 0) {
-            fprintf(stderr, "* ssl handshake failed: %d\n", ret);
-            hloge("ssl handshake failed: %d", ret);
-            hssl_free(cli->ssl);
-            cli->ssl = NULL;
-            closesocket(connfd);
-            return NABS(ret);
-        }
-    }
-
-    cli->fd = connfd;
-    return connfd;
-}
-
-int __http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
-    // connect -> send -> recv -> http_parser
-    int err = 0;
-    int timeout = req->timeout;
-    int connfd = cli->fd;
-    bool https = req->IsHttps() && !req->IsProxy();
-    bool keepalive = true;
-
-    time_t start_time = time(NULL);
-    time_t cur_time;
-    int fail_cnt = 0;
-    if (connfd <= 0) {
-connect:
-        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, MIN(req->connect_timeout, req->timeout));
-        if (connfd < 0) {
-            return connfd;
-        }
-    }
-
-    if (cli->parser == NULL) {
-        cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, (http_version)req->http_major));
-    }
-    cli->parser->SubmitRequest(req);
-    char recvbuf[1024] = {0};
-    int total_nsend, nsend, nrecv;
-    total_nsend = nsend = nrecv = 0;
-send:
-    char* data = NULL;
-    size_t len  = 0;
-    while (cli->parser->GetSendData(&data, &len)) {
-        total_nsend = 0;
-        while (total_nsend < len) {
-            if (timeout > 0) {
-                cur_time = time(NULL);
-                if (cur_time - start_time >= timeout) {
-                    return ERR_TASK_TIMEOUT;
-                }
-                so_sndtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
-            }
-            if (https) {
-                nsend = hssl_write(cli->ssl, data+total_nsend, len-total_nsend);
-            }
-            else {
-                nsend = send(connfd, data+total_nsend, len-total_nsend, 0);
-            }
-            if (nsend <= 0) {
-                if (++fail_cnt == 1) {
-                    // maybe keep-alive timeout, try again
-                    cli->Close();
-                    goto connect;
-                }
-                else {
-                    err = socket_errno();
-                    goto disconnect;
-                }
-            }
-            total_nsend += nsend;
-        }
-    }
-    cli->parser->InitResponse(resp);
-recv:
-    do {
-        if (timeout > 0) {
-            cur_time = time(NULL);
-            if (cur_time - start_time >= timeout) {
-                return ERR_TASK_TIMEOUT;
-            }
-            so_rcvtimeo(connfd, (timeout-(cur_time-start_time)) * 1000);
-        }
-        if (https) {
-            nrecv = hssl_read(cli->ssl, recvbuf, sizeof(recvbuf));
-        }
-        else {
-            nrecv = recv(connfd, recvbuf, sizeof(recvbuf), 0);
-        }
-        if (nrecv <= 0) {
-            if (resp->content_length == 0 && resp->http_major == 1 && resp->http_minor == 0) {
-                // HTTP/1.0, assume close after body
-                goto disconnect;
-            }
-            if (++fail_cnt == 1) {
-                // maybe keep-alive timeout, try again
-                cli->Close();
-                goto connect;
-            }
-            else {
-                err = socket_errno();
-                goto disconnect;
-            }
-        }
-        int nparse = cli->parser->FeedRecvData(recvbuf, nrecv);
-        if (nparse != nrecv) {
-            return ERR_PARSE;
-        }
-    } while(!cli->parser->IsComplete());
-
-    keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
-    if (!keepalive) {
-        cli->Close();
-    }
-    return 0;
-disconnect:
-    cli->Close();
-    return err;
-}
 
 const char* http_client_strerror(int errcode) {
     return socket_strerror(errcode);
 }
+
 #endif
 
-static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
+static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
+    std::string location = resp->headers["Location"];
+    if (!location.empty()) {
+        hlogi("redirect %s => %s", req->url.c_str(), location.c_str());
+        req->url = location;
+        req->ParseUrl();
+        req->headers["Host"] = req->host;
+        resp->Reset();
+        return http_client_send(req, resp);
+    }
+    return 0;
+}
+
+int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
+    if (!cli || !req || !resp) return ERR_NULL_POINTER;
+
+    http_client_make_request(cli, req);
+
+    if (req->http_cb) resp->http_cb = std::move(req->http_cb);
+
+#if WITH_CURL
+    int ret = http_client_exec_curl(cli, req, resp);
+#else
+    int ret = http_client_exec(cli, req, resp);
+#endif
+    if (ret != 0) return ret;
+
+    // redirect
+    if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
+        return http_client_redirect(req, resp);
+    }
+    return 0;
+}
+
+int http_client_send(HttpRequest* req, HttpResponse* resp) {
+    if (!req || !resp) return ERR_NULL_POINTER;
+
+    http_client_t cli;
+    return http_client_send(&cli, req, resp);
+}
+
+// below for async
+static int http_client_exec_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
     if (cli->async_client_ == NULL) {
         cli->mutex_.lock();
         if (cli->async_client_ == NULL) {
@@ -612,29 +670,30 @@ static int __http_client_send_async(http_client_t* cli, HttpRequestPtr req, Http
 int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
     if (!cli || !req) return ERR_NULL_POINTER;
     http_client_make_request(cli, req.get());
-    return __http_client_send_async(cli, req, std::move(resp_cb));
+    return http_client_exec_async(cli, req, std::move(resp_cb));
 }
 
-static http_client_t* __get_default_async_client();
-static void           __del_default_async_client();
-http_client_t* __get_default_async_client() {
-    static http_client_t* s_default_async_client = NULL;
-    static std::mutex     s_mutex;
-    if (s_default_async_client == NULL) {
+static http_client_t* s_async_http_client = NULL;
+static void hv_destroy_default_async_http_client() {
+    hlogi("destory default http async client");
+    if (s_async_http_client) {
+        http_client_del(s_async_http_client);
+        s_async_http_client = NULL;
+    }
+}
+static http_client_t* hv_default_async_http_client() {
+    static std::mutex s_mutex;
+    if (s_async_http_client == NULL) {
         s_mutex.lock();
-        if (s_default_async_client == NULL) {
+        if (s_async_http_client == NULL) {
             hlogi("create default http async client");
-            s_default_async_client = http_client_new();
+            s_async_http_client = http_client_new();
             // NOTE: I have No better idea
-            atexit(__del_default_async_client);
+            atexit(hv_destroy_default_async_http_client);
         }
         s_mutex.unlock();
     }
-    return s_default_async_client;
-}
-void __del_default_async_client() {
-    hlogi("destory default http async client");
-    http_client_del(__get_default_async_client());
+    return s_async_http_client;
 }
 
 int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
@@ -644,5 +703,5 @@ int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
         req->timeout = DEFAULT_HTTP_TIMEOUT;
     }
 
-    return __http_client_send_async(__get_default_async_client(), req, std::move(resp_cb));
+    return http_client_exec_async(hv_default_async_http_client(), req, std::move(resp_cb));
 }
