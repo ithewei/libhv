@@ -6,9 +6,11 @@
 #include <stdbool.h>
 #include <stdlib.h> // import rand
 
-#define SEC_WEBSOCKET_VERSION   "Sec-WebSocket-Version"
-#define SEC_WEBSOCKET_KEY       "Sec-WebSocket-Key"
-#define SEC_WEBSOCKET_ACCEPT    "Sec-WebSocket-Accept"
+#define SEC_WEBSOCKET_VERSION       "Sec-WebSocket-Version"
+#define SEC_WEBSOCKET_KEY           "Sec-WebSocket-Key"
+#define SEC_WEBSOCKET_ACCEPT        "Sec-WebSocket-Accept"
+#define SEC_WEBSOCKET_PROTOCOL      "Sec-WebSocket-Protocol"
+#define SEC_WEBSOCKET_EXTENSIONS    "Sec-WebSocket-Extensions"
 
 #define WS_SERVER_MIN_FRAME_SIZE    2
 // 1000 1001 0000 0000

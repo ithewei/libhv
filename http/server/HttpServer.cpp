@@ -125,6 +125,14 @@ static void on_recv(hio_t* io, void* _buf, int readbytes) {
                 ws_encode_key(iter_key->second.c_str(), ws_accept);
                 resp->headers[SEC_WEBSOCKET_ACCEPT] = ws_accept;
             }
+            auto iter_protocol = req->headers.find(SEC_WEBSOCKET_PROTOCOL);
+            if (iter_protocol != req->headers.end()) {
+                hv::StringList subprotocols = hv::split(iter_protocol->second, ',');
+                if (subprotocols.size() > 0) {
+                    hlogw("%s: %s => just select first protocol %s", SEC_WEBSOCKET_PROTOCOL, iter_protocol->second.c_str(), subprotocols[0].c_str());
+                    resp->headers[SEC_WEBSOCKET_PROTOCOL] = subprotocols[0];
+                }
+            }
             upgrade_protocol = HttpHandler::WEBSOCKET;
             // NOTE: SwitchWebSocket after send handshake response
         }
