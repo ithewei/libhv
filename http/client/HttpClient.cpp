@@ -324,16 +324,15 @@ send:
             }
             nsend = http_client_send_data(cli, data + total_nsend, len - total_nsend);
             if (nsend <= 0) {
+                err = socket_errno();
+                if (err == EINTR) continue;
                 if (++fail_cnt == 1) {
                     // maybe keep-alive timeout, try again
                     cli->Close();
+                    err = 0;
                     goto connect;
                 }
-                else {
-                    err = socket_errno();
-                    if (err == EINTR) continue;
-                    goto disconnect;
-                }
+                goto disconnect;
             }
             total_nsend += nsend;
         }
@@ -351,20 +350,19 @@ recv:
         }
         nrecv = http_client_recv_data(cli, recvbuf, sizeof(recvbuf));
         if (nrecv <= 0) {
-            if (resp->content_length == 0 && resp->http_major == 1 && resp->http_minor == 0) {
-                // HTTP/1.0, assume close after body
+            err = socket_errno();
+            if (err == EINTR) continue;
+            if (cli->parser->IsEof()) {
+                err = 0;
                 goto disconnect;
             }
             if (++fail_cnt == 1) {
                 // maybe keep-alive timeout, try again
                 cli->Close();
+                err = 0;
                 goto connect;
             }
-            else {
-                err = socket_errno();
-                if (err == EINTR) continue;
-                goto disconnect;
-            }
+            goto disconnect;
         }
         int nparse = cli->parser->FeedRecvData(recvbuf, nrecv);
         if (nparse != nrecv) {

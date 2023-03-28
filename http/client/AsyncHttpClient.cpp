@@ -108,20 +108,28 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         if (iter != conn_pools.end()) {
             iter->second.remove(channel->fd());
         }
+
         const HttpClientTaskPtr& task = ctx->task;
-        if (task && task->req && task->req->retry_count-- > 0) {
-            if (task->req->retry_delay > 0) {
-                // try again after delay
-                setTimeout(task->req->retry_delay, [this, task](TimerID timerID){
-                    hlogi("retry %s %s", http_method_str(task->req->method), task->req->url.c_str());
-                    sendInLoop(task);
-                });
-            } else {
-                send(task);
+        if (task) {
+            if (ctx->parser && ctx->parser->IsEof()) {
+                ctx->successCallback();
             }
-        } else {
-            ctx->errorCallback();
+            else if (task->req && task->req->retry_count-- > 0) {
+                if (task->req->retry_delay > 0) {
+                    // try again after delay
+                    setTimeout(task->req->retry_delay, [this, task](TimerID timerID){
+                        hlogi("retry %s %s", http_method_str(task->req->method), task->req->url.c_str());
+                        sendInLoop(task);
+                    });
+                } else {
+                    send(task);
+                }
+            }
+            else {
+                ctx->errorCallback();
+            }
         }
+
         removeChannel(channel);
     };
 
