@@ -275,7 +275,10 @@ public:
         if (isRunning()) {
             TcpClientEventLoopTmpl<TSocketChannel>::start();
         } else {
-            EventLoopThread::start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
+            EventLoopThread::start(wait_threads_started, [this]() {
+                TcpClientTmpl::startConnect();
+                return 0;
+            });
         }
     }
 
