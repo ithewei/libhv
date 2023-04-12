@@ -209,7 +209,6 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
     }
     int connfd = ConnectTimeout(host, port, blocktime);
     if (connfd < 0) {
-        fprintf(stderr, "* connect %s:%d failed!\n", host, port);
         hloge("connect %s:%d failed!", host, port);
         return connfd;
     }
