@@ -22,7 +22,7 @@ void WSADeinit() {
 
 static inline int socket_errno_negative(int sockfd) {
     int err = socket_errno();
-    if (sockfd >= 0) close(sockfd);
+    if (sockfd >= 0) closesocket(sockfd);
     return err > 0 ? -err : -1;
 }
 
