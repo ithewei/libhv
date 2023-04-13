@@ -87,6 +87,8 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
                     req->headers["Host"] = req->host;
                     resp->Reset();
                     send(ctx->task);
+                    // NOTE: detatch from original channel->context
+                    ctx->task = NULL;
                 }
             } else {
                 ctx->successCallback();
