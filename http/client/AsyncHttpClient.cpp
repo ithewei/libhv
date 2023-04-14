@@ -88,7 +88,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
                     resp->Reset();
                     send(ctx->task);
                     // NOTE: detatch from original channel->context
-                    ctx->task = NULL;
+                    ctx->cancelTask();
                 }
             } else {
                 ctx->successCallback();
@@ -139,8 +139,9 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     if (timeout_ms > 0) {
         ctx->timerID = setTimeout(timeout_ms - elapsed_ms, [&channel](TimerID timerID){
             HttpClientContext* ctx = channel->getContext<HttpClientContext>();
-            assert(ctx->task != NULL);
-            hlogw("%s timeout!", ctx->task->req->url.c_str());
+            if (ctx && ctx->task) {
+                hlogw("%s timeout!", ctx->task->req->url.c_str());
+            }
             if (channel) {
                 channel->close();
             }

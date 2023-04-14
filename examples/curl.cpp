@@ -226,15 +226,15 @@ static int parse_cmdline(int argc, char* argv[], HttpRequest* req) {
         }
     }
 
-    // --http2
-    if (http_version == 2) {
-        req->http_major = 2;
-        req->http_minor = 0;
-    }
     // --grpc
     if (grpc) {
         http_version = 2;
         req->content_type = APPLICATION_GRPC;
+    }
+    // --http2
+    if (http_version == 2) {
+        req->http_major = 2;
+        req->http_minor = 0;
     }
     // --timeout
     if (timeout > 0) {
