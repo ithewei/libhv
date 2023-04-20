@@ -357,12 +357,12 @@ processor:
 postprocessor:
     if (status_code >= 100 && status_code < 600) {
         pResp->status_code = (http_status)status_code;
-    }
-    if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
-        if (service->errorHandler) {
-            customHttpHandler(service->errorHandler);
-        } else {
-            defaultErrorHandler();
+        if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
+            if (service->errorHandler) {
+                customHttpHandler(service->errorHandler);
+            } else {
+                defaultErrorHandler();
+            }
         }
     }
     if (fc) {
