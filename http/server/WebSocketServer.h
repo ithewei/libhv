@@ -20,9 +20,10 @@ struct WebSocketService {
     std::function<void(const WebSocketChannelPtr&)>                         onclose;
     int ping_interval;
 
-    WebSocketService() {
-        ping_interval = 0;
-        // ping_interval = 10000; // ms
+    WebSocketService() : ping_interval(0) {}
+
+    void setPingInterval(int ms) {
+        ping_interval = ms;
     }
 };
 
