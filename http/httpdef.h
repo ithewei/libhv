@@ -96,11 +96,13 @@ enum http_status {
 };
 
 #define HTTP_STATUS_IS_REDIRECT(status)             \
+    (                                               \
     (status) == HTTP_STATUS_MOVED_PERMANENTLY   ||  \
     (status) == HTTP_STATUS_FOUND               ||  \
     (status) == HTTP_STATUS_SEE_OTHER           ||  \
     (status) == HTTP_STATUS_TEMPORARY_REDIRECT  ||  \
-    (status) == HTTP_STATUS_PERMANENT_REDIRECT
+    (status) == HTTP_STATUS_PERMANENT_REDIRECT      \
+	)
 
 // http_mehtod
 // XX(num, name, string)
