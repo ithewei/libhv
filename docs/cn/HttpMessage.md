@@ -81,6 +81,11 @@ class HttpRequest : public HttpMessage {
     // 设置代理
     void SetProxy(const char* host, int port);
 
+    // 设置认证
+    void SetAuth(const std::string& auth);
+    void SetBasicAuth(const std::string& username, const std::string& password);
+    void SetBearerTokenAuth(const std::string& token);
+
     // 设置请求超时
     void SetTimeout(int sec);
     // 设置连接超时

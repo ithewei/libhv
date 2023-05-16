@@ -5,6 +5,7 @@
 #include "htime.h"
 #include "hlog.h"
 #include "hurl.h"
+#include "base64.h"
 
 using namespace hv;
 
@@ -733,6 +734,20 @@ void HttpRequest::SetProxy(const char* host, int port) {
     this->host = host;
     this->port = port;
     proxy = 1;
+}
+
+void HttpRequest::SetAuth(const std::string& auth) {
+    SetHeader("Authorization", auth);
+}
+
+void HttpRequest::SetBasicAuth(const std::string& username, const std::string& password) {
+    std::string strAuth = hv::asprintf("%s:%s", username.c_str(), password.c_str());
+    std::string base64Auth = hv::Base64Encode((const unsigned char*)strAuth.c_str(), strAuth.size());
+    SetAuth(std::string("Basic ") + base64Auth);
+}
+
+void HttpRequest::SetBearerTokenAuth(const std::string& token) {
+    SetAuth(std::string("Bearer ") + token);
 }
 
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {

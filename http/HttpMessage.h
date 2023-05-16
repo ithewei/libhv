@@ -455,6 +455,11 @@ public:
     void SetProxy(const char* host, int port);
     bool IsProxy() { return proxy; }
 
+    // Auth
+    void SetAuth(const std::string& auth);
+    void SetBasicAuth(const std::string& username, const std::string& password);
+    void SetBearerTokenAuth(const std::string& token);
+
     void SetTimeout(int sec) { timeout = sec; }
     void SetConnectTimeout(int sec) { connect_timeout = sec; }
 
