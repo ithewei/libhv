@@ -36,7 +36,6 @@ int ping(const char* host, int cnt) {
     if (ret != 0) return ret;
     sockaddr_ip(&peeraddr, ip, sizeof(ip));
     int sockfd = socket(peeraddr.sa.sa_family, SOCK_RAW, IPPROTO_ICMP);
-    //int sockfd = socket(AF_INET, SOCK_RAW, 1);
     if (sockfd < 0) {
         perror("socket");
         if (errno == EPERM) {
@@ -81,41 +80,38 @@ int ping(const char* host, int cnt) {
         }
         ++send_cnt;
         addrlen = sizeof(peeraddr);
-
         _read_again:
         if(gettick_ms() - cur_ping_start_tick >= PING_TIMEOUT) {
             // recv timeout, send ping again. 
             continue;
         }
-        int nrecv = recv(sockfd, recvbuf, sizeof(recvbuf), 0);
+
+        int nrecv = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, &peeraddr.sa, &addrlen);
         if (nrecv < 0) {
-            //if (errno != EINTR)
-            //    perror("recvfrom");
-            goto _read_again;
-        }
-        
-        // check valid
-        bool valid = false;
-        int iphdr_len = ipheader->ihl * 4;
-        int icmp_len = nrecv - iphdr_len;
-        if (icmp_len == sendbytes) {
-            icmp_res = (icmp_t*)(recvbuf + ipheader->ihl*4);
-            if (icmp_res->icmp_type == ICMP_ECHOREPLY &&
-                icmp_res->icmp_id == pid16 &&
-                icmp_res->icmp_seq == seq && 
-                icmp_res->icmp_code == 0) {
-                valid = true;
-            } else {
-                // not our ping
-                goto _read_again;
-            }
-        } else {
-            // not our ping
+            perror("recvfrom");
             goto _read_again;
         }
 
         end_hrtime = gethrtime_us();
+        // check valid
+        int iphdr_len = ipheader->ihl * 4;
+        int icmp_len = nrecv - iphdr_len;
+        if (icmp_len != sendbytes) {
+            // not our ping
+            goto _read_again;
+        }
+        
+        icmp_res = (icmp_t*)(recvbuf + ipheader->ihl*4);
+        if (icmp_res->icmp_type != ICMP_ECHOREPLY ||
+            icmp_res->icmp_id != pid16 ||
+            icmp_res->icmp_seq != seq) {
+            // not our ping
+            goto _read_again;
+        }
+            
+        end_hrtime = gethrtime_us();
         ++recv_cnt;
+
         rtt = (end_hrtime-start_hrtime) / 1000.0f;
         min_rtt = MIN(rtt, min_rtt);
         max_rtt = MAX(rtt, max_rtt);
