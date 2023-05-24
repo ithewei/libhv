@@ -20,7 +20,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libssl-dev libnghttp2-dev
-          ./configure --with-openssl --with-nghttp2
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt
           make libhv evpp
 
       - name: test
