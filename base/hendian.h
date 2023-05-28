@@ -18,6 +18,9 @@
 #define le32toh(v) OSSwapLittleToHostInt32(v)
 #define le64toh(v) OSSwapLittleToHostInt64(v)
 #elif defined(OS_WIN)
+#if _WIN32_WINNT < _WIN32_WINNT_WIN8
+#include "EXTRA_HTON_FUNCTIONS.h"
+#endif
 #define htobe16(v) htons(v)
 #define htobe32(v) htonl(v)
 #define htobe64(v) htonll(v)
