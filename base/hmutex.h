@@ -7,7 +7,7 @@
 
 BEGIN_EXTERN_C
 
-#ifdef _MSC_VER
+#ifdef OS_WIN
 #define hmutex_t                CRITICAL_SECTION
 #define hmutex_init             InitializeCriticalSection
 #define hmutex_destroy          DeleteCriticalSection
