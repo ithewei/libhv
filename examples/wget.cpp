@@ -4,7 +4,7 @@
  * @client bin/wget http://127.0.0.1:8080/
  */
 
-#include "http_client.h"
+#include "HttpClient.h"
 #include "htime.h"
 using namespace hv;
 
@@ -68,6 +68,7 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         size_t received_bytes = 0;
         req.http_cb = [&file, &content_length, &received_bytes, &progress_cb]
             (HttpMessage* resp, http_parser_state state, const char* data, size_t size) {
+            if (!resp->headers["Location"].empty()) return;
             if (state == HP_HEADERS_COMPLETE) {
                 content_length = hv::from_string<size_t>(resp->GetHeader("Content-Length"));
                 printd("%s", resp->Dump(true, false).c_str());
@@ -103,7 +104,9 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         }
         printd("%s", resp.Dump(true, false).c_str());
         file.write(resp.body.data(), resp.body.size());
-        from = to + 1;
+        // fix: resp.body.size != range_bytes on some server
+        // from = to + 1;
+        from += resp.body.size();
 
         if (progress_cb) {
             progress_cb(from, content_length);

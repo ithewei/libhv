@@ -541,7 +541,6 @@
 - class HttpRequest
 - class HttpResponse
 - class HttpParser
-- class HttpService
 
 ### httpdef.h
 - http_content_type_enum
@@ -564,7 +563,7 @@
 - dump_json
 - dump_multipart
 
-### http_client.h
+### HttpClient.h
 - http_client_new
 - http_client_del
 - http_client_send
@@ -603,6 +602,7 @@
 ### HttpServer.h
 - http_server_run
 - http_server_stop
+- class HttpService
 - class HttpServer
 
 ### WebSocketClient.h
@@ -611,6 +611,7 @@
 ### WebSocketServer.h
 - websocket_server_run
 - websocket_server_stop
+- class WebSocketService
 - class WebSocketServer
 
 ## mqtt

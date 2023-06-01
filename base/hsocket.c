@@ -20,8 +20,9 @@ void WSADeinit() {
 }
 #endif
 
-static inline int socket_errno_negative() {
+static inline int socket_errno_negative(int sockfd) {
     int err = socket_errno();
+    if (sockfd >= 0) closesocket(sockfd);
     return err > 0 ? -err : -1;
 }
 
@@ -177,7 +178,7 @@ static int sockaddr_bind(sockaddr_u* localaddr, int type) {
     int sockfd = socket(localaddr->sa.sa_family, type, 0);
     if (sockfd < 0) {
         perror("socket");
-        return socket_errno_negative();
+        goto error;
     }
 
 #ifdef OS_UNIX
@@ -192,47 +193,48 @@ static int sockaddr_bind(sockaddr_u* localaddr, int type) {
 
     return sockfd;
 error:
-    closesocket(sockfd);
-    return socket_errno_negative();
+    return socket_errno_negative(sockfd);
 }
 
 static int sockaddr_connect(sockaddr_u* peeraddr, int nonblock) {
     // socket -> nonblocking -> connect
+    int ret = 0;
     int connfd = socket(peeraddr->sa.sa_family, SOCK_STREAM, 0);
     if (connfd < 0) {
         perror("socket");
-        return socket_errno_negative();
+        goto error;
     }
 
     if (nonblock) {
         nonblocking(connfd);
     }
 
-    int ret = connect(connfd, &peeraddr->sa, sockaddr_len(peeraddr));
+    ret = connect(connfd, &peeraddr->sa, sockaddr_len(peeraddr));
 #ifdef OS_WIN
     if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
 #else
     if (ret < 0 && socket_errno() != EINPROGRESS) {
 #endif
         // perror("connect");
-        closesocket(connfd);
-        return socket_errno_negative();
+        goto error;
     }
+
     return connfd;
+error:
+    return socket_errno_negative(connfd);
 }
 
 static int ListenFD(int sockfd) {
     if (sockfd < 0) return sockfd;
     if (listen(sockfd, SOMAXCONN) < 0) {
         perror("listen");
-        closesocket(sockfd);
-        return socket_errno_negative();
+        return socket_errno_negative(sockfd);
     }
     return sockfd;
 }
 
 static int ConnectFDTimeout(int connfd, int ms) {
-    int err;
+    int err = 0;
     socklen_t optlen = sizeof(err);
     struct timeval tv = { ms / 1000, (ms % 1000) * 1000 };
     fd_set writefds;
@@ -248,13 +250,13 @@ static int ConnectFDTimeout(int connfd, int ms) {
         goto error;
     }
     if (getsockopt(connfd, SOL_SOCKET, SO_ERROR, (char*)&err, &optlen) < 0 || err != 0) {
+        if (err != 0) errno = err;
         goto error;
     }
     blocking(connfd);
     return connfd;
 error:
-    closesocket(connfd);
-    return socket_errno_negative();
+    return socket_errno_negative(connfd);
 }
 
 int Bind(int port, const char* host, int type) {

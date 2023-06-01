@@ -84,27 +84,10 @@ struct HV_EXPORT HttpCookie {
     } priority;
     hv::KeyValue kv; // for multiple names
 
-    HttpCookie() {
-        init();
-    }
+    HttpCookie();
 
-    void init()  {
-        max_age = 0;
-        secure = false;
-        httponly = false;
-        samesite = Default;
-        priority = NotSet;
-    }
-
-    void reset() {
-        init();
-        name.clear();
-        value.clear();
-        domain.clear();
-        path.clear();
-        expires.clear();
-        kv.clear();
-    }
+    void init();
+    void reset();
 
     bool parse(const std::string& str);
     std::string dump() const;
@@ -273,32 +256,11 @@ public:
     }
 #endif
 
-    HttpMessage() {
-        type = HTTP_BOTH;
-        Init();
-    }
+    HttpMessage();
+    virtual ~HttpMessage();
 
-    virtual ~HttpMessage() {}
-
-    void Init() {
-        http_major = 1;
-        http_minor = 1;
-        content = NULL;
-        content_length = 0;
-        content_type = CONTENT_TYPE_NONE;
-    }
-
-    virtual void Reset() {
-        Init();
-        headers.clear();
-        cookies.clear();
-        body.clear();
-#ifndef WITHOUT_HTTP_CONTENT
-        json.clear();
-        form.clear();
-        kv.clear();
-#endif
-    }
+    void Init();
+    virtual void Reset();
 
     // structured-content -> content_type <-> headers["Content-Type"]
     void FillContentType();
@@ -309,21 +271,16 @@ public:
     bool IsKeepAlive();
 
     // headers
-    void SetHeader(const char* key, const std::string& value) {
-        headers[key] = value;
-    }
-    std::string GetHeader(const char* key, const std::string& defvalue = hv::empty_string) {
-        auto iter = headers.find(key);
-        return iter == headers.end() ? defvalue : iter->second;
-    }
+    void SetHeader(const char* key, const std::string& value);
+    std::string GetHeader(const char* key, const std::string& defvalue = hv::empty_string);
+
+    // cookies
+    void AddCookie(const HttpCookie& cookie);
+    const HttpCookie& GetCookie(const std::string& name);
 
     // body
-    void SetBody(const std::string& body) {
-        this->body = body;
-    }
-    const std::string& Body() {
-        return this->body;
-    }
+    void SetBody(const std::string& body);
+    const std::string& Body();
 
     // headers -> string
     void DumpHeaders(std::string& str);
@@ -370,19 +327,6 @@ public:
         if (content_type == CONTENT_TYPE_NONE || content_type == CONTENT_TYPE_UNDEFINED) {
             content_type = APPLICATION_OCTET_STREAM;
         }
-    }
-
-    void AddCookie(const HttpCookie& cookie) {
-        cookies.push_back(cookie);
-    }
-
-    const HttpCookie& GetCookie(const std::string& name) {
-        for (auto iter = cookies.begin(); iter != cookies.end(); ++iter) {
-            if (iter->name == name) {
-                return *iter;
-            }
-        }
-        return NoCookie;
     }
 
     int String(const std::string& str) {
@@ -452,33 +396,10 @@ public:
     unsigned            redirect: 1;
     unsigned            proxy   : 1;
 
-    HttpRequest() : HttpMessage() {
-        type = HTTP_REQUEST;
-        Init();
-    }
+    HttpRequest();
 
-    void Init() {
-        headers["User-Agent"] = DEFAULT_HTTP_USER_AGENT;
-        headers["Accept"] = "*/*";
-        method = HTTP_GET;
-        scheme = "http";
-        host = "127.0.0.1";
-        port = DEFAULT_HTTP_PORT;
-        path = "/";
-        timeout = DEFAULT_HTTP_TIMEOUT;
-        connect_timeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
-        retry_count = DEFAULT_HTTP_FAIL_RETRY_COUNT;
-        retry_delay = DEFAULT_HTTP_FAIL_RETRY_DELAY;
-        redirect = 1;
-        proxy = 0;
-    }
-
-    virtual void Reset() {
-        HttpMessage::Reset();
-        Init();
-        url.clear();
-        query_params.clear();
-    }
+    void Init();
+    virtual void Reset();
 
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
 
@@ -534,6 +455,11 @@ public:
     void SetProxy(const char* host, int port);
     bool IsProxy() { return proxy; }
 
+    // Auth
+    void SetAuth(const std::string& auth);
+    void SetBasicAuth(const std::string& username, const std::string& password);
+    void SetBearerTokenAuth(const std::string& token);
+
     void SetTimeout(int sec) { timeout = sec; }
     void SetConnectTimeout(int sec) { connect_timeout = sec; }
 
@@ -547,18 +473,8 @@ public:
     }
 
     // Range: bytes=0-4095
-    void SetRange(long from = 0, long to = -1) {
-        headers["Range"] = hv::asprintf("bytes=%ld-%ld", from, to);
-    }
-    bool GetRange(long& from, long& to) {
-        auto iter = headers.find("Range");
-        if (iter != headers.end()) {
-            sscanf(iter->second.c_str(), "bytes=%ld-%ld", &from, &to);
-            return true;
-        }
-        from = to = 0;
-        return false;
-    }
+    void SetRange(long from = 0, long to = -1);
+    bool GetRange(long& from, long& to);
 };
 
 class HV_EXPORT HttpResponse : public HttpMessage {
@@ -568,39 +484,20 @@ public:
         return http_status_str(status_code);
     }
 
-    HttpResponse() : HttpMessage() {
-        type = HTTP_RESPONSE;
-        Init();
-    }
+    HttpResponse();
 
-    void Init() {
-        status_code = HTTP_STATUS_OK;
-    }
-
-    virtual void Reset() {
-        HttpMessage::Reset();
-        Init();
-    }
+    void Init();
+    virtual void Reset();
 
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
 
     // Content-Range: bytes 0-4095/10240000
-    void SetRange(long from, long to, long total) {
-        headers["Content-Range"] = hv::asprintf("bytes %ld-%ld/%ld", from, to, total);
-    }
-    bool GetRange(long& from, long& to, long& total) {
-        auto iter = headers.find("Content-Range");
-        if (iter != headers.end()) {
-            sscanf(iter->second.c_str(), "bytes %ld-%ld/%ld", &from, &to, &total);
-            return true;
-        }
-        from = to = total = 0;
-        return false;
-    }
+    void SetRange(long from, long to, long total);
+    bool GetRange(long& from, long& to, long& total);
 
     int Redirect(const std::string& location, http_status status = HTTP_STATUS_FOUND) {
         status_code = status;
-        headers["Location"] = location;
+        SetHeader("Location", location);
         return status_code;
     }
 };

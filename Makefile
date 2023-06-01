@@ -150,7 +150,7 @@ tinyhttpd: prepare
 tinyproxyd: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/tinyproxyd.c"
 
-nmap: prepare
+nmap: prepare libhv
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil examples/nmap" DEFINES="PRINT_DEBUG"
 
 wrk: prepare
@@ -160,7 +160,7 @@ httpd: prepare
 	$(RM) examples/httpd/*.o
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client http/server examples/httpd"
 
-consul: prepare
+consul: prepare libhv
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client examples/consul" DEFINES="PRINT_DEBUG"
 
 curl: prepare

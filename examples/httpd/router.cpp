@@ -6,11 +6,14 @@
 #include "requests.h"   // import requests::async
 
 void Router::Register(hv::HttpService& router) {
-    // preprocessor => Handler => postprocessor
+    // preprocessor => middleware -> handlers => postprocessor
     router.preprocessor = Handler::preprocessor;
     router.postprocessor = Handler::postprocessor;
     // router.errorHandler = Handler::errorHandler;
     // router.largeFileHandler = Handler::sendLargeFile;
+
+    // middleware
+    // router.Use(Handler::Authorization);
 
     // curl -v http://ip:port/ping
     router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {

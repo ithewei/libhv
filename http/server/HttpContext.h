@@ -137,7 +137,7 @@ struct HV_EXPORT HttpContext {
     }
 
     void setHeader(const char* key, const std::string& value) {
-        response->headers[key] = value;
+        response->SetHeader(key, value);
         if (stricmp(key, "Content-Type") == 0) {
             setContentType(value.c_str());
         }

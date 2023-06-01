@@ -47,7 +47,7 @@ static int mqtt_send_head_with_mid(hio_t* io, int type, unsigned short mid) {
 
 static void mqtt_send_ping(hio_t* io) {
     mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(io);
-    if (++cli->ping_cnt > 3) {
+    if (cli->ping_cnt++ == 3) {
         hloge("mqtt no pong!");
         hio_close(io);
         return;
@@ -215,6 +215,7 @@ static void on_packet(hio_t* io, void* buf, int len) {
         }
         cli->connected = 1;
         if (cli->keepalive) {
+            cli->ping_cnt = 0;
             hio_set_heartbeat(io, cli->keepalive * 1000, mqtt_send_ping);
         }
     }
@@ -368,10 +369,6 @@ mqtt_client_t* mqtt_client_new(hloop_t* loop) {
 void mqtt_client_free(mqtt_client_t* cli) {
     if (!cli) return;
     hmutex_destroy(&cli->mutex_);
-    if (cli->reconn_timer) {
-        htimer_del(cli->reconn_timer);
-        cli->reconn_timer = NULL;
-    }
     if (cli->ssl_ctx && cli->alloced_ssl_ctx) {
         hssl_ctx_free(cli->ssl_ctx);
         cli->ssl_ctx = NULL;

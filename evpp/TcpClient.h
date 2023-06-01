@@ -17,6 +17,7 @@ public:
 
     TcpClientEventLoopTmpl(EventLoopPtr loop = NULL) {
         loop_ = loop ? loop : std::make_shared<EventLoop>();
+        remote_port = 0;
         connect_timeout = HIO_DEFAULT_CONNECT_TIMEOUT;
         tls = false;
         tls_setting = NULL;
@@ -259,6 +260,7 @@ public:
     TcpClientTmpl(EventLoopPtr loop = NULL)
         : EventLoopThread(loop)
         , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
+        , is_loop_owner(loop == NULL)
     {}
     virtual ~TcpClientTmpl() {
         stop(true);
@@ -273,15 +275,23 @@ public:
         if (isRunning()) {
             TcpClientEventLoopTmpl<TSocketChannel>::start();
         } else {
-            EventLoopThread::start(wait_threads_started, std::bind(&TcpClientTmpl::startConnect, this));
+            EventLoopThread::start(wait_threads_started, [this]() {
+                TcpClientTmpl::startConnect();
+                return 0;
+            });
         }
     }
 
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         TcpClientEventLoopTmpl<TSocketChannel>::closesocket();
-        EventLoopThread::stop(wait_threads_stopped);
+        if (is_loop_owner) {
+            EventLoopThread::stop(wait_threads_stopped);
+        }
     }
+
+private:
+    bool is_loop_owner;
 };
 
 typedef TcpClientTmpl<SocketChannel> TcpClient;

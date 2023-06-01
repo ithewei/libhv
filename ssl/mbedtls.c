@@ -1,4 +1,5 @@
 #include "hssl.h"
+#include "hsocket.h"
 
 #ifdef WITH_MBEDTLS
 
@@ -122,7 +123,7 @@ static int __mbedtls_net_send(void *ctx, const unsigned char *buf, size_t len) {
     // int n = write(fd, buf, len);
     int n = send(fd, (char*)(buf), (int)(len), 0);
     if (n >= 0) return n;
-    return ((errno == EAGAIN || errno == EINPROGRESS) ? MBEDTLS_ERR_SSL_WANT_WRITE : -1);
+    return ((socket_errno() == EAGAIN || socket_errno() == EINPROGRESS) ? MBEDTLS_ERR_SSL_WANT_WRITE : -1);
 }
 
 static int __mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len) {
@@ -130,7 +131,7 @@ static int __mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len) {
     // int n = read(fd, buf, len);
     int n = recv(fd, (char*)(buf), (int)(len), 0);
     if (n >= 0) return n;
-    return ((errno == EAGAIN || errno == EINPROGRESS) ? MBEDTLS_ERR_SSL_WANT_READ : -1);
+    return ((socket_errno() == EAGAIN || socket_errno() == EINPROGRESS) ? MBEDTLS_ERR_SSL_WANT_READ : -1);
 }
 
 hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd) {

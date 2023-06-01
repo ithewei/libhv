@@ -32,6 +32,8 @@ public:
     // Http2Parser: (state == H2_RECV_HEADERS || state == H2_RECV_DATA) && stream_closed
     virtual bool IsComplete() = 0;
 
+    virtual bool IsEof() { return false; }
+
     // client
     // SubmitRequest -> while(GetSendData) {send} -> InitResponse -> do {recv -> FeedRecvData} while(WantRecv)
     virtual int SubmitRequest(HttpRequest* req) = 0;

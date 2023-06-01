@@ -131,6 +131,8 @@ HV_EXPORT hloop_t* hloop_new(int flags DEFAULT(HLOOP_FLAG_AUTO_FREE));
 // WARN: Forbid to call hloop_free if HLOOP_FLAG_AUTO_FREE set.
 HV_EXPORT void hloop_free(hloop_t** pp);
 
+HV_EXPORT int hloop_process_events(hloop_t* loop, int timeout_ms DEFAULT(0));
+
 // NOTE: when no active events, loop will quit if HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS set.
 HV_EXPORT int hloop_run(hloop_t* loop);
 // NOTE: hloop_stop called in loop-thread just set flag to quit in next loop,

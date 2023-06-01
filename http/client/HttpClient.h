@@ -8,7 +8,7 @@
 /*
 #include <stdio.h>
 
-#include "http_client.h"
+#include "HttpClient.h"
 
 int main(int argc, char* argv[]) {
     HttpRequest req;
@@ -30,7 +30,6 @@ int main(int argc, char* argv[]) {
 typedef struct http_client_s http_client_t;
 
 HV_EXPORT http_client_t* http_client_new(const char* host = NULL, int port = DEFAULT_HTTP_PORT, int https = 0);
-HV_EXPORT int http_client_close(http_client_t* cli);
 HV_EXPORT int http_client_del(http_client_t* cli);
 HV_EXPORT const char* http_client_strerror(int errcode);
 
@@ -68,6 +67,15 @@ HV_EXPORT int http_client_send_async(http_client_t* cli, HttpRequestPtr req, Htt
 HV_EXPORT int http_client_send(HttpRequest* req, HttpResponse* resp);
 // http_client_send_async(&default_async_client, ...)
 HV_EXPORT int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb = NULL);
+
+// low-level api
+// @retval >=0 connfd, <0 error
+HV_EXPORT int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout);
+HV_EXPORT int http_client_send_header(http_client_t* cli, HttpRequest* req);
+HV_EXPORT int http_client_send_data(http_client_t* cli, const char* data, int size);
+HV_EXPORT int http_client_recv_data(http_client_t* cli, char* data, int size);
+HV_EXPORT int http_client_recv_response(http_client_t* cli, HttpResponse* resp);
+HV_EXPORT int http_client_close(http_client_t* cli);
 
 namespace hv {
 
@@ -134,7 +142,22 @@ public:
         return http_client_send_async(_client, req, std::move(resp_cb));
     }
 
-    // close
+    // low-level api
+    int connect(const char* host, int port = DEFAULT_HTTP_PORT, int https = 0, int timeout = DEFAULT_HTTP_CONNECT_TIMEOUT) {
+        return http_client_connect(_client, host, port, https, timeout);
+    }
+    int sendHeader(HttpRequest* req) {
+        return http_client_send_header(_client, req);
+    }
+    int sendData(const char* data, int size) {
+        return http_client_send_data(_client, data, size);
+    }
+    int recvData(char* data, int size) {
+        return http_client_recv_data(_client, data, size);
+    }
+    int recvResponse(HttpResponse* resp) {
+        return http_client_recv_response(_client, resp);
+    }
     int close() {
         return http_client_close(_client);
     }

@@ -1,16 +1,17 @@
 #include "HttpService.h"
+#include "HttpMiddleware.h"
 
 #include "hbase.h" // import hv_strendswith
 
 namespace hv {
 
-void HttpService::AddApi(const char* path, http_method method, const http_handler& handler) {
+void HttpService::AddRoute(const char* path, http_method method, const http_handler& handler) {
     std::shared_ptr<http_method_handlers> method_handlers = NULL;
-    auto iter = api_handlers.find(path);
-    if (iter == api_handlers.end()) {
+    auto iter = pathHandlers.find(path);
+    if (iter == pathHandlers.end()) {
         // add path
         method_handlers = std::make_shared<http_method_handlers>();
-        api_handlers[path] = method_handlers;
+        pathHandlers[path] = method_handlers;
     }
     else {
         method_handlers = iter->second;
@@ -26,7 +27,7 @@ void HttpService::AddApi(const char* path, http_method method, const http_handle
     method_handlers->push_back(http_method_handler(method, handler));
 }
 
-int HttpService::GetApi(const char* url, http_method method, http_handler** handler) {
+int HttpService::GetRoute(const char* url, http_method method, http_handler** handler) {
     // {base_url}/path?query
     const char* s = url;
     const char* b = base_url.c_str();
@@ -38,8 +39,8 @@ int HttpService::GetApi(const char* url, http_method method, http_handler** hand
     while (*e && *e != '?') ++e;
 
     std::string path = std::string(s, e);
-    auto iter = api_handlers.find(path);
-    if (iter == api_handlers.end()) {
+    auto iter = pathHandlers.find(path);
+    if (iter == pathHandlers.end()) {
         if (handler) *handler = NULL;
         return HTTP_STATUS_NOT_FOUND;
     }
@@ -54,7 +55,7 @@ int HttpService::GetApi(const char* url, http_method method, http_handler** hand
     return HTTP_STATUS_METHOD_NOT_ALLOWED;
 }
 
-int HttpService::GetApi(HttpRequest* req, http_handler** handler) {
+int HttpService::GetRoute(HttpRequest* req, http_handler** handler) {
     // {base_url}/path?query
     const char* s = req->path.c_str();
     const char* b = base_url.c_str();
@@ -68,7 +69,7 @@ int HttpService::GetApi(HttpRequest* req, http_handler** handler) {
     std::string path = std::string(s, e);
     const char *kp, *ks, *vp, *vs;
     bool match;
-    for (auto iter = api_handlers.begin(); iter != api_handlers.end(); ++iter) {
+    for (auto iter = pathHandlers.begin(); iter != pathHandlers.end(); ++iter) {
         kp = iter->first.c_str();
         vp = path.c_str();
         match = false;
@@ -168,6 +169,10 @@ std::string HttpService::GetProxyUrl(const char* path) {
         }
     }
     return url;
+}
+
+void HttpService::AllowCORS() {
+    Use(HttpMiddleware::CORS);
 }
 
 }

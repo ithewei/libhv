@@ -5,7 +5,8 @@
  */
 
 #include "HttpServer.h"
-#include "hssl.h"
+
+using namespace hv;
 
 /*
  * #define TEST_HTTPS 1
@@ -76,31 +77,30 @@ int main(int argc, char** argv) {
         return ctx->send(resp.dump(2));
     });
 
-    http_server_t server;
+    HttpServer server;
     server.service = &router;
     server.port = port;
 #if TEST_HTTPS
     server.https_port = 8443;
-    hssl_ctx_init_param_t param;
+    hssl_ctx_opt_t param;
     memset(&param, 0, sizeof(param));
     param.crt_file = "cert/server.crt";
     param.key_file = "cert/server.key";
     param.endpoint = HSSL_SERVER;
-    if (hssl_ctx_init(&param) == NULL) {
-        fprintf(stderr, "hssl_ctx_init failed!\n");
+    if (server.newSslCtx(&param) != 0) {
+        fprintf(stderr, "new SSL_CTX failed!\n");
         return -20;
     }
 #endif
 
     // uncomment to test multi-processes
-    // server.worker_processes = 4;
+    // server.setProcessNum(4);
     // uncomment to test multi-threads
-    // server.worker_threads = 4;
+    // server.setThreadNum(4);
 
-    http_server_run(&server, 0);
+    server.start();
 
     // press Enter to stop
     while (getchar() != '\n');
-    http_server_stop(&server);
     return 0;
 }

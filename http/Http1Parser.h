@@ -69,6 +69,11 @@ public:
         return state == HP_MESSAGE_COMPLETE;
     }
 
+    virtual bool IsEof() {
+        FeedRecvData(NULL, 0);
+        return IsComplete();
+    }
+
     virtual int GetError() {
         return parser.http_errno;
     }

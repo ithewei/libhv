@@ -16,19 +16,9 @@ public:
     HUrl() : port(0) {}
     ~HUrl() {}
 
+    void reset();
     bool parse(const std::string& url);
     const std::string& dump();
-    void reset() {
-        url.clear();
-        scheme.clear();
-        username.clear();
-        password.clear();
-        host.clear();
-        port = 0;
-        path.clear();
-        query.clear();
-        fragment.clear();
-    }
 
     std::string url;
     std::string scheme;

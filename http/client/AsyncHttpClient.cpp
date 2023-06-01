@@ -87,6 +87,8 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
                     req->headers["Host"] = req->host;
                     resp->Reset();
                     send(ctx->task);
+                    // NOTE: detatch from original channel->context
+                    ctx->cancelTask();
                 }
             } else {
                 ctx->successCallback();
@@ -108,20 +110,28 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         if (iter != conn_pools.end()) {
             iter->second.remove(channel->fd());
         }
+
         const HttpClientTaskPtr& task = ctx->task;
-        if (task && task->req && task->req->retry_count-- > 0) {
-            if (task->req->retry_delay > 0) {
-                // try again after delay
-                setTimeout(task->req->retry_delay, [this, task](TimerID timerID){
-                    hlogi("retry %s %s", http_method_str(task->req->method), task->req->url.c_str());
-                    sendInLoop(task);
-                });
-            } else {
-                send(task);
+        if (task) {
+            if (ctx->parser && ctx->parser->IsEof()) {
+                ctx->successCallback();
             }
-        } else {
-            ctx->errorCallback();
+            else if (task->req && task->req->retry_count-- > 0) {
+                if (task->req->retry_delay > 0) {
+                    // try again after delay
+                    setTimeout(task->req->retry_delay, [this, task](TimerID timerID){
+                        hlogi("retry %s %s", http_method_str(task->req->method), task->req->url.c_str());
+                        sendInLoop(task);
+                    });
+                } else {
+                    send(task);
+                }
+            }
+            else {
+                ctx->errorCallback();
+            }
         }
+
         removeChannel(channel);
     };
 
@@ -129,8 +139,9 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     if (timeout_ms > 0) {
         ctx->timerID = setTimeout(timeout_ms - elapsed_ms, [&channel](TimerID timerID){
             HttpClientContext* ctx = channel->getContext<HttpClientContext>();
-            assert(ctx->task != NULL);
-            hlogw("%s timeout!", ctx->task->req->url.c_str());
+            if (ctx && ctx->task) {
+                hlogw("%s timeout!", ctx->task->req->url.c_str());
+            }
             if (channel) {
                 channel->close();
             }

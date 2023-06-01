@@ -170,7 +170,8 @@ static void nio_accept(hio_t* io) {
 
 accept_error:
     hloge("listenfd=%d accept error: %s:%d", io->fd, socket_strerror(io->error), io->error);
-    hio_close(io);
+    // NOTE: Don't close listen fd automatically anyway.
+    // hio_close(io);
 }
 
 static void nio_connect(hio_t* io) {
@@ -250,11 +251,7 @@ static int __nio_read(hio_t* io, void* buf, int len) {
         nread = hssl_read(io->ssl, buf, len);
         break;
     case HIO_TYPE_TCP:
-#ifdef OS_UNIX
-        nread = read(io->fd, buf, len);
-#else
         nread = recv(io->fd, buf, len, 0);
-#endif
         break;
     case HIO_TYPE_UDP:
     case HIO_TYPE_KCP:
@@ -279,11 +276,13 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
         nwrite = hssl_write(io->ssl, buf, len);
         break;
     case HIO_TYPE_TCP:
-#ifdef OS_UNIX
-        nwrite = write(io->fd, buf, len);
-#else
-        nwrite = send(io->fd, buf, len, 0);
+    {
+        int flag = 0;
+#ifdef MSG_NOSIGNAL
+        flag |= MSG_NOSIGNAL;
 #endif
+        nwrite = send(io->fd, buf, len, flag);
+    }
         break;
     case HIO_TYPE_UDP:
     case HIO_TYPE_KCP:
@@ -314,7 +313,7 @@ read:
     // printd("read retval=%d\n", nread);
     if (nread < 0) {
         err = socket_errno();
-        if (err == EAGAIN) {
+        if (err == EAGAIN || err == EINTR) {
             // goto read_done;
             return;
         } else if (err == EMSGSIZE) {
@@ -367,7 +366,7 @@ write:
     // printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
         err = socket_errno();
-        if (err == EAGAIN) {
+        if (err == EAGAIN || err == EINTR) {
             hrecursive_mutex_unlock(&io->write_mutex);
             return;
         } else {
@@ -497,7 +496,7 @@ try_write:
         // printd("write retval=%d\n", nwrite);
         if (nwrite < 0) {
             err = socket_errno();
-            if (err == EAGAIN) {
+            if (err == EAGAIN || err == EINTR) {
                 nwrite = 0;
                 hlogw("try_write failed, enqueue!");
                 goto enqueue;

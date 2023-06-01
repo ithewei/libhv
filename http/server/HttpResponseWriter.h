@@ -21,6 +21,7 @@ public:
         : SocketChannel(io)
         , response(resp)
         , state(SEND_BEGIN)
+        , end(SEND_BEGIN)
     {}
     ~HttpResponseWriter() {}
 
@@ -42,13 +43,13 @@ public:
     }
 
     int WriteHeader(const char* key, const char* value) {
-        response->headers[key] = value;
+        response->SetHeader(key, value);
         return 0;
     }
 
     template<typename T>
     int WriteHeader(const char* key, T num) {
-        response->headers[key] = hv::to_string(num);
+        response->SetHeader(key, hv::to_string(num));
         return 0;
     }
 
@@ -60,7 +61,7 @@ public:
     int EndHeaders(const char* key = NULL, const char* value = NULL) {
         if (state != SEND_BEGIN) return -1;
         if (key && value) {
-            response->headers[key] = value;
+            response->SetHeader(key, value);
         }
         std::string headers = response->Dump(true, false);
         state = SEND_HEADER;

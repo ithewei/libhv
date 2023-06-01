@@ -32,23 +32,7 @@ int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
     // Unified setting response Content-Type?
     resp->content_type = APPLICATION_JSON;
 
-#if 0
-    // authentication sample code
-    if (strcmp(req->path.c_str(), "/login") != 0) {
-        string token = req->GetHeader("token");
-        if (token.empty()) {
-            response_status(resp, 10011, "Miss token");
-            return HTTP_STATUS_UNAUTHORIZED;
-        }
-        else if (strcmp(token.c_str(), "abcdefg") != 0) {
-            response_status(resp, 10012, "Token wrong");
-            return HTTP_STATUS_UNAUTHORIZED;
-        }
-        return HTTP_STATUS_UNFINISHED;
-    }
-#endif
-
-    return HTTP_STATUS_UNFINISHED;
+    return HTTP_STATUS_NEXT;
 }
 
 int Handler::postprocessor(HttpRequest* req, HttpResponse* resp) {
@@ -59,6 +43,23 @@ int Handler::postprocessor(HttpRequest* req, HttpResponse* resp) {
 int Handler::errorHandler(const HttpContextPtr& ctx) {
     int error_code = ctx->response->status_code;
     return response_status(ctx, error_code);
+}
+
+int Handler::Authorization(HttpRequest* req, HttpResponse* resp) {
+    // authentication sample code
+    if (strcmp(req->path.c_str(), "/login") == 0) {
+        return HTTP_STATUS_NEXT;
+    }
+    std::string token = req->GetHeader("Authorization");
+    if (token.empty()) {
+        response_status(resp, 10011, "Miss Authorization header!");
+        return HTTP_STATUS_UNAUTHORIZED;
+    }
+    else if (strcmp(token.c_str(), "abcdefg") != 0) {
+        response_status(resp, 10012, "Authorization failed!");
+        return HTTP_STATUS_UNAUTHORIZED;
+    }
+    return HTTP_STATUS_NEXT;
 }
 
 int Handler::sleep(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {

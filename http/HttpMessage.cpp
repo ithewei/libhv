@@ -5,6 +5,7 @@
 #include "htime.h"
 #include "hlog.h"
 #include "hurl.h"
+#include "base64.h"
 
 using namespace hv;
 
@@ -12,6 +13,28 @@ http_headers DefaultHeaders;
 http_body    NoBody;
 HttpCookie   NoCookie;
 char HttpMessage::s_date[32] = {0};
+
+HttpCookie::HttpCookie() {
+    init();
+}
+
+void HttpCookie::init()  {
+    max_age = 0;
+    secure = false;
+    httponly = false;
+    samesite = Default;
+    priority = NotSet;
+}
+
+void HttpCookie::reset() {
+    init();
+    name.clear();
+    value.clear();
+    domain.clear();
+    path.clear();
+    expires.clear();
+    kv.clear();
+}
 
 bool HttpCookie::parse(const std::string& str) {
     std::stringstream ss;
@@ -138,6 +161,35 @@ std::string HttpCookie::dump() const {
     return res;
 }
 
+HttpMessage::HttpMessage() {
+    type = HTTP_BOTH;
+    Init();
+}
+
+HttpMessage::~HttpMessage() {
+
+}
+
+void HttpMessage::Init() {
+    http_major = 1;
+    http_minor = 1;
+    content = NULL;
+    content_length = 0;
+    content_type = CONTENT_TYPE_NONE;
+}
+
+void HttpMessage::Reset() {
+    Init();
+    headers.clear();
+    cookies.clear();
+    body.clear();
+#ifndef WITHOUT_HTTP_CONTENT
+    json.clear();
+    form.clear();
+    kv.clear();
+#endif
+}
+
 #ifndef WITHOUT_HTTP_CONTENT
 // NOTE: json ignore number/string, 123/"123"
 
@@ -157,9 +209,6 @@ std::string HttpMessage::GetString(const char* key, const std::string& defvalue)
         }
         else if (value.is_number()) {
             return hv::to_string(value);
-        }
-        else if (value.is_null()) {
-            return "null";
         }
         else if (value.is_boolean()) {
             bool b = value;
@@ -215,9 +264,6 @@ HV_EXPORT int64_t HttpMessage::Get(const char* key, int64_t defvalue) {
             std::string str = value;
             return atoll(str.c_str());
         }
-        else if (value.is_null()) {
-            return 0;
-        }
         else if (value.is_boolean()) {
             bool b = value;
             return b ? 1 : 0;
@@ -254,9 +300,6 @@ HV_EXPORT double HttpMessage::Get(const char* key, double defvalue) {
             std::string str = value;
             return atof(str.c_str());
         }
-        else if (value.is_null()) {
-            return 0.0f;
-        }
         else {
             return defvalue;
         }
@@ -288,9 +331,6 @@ HV_EXPORT bool HttpMessage::Get(const char* key, bool defvalue) {
         else if (value.is_string()) {
             std::string str = value;
             return hv_getboolean(str.c_str());
-        }
-        else if (value.is_null()) {
-            return false;
         }
         else if (value.is_number()) {
             return value != 0;
@@ -401,6 +441,37 @@ bool HttpMessage::IsKeepAlive() {
         keepalive = false;
     }
     return keepalive;
+}
+
+
+// headers
+void HttpMessage::SetHeader(const char* key, const std::string& value) {
+    headers[key] = value;
+}
+std::string HttpMessage::GetHeader(const char* key, const std::string& defvalue) {
+    auto iter = headers.find(key);
+    return iter == headers.end() ? defvalue : iter->second;
+}
+
+// cookies
+void HttpMessage::AddCookie(const HttpCookie& cookie) {
+    cookies.push_back(cookie);
+}
+const HttpCookie& HttpMessage::GetCookie(const std::string& name) {
+    for (auto iter = cookies.begin(); iter != cookies.end(); ++iter) {
+        if (iter->name == name) {
+            return *iter;
+        }
+    }
+    return NoCookie;
+}
+
+// body
+void HttpMessage::SetBody(const std::string& body) {
+    this->body = body;
+}
+const std::string& HttpMessage::Body() {
+    return this->body;
 }
 
 void HttpMessage::DumpHeaders(std::string& str) {
@@ -528,6 +599,35 @@ std::string HttpMessage::Dump(bool is_dump_headers, bool is_dump_body) {
     return str;
 }
 
+
+HttpRequest::HttpRequest() : HttpMessage() {
+    type = HTTP_REQUEST;
+    Init();
+}
+
+void HttpRequest::Init() {
+    headers["User-Agent"] = DEFAULT_HTTP_USER_AGENT;
+    headers["Accept"] = "*/*";
+    method = HTTP_GET;
+    scheme = "http";
+    host = "127.0.0.1";
+    port = DEFAULT_HTTP_PORT;
+    path = "/";
+    timeout = DEFAULT_HTTP_TIMEOUT;
+    connect_timeout = DEFAULT_HTTP_CONNECT_TIMEOUT;
+    retry_count = DEFAULT_HTTP_FAIL_RETRY_COUNT;
+    retry_delay = DEFAULT_HTTP_FAIL_RETRY_DELAY;
+    redirect = 1;
+    proxy = 0;
+}
+
+void HttpRequest::Reset() {
+    HttpMessage::Reset();
+    Init();
+    url.clear();
+    query_params.clear();
+}
+
 void HttpRequest::DumpUrl() {
     std::string str;
     if (url.size() != 0 &&
@@ -636,6 +736,20 @@ void HttpRequest::SetProxy(const char* host, int port) {
     proxy = 1;
 }
 
+void HttpRequest::SetAuth(const std::string& auth) {
+    SetHeader("Authorization", auth);
+}
+
+void HttpRequest::SetBasicAuth(const std::string& username, const std::string& password) {
+    std::string strAuth = hv::asprintf("%s:%s", username.c_str(), password.c_str());
+    std::string base64Auth = hv::Base64Encode((const unsigned char*)strAuth.c_str(), strAuth.size());
+    SetAuth(std::string("Basic ") + base64Auth);
+}
+
+void HttpRequest::SetBearerTokenAuth(const std::string& token) {
+    SetAuth(std::string("Bearer ") + token);
+}
+
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     ParseUrl();
 
@@ -654,6 +768,34 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
         DumpBody(str);
     }
     return str;
+}
+
+void HttpRequest::SetRange(long from, long to) {
+    SetHeader("Range", hv::asprintf("bytes=%ld-%ld", from, to));
+}
+
+bool HttpRequest::GetRange(long& from, long& to) {
+    auto iter = headers.find("Range");
+    if (iter != headers.end()) {
+        sscanf(iter->second.c_str(), "bytes=%ld-%ld", &from, &to);
+        return true;
+    }
+    from = to = 0;
+    return false;
+}
+
+HttpResponse::HttpResponse() : HttpMessage() {
+    type = HTTP_RESPONSE;
+    Init();
+}
+
+void HttpResponse::Init() {
+    status_code = HTTP_STATUS_OK;
+}
+
+void HttpResponse::Reset() {
+    HttpMessage::Reset();
+    Init();
 }
 
 std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
@@ -678,4 +820,18 @@ std::string HttpResponse::Dump(bool is_dump_headers, bool is_dump_body) {
         DumpBody(str);
     }
     return str;
+}
+
+void HttpResponse::SetRange(long from, long to, long total) {
+    SetHeader("Content-Range", hv::asprintf("bytes %ld-%ld/%ld", from, to, total));
+}
+
+bool HttpResponse::GetRange(long& from, long& to, long& total) {
+    auto iter = headers.find("Content-Range");
+    if (iter != headers.end()) {
+        sscanf(iter->second.c_str(), "bytes %ld-%ld/%ld", &from, &to, &total);
+        return true;
+    }
+    from = to = total = 0;
+    return false;
 }

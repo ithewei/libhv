@@ -60,6 +60,7 @@ WebSocketParser::WebSocketParser() {
     websocket_parser_init(parser);
     parser->data = this;
     state = WS_FRAME_BEGIN;
+    opcode = WS_OP_CLOSE;
 }
 
 WebSocketParser::~WebSocketParser() {

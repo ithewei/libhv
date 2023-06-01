@@ -14,13 +14,13 @@ jobs:
     name: build-linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: build
         run: |
           sudo apt update
           sudo apt install libssl-dev libnghttp2-dev
-          ./configure --with-openssl --with-nghttp2
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt
           make libhv evpp
 
       - name: test
@@ -32,7 +32,7 @@ jobs:
     name: build-windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: build
         run: |
           mkdir cmake-build-win64
@@ -44,7 +44,7 @@ jobs:
     name: build-apple
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: build-mac
         run: |

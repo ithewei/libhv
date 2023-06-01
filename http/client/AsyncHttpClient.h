@@ -65,18 +65,25 @@ struct HttpClientContext {
     HttpClientContext() {
         timerID = INVALID_TIMER_ID;
     }
+
     ~HttpClientContext() {
+        cancelTimer();
+    }
+
+    void cancelTimer() {
         if (timerID != INVALID_TIMER_ID) {
             killTimer(timerID);
             timerID = INVALID_TIMER_ID;
         }
     }
 
+    void cancelTask() {
+        cancelTimer();
+        task = NULL;
+    }
+
     void callback() {
-        if (timerID != INVALID_TIMER_ID) {
-            killTimer(timerID);
-            timerID = INVALID_TIMER_ID;
-        }
+        cancelTimer();
         if (task && task->cb) {
             task->cb(resp);
         }

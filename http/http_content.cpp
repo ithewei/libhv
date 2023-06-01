@@ -103,7 +103,7 @@ std::string dump_multipart(MultiPart& mp, const char* boundary) {
     }
     str += "--";
     str += boundary;
-    str += "--";
+    str += "--\r\n";
     return str;
 }
 

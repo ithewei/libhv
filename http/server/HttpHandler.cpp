@@ -136,9 +136,9 @@ bool HttpHandler::SwitchWebSocket(hio_t* io) {
             break;
         }
     };
+    // NOTE: cancel keepalive timer, judge alive by heartbeat.
+    ws_channel->setKeepaliveTimeout(0);
     if (ws_service && ws_service->ping_interval > 0) {
-        // NOTE: cancel keepalive timer, judge alive by heartbeat.
-        ws_channel->setKeepaliveTimeout(0);
         int ping_interval = MAX(ws_service->ping_interval, 1000);
         ws_channel->setHeartbeat(ping_interval, [this](){
             if (last_recv_pong_time < last_send_ping_time) {
@@ -177,7 +177,7 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
     } else if (handler->async_handler) {
         // NOTE: async_handler run on hv::async threadpool
         hv::async(std::bind(handler->async_handler, req, writer));
-        status_code = HTTP_STATUS_UNFINISHED;
+        status_code = HTTP_STATUS_NEXT;
     } else if (handler->ctx_handler) {
         // NOTE: ctx_handler run on IO thread, you can easily post HttpContextPtr to your consumer thread for processing.
         status_code = handler->ctx_handler(getHttpContext());
@@ -219,8 +219,8 @@ void HttpHandler::onHeadersComplete() {
     // printf("url=%s\n", pReq->url.c_str());
     pReq->ParseUrl();
 
-    if (service->api_handlers.size() != 0) {
-        service->GetApi(pReq, &api_handler);
+    if (service->pathHandlers.size() != 0) {
+        service->GetRoute(pReq, &api_handler);
     }
     if (api_handler && api_handler->state_handler) {
         writer->onclose = [this](){
@@ -332,18 +332,17 @@ int HttpHandler::HandleHttpRequest() {
 
 preprocessor:
     state = HANDLE_BEGIN;
-    if (service->allow_cors) {
-        resp->headers["Access-Control-Allow-Origin"] = req->GetHeader("Origin", "*");
-        if (req->method == HTTP_OPTIONS) {
-            resp->headers["Access-Control-Allow-Methods"] = req->GetHeader("Access-Control-Request-Method", "OPTIONS, HEAD, GET, POST, PUT, DELETE, PATCH");
-            resp->headers["Access-Control-Allow-Headers"] = req->GetHeader("Access-Control-Request-Headers", "Content-Type");
-            status_code = HTTP_STATUS_NO_CONTENT;
+    if (service->preprocessor) {
+        status_code = customHttpHandler(service->preprocessor);
+        if (status_code != HTTP_STATUS_NEXT) {
             goto postprocessor;
         }
     }
-    if (service->preprocessor) {
-        status_code = customHttpHandler(service->preprocessor);
-        if (status_code != 0) {
+
+middleware:
+    for (const auto& middleware : service->middleware) {
+        status_code = customHttpHandler(middleware);
+        if (status_code != HTTP_STATUS_NEXT) {
             goto postprocessor;
         }
     }
@@ -358,12 +357,12 @@ processor:
 postprocessor:
     if (status_code >= 100 && status_code < 600) {
         pResp->status_code = (http_status)status_code;
-    }
-    if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
-        if (service->errorHandler) {
-            customHttpHandler(service->errorHandler);
-        } else {
-            defaultErrorHandler();
+        if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
+            if (service->errorHandler) {
+                customHttpHandler(service->errorHandler);
+            } else {
+                defaultErrorHandler();
+            }
         }
     }
     if (fc) {
@@ -378,9 +377,9 @@ postprocessor:
     }
 
     if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
-        status_code = 0;
+        status_code = HTTP_STATUS_NEXT;
     }
-    if (status_code == 0) {
+    if (status_code == HTTP_STATUS_NEXT) {
         state = HANDLE_CONTINUE;
     } else {
         state = HANDLE_END;

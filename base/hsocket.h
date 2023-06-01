@@ -52,6 +52,9 @@ HV_INLINE int nonblocking(int sockfd) {
 #undef  EINPROGRESS
 #define EINPROGRESS WSAEINPROGRESS
 
+#undef  EINTR
+#define EINTR       WSAEINTR
+
 #undef  ENOTSOCK
 #define ENOTSOCK    WSAENOTSOCK
 

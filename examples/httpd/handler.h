@@ -5,10 +5,13 @@
 
 class Handler {
 public:
-    // preprocessor => api_handlers => postprocessor
+    // preprocessor => middleware -> handlers => postprocessor
     static int preprocessor(HttpRequest* req, HttpResponse* resp);
     static int postprocessor(HttpRequest* req, HttpResponse* resp);
     static int errorHandler(const HttpContextPtr& ctx);
+
+    // middleware
+    static int Authorization(HttpRequest* req, HttpResponse* resp);
 
     static int sleep(const HttpRequestPtr& req, const HttpResponseWriterPtr& writer);
     static int setTimeout(const HttpContextPtr& ctx);

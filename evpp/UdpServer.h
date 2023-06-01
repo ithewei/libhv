@@ -15,6 +15,7 @@ public:
 
     UdpServerEventLoopTmpl(EventLoopPtr loop = NULL) {
         loop_ = loop ? loop : std::make_shared<EventLoop>();
+        port = 0;
 #if WITH_KCP
         enable_kcp = false;
 #endif
@@ -131,6 +132,7 @@ public:
     UdpServerTmpl(EventLoopPtr loop = NULL)
         : EventLoopThread(loop)
         , UdpServerEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
+        , is_loop_owner(loop == NULL)
     {}
     virtual ~UdpServerTmpl() {
         stop(true);
@@ -152,8 +154,13 @@ public:
     // stop thread-safe
     void stop(bool wait_threads_stopped = true) {
         UdpServerEventLoopTmpl<TSocketChannel>::closesocket();
-        EventLoopThread::stop(wait_threads_stopped);
+        if (is_loop_owner) {
+            EventLoopThread::stop(wait_threads_stopped);
+        }
     }
+
+private:
+    bool is_loop_owner;
 };
 
 typedef UdpServerTmpl<SocketChannel> UdpServer;

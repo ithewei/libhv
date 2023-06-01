@@ -126,10 +126,6 @@ tcp_client_t* tcp_client_new(hloop_t* loop) {
 void tcp_client_free(tcp_client_t* cli) {
     if (!cli) return;
     hmutex_destroy(&cli->mutex_);
-    if (cli->reconn_timer) {
-        htimer_del(cli->reconn_timer);
-        cli->reconn_timer = NULL;
-    }
     if (cli->ssl_ctx && cli->alloced_ssl_ctx) {
         hssl_ctx_free(cli->ssl_ctx);
         cli->ssl_ctx = NULL;
