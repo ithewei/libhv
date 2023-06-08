@@ -34,7 +34,7 @@ public:
         int idx = 0;
         if (lb == LB_RoundRobin) {
             if (++next_loop_idx_ >= numLoops) next_loop_idx_ = 0;
-            idx = next_loop_idx_;
+            idx = next_loop_idx_.fetch_and(numLoops);
         } else if (lb == LB_Random) {
             idx = hv_rand(0, numLoops - 1);
         } else if (lb == LB_LeastConnections) {
