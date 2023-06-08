@@ -19,10 +19,10 @@ static hloop_t** worker_loops = NULL;
 
 static hloop_t* get_next_loop() {
     static int s_cur_index = 0;
-    if (s_cur_index == thread_num) {
+    if (++s_cur_index >= thread_num) {
         s_cur_index = 0;
     }
-    return worker_loops[s_cur_index++];
+    return worker_loops[s_cur_index % thread_num];
 }
 
 static void on_close(hio_t* io) {
