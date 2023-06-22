@@ -144,12 +144,12 @@ public:
     }
 
     // channel
-    const TSocketChannelPtr& addChannel(hio_t* io) {
+    TSocketChannelPtr addChannel(hio_t* io) {
         uint32_t id = hio_id(io);
-        auto channel = TSocketChannelPtr(new TSocketChannel(io));
+        auto channel = std::make_shared<TSocketChannel>(io);
         std::lock_guard<std::mutex> locker(mutex_);
         channels[id] = channel;
-        return channels[id];
+        return channel;
     }
 
     TSocketChannelPtr getChannelById(uint32_t id) {
@@ -202,7 +202,7 @@ private:
         assert(worker_loop != NULL);
         hio_attach(worker_loop->loop(), connio);
 
-        const TSocketChannelPtr& channel = server->addChannel(connio);
+        auto channel = server->addChannel(connio);
         channel->status = SocketChannel::CONNECTED;
 
         channel->onread = [server, &channel](Buffer* buf) {
