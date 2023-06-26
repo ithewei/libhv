@@ -96,7 +96,7 @@
 /* #undef ENABLE_UDS */
 /* #undef USE_MULTIMAP */
 
-#define WITH_WPOLL     1
+#define WITH_WEPOLL     1
 /* #undef WITH_KCP */
 
 #endif // HV_CONFIG_H_

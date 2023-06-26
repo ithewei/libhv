@@ -96,7 +96,7 @@
 #cmakedefine ENABLE_UDS     1
 #cmakedefine USE_MULTIMAP   1
 
-#cmakedefine WITH_WPOLL     1
+#cmakedefine WITH_WEPOLL    1
 #cmakedefine WITH_KCP       1
 
 #endif // HV_CONFIG_H_
