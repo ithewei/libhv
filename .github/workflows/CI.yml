@@ -37,8 +37,17 @@ jobs:
         run: |
           mkdir cmake-build-win64
           cd cmake-build-win64
-          cmake .. -G "Visual Studio 17 2022" -A x64
-          cmake --build .
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Debug
+          cmake --build . --config Debug
+          cd ..
+
+      - name: test
+        run: |
+          cd cmake-build-win64
+          start bin/Debug/http_server_test
+          bin/Debug/http_client_test
+          bin/Debug/curl -v http://127.0.0.1:8080/ping
+          bin/Debug/wrk http://127.0.0.1:8080/ping
 
   build-apple:
     name: build-apple
