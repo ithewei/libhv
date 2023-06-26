@@ -5,7 +5,12 @@
 #include "hdef.h"
 #include "hevent.h"
 
+#ifdef OS_WIN
+#include "wepoll/wepoll.h"
+#else
 #include <sys/epoll.h>
+#define epoll_close(epfd) close(epfd)
+#endif
 
 #include "array.h"
 #define EVENTS_INIT_SIZE    64
@@ -29,7 +34,7 @@ int iowatcher_init(hloop_t* loop) {
 int iowatcher_cleanup(hloop_t* loop) {
     if (loop->iowatcher == NULL) return 0;
     epoll_ctx_t* epoll_ctx = (epoll_ctx_t*)loop->iowatcher;
-    close(epoll_ctx->epfd);
+    epoll_close(epoll_ctx->epfd);
     events_cleanup(&epoll_ctx->events);
     HV_FREE(loop->iowatcher);
     return 0;

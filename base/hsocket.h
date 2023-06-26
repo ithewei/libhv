@@ -42,10 +42,6 @@ HV_INLINE int nonblocking(int sockfd) {
     return ioctlsocket(sockfd, FIONBIO, &nb);
 }
 
-#ifndef poll
-#define poll        WSAPoll
-#endif
-
 #undef  EAGAIN
 #define EAGAIN      WSAEWOULDBLOCK
 

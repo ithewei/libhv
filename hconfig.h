@@ -92,8 +92,11 @@
 /* #undef WITH_OPENSSL */
 /* #undef WITH_GNUTLS */
 /* #undef WITH_MBEDTLS */
+
 /* #undef ENABLE_UDS */
 /* #undef USE_MULTIMAP */
+
+#define WITH_WPOLL     1
 /* #undef WITH_KCP */
 
 #endif // HV_CONFIG_H_
