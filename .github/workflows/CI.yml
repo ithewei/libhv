@@ -47,7 +47,7 @@ jobs:
           start bin/Debug/http_server_test
           bin/Debug/http_client_test
           bin/Debug/curl -v http://127.0.0.1:8080/ping
-          bin/Debug/wrk http://127.0.0.1:8080/ping
+          bin/Debug/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/ping
 
   build-apple:
     name: build-apple
