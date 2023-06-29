@@ -16,17 +16,21 @@ using namespace hv;
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        printf("Usage: %s port\n", argv[0]);
+        printf("Usage: %s remote_port [remote_host]\n", argv[0]);
         return -10;
     }
-    int port = atoi(argv[1]);
+    int remote_port = atoi(argv[1]);
+    const char* remote_host = "127.0.0.1";
+    if (argc > 2) {
+        remote_host = argv[2];
+    }
 
     UdpClient cli;
-    int sockfd = cli.createsocket(port);
+    int sockfd = cli.createsocket(remote_port, remote_host);
     if (sockfd < 0) {
         return -20;
     }
-    printf("client sendto port %d, sockfd=%d ...\n", port, sockfd);
+    printf("client sendto port %d, sockfd=%d ...\n", remote_port, sockfd);
     cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
         printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
     };

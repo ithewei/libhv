@@ -19,17 +19,21 @@ using namespace hv;
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        printf("Usage: %s port\n", argv[0]);
+        printf("Usage: %s remote_port [remote_host]\n", argv[0]);
         return -10;
     }
-    int port = atoi(argv[1]);
+    int remote_port = atoi(argv[1]);
+    const char* remote_host = "127.0.0.1";
+    if (argc > 2) {
+        remote_host = argv[2];
+    }
 
     TcpClient cli;
-    int connfd = cli.createsocket(port);
+    int connfd = cli.createsocket(remote_port, remote_host);
     if (connfd < 0) {
         return -20;
     }
-    printf("client connect to port %d, connfd=%d ...\n", port, connfd);
+    printf("client connect to port %d, connfd=%d ...\n", remote_port, connfd);
     cli.onConnection = [&cli](const SocketChannelPtr& channel) {
         std::string peeraddr = channel->peeraddr();
         if (channel->isConnected()) {
