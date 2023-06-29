@@ -36,7 +36,11 @@ public:
         this->remote_host = remote_host;
         this->remote_port = remote_port;
         channel.reset(new TSocketChannel(io));
-        return channel->fd();
+        int sockfd = channel->fd();
+        if (hv_strendswith(remote_host, ".255")) {
+            udp_broadcast(sockfd, 1);
+        }
+        return sockfd;
     }
 
     int bind(int local_port, const char* local_host = "0.0.0.0") {
