@@ -115,6 +115,20 @@ SRCDIRS += $(shell find $(SRCDIR) -type d)
 override INCDIRS += $(INCDIR) $(DEPDIR) $(DEPDIR)/include
 override LIBDIRS += $(LIBDIR) $(DEPDIR)/lib $(DEPDIR)/lib/$(TARGET_PLATFORM)
 
+ALL_SRCS += $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
+ifeq ($(ALL_SRCS), )
+	ALL_SRCS = $(wildcard *.c *.cc *.cpp)
+endif
+override SRCS += $(filter-out %_test.c %_test.cc %_test.cpp, $(ALL_SRCS))
+# OBJS += $(patsubst %.c, %.o, $(SRCS))
+# OBJS += $(patsubst %.cc, %.o, $(SRCS))
+# OBJS += $(patsubst %.cpp, %.o, $(SRCS))
+OBJS := $(addsuffix .o, $(basename $(SRCS)))
+
+INSTALLED_INCS=$(addprefix $(PREFIX)/$(INCDIR)/, $(shell ls $(INCDIR)))
+INSTALLED_LIBS=$(addprefix $(PREFIX)/$(LIBDIR)/, $(shell ls $(LIBDIR)))
+INSTALLED_BINS=$(addprefix $(PREFIX)/$(BINDIR)/, $(shell ls $(BINDIR)))
+
 # CPPFLAGS
 ifeq ($(OS), Windows)
 	CPPFLAGS += -D_WIN32_WINNT=0x600
@@ -185,10 +199,16 @@ ifeq ($(ENABLE_WINDUMP), yes)
 endif
 	LDFLAGS += -Wl,-Bstatic -lstdc++ -lpthread -lm
 else
-ifeq ($(OS), Android)
-	LDFLAGS += -lstdc++ -lm -llog -ldl
+ifeq ($(filter %.cc %.cpp, $(SRCS)), )
+	LINK = $(CC)
 else
-	LDFLAGS += -lstdc++ -lpthread -lm -ldl
+	LINK = $(CXX)
+	LDFLAGS += -lstdc++
+endif
+ifeq ($(OS), Android)
+	LDFLAGS += -lm -llog -ldl
+else
+	LDFLAGS += -lpthread -lm -ldl
 	LINK_RT=$(shell echo "int main(){return 0;}" | $(CC) -x c - -lrt 2>&1)
 ifeq ($(LINK_RT), )
 	LDFLAGS += -lrt
@@ -200,19 +220,7 @@ ifeq ($(OS), Darwin)
 	LDFLAGS += -framework CoreFoundation -framework Security
 endif
 
-ALL_SRCS += $(foreach dir, $(SRCDIRS), $(wildcard $(dir)/*.c $(dir)/*.cc $(dir)/*.cpp))
-ifeq ($(ALL_SRCS), )
-	ALL_SRCS = $(wildcard *.c *.cc *.cpp)
-endif
-override SRCS += $(filter-out %_test.c %_test.cc %_test.cpp, $(ALL_SRCS))
-# OBJS += $(patsubst %.c, %.o, $(SRCS))
-# OBJS += $(patsubst %.cc, %.o, $(SRCS))
-# OBJS += $(patsubst %.cpp, %.o, $(SRCS))
-OBJS := $(addsuffix .o, $(basename $(SRCS)))
-
-INSTALLED_INCS=$(addprefix $(PREFIX)/$(INCDIR)/, $(shell ls $(INCDIR)))
-INSTALLED_LIBS=$(addprefix $(PREFIX)/$(LIBDIR)/, $(shell ls $(LIBDIR)))
-INSTALLED_BINS=$(addprefix $(PREFIX)/$(BINDIR)/, $(shell ls $(BINDIR)))
+LINK ?= $(CC)
 
 # info
 $(info $(CC_VERSION))
@@ -250,12 +258,12 @@ prepare:
 $(TARGET): $(OBJS)
 ifneq ($(findstring SHARED, $(TARGET_TYPE)), )
 ifeq ($(OS), Windows)
-	$(CC) -shared $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
+	$(LINK) -shared $^ -o $(LIBDIR)/$@.dll $(LDFLAGS) -Wl,--output-def,$(LIBDIR)/$(@).def
 else
 ifeq ($(OS), Darwin)
-	$(CC) -dynamiclib -install_name @rpath/$@.dylib $^ -o $(LIBDIR)/$@.dylib $(LDFLAGS)
+	$(LINK) -dynamiclib -install_name @rpath/$@.dylib $^ -o $(LIBDIR)/$@.dylib $(LDFLAGS)
 else
-	$(CC) -shared $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
+	$(LINK) -shared $^ -o $(LIBDIR)/$@.so $(LDFLAGS)
 endif
 endif
 endif
@@ -266,9 +274,9 @@ endif
 
 ifneq ($(findstring EXECUTABLE, $(TARGET_TYPE)), )
 ifeq ($(OS), Windows)
-	$(CC) $^ -o $(BINDIR)/$@.exe $(LDFLAGS)
+	$(LINK) $^ -o $(BINDIR)/$@.exe $(LDFLAGS)
 else
-	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS)
+	$(LINK) $^ -o $(BINDIR)/$@ $(LDFLAGS)
 endif
 endif
 
