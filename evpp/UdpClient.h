@@ -17,11 +17,14 @@ public:
         loop_ = loop ? loop : std::make_shared<EventLoop>();
         remote_port = 0;
 #if WITH_KCP
-        enable_kcp = false;
+        kcp_setting = NULL;
 #endif
     }
 
     virtual ~UdpClientEventLoopTmpl() {
+#if WITH_KCP
+        HV_FREE(kcp_setting);
+#endif
     }
 
     const EventLoopPtr& loop() {
@@ -89,8 +92,8 @@ public:
             }
         };
 #if WITH_KCP
-        if (enable_kcp) {
-            hio_set_kcp(channel->io(), &kcp_setting);
+        if (kcp_setting) {
+            hio_set_kcp(channel->io(), kcp_setting);
         }
 #endif
         return channel->startRead();
@@ -122,12 +125,14 @@ public:
 
 #if WITH_KCP
     void setKcp(kcp_setting_t* setting) {
-        if (setting) {
-            enable_kcp = true;
-            kcp_setting = *setting;
-        } else {
-            enable_kcp = false;
+        if (setting == NULL) {
+            HV_FREE(kcp_setting);
+            return;
         }
+        if (kcp_setting == NULL) {
+            HV_ALLOC_SIZEOF(kcp_setting);
+        }
+        *kcp_setting = *setting;
     }
 #endif
 
@@ -138,8 +143,7 @@ public:
     int                     remote_port;
 
 #if WITH_KCP
-    bool                    enable_kcp;
-    kcp_setting_t           kcp_setting;
+    kcp_setting_t*          kcp_setting;
 #endif
     // Callback
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onMessage;
