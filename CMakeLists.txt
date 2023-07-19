@@ -20,17 +20,17 @@ option(WITH_MQTT "compile mqtt" OFF)
 option(ENABLE_UDS "Unix Domain Socket" OFF)
 option(USE_MULTIMAP "MultiMap" OFF)
 
-option(WITH_CURL "with curl library" OFF)
+option(WITH_CURL "with curl library (deprecated)" OFF)
 option(WITH_NGHTTP2 "with nghttp2 library" OFF)
 
 option(WITH_OPENSSL "with openssl library" OFF)
 option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
 
-option(WITH_KCP "with kcp" OFF)
+option(WITH_KCP "compile event/kcp" OFF)
 
 if(WIN32)
-    option(WITH_WEPOLL "with wepoll -> use iocp" ON)
+    option(WITH_WEPOLL "compile event/wepoll -> use iocp" ON)
     option(ENABLE_WINDUMP "Windows MiniDumpWriteDump" OFF)
     option(BUILD_FOR_MT "build for /MT" OFF)
     if(BUILD_FOR_MT)
@@ -39,6 +39,12 @@ if(WIN32)
         set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT")
         set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
     endif()
+endif()
+
+message(STATUS "CMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}")
+message(STATUS "CMAKE_CURRENT_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}")
+if(NOT "${CMAKE_CURRENT_SOURCE_DIR}" STREQUAL "${CMAKE_SOURCE_DIR}")
+    set(BUILD_EXAMPLES OFF)
 endif()
 
 if(IOS)
