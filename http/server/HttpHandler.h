@@ -32,12 +32,18 @@ public:
     unsigned ssl:           1;
     unsigned keepalive:     1;
     unsigned proxy:         1;
+    unsigned upgrade:       1;
 
     // peeraddr
     char                    ip[64];
     int                     port;
 
+    // for log
+    long                    pid;
+    long                    tid;
+
     // for http
+    hio_t                   *io;
     HttpService             *service;
     HttpRequestPtr          req;
     HttpResponsePtr         resp;
@@ -65,11 +71,12 @@ public:
     uint64_t                    last_send_ping_time;
     uint64_t                    last_recv_pong_time;
 
-    HttpHandler();
+    HttpHandler(hio_t* io = NULL);
     ~HttpHandler();
 
-    bool Init(int http_version = 1, hio_t* io = NULL);
+    bool Init(int http_version = 1);
     void Reset();
+    void Close();
 
     int FeedRecvData(const char* data, size_t len);
     // @workflow: preprocessor -> api -> web -> postprocessor
@@ -81,7 +88,7 @@ public:
     bool SwitchHTTP2();
 
     // websocket
-    bool SwitchWebSocket(hio_t* io = NULL);
+    bool SwitchWebSocket();
     void WebSocketOnOpen() {
         ws_channel->status = hv::SocketChannel::CONNECTED;
         if (ws_service && ws_service->onopen) {
@@ -96,25 +103,28 @@ public:
     }
 
 private:
-    int  openFile(const char* filepath);
-    int  sendFile();
-    void closeFile();
-    bool isFileOpened();
-
     const HttpContextPtr& getHttpContext();
-    void initRequest();
+    // http_cb
     void onHeadersComplete();
+    void onMessageComplete();
 
-    // proxy
-    int proxyConnect(const std::string& url);
-    static void onProxyConnect(hio_t* upstream_io);
-
+    // default handlers
     int defaultRequestHandler();
     int defaultStaticHandler();
     int defaultLargeFileHandler();
     int defaultErrorHandler();
     int customHttpHandler(const http_handler& handler);
     int invokeHttpHandler(const http_handler* handler);
+
+    // sendfile
+    int  openFile(const char* filepath);
+    int  sendFile();
+    void closeFile();
+    bool isFileOpened();
+
+    // proxy
+    int proxyConnect(const std::string& url);
+    static void onProxyConnect(hio_t* upstream_io);
 };
 
 #endif // HV_HTTP_HANDLER_H_

@@ -150,6 +150,7 @@ struct HV_EXPORT HttpService {
      */
     int limit_rate; // limit send rate, unit: KB/s
 
+    unsigned enable_access_log      :1;
     unsigned enable_forward_proxy   :1;
 
     HttpService() {
@@ -170,6 +171,7 @@ struct HV_EXPORT HttpService {
         file_cache_expired_time = DEFAULT_FILE_CACHE_EXPIRED_TIME;
         limit_rate = -1; // unlimited
 
+        enable_access_log = 1;
         enable_forward_proxy = 0;
     }
 

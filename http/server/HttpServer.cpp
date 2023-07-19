@@ -1,19 +1,14 @@
 #include "HttpServer.h"
 
-#include "hv.h"
-#include "hmain.h"
-
-#include "httpdef.h"
-#include "http2def.h"
-#include "wsdef.h"
+#include "hmain.h" // import master_workers_run
+#include "herr.h"
+#include "hlog.h"
+#include "htime.h"
 
 #include "EventLoop.h"
 using namespace hv;
 
 #include "HttpHandler.h"
-
-#define MIN_HTTP_REQUEST        "GET / HTTP/1.1\r\n\r\n"
-#define MIN_HTTP_REQUEST_LEN    14 // exclude CRLF
 
 static void on_accept(hio_t* io);
 static void on_recv(hio_t* io, void* _buf, int readbytes);
@@ -27,171 +22,15 @@ struct HttpServerPrivdata {
     FileCache                       filecache;
 };
 
-static void on_recv(hio_t* io, void* _buf, int readbytes) {
+static void on_recv(hio_t* io, void* buf, int readbytes) {
     // printf("on_recv fd=%d readbytes=%d\n", hio_fd(io), readbytes);
-    const char* buf = (const char*)_buf;
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     assert(handler != NULL);
 
-    // HttpHandler::Init(http_version) -> upgrade ? SwitchHTTP2 / SwitchWebSocket
-    // on_recv -> FeedRecvData -> HttpRequest
-    // onComplete -> HandleRequest -> HttpResponse -> while (GetSendData) -> send
-
-    HttpHandler::ProtocolType protocol = handler->protocol;
-    if (protocol == HttpHandler::UNKNOWN) {
-        int http_version = 1;
-#if WITH_NGHTTP2
-        if (strncmp((char*)buf, HTTP2_MAGIC, MIN(readbytes, HTTP2_MAGIC_LEN)) == 0) {
-            http_version = 2;
-        }
-#else
-        // check request-line
-        if (readbytes < MIN_HTTP_REQUEST_LEN) {
-            hloge("[%s:%d] http request-line too small", handler->ip, handler->port);
-            hio_close(io);
-            return;
-        }
-        for (int i = 0; i < MIN_HTTP_REQUEST_LEN; ++i) {
-            if (!IS_GRAPH(buf[i])) {
-                hloge("[%s:%d] http request-line not plain", handler->ip, handler->port);
-                hio_close(io);
-                return;
-            }
-        }
-#endif
-        if (!handler->Init(http_version, io)) {
-            hloge("[%s:%d] unsupported HTTP%d", handler->ip, handler->port, http_version);
-            hio_close(io);
-            return;
-        }
-    }
-
-    int nfeed = handler->FeedRecvData(buf, readbytes);
+    int nfeed = handler->FeedRecvData((const char*)buf, readbytes);
     if (nfeed != readbytes) {
         hio_close(io);
         return;
-    }
-
-    hloop_t* loop = hevent_loop(io);
-    HttpParser* parser = handler->parser.get();
-    HttpRequest* req = handler->req.get();
-    HttpResponse* resp = handler->resp.get();
-
-    if (handler->proxy) {
-        return;
-    }
-
-    if (protocol == HttpHandler::WEBSOCKET) {
-        return;
-    }
-
-    if (parser->WantRecv()) {
-        return;
-    }
-
-    // Server:
-    static char s_Server[64] = {'\0'};
-    if (s_Server[0] == '\0') {
-        snprintf(s_Server, sizeof(s_Server), "httpd/%s", hv_compile_version());
-    }
-    resp->headers["Server"] = s_Server;
-
-    // Connection:
-    bool keepalive = handler->keepalive;
-    resp->headers["Connection"] = keepalive ? "keep-alive" : "close";
-
-    // Upgrade:
-    bool upgrade = false;
-    HttpHandler::ProtocolType upgrade_protocol = HttpHandler::UNKNOWN;
-    auto iter_upgrade = req->headers.find("upgrade");
-    if (iter_upgrade != req->headers.end()) {
-        upgrade = true;
-        const char* upgrade_proto = iter_upgrade->second.c_str();
-        hlogi("[%s:%d] Upgrade: %s", handler->ip, handler->port, upgrade_proto);
-        // websocket
-        if (stricmp(upgrade_proto, "websocket") == 0) {
-            /*
-            HTTP/1.1 101 Switching Protocols
-            Connection: Upgrade
-            Upgrade: websocket
-            Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
-            */
-            resp->status_code = HTTP_STATUS_SWITCHING_PROTOCOLS;
-            resp->headers["Connection"] = "Upgrade";
-            resp->headers["Upgrade"] = "websocket";
-            auto iter_key = req->headers.find(SEC_WEBSOCKET_KEY);
-            if (iter_key != req->headers.end()) {
-                char ws_accept[32] = {0};
-                ws_encode_key(iter_key->second.c_str(), ws_accept);
-                resp->headers[SEC_WEBSOCKET_ACCEPT] = ws_accept;
-            }
-            auto iter_protocol = req->headers.find(SEC_WEBSOCKET_PROTOCOL);
-            if (iter_protocol != req->headers.end()) {
-                hv::StringList subprotocols = hv::split(iter_protocol->second, ',');
-                if (subprotocols.size() > 0) {
-                    hlogw("%s: %s => just select first protocol %s", SEC_WEBSOCKET_PROTOCOL, iter_protocol->second.c_str(), subprotocols[0].c_str());
-                    resp->headers[SEC_WEBSOCKET_PROTOCOL] = subprotocols[0];
-                }
-            }
-            upgrade_protocol = HttpHandler::WEBSOCKET;
-            // NOTE: SwitchWebSocket after send handshake response
-        }
-        // h2/h2c
-        else if (strnicmp(upgrade_proto, "h2", 2) == 0) {
-            /*
-            HTTP/1.1 101 Switching Protocols
-            Connection: Upgrade
-            Upgrade: h2c
-            */
-            hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
-            if (!handler->SwitchHTTP2()) {
-                hloge("[%s:%d] unsupported HTTP2", handler->ip, handler->port);
-                hio_close(io);
-                return;
-            }
-            parser = handler->parser.get();
-        }
-        else {
-            hio_close(io);
-            return;
-        }
-    }
-
-    int status_code = 200;
-    if (parser->IsComplete() && !upgrade) {
-        status_code = handler->HandleHttpRequest();
-    }
-
-    char* data = NULL;
-    size_t len = 0;
-    while (handler->GetSendData(&data, &len)) {
-        // printf("%.*s\n", (int)len, data);
-        if (data && len) {
-            hio_write(io, data, len);
-        }
-    }
-
-    // access log
-    hlogi("[%ld-%ld][%s:%d][%s %s]=>[%d %s]",
-        hloop_pid(loop), hloop_tid(loop),
-        handler->ip, handler->port,
-        http_method_str(req->method), req->path.c_str(),
-        resp->status_code, resp->status_message());
-
-    // switch protocol to websocket
-    if (upgrade && upgrade_protocol == HttpHandler::WEBSOCKET) {
-        if (!handler->SwitchWebSocket(io)) {
-            hloge("[%s:%d] unsupported websocket", handler->ip, handler->port);
-            hio_close(io);
-            return;
-        }
-        // onopen
-        handler->WebSocketOnOpen();
-        return;
-    }
-
-    if (status_code && !keepalive) {
-        hio_close(io);
     }
 }
 
@@ -199,27 +38,13 @@ static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     if (handler == NULL) return;
 
-    // close proxy
-    if (handler->proxy) {
-        hio_close_upstream(io);
-    }
-
-    // onclose
-    if (handler->protocol == HttpHandler::WEBSOCKET) {
-        handler->WebSocketOnClose();
-    } else {
-        if (handler->writer && handler->writer->onclose) {
-            handler->writer->onclose();
-        }
-    }
+    hevent_set_userdata(io, NULL);
+    delete handler;
 
     EventLoop* loop = currentThreadEventLoop;
     if (loop) {
         --loop->connectionNum;
     }
-
-    hevent_set_userdata(io, NULL);
-    delete handler;
 }
 
 static void on_accept(hio_t* io) {
@@ -250,7 +75,7 @@ static void on_accept(hio_t* io) {
     }
 
     // new HttpHandler, delete on_close
-    HttpHandler* handler = new HttpHandler;
+    HttpHandler* handler = new HttpHandler(io);
     // ssl
     handler->ssl = hio_is_ssl(io);
     // ip:port
