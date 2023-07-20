@@ -96,7 +96,7 @@ static void loop_thread(void* userdata) {
     http_server_t* server = (http_server_t*)userdata;
     HttpService* service = server->service;
 
-    EventLoopPtr loop(new EventLoop);
+    auto loop = std::make_shared<EventLoop>();
     hloop_t* hloop = loop->loop();
     // http
     if (server->listenfd[0] >= 0) {
@@ -196,7 +196,7 @@ int http_server_run(http_server_t* server, int wait) {
     HttpServerPrivdata* privdata = new HttpServerPrivdata;
     server->privdata = privdata;
     if (server->service == NULL) {
-        privdata->service.reset(new HttpService);
+        privdata->service = std::make_shared<HttpService>();
         server->service = privdata->service.get();
     }
 

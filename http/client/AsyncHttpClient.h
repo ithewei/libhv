@@ -115,7 +115,7 @@ public:
 
     // thread-safe
     int send(const HttpRequestPtr& req, HttpResponseCallback resp_cb) {
-        HttpClientTaskPtr task(new HttpClientTask);
+        auto task = std::make_shared<HttpClientTask>();
         task->req = req;
         task->cb = std::move(resp_cb);
         task->start_time = hloop_now_hrtime(EventLoopThread::hloop());
@@ -148,7 +148,7 @@ protected:
     }
 
     const SocketChannelPtr& addChannel(hio_t* io) {
-        SocketChannelPtr channel(new SocketChannel(io));
+        auto channel = std::make_shared<SocketChannel>(io);
         channel->newContext<HttpClientContext>();
         int fd = channel->fd();
         channels[fd] = channel;

@@ -176,7 +176,7 @@ public:
     void postEvent(EventCallback cb) {
         if (loop_ == NULL) return;
 
-        EventPtr ev(new Event(cb));
+        EventPtr ev = std::make_shared<Event>(cb);
         hevent_set_userdata(&ev->event, this);
         ev->event.cb = onCustomEvent;
 

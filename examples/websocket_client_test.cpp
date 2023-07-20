@@ -42,7 +42,7 @@ public:
         setReconnect(&reconn);
 
         /*
-        HttpRequestPtr req = std::make_shared<HttpRequest>();
+        auto req = std::make_shared<HttpRequest>();
         req->method = HTTP_POST;
         req->headers["Origin"] = "http://example.com";
         req->json["app_id"] = "123456";
@@ -59,7 +59,7 @@ public:
 typedef std::shared_ptr<MyWebSocketClient> MyWebSocketClientPtr;
 
 int TestMultiClientsRunInOneEventLoop(const char* url, int nclients) {
-    EventLoopThreadPtr loop_thread(new EventLoopThread);
+    auto loop_thread = std::make_shared<EventLoopThread>();
     loop_thread->start();
 
     std::map<int, MyWebSocketClientPtr> clients;

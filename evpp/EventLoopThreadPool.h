@@ -29,16 +29,16 @@ public:
     }
 
     EventLoopPtr nextLoop(load_balance_e lb = LB_RoundRobin) {
-        int numLoops = loop_threads_.size();
+        size_t numLoops = loop_threads_.size();
         if (numLoops == 0) return NULL;
-        int idx = 0;
+        size_t idx = 0;
         if (lb == LB_RoundRobin) {
             if (++next_loop_idx_ >= numLoops) next_loop_idx_ = 0;
             idx = next_loop_idx_ % numLoops;
         } else if (lb == LB_Random) {
             idx = hv_rand(0, numLoops - 1);
         } else if (lb == LB_LeastConnections) {
-            for (int i = 1; i < numLoops; ++i) {
+            for (size_t i = 1; i < numLoops; ++i) {
                 if (loop_threads_[i]->loop()->connectionNum < loop_threads_[idx]->loop()->connectionNum) {
                     idx = i;
                 }
@@ -50,7 +50,7 @@ public:
     }
 
     EventLoopPtr loop(int idx = -1) {
-        if (idx >= 0 && idx < loop_threads_.size()) {
+        if (idx >= 0 && idx < (int)loop_threads_.size()) {
             return loop_threads_[idx]->loop();
         }
         return nextLoop();
@@ -71,12 +71,12 @@ public:
         if (status() >= kStarting && status() < kStopped) return;
         setStatus(kStarting);
 
-        std::shared_ptr<std::atomic<int>> started_cnt(new std::atomic<int>(0));
-        std::shared_ptr<std::atomic<int>> exited_cnt(new std::atomic<int>(0));
+        auto started_cnt = std::make_shared<std::atomic<int>>(0);
+        auto exited_cnt  = std::make_shared<std::atomic<int>>(0);
 
         loop_threads_.clear();
         for (int i = 0; i < thread_num_; ++i) {
-            EventLoopThreadPtr loop_thread(new EventLoopThread);
+            auto loop_thread = std::make_shared<EventLoopThread>();
             const EventLoopPtr& loop = loop_thread->loop();
             loop_thread->start(false,
                 [this, started_cnt, pre, &loop]() {

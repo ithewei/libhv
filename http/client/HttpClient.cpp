@@ -656,7 +656,7 @@ static int http_client_exec_async(http_client_t* cli, HttpRequestPtr req, HttpRe
     if (cli->async_client_ == NULL) {
         cli->mutex_.lock();
         if (cli->async_client_ == NULL) {
-            cli->async_client_.reset(new hv::AsyncHttpClient);
+            cli->async_client_ = std::make_shared<hv::AsyncHttpClient>();
         }
         cli->mutex_.unlock();
     }

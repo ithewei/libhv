@@ -59,7 +59,7 @@ public:
         hio_t* io = hio_get(loop_->loop(), connfd);
         assert(io != NULL);
         hio_set_peeraddr(io, remote_addr, SOCKADDR_LEN(remote_addr));
-        channel.reset(new TSocketChannel(io));
+        channel = std::make_shared<TSocketChannel>(io);
         return connfd;
     }
 

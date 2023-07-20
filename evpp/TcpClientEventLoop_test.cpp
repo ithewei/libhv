@@ -74,7 +74,7 @@ public:
 typedef std::shared_ptr<MyTcpClient> MyTcpClientPtr;
 
 int TestMultiClientsRunInOneEventLoop(int port, int nclients) {
-    EventLoopThreadPtr loop_thread(new EventLoopThread);
+    auto loop_thread = std::make_shared<EventLoopThread>();
     loop_thread->start();
 
     std::map<int, MyTcpClientPtr> clients;

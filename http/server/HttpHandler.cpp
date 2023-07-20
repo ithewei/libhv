@@ -55,8 +55,8 @@ bool HttpHandler::Init(int http_version) {
     if (parser == NULL) {
         return false;
     }
-    req.reset(new HttpRequest);
-    resp.reset(new HttpResponse);
+    req  = std::make_shared<HttpRequest>();
+    resp = std::make_shared<HttpResponse>();
     if(http_version == 1) {
         protocol = HTTP_V1;
     } else if (http_version == 2) {
@@ -68,7 +68,7 @@ bool HttpHandler::Init(int http_version) {
         hloop_t* loop = hevent_loop(io);
         pid = hloop_pid(loop);
         tid = hloop_tid(loop);
-        writer.reset(new hv::HttpResponseWriter(io, resp));
+        writer = std::make_shared<HttpResponseWriter>(io, resp);
         writer->status = hv::SocketChannel::CONNECTED;
     } else {
         pid = hv_getpid();
@@ -157,8 +157,8 @@ bool HttpHandler::SwitchWebSocket() {
     if(!io) return false;
 
     protocol = WEBSOCKET;
-    ws_parser.reset(new WebSocketParser);
-    ws_channel.reset(new hv::WebSocketChannel(io, WS_SERVER));
+    ws_parser  = std::make_shared<WebSocketParser>();
+    ws_channel = std::make_shared<WebSocketChannel>(io, WS_SERVER);
     ws_parser->onMessage = [this](int opcode, const std::string& msg){
         ws_channel->opcode = (enum ws_opcode)opcode;
         switch(opcode) {

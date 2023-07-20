@@ -37,7 +37,7 @@ public:
         if (io == NULL) return -1;
         this->host = host;
         this->port = port;
-        channel.reset(new TSocketChannel(io));
+        channel = std::make_shared<TSocketChannel>(io);
         return channel->fd();
     }
     // closesocket thread-safe

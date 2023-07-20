@@ -146,7 +146,7 @@ public:
     // channel
     const TSocketChannelPtr& addChannel(hio_t* io) {
         uint32_t id = hio_id(io);
-        auto channel = TSocketChannelPtr(new TSocketChannel(io));
+        auto channel = std::make_shared<TSocketChannel>(io);
         std::lock_guard<std::mutex> locker(mutex_);
         channels[id] = channel;
         return channels[id];

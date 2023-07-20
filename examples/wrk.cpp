@@ -51,7 +51,7 @@ typedef struct connection_s {
 
     connection_s()
         : parser(HttpParser::New(HTTP_CLIENT, HTTP_V1))
-        , response(new HttpResponse)
+        , response(std::make_shared<HttpResponse>())
         , request_cnt(0)
         , response_cnt(0)
         , ok_cnt(0)
@@ -211,7 +211,7 @@ int main(int argc, char** argv) {
     print_cmd();
 
     // ParseUrl
-    request.reset(new HttpRequest);
+    request = std::make_shared<HttpRequest>();
     request->url = url;
     request->ParseUrl();
     https = request->scheme == "https";

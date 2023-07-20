@@ -15,7 +15,7 @@ using namespace hv;
 
 static void test_http_async_client(HttpClient* cli, int* resp_cnt) {
     printf("test_http_async_client request thread tid=%ld\n", hv_gettid());
-    HttpRequestPtr req(new HttpRequest);
+    auto req = std::make_shared<HttpRequest>();
     req->method = HTTP_POST;
     req->url = "http://127.0.0.1:8080/echo";
     req->headers["Connection"] = "keep-alive";
@@ -101,7 +101,7 @@ static void test_requests() {
 
     // async
     /*
-    // Request req(new HttpRequest);
+    // auto req = std::make_shared<HttpRequest>();
     req->url = "http://127.0.0.1:8080/echo";
     req->method = HTTP_POST;
     req->body = "This is an async request.";

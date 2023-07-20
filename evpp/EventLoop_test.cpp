@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
     printf("main tid=%ld\n", hv_gettid());
 
-    EventLoopPtr loop(new EventLoop);
+    auto loop = std::make_shared<EventLoop>();
 
     // runEvery 1s
     loop->setInterval(1000, std::bind(onTimer, std::placeholders::_1, 100));

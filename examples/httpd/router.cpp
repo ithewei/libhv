@@ -80,7 +80,7 @@ void Router::Register(hv::HttpService& router) {
     // curl -v http://ip:port/www.*
     // curl -v http://ip:port/www.example.com
     router.GET("/www.*", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
-        HttpRequestPtr req2(new HttpRequest);
+        auto req2 = std::make_shared<HttpRequest>();
         req2->url = req->path.substr(1);
         requests::async(req2, [writer](const HttpResponsePtr& resp2){
             writer->Begin();

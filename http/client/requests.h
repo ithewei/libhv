@@ -40,13 +40,13 @@ typedef HttpResponsePtr         Response;
 typedef HttpResponseCallback    ResponseCallback;
 
 HV_INLINE Response request(Request req) {
-    Response resp(new HttpResponse);
+    auto resp = std::make_shared<HttpResponse>();
     int ret = http_client_send(req.get(), resp.get());
     return ret ? NULL : resp;
 }
 
 HV_INLINE Response request(http_method method, const char* url, const http_body& body = NoBody, const http_headers& headers = DefaultHeaders) {
-    Request req(new HttpRequest);
+    auto req = std::make_shared<HttpRequest>();
     req->method = method;
     req->url = url;
     if (&body != &NoBody) {
@@ -89,7 +89,7 @@ HV_INLINE int async(Request req, ResponseCallback resp_cb) {
 
 // Sample codes for uploading and downloading files
 HV_INLINE Response uploadFile(const char* url, const char* filepath, http_method method = HTTP_POST, const http_headers& headers = DefaultHeaders) {
-    Request req(new HttpRequest);
+    auto req = std::make_shared<HttpRequest>();
     req->method = method;
     req->url = url;
     req->timeout = 600; // 10min
@@ -102,7 +102,7 @@ HV_INLINE Response uploadFile(const char* url, const char* filepath, http_method
 
 #ifndef WITHOUT_HTTP_CONTENT
 HV_INLINE Response uploadFormFile(const char* url, const char* name, const char* filepath, std::map<std::string, std::string>& params = hv::empty_map, http_method method = HTTP_POST, const http_headers& headers = DefaultHeaders) {
-    Request req(new HttpRequest);
+    auto req = std::make_shared<HttpRequest>();
     req->method = method;
     req->url = url;
     req->timeout = 600; // 10min
@@ -128,7 +128,7 @@ HV_INLINE Response uploadLargeFile(const char* url, const char* filepath, upload
     }
 
     hv::HttpClient cli;
-    Request req(new HttpRequest);
+    auto req = std::make_shared<HttpRequest>();
     req->method = method;
     req->url = url;
     req->timeout = 3600; // 1h
@@ -172,7 +172,7 @@ HV_INLINE Response uploadLargeFile(const char* url, const char* filepath, upload
     }
 
     // recv response
-    Response resp(new HttpResponse);
+    auto resp = std::make_shared<HttpResponse>();
     ret = cli.recvResponse(resp.get());
     if (ret != 0) {
         return NULL;
@@ -192,7 +192,7 @@ HV_INLINE size_t downloadFile(const char* url, const char* filepath, download_pr
         return 0;
     }
     // download
-    Request req(new HttpRequest);
+    auto req = std::make_shared<HttpRequest>();
     req->method = HTTP_GET;
     req->url = url;
     req->timeout = 3600; // 1h

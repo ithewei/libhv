@@ -56,7 +56,7 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
             if (S_ISREG(st.st_mode) ||
                 (S_ISDIR(st.st_mode) &&
                  filepath[strlen(filepath)-1] == '/')) {
-                fc.reset(new file_cache_t);
+                fc = std::make_shared<file_cache_t>();
                 fc->filepath = filepath;
                 fc->st = st;
                 time(&fc->open_time);
