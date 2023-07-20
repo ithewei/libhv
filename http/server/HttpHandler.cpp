@@ -93,6 +93,9 @@ bool HttpHandler::Init(int http_version) {
             msg->body.append(data, size);
             return;
         case HP_MESSAGE_COMPLETE:
+            if (proxy) {
+                break;
+            }
             onMessageComplete();
             return;
         default:
@@ -241,6 +244,7 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
 }
 
 void HttpHandler::onHeadersComplete() {
+    // printf("onHeadersComplete\n");
     HttpRequest* pReq = req.get();
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
@@ -250,10 +254,10 @@ void HttpHandler::onHeadersComplete() {
     keepalive = pReq->IsKeepAlive();
 
     // NOTE: Detect proxy before ParseUrl
-    proxy = 0;
+    bool proxy = false;
     if (hv::startswith(pReq->url, "http")) {
         // forward proxy
-        proxy = 1;
+        proxy = true;
         auto iter = pReq->headers.find("Proxy-Connection");
         if (iter != pReq->headers.end()) {
             const char* keepalive_value = iter->second.c_str();
@@ -293,7 +297,6 @@ void HttpHandler::onHeadersComplete() {
         if (service && service->enable_forward_proxy) {
             proxyConnect(pReq->url);
         } else {
-            proxy = 0;
             resp->status_code = HTTP_STATUS_FORBIDDEN;
             hlogw("Forbidden to forward proxy %s", pReq->url.c_str());
         }
@@ -304,7 +307,6 @@ void HttpHandler::onHeadersComplete() {
         // reverse proxy
         std::string proxy_url = service->GetProxyUrl(pReq->path.c_str());
         if (!proxy_url.empty()) {
-            proxy = 1;
             pReq->url = proxy_url;
             proxyConnect(pReq->url);
             return;
@@ -322,6 +324,7 @@ void HttpHandler::onHeadersComplete() {
 }
 
 void HttpHandler::onMessageComplete() {
+    // printf("onMessageComplete\n");
     int status_code = 200;
 
     // Server:
@@ -334,10 +337,8 @@ void HttpHandler::onMessageComplete() {
     // Connection:
     resp->headers["Connection"] = keepalive ? "keep-alive" : "close";
 
-    // Upgrade ? SwitchHTTP2 / SwitchWebSocket : HandleHttpRequest ->
-    // while (GetSendData) -> send
+    // Upgrade ? SwitchHTTP2 / SwitchWebSocket : HandleHttpRequest -> SendHttpResponse
     upgrade = false;
-    HttpHandler::ProtocolType upgrade_protocol = HttpHandler::UNKNOWN;
     auto iter_upgrade = req->headers.find("upgrade");
     if (iter_upgrade != req->headers.end()) {
         upgrade = true;
@@ -368,8 +369,15 @@ void HttpHandler::onMessageComplete() {
                     resp->headers[SEC_WEBSOCKET_PROTOCOL] = subprotocols[0];
                 }
             }
-            upgrade_protocol = HttpHandler::WEBSOCKET;
-            // NOTE: SwitchWebSocket after send handshake response
+            SendHttpResponse();
+            // switch protocol to websocket
+            if (!SwitchWebSocket()) {
+                hloge("[%s:%d] unsupported websocket", ip, port);
+                error = ERR_INVALID_PROTOCOL;
+                return;
+            }
+            // onopen
+            WebSocketOnOpen();
         }
         // h2/h2c
         else if (strnicmp(upgrade_proto, "h2", 2) == 0) {
@@ -379,6 +387,7 @@ void HttpHandler::onMessageComplete() {
             Upgrade: h2c
             */
             if (io) hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
+            // switch protocol to http2
             if (!SwitchHTTP2()) {
                 hloge("[%s:%d] unsupported HTTP2", ip, port);
                 error = ERR_INVALID_PROTOCOL;
@@ -394,16 +403,7 @@ void HttpHandler::onMessageComplete() {
         status_code = HandleHttpRequest();
     }
 
-    if (io) {
-        char* data = NULL;
-        size_t len = 0;
-        while (GetSendData(&data, &len)) {
-            // printf("%.*s\n", (int)len, data);
-            if (data && len) {
-                hio_write(io, data, len);
-            }
-        }
-    }
+    SendHttpResponse();
 
     // access log
     if (service && service->enable_access_log) {
@@ -411,18 +411,6 @@ void HttpHandler::onMessageComplete() {
             pid, tid, ip, port,
             http_method_str(req->method), req->path.c_str(),
             resp->status_code, resp->status_message());
-    }
-
-    // switch protocol to websocket
-    if (upgrade && upgrade_protocol == HttpHandler::WEBSOCKET) {
-        if (!SwitchWebSocket()) {
-            hloge("[%s:%d] unsupported websocket", ip, port);
-            error = ERR_INVALID_PROTOCOL;
-            return;
-        }
-        // onopen
-        WebSocketOnOpen();
-        return;
     }
 
     if (status_code != HTTP_STATUS_NEXT) {
@@ -435,7 +423,7 @@ void HttpHandler::onMessageComplete() {
 }
 
 int HttpHandler::HandleHttpRequest() {
-    // preprocessor -> processor -> postprocessor
+    // preprocessor -> middleware -> processor -> postprocessor
     HttpRequest* pReq = req.get();
     HttpResponse* pResp = resp.get();
 
@@ -721,6 +709,7 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
             Reset();
         }
         nfeed = parser->FeedRecvData(data, len);
+        // printf("FeedRecvData %d=>%d\n", (int)len, nfeed);
         if (nfeed != len) {
             hloge("[%s:%d] http parse error: %s", ip, port, parser->StrError(parser->GetError()));
             error = ERR_PARSE;
@@ -841,6 +830,26 @@ return_header:
     return 0;
 }
 
+int HttpHandler::SendHttpResponse() {
+    if (!io) return -1;
+    char* data = NULL;
+    size_t len = 0, total_len = 0;
+    while (GetSendData(&data, &len)) {
+        // printf("GetSendData %d\n", (int)len);
+        if (data && len) {
+            hio_write(io, data, len);
+            total_len += len;
+        }
+    }
+    return total_len;
+}
+
+int HttpHandler::SendHttpStatusResponse(http_status status_code) {
+    resp->status_code = status_code;
+    state = WANT_SEND;
+    return SendHttpResponse();
+}
+
 int HttpHandler::openFile(const char* filepath) {
     closeFile();
     file = new LargeFile;
@@ -893,6 +902,22 @@ void HttpHandler::closeFile() {
     }
 }
 
+void HttpHandler::onProxyClose(hio_t* upstream_io) {
+    // printf("onProxyClose\n");
+    HttpHandler* handler = (HttpHandler*)hevent_userdata(upstream_io);
+    if (handler == NULL) return;
+
+    hevent_set_userdata(upstream_io, NULL);
+
+    int error = hio_error(upstream_io);
+    if (error == ETIMEDOUT) {
+        handler->SendHttpStatusResponse(HTTP_STATUS_GATEWAY_TIMEOUT);
+    }
+
+    handler->error = error;
+    hio_close_upstream(upstream_io);
+}
+
 void HttpHandler::onProxyConnect(hio_t* upstream_io) {
     // printf("onProxyConnect\n");
     HttpHandler* handler = (HttpHandler*)hevent_userdata(upstream_io);
@@ -917,18 +942,19 @@ void HttpHandler::onProxyConnect(hio_t* upstream_io) {
 
 int HttpHandler::proxyConnect(const std::string& strUrl) {
     if (!io) return ERR_NULL_POINTER;
-    hloop_t* loop = hevent_loop(io);
+    proxy = true;
 
     HUrl url;
-    if (!url.parse(strUrl)) {
-        return ERR_PARSE;
-    }
-
+    url.parse(strUrl);
     hlogi("proxy_pass %s", strUrl.c_str());
+
+    hloop_t* loop = hevent_loop(io);
     hio_t* upstream_io = hio_create_socket(loop, url.host.c_str(), url.port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (upstream_io == NULL) {
+        SendHttpStatusResponse(HTTP_STATUS_BAD_GATEWAY);
         hio_close_async(io);
-        return ERR_SOCKET;
+        error = ERR_SOCKET;
+        return error;
     }
     if (url.scheme == "https") {
         hio_enable_ssl(upstream_io);
@@ -936,7 +962,7 @@ int HttpHandler::proxyConnect(const std::string& strUrl) {
     hevent_set_userdata(upstream_io, this);
     hio_setup_upstream(io, upstream_io);
     hio_setcb_connect(upstream_io, HttpHandler::onProxyConnect);
-    hio_setcb_close(upstream_io, hio_close_upstream);
+    hio_setcb_close(upstream_io, HttpHandler::onProxyClose);
     if (service->proxy_connect_timeout > 0) {
         hio_set_connect_timeout(upstream_io, service->proxy_connect_timeout);
     }

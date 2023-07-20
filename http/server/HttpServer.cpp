@@ -163,6 +163,13 @@ static void loop_thread(void* userdata) {
     hlogi("EventLoop stopped, pid=%ld tid=%ld", hv_getpid(), hv_gettid());
 }
 
+/* @workflow:
+ * http_server_run -> Listen -> master_workers_run / hthread_create ->
+ * loop_thread -> accept -> EventLoop::run ->
+ * on_accept -> new HttpHandler -> hio_read ->
+ * on_recv -> HttpHandler::FeedRecvData ->
+ * on_close -> delete HttpHandler
+ */
 int http_server_run(http_server_t* server, int wait) {
     // http_port
     if (server->port > 0) {
@@ -218,6 +225,9 @@ int http_server_run(http_server_t* server, int wait) {
     }
 }
 
+/* @workflow:
+ * http_server_stop -> EventLoop::stop -> hthread_join
+ */
 int http_server_stop(http_server_t* server) {
     HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
     if (privdata == NULL) return 0;

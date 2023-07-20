@@ -82,11 +82,33 @@ public:
     void Reset();
     void Close();
 
+    /* @workflow:
+     * HttpServer::on_recv -> HttpHandler::FeedRecvData -> Init -> HttpParser::InitRequest -> HttpRequest::http_cb ->
+     * onHeadersComplete -> proxy ? proxyConnect -> hio_setup_upstream :
+     * onMessageComplete -> upgrade ? SwitchHTTP2 / SwitchWebSocket : HandleHttpRequest -> HttpParser::SubmitResponse ->
+     * SendHttpResponse -> while(GetSendData) hio_write ->
+     * keepalive ? Reset : Close -> hio_close
+     *
+     * @return
+     * == len:   ok
+     * == 0:     WANT_CLOSE
+     * <  0:     error
+     */
     int FeedRecvData(const char* data, size_t len);
-    // @workflow: preprocessor -> api -> web -> postprocessor
-    // @result: HttpRequest -> HttpResponse/file_cache_t
+
+    /* @workflow:
+     * preprocessor -> middleware -> processor -> postprocessor
+     *
+     * @return status_code
+     * == 0:    HANDLE_CONTINUE
+     * != 0:    HANDLE_END
+     */
     int HandleHttpRequest();
+
     int GetSendData(char** data, size_t* len);
+
+    int SendHttpResponse();
+    int SendHttpStatusResponse(http_status status_code);
 
     // HTTP2
     bool SwitchHTTP2();
@@ -129,6 +151,7 @@ private:
     // proxy
     int proxyConnect(const std::string& url);
     static void onProxyConnect(hio_t* upstream_io);
+    static void onProxyClose(hio_t* upstream_io);
 };
 
 #endif // HV_HTTP_HANDLER_H_
