@@ -22,6 +22,8 @@ using namespace hv;
 HttpHandler::HttpHandler(hio_t* io) :
     protocol(HttpHandler::UNKNOWN),
     state(WANT_RECV),
+    error(0),
+    // flags
     ssl(false),
     keepalive(true),
     proxy(false),
@@ -29,14 +31,17 @@ HttpHandler::HttpHandler(hio_t* io) :
     port(0),
     pid(0),
     tid(0),
+    // for http
     io(io),
     service(NULL),
     ws_service(NULL),
     api_handler(NULL),
-    last_send_ping_time(0),
-    last_recv_pong_time(0),
+    // for sendfile
     files(NULL),
-    file(NULL)
+    file(NULL),
+    // for websocket
+    last_send_ping_time(0),
+    last_recv_pong_time(0)
 {
     // Init();
 }
@@ -72,6 +77,7 @@ bool HttpHandler::Init(int http_version) {
     parser->InitRequest(req.get());
     // NOTE: hook http_cb
     req->http_cb = [this](HttpMessage* msg, http_parser_state state, const char* data, size_t size) {
+        if (this->state == WANT_CLOSE || this->error != 0) return;
         switch (state) {
         case HP_HEADERS_COMPLETE:
             onHeadersComplete();
@@ -98,6 +104,7 @@ bool HttpHandler::Init(int http_version) {
 
 void HttpHandler::Reset() {
     state = WANT_RECV;
+    error = 0;
     req->Reset();
     resp->Reset();
     ctx = NULL;
@@ -361,13 +368,13 @@ void HttpHandler::onMessageComplete() {
             if (io) hio_write(io, HTTP2_UPGRADE_RESPONSE, strlen(HTTP2_UPGRADE_RESPONSE));
             if (!SwitchHTTP2()) {
                 hloge("[%s:%d] unsupported HTTP2", ip, port);
-                if (io) hio_close(io);
+                error = ERR_INVALID_PROTOCOL;
                 return;
             }
         }
         else {
             hloge("[%s:%d] unsupported Upgrade: %s", upgrade_proto);
-            if (io) hio_close(io);
+            error = ERR_INVALID_PROTOCOL;
             return;
         }
     } else {
@@ -397,7 +404,7 @@ void HttpHandler::onMessageComplete() {
     if (upgrade && upgrade_protocol == HttpHandler::WEBSOCKET) {
         if (!SwitchWebSocket()) {
             hloge("[%s:%d] unsupported websocket", ip, port);
-            if (io) hio_close(io);
+            error = ERR_INVALID_PROTOCOL;
             return;
         }
         // onopen
@@ -409,7 +416,7 @@ void HttpHandler::onMessageComplete() {
         if (keepalive) {
             Reset();
         } else {
-            if (io) hio_close(io);
+            state = WANT_CLOSE;
         }
     }
 }
@@ -665,7 +672,6 @@ int HttpHandler::defaultErrorHandler() {
 }
 
 int HttpHandler::FeedRecvData(const char* data, size_t len) {
-    int nfeed = 0;
     if (protocol == HttpHandler::UNKNOWN) {
         int http_version = 1;
 #if WITH_NGHTTP2
@@ -676,21 +682,25 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
         // check request-line
         if (len < MIN_HTTP_REQUEST_LEN) {
             hloge("[%s:%d] http request-line too small", ip, port);
-            return 0;
+            error = ERR_REQUEST;
+            return -1;
         }
         for (int i = 0; i < MIN_HTTP_REQUEST_LEN; ++i) {
             if (!IS_GRAPH(data[i])) {
                 hloge("[%s:%d] http request-line not plain", ip, port);
-                return 0;
+                error = ERR_REQUEST;
+                return -1;
             }
         }
 #endif
         if (!Init(http_version)) {
             hloge("[%s:%d] unsupported HTTP%d", ip, port, http_version);
-            return 0;
+            error = ERR_INVALID_PROTOCOL;
+            return -1;
         }
     }
 
+    int nfeed = 0;
     switch (protocol) {
     case HttpHandler::HTTP_V1:
     case HttpHandler::HTTP_V2:
@@ -700,20 +710,26 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
         nfeed = parser->FeedRecvData(data, len);
         if (nfeed != len) {
             hloge("[%s:%d] http parse error: %s", ip, port, parser->StrError(parser->GetError()));
+            error = ERR_PARSE;
+            return -1;
         }
         break;
     case HttpHandler::WEBSOCKET:
         nfeed = ws_parser->FeedRecvData(data, len);
         if (nfeed != len) {
             hloge("[%s:%d] websocket parse error!", ip, port);
+            error = ERR_PARSE;
+            return -1;
         }
         break;
     default:
         hloge("[%s:%d] unknown protocol", ip, port);
-        return 0;
+        error = ERR_INVALID_PROTOCOL;
+        return -1;
     }
 
-    return nfeed;
+    if (state == WANT_CLOSE) return 0;
+    return error ? -1 : nfeed;
 }
 
 int HttpHandler::GetSendData(char** data, size_t* len) {
@@ -835,6 +851,7 @@ int HttpHandler::sendFile() {
     size_t nread = file->read(file->buf.base, readbytes);
     if (nread <= 0) {
         hloge("read file error!");
+        error = ERR_READ_FILE;
         writer->close(true);
         return nread;
     }

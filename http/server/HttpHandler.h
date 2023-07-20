@@ -26,7 +26,11 @@ public:
         SEND_HEADER,
         SEND_BODY,
         SEND_DONE,
+        WANT_CLOSE,
     } state;
+
+    // errno
+    int                     error;
 
     // flags
     unsigned ssl:           1;
