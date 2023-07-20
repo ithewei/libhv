@@ -19,6 +19,9 @@ using namespace hv;
 #define MIN_HTTP_REQUEST        "GET / HTTP/1.1\r\n\r\n"
 #define MIN_HTTP_REQUEST_LEN    14 // exclude CRLF
 
+#define HTTP_100_CONTINUE_RESPONSE      "HTTP/1.1 100 Continue\r\n\r\n"
+#define HTTP_100_CONTINUE_RESPONSE_LEN  25
+
 HttpHandler::HttpHandler(hio_t* io) :
     protocol(HttpHandler::UNKNOWN),
     state(WANT_RECV),
@@ -294,19 +297,28 @@ void HttpHandler::onHeadersComplete() {
             resp->status_code = HTTP_STATUS_FORBIDDEN;
             hlogw("Forbidden to forward proxy %s", pReq->url.c_str());
         }
+        return;
     }
-    else if (service && service->proxies.size() != 0) {
+
+    if (service && service->proxies.size() != 0) {
         // reverse proxy
         std::string proxy_url = service->GetProxyUrl(pReq->path.c_str());
         if (!proxy_url.empty()) {
             proxy = 1;
             pReq->url = proxy_url;
             proxyConnect(pReq->url);
+            return;
         }
     }
-    else {
-        // TODO: rewrite
+
+    // Expect: 100-continue
+    auto iter = pReq->headers.find("Expect");
+    if (iter != pReq->headers.end() &&
+        stricmp(iter->second.c_str(), "100-continue") == 0) {
+        if (io) hio_write(io, HTTP_100_CONTINUE_RESPONSE, HTTP_100_CONTINUE_RESPONSE_LEN);
     }
+
+    // TODO: rewrite
 }
 
 void HttpHandler::onMessageComplete() {
