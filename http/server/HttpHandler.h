@@ -56,6 +56,17 @@ public:
     HttpContextPtr          ctx;
     http_handler*           api_handler;
 
+    // for GetSendData
+    std::string             header;
+    // std::string          body;
+
+    // for websocket
+    WebSocketService*       ws_service;
+    WebSocketChannelPtr     ws_channel;
+    WebSocketParserPtr      ws_parser;
+    uint64_t                last_send_ping_time;
+    uint64_t                last_recv_pong_time;
+
     // for sendfile
     FileCache               *files;
     file_cache_ptr          fc; // cache small file
@@ -63,17 +74,6 @@ public:
         HBuf                buf;
         uint64_t            timer;
     } *file; // for large file
-
-    // for GetSendData
-    std::string             header;
-    // std::string          body;
-
-    // for websocket
-    WebSocketService*           ws_service;
-    WebSocketChannelPtr         ws_channel;
-    WebSocketParserPtr          ws_parser;
-    uint64_t                    last_send_ping_time;
-    uint64_t                    last_recv_pong_time;
 
     HttpHandler(hio_t* io = NULL);
     ~HttpHandler();

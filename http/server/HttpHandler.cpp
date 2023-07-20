@@ -28,20 +28,21 @@ HttpHandler::HttpHandler(hio_t* io) :
     keepalive(true),
     proxy(false),
     upgrade(false),
+    ip{'\0'},
     port(0),
     pid(0),
     tid(0),
     // for http
     io(io),
     service(NULL),
-    ws_service(NULL),
     api_handler(NULL),
+    // for websocket
+    ws_service(NULL),
+    last_send_ping_time(0),
+    last_recv_pong_time(0),
     // for sendfile
     files(NULL),
-    file(NULL),
-    // for websocket
-    last_send_ping_time(0),
-    last_recv_pong_time(0)
+    file(NULL)
 {
     // Init();
 }
