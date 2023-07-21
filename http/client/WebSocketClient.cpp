@@ -149,7 +149,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                     {
                         // printf("recv ping\n");
                         // printf("send pong\n");
-                        channel->sendPong();
+                        channel->send(msg, WS_OPCODE_PONG);
                         break;
                     }
                     case WS_OPCODE_PONG:

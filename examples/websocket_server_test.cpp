@@ -4,6 +4,7 @@
  * @build   make examples
  * @server  bin/websocket_server_test 9999
  * @client  bin/websocket_client_test ws://127.0.0.1:9999/
+ * @python  scripts/websocket_server.py
  * @js      html/websocket_client.html
  *
  */
@@ -61,6 +62,7 @@ int main(int argc, char** argv) {
     });
 
     WebSocketService ws;
+    // ws.setPingInterval(10000);
     ws.onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
         printf("onopen: GET %s\n", req->Path().c_str());
         auto ctx = channel->newContextPtr<MyContext>();

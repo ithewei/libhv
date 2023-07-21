@@ -5,6 +5,7 @@
  * @server  bin/websocket_server_test 8888
  * @client  bin/websocket_client_test ws://127.0.0.1:8888/test
  * @clients bin/websocket_client_test ws://127.0.0.1:8888/test 100
+ * @python  scripts/websocket_server.py
  * @js      html/websocket_client.html
  *
  */
@@ -32,6 +33,9 @@ public:
         onclose = []() {
             printf("onclose\n");
         };
+
+        // ping
+        setPingInterval(10000);
 
         // reconnect: 1,2,4,8,10,10,10...
         reconn_setting_t reconn;

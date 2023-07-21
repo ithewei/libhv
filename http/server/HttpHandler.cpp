@@ -175,7 +175,7 @@ bool HttpHandler::SwitchWebSocket() {
         case WS_OPCODE_PING:
             // printf("recv ping\n");
             // printf("send pong\n");
-            ws_channel->sendPong();
+            ws_channel->send(msg, WS_OPCODE_PONG);
             break;
         case WS_OPCODE_PONG:
             // printf("recv pong\n");
