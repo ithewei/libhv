@@ -133,6 +133,8 @@ struct HV_EXPORT HttpService {
     // proxy service (that is http.ProxyServer)
     // nginx: location => proxy_pass
     std::map<std::string, std::string, std::greater<std::string>> proxies;
+    StringList  trustProxies;
+    StringList  noProxies;
     int proxy_connect_timeout;
     int proxy_read_timeout;
     int proxy_write_timeout;
@@ -189,6 +191,9 @@ struct HV_EXPORT HttpService {
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
     void AllowCORS();
 
+    // proxy
+    void AddTrustProxy(const char* host);
+    void AddNoProxy(const char* host);
     // forward proxy
     void EnableForwardProxy() { enable_forward_proxy = 1; }
     // reverse proxy

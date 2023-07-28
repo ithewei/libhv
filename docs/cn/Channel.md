@@ -129,7 +129,7 @@ class SocketChannel : public Channel {
     // 返回本地地址
     std::string localaddr();
 
-    // 返回对段地址
+    // 返回对端地址
     std::string peeraddr();
 };
 

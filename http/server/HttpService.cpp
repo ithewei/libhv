@@ -171,6 +171,14 @@ std::string HttpService::GetProxyUrl(const char* path) {
     return url;
 }
 
+void HttpService::AddTrustProxy(const char* host) {
+    trustProxies.emplace_back(host);
+}
+
+void HttpService::AddNoProxy(const char* host) {
+    noProxies.emplace_back(host);
+}
+
 void HttpService::AllowCORS() {
     Use(HttpMiddleware::CORS);
 }

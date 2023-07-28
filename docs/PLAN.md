@@ -14,7 +14,6 @@
 - wintls: SChannel is so hard :) need help
 - Path router: optimized matching via trie?
 - FileCache use LRUCache
-- HTTP TrustProxies
 
 ## Plan
 
