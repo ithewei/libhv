@@ -220,14 +220,11 @@ HV_INLINE size_t downloadFile(const char* url, const char* filepath, download_pr
         return 0;
     }
     // check filesize
-    if (content_length != 0) {
-        if (hv_filesize(filepath_download.c_str()) == content_length) {
-            rename(filepath_download.c_str(), filepath);
-        } else {
-            remove(filepath_download.c_str());
-            return 0;
-        }
+    if (content_length != 0 && hv_filesize(filepath_download.c_str()) != content_length) {
+        remove(filepath_download.c_str());
+        return 0;
     }
+    rename(filepath_download.c_str(), filepath);
     return hv_filesize(filepath);
 }
 
