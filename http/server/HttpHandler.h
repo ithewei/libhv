@@ -33,10 +33,13 @@ public:
     int                     error;
 
     // flags
-    unsigned ssl:           1;
-    unsigned keepalive:     1;
-    unsigned proxy:         1;
-    unsigned upgrade:       1;
+    unsigned ssl                :1;
+    unsigned keepalive          :1;
+    unsigned upgrade            :1;
+    unsigned proxy              :1;
+    unsigned proxy_connected    :1;
+    unsigned forward_proxy      :1;
+    unsigned reverse_proxy      :1;
 
     // peeraddr
     char                    ip[64];
@@ -69,11 +72,15 @@ public:
 
     // for sendfile
     FileCache               *files;
-    file_cache_ptr          fc; // cache small file
+    file_cache_ptr          fc;     // cache small file
     struct LargeFile : public HFile {
-        HBuf                buf;
-        uint64_t            timer;
-    } *file; // for large file
+        HBuf        buf;
+        uint64_t    timer;
+    }                       *file;  // for large file
+
+    // for proxy
+    std::string             proxy_host;
+    int                     proxy_port;
 
     HttpHandler(hio_t* io = NULL);
     ~HttpHandler();
@@ -84,8 +91,8 @@ public:
 
     /* @workflow:
      * HttpServer::on_recv -> HttpHandler::FeedRecvData -> Init -> HttpParser::InitRequest -> HttpRequest::http_cb ->
-     * onHeadersComplete -> proxy ? proxyConnect -> hio_setup_upstream :
-     * onMessageComplete -> upgrade ? SwitchHTTP2 / SwitchWebSocket : HandleHttpRequest -> HttpParser::SubmitResponse ->
+     * onHeadersComplete -> proxy ? handleProxy -> connectProxy :
+     * onMessageComplete -> upgrade ? handleUpgrade : HandleHttpRequest -> HttpParser::SubmitResponse ->
      * SendHttpResponse -> while(GetSendData) hio_write ->
      * keepalive ? Reset : Close -> hio_close
      *
@@ -107,7 +114,7 @@ public:
 
     int GetSendData(char** data, size_t* len);
 
-    int SendHttpResponse();
+    int SendHttpResponse(bool submit = true);
     int SendHttpStatusResponse(http_status status_code);
 
     // HTTP2
@@ -128,10 +135,22 @@ public:
         }
     }
 
+    int SetError(int error_code, http_status status_code = HTTP_STATUS_BAD_REQUEST) {
+        error = error_code;
+        if (resp) resp->status_code = status_code;
+        return error;
+    }
+
 private:
-    const HttpContextPtr& getHttpContext();
+    const HttpContextPtr& context();
+    void  handleRequestHeaders();
+    // Expect: 100-continue
+    void  handleExpect100();
+    void  addResponseHeaders();
+
     // http_cb
     void onHeadersComplete();
+    void onBody(const char* data, size_t size);
     void onMessageComplete();
 
     // default handlers
@@ -148,8 +167,18 @@ private:
     void closeFile();
     bool isFileOpened();
 
+    // upgrade
+    int handleUpgrade(const char* upgrade_protocol);
+    int upgradeWebSocket();
+    int upgradeHTTP2();
+
     // proxy
-    int proxyConnect(const std::string& url);
+    int handleProxy();
+    int handleForwardProxy();
+    int handleReverseProxy();
+    int connectProxy(const std::string& url);
+    int closeProxy();
+    int sendProxyRequest();
     static void onProxyConnect(hio_t* upstream_io);
     static void onProxyClose(hio_t* upstream_io);
 };
