@@ -31,7 +31,7 @@ but simpler api and richer protocols.
 - RUDP support: WITH_KCP
 - SSL/TLS support: (via WITH_OPENSSL or WITH_GNUTLS or WITH_MBEDTLS)
 - HTTP client/server (support https http1/x http2 grpc)
-- HTTP supports static service, indexof service, proxy service, sync/async API handler
+- HTTP supports static service, indexof service, forward/reverse proxy service, sync/async API handler
 - HTTP supports RESTful, router, middleware, keep-alive, chunked, SSE, etc.
 - WebSocket client/server
 - MQTT client
