@@ -45,6 +45,12 @@ class HttpService {
     // 允许跨域访问
     void AllowCORS();
 
+    // 添加可信代理 (代理白名单)
+    void AddTrustProxy(const char* host);
+
+    // 添加不可信代理 (代理黑名单)
+    void AddNoProxy(const char* host);
+
     // 开启正向转发代理
     void EnableForwardProxy();
 

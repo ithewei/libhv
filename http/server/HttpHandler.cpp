@@ -341,11 +341,10 @@ void HttpHandler::handleRequestHeaders() {
     keepalive = pReq->IsKeepAlive();
 
     // proxy
-    proxy = 0;
+    proxy = forward_proxy = reverse_proxy = 0;
     if (hv::startswith(pReq->url, "http")) {
         // forward proxy
-        proxy = 1;
-        forward_proxy = 1;
+        proxy = forward_proxy = 1;
         auto iter = pReq->headers.find("Proxy-Connection");
         if (iter != pReq->headers.end()) {
             const char* keepalive_value = iter->second.c_str();
@@ -369,8 +368,7 @@ void HttpHandler::handleRequestHeaders() {
         std::string proxy_url = service->GetProxyUrl(pReq->path.c_str());
         if (!proxy_url.empty()) {
             pReq->url = proxy_url;
-            proxy = 1;
-            reverse_proxy = 1;
+            proxy = reverse_proxy = 1;
         }
     }
 
@@ -984,9 +982,8 @@ int HttpHandler::handleForwardProxy() {
     if (service && service->enable_forward_proxy) {
         return connectProxy(req->url);
     } else {
-        proxy = 0;
-        SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
         hlogw("Forbidden to forward proxy %s", req->url.c_str());
+        SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
     }
     return 0;
 }
@@ -1036,8 +1033,8 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
         }
     }
     if (!allow_proxy) {
-        SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
         hlogw("Forbidden to proxy %s", url.host.c_str());
+        SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
         return 0;
     }
 
