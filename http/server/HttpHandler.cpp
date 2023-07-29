@@ -1014,25 +1014,7 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
         }
     }
 
-    bool allow_proxy = true;
-    if (service && service->trustProxies.size() != 0) {
-        allow_proxy = false;
-        for (const auto& trust_proxy : service->trustProxies) {
-            if (trust_proxy == url.host) {
-                allow_proxy = true;
-                break;
-            }
-        }
-    }
-    if (service && service->noProxies.size() != 0) {
-        for (const auto& no_proxy : service->noProxies) {
-            if (no_proxy == url.host) {
-                allow_proxy = false;
-                break;
-            }
-        }
-    }
-    if (!allow_proxy) {
+    if (!service || !service->IsTrustProxy(url.host.c_str())) {
         hlogw("Forbidden to proxy %s", url.host.c_str());
         SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
         return 0;

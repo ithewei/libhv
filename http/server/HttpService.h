@@ -194,6 +194,7 @@ struct HV_EXPORT HttpService {
     // proxy
     void AddTrustProxy(const char* host);
     void AddNoProxy(const char* host);
+    bool IsTrustProxy(const char* host);
     // forward proxy
     void EnableForwardProxy() { enable_forward_proxy = 1; }
     // reverse proxy

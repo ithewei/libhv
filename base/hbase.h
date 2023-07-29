@@ -63,6 +63,7 @@ HV_EXPORT char* hv_strreverse(char* str);
 HV_EXPORT bool hv_strstartswith(const char* str, const char* start);
 HV_EXPORT bool hv_strendswith(const char* str, const char* end);
 HV_EXPORT bool hv_strcontains(const char* str, const char* sub);
+HV_EXPORT bool hv_wildcard_match(const char* str, const char* pattern);
 
 // strncpy n = sizeof(dest_buf)-1
 // hv_strncpy n = sizeof(dest_buf)

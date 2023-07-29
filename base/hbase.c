@@ -167,6 +167,24 @@ bool hv_strcontains(const char* str, const char* sub) {
     return strstr(str, sub) != NULL;
 }
 
+bool hv_wildcard_match(const char* str, const char* pattern) {
+    assert(str != NULL && pattern != NULL);
+    bool match = false;
+    while (*str && *pattern) {
+        if (*pattern == '*') {
+            match = hv_strendswith(str, pattern + 1);
+            break;
+        } else if (*str != *pattern) {
+            match = false;
+            break;
+        } else {
+            ++str;
+            ++pattern;
+        }
+    }
+    return match ? match : (*str == '\0' && *pattern == '\0');
+}
+
 char* hv_strnchr(const char* s, char c, size_t n) {
     assert(s != NULL);
     const char* p = s;

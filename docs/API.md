@@ -107,6 +107,7 @@
 - hv_strstartswith
 - hv_strendswith
 - hv_strcontains
+- hv_wildcard_match
 - hv_strnchr
 - hv_strrchr_dot
 - hv_strrchr_dir

@@ -179,6 +179,29 @@ void HttpService::AddNoProxy(const char* host) {
     noProxies.emplace_back(host);
 }
 
+bool HttpService::IsTrustProxy(const char* host) {
+    if (!host || *host == '\0') return false;
+    bool trust = true;
+    if (trustProxies.size() != 0) {
+        trust = false;
+        for (const auto& trust_proxy : trustProxies) {
+            if (hv_wildcard_match(host, trust_proxy.c_str())) {
+                trust = true;
+                break;
+            }
+        }
+    }
+    if (noProxies.size() != 0) {
+        for (const auto& no_proxy : noProxies) {
+            if (hv_wildcard_match(host, no_proxy.c_str())) {
+                trust = false;
+                break;
+            }
+        }
+    }
+    return trust;
+}
+
 void HttpService::AllowCORS() {
     Use(HttpMiddleware::CORS);
 }
