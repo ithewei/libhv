@@ -33,7 +33,7 @@ void* hv_malloc(size_t size) {
 
 void* hv_realloc(void* oldptr, size_t newsize, size_t oldsize) {
     hatomic_inc(&s_alloc_cnt);
-    hatomic_inc(&s_free_cnt);
+    if (oldptr) hatomic_inc(&s_free_cnt);
     void* ptr = realloc(oldptr, newsize);
     if (!ptr) {
         fprintf(stderr, "realloc failed!\n");
