@@ -102,8 +102,7 @@ void hio_ready(hio_t* io) {
     io->last_read_hrtime = io->last_write_hrtime = io->loop->cur_hrtime;
     // readbuf
     io->alloced_readbuf = 0;
-    io->readbuf.base = io->loop->readbuf.base;
-    io->readbuf.len = io->loop->readbuf.len;
+    hio_use_loop_readbuf(io);
     io->readbuf.head = io->readbuf.tail = 0;
     io->read_flags = 0;
     io->read_until_length = 0;
