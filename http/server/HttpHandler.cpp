@@ -1014,7 +1014,7 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
         }
     }
 
-    if (!service || !service->IsTrustProxy(url.host.c_str())) {
+    if (forward_proxy && !service->IsTrustProxy(url.host.c_str())) {
         hlogw("Forbidden to proxy %s", url.host.c_str());
         SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
         return 0;

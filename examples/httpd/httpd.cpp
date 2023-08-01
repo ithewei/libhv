@@ -170,6 +170,11 @@ int parse_confile(const char* confile) {
     if (str.size() != 0) {
         g_http_service.index_of = str;
     }
+    // keepalive_timeout
+    str = ini.GetValue("keepalive_timeout");
+    if (str.size() != 0) {
+        g_http_service.keepalive_timeout = atoi(str.c_str());
+    }
     // limit_rate
     str = ini.GetValue("limit_rate");
     if (str.size() != 0) {
@@ -178,9 +183,6 @@ int parse_confile(const char* confile) {
     // cors
     if (ini.Get<bool>("cors")) {
         g_http_service.AllowCORS();
-    }
-    if (ini.Get<bool>("forward_proxy")) {
-        g_http_service.EnableForwardProxy();
     }
     // ssl
     if (g_http_server.https_port > 0) {
@@ -200,6 +202,52 @@ int parse_confile(const char* confile) {
         }
         else {
             hlogi("SSL certificate verify ok!");
+        }
+    }
+    // proxy
+    auto proxy_keys = ini.GetKeys("proxy");
+    for (const auto& proxy_key : proxy_keys) {
+        str = ini.GetValue(proxy_key, "proxy");
+        if (str.empty()) continue;
+        if (proxy_key[0] == '/') {
+            // reverse proxy
+            const std::string& path = proxy_key;
+            std::string proxy_url = hv::ltrim(str, "> ");
+            hlogi("reverse_proxy %s => %s", path.c_str(), proxy_url.c_str());
+            g_http_service.Proxy(path.c_str(), proxy_url.c_str());
+        }
+        else if (strcmp(proxy_key.c_str(), "proxy_connect_timeout") == 0) {
+            g_http_service.proxy_connect_timeout = atoi(str.c_str());
+        }
+        else if (strcmp(proxy_key.c_str(), "proxy_read_timeout") == 0) {
+            g_http_service.proxy_read_timeout = atoi(str.c_str());
+        }
+        else if (strcmp(proxy_key.c_str(), "proxy_write_timeout") == 0) {
+            g_http_service.proxy_write_timeout = atoi(str.c_str());
+        }
+        else if (strcmp(proxy_key.c_str(), "forward_proxy") == 0) {
+            hlogi("forward_proxy = %s", str.c_str());
+            if (hv_getboolean(str.c_str())) {
+                g_http_service.EnableForwardProxy();
+            }
+        }
+        else if (strcmp(proxy_key.c_str(), "trust_proxies") == 0) {
+            auto trust_proxies = hv::split(str, ';');
+            for (auto trust_proxy : trust_proxies) {
+                trust_proxy = hv::trim(trust_proxy);
+                if (trust_proxy.empty()) continue;
+                hlogi("trust_proxy %s", trust_proxy.c_str());
+                g_http_service.AddTrustProxy(trust_proxy.c_str());
+            }
+        }
+        else if (strcmp(proxy_key.c_str(), "no_proxies") == 0) {
+            auto no_proxies = hv::split(str, ';');
+            for (auto no_proxy : no_proxies) {
+                no_proxy = hv::trim(no_proxy);
+                if (no_proxy.empty()) continue;
+                hlogi("no_proxy %s", no_proxy.c_str());
+                g_http_service.AddNoProxy(no_proxy.c_str());
+            }
         }
     }
 
