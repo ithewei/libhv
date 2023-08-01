@@ -8,6 +8,7 @@
 
 #include "herr.h"
 #include "hlog.h"
+#include "htime.h"
 #include "hstring.h"
 #include "hsocket.h"
 #include "hssl.h"
@@ -38,6 +39,7 @@ struct http_client_s {
 #endif
     // for sync
     int             fd;
+    unsigned int    keepalive_requests;
     hssl_t          ssl;
     hssl_ctx_t      ssl_ctx;
     bool            alloced_ssl_ctx;
@@ -57,6 +59,7 @@ struct http_client_s {
         curl = NULL;
 #endif
         fd = -1;
+        keepalive_requests = 0;
         ssl = NULL;
         ssl_ctx = NULL;
         alloced_ssl_ctx = false;
@@ -249,6 +252,7 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
     }
 
     cli->fd = connfd;
+    cli->keepalive_requests = 0;
     return connfd;
 }
 
@@ -281,20 +285,30 @@ int http_client_recv_data(http_client_t* cli, char* data, int size) {
 static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     // connect -> send -> recv -> http_parser
     int err = 0;
-    int timeout = req->timeout;
     int connfd = cli->fd;
     bool https = req->IsHttps() && !req->IsProxy();
     bool keepalive = true;
 
-    time_t start_time = time(NULL);
-    time_t cur_time;
-    int fail_cnt = 0;
-    if (connfd <= 0) {
-connect:
-        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, MIN(req->connect_timeout, req->timeout));
-        if (connfd < 0) {
-            return connfd;
-        }
+    time_t connect_timeout = MIN(req->connect_timeout, req->timeout);
+    time_t timeout_ms = req->timeout * 1000;
+    time_t start_time = gettick_ms();
+    time_t cur_time = start_time, left_time = INFINITE;
+
+#define CHECK_TIMEOUT                                           \
+    do {                                                        \
+        if (timeout_ms > 0) {                                   \
+            cur_time = gettick_ms();                            \
+            if (cur_time - start_time >= timeout_ms) {          \
+                goto timeout;                                   \
+            }                                                   \
+            left_time = timeout_ms - (cur_time - start_time);   \
+        }                                                       \
+    } while(0);
+
+    uint32_t retry_count = req->retry_count;
+    if (cli->keepalive_requests > 0 && retry_count == 0) {
+        // maybe keep-alive timeout, retry at least once
+        retry_count = 1;
     }
 
     if (cli->parser == NULL) {
@@ -304,6 +318,15 @@ connect:
             return ERR_NULL_POINTER;
         }
     }
+
+    if (connfd <= 0) {
+connect:
+        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, connect_timeout);
+        if (connfd < 0) {
+            return connfd;
+        }
+    }
+
     cli->parser->SubmitRequest(req);
     char recvbuf[1024] = {0};
     int total_nsend, nsend, nrecv;
@@ -314,21 +337,19 @@ send:
     while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
         while (total_nsend < len) {
-            if (timeout > 0) {
-                cur_time = time(NULL);
-                if (cur_time - start_time >= timeout) {
-                    return ERR_TASK_TIMEOUT;
-                }
-                so_sndtimeo(cli->fd, (timeout-(cur_time-start_time)) * 1000);
+            CHECK_TIMEOUT
+            if (left_time != INFINITE) {
+                so_sndtimeo(cli->fd, left_time);
             }
             nsend = http_client_send_data(cli, data + total_nsend, len - total_nsend);
             if (nsend <= 0) {
+                CHECK_TIMEOUT
                 err = socket_errno();
                 if (err == EINTR) continue;
-                if (++fail_cnt == 1) {
-                    // maybe keep-alive timeout, try again
+                if (retry_count-- > 0 && left_time > req->retry_delay + connect_timeout * 1000) {
                     cli->Close();
                     err = 0;
+                    if (req->retry_delay > 0) hv_msleep(req->retry_delay);
                     goto connect;
                 }
                 goto disconnect;
@@ -340,25 +361,23 @@ send:
     cli->parser->InitResponse(resp);
 recv:
     do {
-        if (timeout > 0) {
-            cur_time = time(NULL);
-            if (cur_time - start_time >= timeout) {
-                return ERR_TASK_TIMEOUT;
-            }
-            so_rcvtimeo(cli->fd, (timeout-(cur_time-start_time)) * 1000);
+        CHECK_TIMEOUT
+        if (left_time != INFINITE) {
+            so_rcvtimeo(cli->fd, left_time);
         }
         nrecv = http_client_recv_data(cli, recvbuf, sizeof(recvbuf));
         if (nrecv <= 0) {
+            CHECK_TIMEOUT
             err = socket_errno();
             if (err == EINTR) continue;
             if (cli->parser->IsEof()) {
                 err = 0;
                 goto disconnect;
             }
-            if (++fail_cnt == 1) {
-                // maybe keep-alive timeout, try again
+            if (retry_count-- > 0 && left_time > req->retry_delay + connect_timeout * 1000) {
                 cli->Close();
                 err = 0;
+                if (req->retry_delay > 0) hv_msleep(req->retry_delay);
                 goto connect;
             }
             goto disconnect;
@@ -370,10 +389,14 @@ recv:
     } while(!cli->parser->IsComplete());
 
     keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
-    if (!keepalive) {
+    if (keepalive) {
+        ++cli->keepalive_requests;
+    } else {
         cli->Close();
     }
     return 0;
+timeout:
+    err = ERR_TASK_TIMEOUT;
 disconnect:
     cli->Close();
     return err;

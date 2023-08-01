@@ -391,8 +391,8 @@ public:
     // for HttpClient
     uint16_t            timeout;        // unit: s
     uint16_t            connect_timeout;// unit: s
-    uint32_t            retry_count;    // just for AsyncHttpClient fail retry
-    uint32_t            retry_delay;    // just for AsyncHttpClient fail retry
+    uint32_t            retry_count;
+    uint32_t            retry_delay;    // unit: ms
     unsigned            redirect: 1;
     unsigned            proxy   : 1;
 
