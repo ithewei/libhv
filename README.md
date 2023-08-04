@@ -2,15 +2,19 @@ English | [中文](README-CN.md)
 
 # libhv
 
-[![platform](https://img.shields.io/badge/platform-linux%20%7C%20windows%20%7C%20macos-blue)](.github/workflows/CI.yml)
-[![CI](https://github.com/ithewei/libhv/workflows/CI/badge.svg?branch=master)](https://github.com/ithewei/libhv/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Linux](https://badgen.net/badge/Linux/success/green?icon=github)](https://github.com/ithewei/libhv/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Windows](https://badgen.net/badge/Windows/success/green?icon=github)](https://github.com/ithewei/libhv/actions/workflows/CI.yml?query=branch%3Amaster)
+[![macOS](https://badgen.net/badge/macOS/success/green?icon=github)](https://github.com/ithewei/libhv/actions/workflows/CI.yml?query=branch%3Amaster)
+[![Android](https://badgen.net/badge/Android/success/green?icon=github)](https://github.com/ithewei/libhv/actions/workflows/CI.yml?query=branch%3Amaster)
+[![iOS](https://badgen.net/badge/iOS/success/green?icon=github)](https://github.com/ithewei/libhv/actions/workflows/CI.yml?query=branch%3Amaster)
 [![benchmark](https://github.com/ithewei/libhv/workflows/benchmark/badge.svg?branch=master)](https://github.com/ithewei/libhv/actions/workflows/benchmark.yml?query=branch%3Amaster)
 <br>
 [![release](https://badgen.net/github/release/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/releases)
 [![stars](https://badgen.net/github/stars/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/stargazers)
-[![forks](https://badgen.net/github/forks/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/network/members)
+[![forks](https://badgen.net/github/forks/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/forks)
 [![issues](https://badgen.net/github/issues/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/issues)
 [![PRs](https://badgen.net/github/prs/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/pulls)
+[![contributors](https://badgen.net/github/contributors/ithewei/libhv?icon=github)](https://github.com/ithewei/libhv/contributors)
 [![license](https://badgen.net/github/license/ithewei/libhv?icon=github)](LICENSE)
 <br>
 [![gitee](https://badgen.net/badge/mirror/gitee/red)](https://gitee.com/libhv/libhv)
@@ -23,7 +27,7 @@ but simpler api and richer protocols.
 
 ## ✨ Features
 
-- Cross-platform (Linux, Windows, MacOS, BSD, Solaris, Android, iOS)
+- Cross-platform (Linux, Windows, macOS, Android, iOS, BSD, Solaris)
 - High-performance EventLoop (IO, timer, idle, custom)
 - TCP/UDP client/server/proxy
 - TCP supports heartbeat, reconnect, upstream, MultiThread-safe write and close, etc.

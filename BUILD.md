@@ -65,25 +65,20 @@ make libhv
 ```
 
 ### Android
-see CROSS_COMPILE
 ```
 #https://developer.android.com/ndk/downloads
-#export NDK_ROOT=~/Downloads/android-ndk-r21b
-#sudo $NDK_ROOT/build/tools/make-standalone-toolchain.sh --arch=arm   --platform=android-21 --install-dir=/opt/ndk/arm
-#sudo $NDK_ROOT/build/tools/make-standalone-toolchain.sh --arch=arm64 --platform=android-21 --install-dir=/opt/ndk/arm64
-#export PATH=/opt/ndk/arm/bin:/opt/ndk/arm64/bin:$PATH
-#export CROSS_COMPILE=arm-linux-androideabi-
-export CROSS_COMPILE=aarch64-linux-android-
-./configure
-make clean
-make libhv
+#export ANDROID_NDK_ROOT=~/Downloads/android-ndk-r21b
+mkdir build
+cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" -DANDROID_ABI="arm64-v8a" -DANDROID_PLATFORM=android-21
+cmake --build . --target hv --config Release
 ```
 
 ### iOS
 ```
 mkdir build
 cd build
-cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS -DDEPLOYMENT_TARGET=9.0 -DARCHS="arm64"
+cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS64 -DARCHS="arm64" -DDEPLOYMENT_TARGET=9.0
 cmake --build . --target hv_static --config Release
 ```
 
