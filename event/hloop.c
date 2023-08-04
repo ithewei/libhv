@@ -193,7 +193,9 @@ static void hloop_stat_timer_cb(htimer_t* timer) {
     hloop_t* loop = timer->loop;
     // hlog_set_level(LOG_LEVEL_DEBUG);
     hlogd("[loop] pid=%ld tid=%ld uptime=%lluus cnt=%llu nactives=%u nios=%u ntimers=%u nidles=%u",
-        loop->pid, loop->tid, loop->cur_hrtime - loop->start_hrtime, loop->loop_cnt,
+        loop->pid, loop->tid,
+        (unsigned long long)loop->cur_hrtime - loop->start_hrtime,
+        (unsigned long long)loop->loop_cnt,
         loop->nactives, loop->nios, loop->ntimers, loop->nidles);
 }
 

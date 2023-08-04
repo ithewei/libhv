@@ -533,8 +533,9 @@ enqueue:
         write_queue_push_back(&io->write_queue, &remain);
         io->write_bufsize += remain.len;
         if (io->write_bufsize > WRITE_BUFSIZE_HIGH_WATER) {
-            hlogw("write len=%d enqueue %u, bufsize=%u over high water %u",
-                len, (unsigned int)(remain.len - remain.offset),
+            hlogw("write len=%u enqueue %u, bufsize=%u over high water %u",
+                (unsigned int)len,
+                (unsigned int)(remain.len - remain.offset),
                 (unsigned int)io->write_bufsize,
                 (unsigned int)WRITE_BUFSIZE_HIGH_WATER);
         }

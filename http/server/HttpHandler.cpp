@@ -897,7 +897,7 @@ int HttpHandler::handleUpgrade(const char* upgrade_protocol) {
         return upgradeHTTP2();
     }
 
-    hloge("[%s:%d] unsupported Upgrade: %s", upgrade_protocol);
+    hloge("[%s:%d] unsupported Upgrade: %s", ip, port, upgrade_protocol);
     return SetError(ERR_INVALID_PROTOCOL);
 }
 
