@@ -228,8 +228,14 @@
 - tcp_nopush
 - tcp_keepalive
 - udp_broadcast
+- ip_v6only
 - so_sndtimeo
 - so_rcvtimeo
+- so_sndbuf
+- so_rcvbuf
+- so_reuseaddr
+- so_reuseport
+- so_linger
 
 ### hlog.h
 - default_logger

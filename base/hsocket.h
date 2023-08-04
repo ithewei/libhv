@@ -190,6 +190,14 @@ HV_INLINE int udp_broadcast(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(int));
 }
 
+HV_INLINE int ip_v6only(int sockfd, int on DEFAULT(1)) {
+#ifdef IPV6_V6ONLY
+    return setsockopt(sockfd, IPPROTO_IP, IPV6_V6ONLY, (const char*)&on, sizeof(int));
+#else
+    return 0;
+#endif
+}
+
 // send timeout
 HV_INLINE int so_sndtimeo(int sockfd, int timeout) {
 #ifdef OS_WIN

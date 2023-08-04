@@ -186,6 +186,10 @@ static int sockaddr_bind(sockaddr_u* localaddr, int type) {
     // so_reuseport(sockfd, 1);
 #endif
 
+    if (localaddr->sa.sa_family == AF_INET6) {
+        ip_v6only(sockfd, 0);
+    }
+
     if (bind(sockfd, &localaddr->sa, sockaddr_len(localaddr)) < 0) {
         perror("bind");
         goto error;

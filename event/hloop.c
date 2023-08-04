@@ -949,6 +949,9 @@ hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e t
         so_reuseaddr(sockfd, 1);
         // so_reuseport(sockfd, 1);
 #endif
+        if (addr.sa.sa_family == AF_INET6) {
+            ip_v6only(sockfd, 0);
+        }
         if (bind(sockfd, &addr.sa, sockaddr_len(&addr)) < 0) {
             perror("bind");
             closesocket(sockfd);
