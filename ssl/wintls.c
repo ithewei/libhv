@@ -2,6 +2,7 @@
 
 #ifdef WITH_WINTLS
 
+#include "hdef.h"
 #include <schannel.h>
 #include <wincrypt.h>
 #include <windows.h>
@@ -14,7 +15,7 @@
 #pragma comment(lib, "Secur32.lib")
 #pragma comment(lib, "crypt32.lib")
 
-#define TLS_SOCKET_BUFFER_SIZE 16384
+#define TLS_SOCKET_BUFFER_SIZE 33024 //2 * ( 0x4000 + 128 )
 
 const char* hssl_backend()
 {
@@ -24,12 +25,13 @@ const char* hssl_backend()
 static PCCERT_CONTEXT getservercert(const char* path)
 {
     /*
-    根据我从网络上搜索到的信息，无法使用CertCreateCertificateContext等接口指定x509私钥和证书,我们必须先将它们导出为pkcs#12格式的文件，然后再导入到Windows证书存储区中。
-    这是因为Windows证书存储区是一个集成的系统位置，它不支持直接使用单独的私钥文件和证书文件。pkcs#12格式是一种可以存储和保护密钥和证书的复杂格式1。
-    您可以使用openssl工具来将私钥文件和证书文件合并成一个pkcs#12格式的文件，
-    例如：openssl pkcs12 -export -out cert.pfx -inkey private.key -in cert.cer2。
-    然后，您可以使用certutil工具或者图形界面来导入这个文件到本地计算机的个人存储区（Personal store）中。
-    导入后，您就可以使用CertFindCertificateInStore等接口来创建和操作证书上下文了。
+    According to the information I searched from the internet, it is not possible to specify an x509 private key and certificate using the
+    CertCreateCertificateContext interface. We must first export them as a pkcs#12 formatted file, and then import them into the Windows certificate store. This
+    is because the Windows certificate store is an integrated system location that does not support the direct use of separate private key files and certificate
+    files. The pkcs#12 format is a complex format that can store and protect keys and certificates. You can use the OpenSSL tool to combine the private key file
+    and certificate file into a pkcs#12 formatted file, For example: OpenSSL pkcs12 -export -out cert.pfx -inkey private.key -in cert.cer Then, you can use the
+    certutil tool or a graphical interface to import this file into the personal store of your local computer. After importing, you can use the
+    CertFindCertificateInStore interface to create and manipulate certificate contexts.
     */
     return NULL;
 }
@@ -54,7 +56,7 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt)
         // Open the My store(personal store).
         HCERTSTORE hMyCertStore = CertOpenStore(CERT_STORE_PROV_SYSTEM, X509_ASN_ENCODING, 0, CERT_SYSTEM_STORE_LOCAL_MACHINE, L"MY");
         if (hMyCertStore == NULL) {
-            printf("Error opening MY store for server.\n");
+            fprintf(stderr, "Error opening MY store for server.\n");
             return NULL;
         }
         //-------------------------------------------------------
@@ -62,7 +64,7 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt)
         serverCert = CertFindCertificateInStore(hMyCertStore, X509_ASN_ENCODING, 0, CERT_FIND_SUBJECT_STR_A, opt->crt_file, NULL);
         CertCloseStore(hMyCertStore, 0);
         if (serverCert == NULL) {
-            printf("Error retrieving server certificate. %x\n", GetLastError());
+            fprintf(stderr, "Error retrieving server certificate. %x\n", GetLastError());
             return NULL;
         }
 #else
@@ -95,7 +97,7 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt)
     //-------------------------------------------------------
     SecStatus = AcquireCredentialsHandle(NULL, unisp_name, credflag, NULL, &credData, NULL, NULL, hCred, &Lifetime);
     if (SecStatus != SEC_E_OK) {
-        printf("ERROR: AcquireCredentialsHandle: 0x%x\n", SecStatus);
+        fprintf(stderr, "ERROR: AcquireCredentialsHandle: 0x%x\n", SecStatus);
         abort();
     }
     // Return the handle to the caller.
@@ -113,7 +115,7 @@ void hssl_ctx_free(hssl_ctx_t ssl_ctx)
 {
     SECURITY_STATUS sec_status = FreeCredentialsHandle(ssl_ctx);
     if (sec_status != SEC_E_OK) {
-        printf("free_cred_handle FreeCredentialsHandle %d\n", sec_status);
+        fprintf(stderr, "free_cred_handle FreeCredentialsHandle %d\n", sec_status);
     }
 }
 
@@ -137,8 +139,11 @@ struct wintls_s {
     bool first_iteration;
     SecHandle sechandle;
     SecPkgContext_StreamSizes stream_sizes_;
+    size_t buffer_to_decrypt_offset_;
+    size_t dec_len_;
     char encrypted_buffer_[TLS_SOCKET_BUFFER_SIZE];
     char buffer_to_decrypt_[TLS_SOCKET_BUFFER_SIZE];
+    char decrypted_buffer_[TLS_SOCKET_BUFFER_SIZE];
     char* sni;
 };
 
@@ -159,7 +164,7 @@ void hssl_free(hssl_t _ssl)
     struct wintls_s* ssl = _ssl;
     SECURITY_STATUS sec_status = DeleteSecurityContext(&ssl->sechandle);
     if (sec_status != SEC_E_OK) {
-        printf("hssl_free DeleteSecurityContext %d", sec_status);
+        fprintf(stderr, "hssl_free DeleteSecurityContext %d", sec_status);
     }
     if (ssl->sni) {
         free(ssl->sni);
@@ -210,20 +215,17 @@ int hssl_accept(hssl_t ssl)
     TimeStamp life_time = { 0 };
 
     secure_buffer_in[0].cbBuffer = recv(winssl->fd, (char*)secure_buffer_in[0].pvBuffer, TLS_SOCKET_BUFFER_SIZE, 0);
-    printf("%s recv %d %d\n", __func__, secure_buffer_in[0].cbBuffer, WSAGetLastError());
+    // fprintf(stderr, "%s recv %d %d\n", __func__, secure_buffer_in[0].cbBuffer, WSAGetLastError());
     if (secure_buffer_in[0].cbBuffer == SOCKET_ERROR && WSAGetLastError() == WSAEWOULDBLOCK) {
         ret = HSSL_WANT_READ;
         goto END;
     }
 
-    SECURITY_STATUS sec_status = AcceptSecurityContext(winssl->ssl_ctx,
-        winssl->first_iteration ? NULL : &winssl->sechandle,
-        &secure_buffer_desc_in, context_requirements, 0,
-        &winssl->sechandle, &secure_buffer_desc_out,
-        &context_attributes, &life_time);
+    SECURITY_STATUS sec_status = AcceptSecurityContext(winssl->ssl_ctx, winssl->first_iteration ? NULL : &winssl->sechandle, &secure_buffer_desc_in,
+        context_requirements, 0, &winssl->sechandle, &secure_buffer_desc_out, &context_attributes, &life_time);
 
     winssl->first_iteration = false;
-    printf("establish_server_security_context AcceptSecurityContext %x\n", sec_status);
+    // fprintf(stderr, "establish_server_security_context AcceptSecurityContext %x\n", sec_status);
 
     if (secure_buffer_out[0].cbBuffer > 0) {
         int rc = send(winssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
@@ -244,7 +246,7 @@ int hssl_accept(hssl_t ssl)
         SECURITY_STATUS complete_sec_status = SEC_E_OK;
         complete_sec_status = CompleteAuthToken(&winssl->sechandle, &secure_buffer_desc_out);
         if (complete_sec_status != SEC_E_OK) {
-            printf("establish_server_security_context CompleteAuthToken %x\n", complete_sec_status);
+            fprintf(stderr, "establish_server_security_context CompleteAuthToken %x\n", complete_sec_status);
             ret = -1;
             goto END;
         }
@@ -265,7 +267,7 @@ END:
     if (authn_completed) {
         SECURITY_STATUS sec_status = QueryContextAttributes(&winssl->sechandle, SECPKG_ATTR_STREAM_SIZES, &winssl->stream_sizes_);
         if (sec_status != SEC_E_OK) {
-            printf("get_stream_sizes QueryContextAttributes %d\n", sec_status);
+            fprintf(stderr, "get_stream_sizes QueryContextAttributes %d\n", sec_status);
         }
     }
     return ret;
@@ -285,19 +287,18 @@ static void establish_client_security_context_first_stage(struct wintls_s* ssl)
     init_sec_buffer_desc(&secure_buffer_desc_out, SECBUFFER_VERSION, 1, secure_buffer_out);
 
     // ssl->sni = strdup("localhost");
-    SECURITY_STATUS sec_status = InitializeSecurityContext(ssl->ssl_ctx, NULL, ssl->sni,
-        context_requirements, 0, 0, NULL, 0, &ssl->sechandle,
+    SECURITY_STATUS sec_status = InitializeSecurityContext(ssl->ssl_ctx, NULL, ssl->sni, context_requirements, 0, 0, NULL, 0, &ssl->sechandle,
         &secure_buffer_desc_out, &context_attributes, &life_time);
 
     if (sec_status != SEC_I_CONTINUE_NEEDED) {
-        printf("InitializeSecurityContext: %x\n", sec_status);
+        fprintf(stderr, "InitializeSecurityContext: %x\n", sec_status);
     }
 
     if (secure_buffer_out[0].cbBuffer > 0) {
         int rc = send(ssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
         if (rc != secure_buffer_out[0].cbBuffer) {
             // TODO: Handle the error
-            printf("%s :send failed\n", __func__);
+            fprintf(stderr, "%s :send failed\n", __func__);
         }
     }
     free_all_buffers(&secure_buffer_desc_out);
@@ -319,7 +320,7 @@ static int establish_client_security_context_second_stage(struct wintls_s* ssl)
     // Allocate a temporary buffer for input
     char* buffer_in = malloc(TLS_SOCKET_BUFFER_SIZE);
     if (buffer_in == NULL) {
-        printf("establish_client_security_context_second_stage: Memory allocation failed\n");
+        fprintf(stderr, "establish_client_security_context_second_stage: Memory allocation failed\n");
         return -1;
     }
 
@@ -337,7 +338,7 @@ static int establish_client_security_context_second_stage(struct wintls_s* ssl)
                     ret = HSSL_WANT_READ;
                     goto END;
                 } else {
-                    printf("establish_client_security_context_second_stage: Receive failed\n");
+                    fprintf(stderr, "establish_client_security_context_second_stage: Receive failed\n");
                     ret = -1;
                     goto END;
                 }
@@ -370,20 +371,19 @@ static int establish_client_security_context_second_stage(struct wintls_s* ssl)
         SecBufferDesc secure_buffer_desc_out = { 0 };
         init_sec_buffer_desc(&secure_buffer_desc_out, SECBUFFER_VERSION, 3, secure_buffer_out);
 
-        SECURITY_STATUS sec_status = InitializeSecurityContext(ssl->ssl_ctx, &ssl->sechandle, ssl->sni, context_requirements, 0, 0,
-            &secure_buffer_desc_in, 0, &ssl->sechandle,
-            &secure_buffer_desc_out, &context_attributes, &life_time);
+        SECURITY_STATUS sec_status = InitializeSecurityContext(ssl->ssl_ctx, &ssl->sechandle, ssl->sni, context_requirements, 0, 0, &secure_buffer_desc_in, 0,
+            &ssl->sechandle, &secure_buffer_desc_out, &context_attributes, &life_time);
 
         if (sec_status == SEC_E_OK || sec_status == SEC_I_CONTINUE_NEEDED) {
             if (secure_buffer_out[0].cbBuffer > 0) {
                 int rc = send(ssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
                 if (rc != secure_buffer_out[0].cbBuffer) {
-                    printf("establish_client_security_context_second_stage: Send failed\n");
+                    fprintf(stderr, "establish_client_security_context_second_stage: Send failed\n");
                     // TODO: Handle the error
                     ret = -1;
                     goto END;
                 }
-                printf("%s :send ok\n", __func__);
+                // fprintf(stderr, "%s :send ok\n", __func__);
             }
 
             if (sec_status == SEC_I_CONTINUE_NEEDED) {
@@ -405,16 +405,12 @@ static int establish_client_security_context_second_stage(struct wintls_s* ssl)
         } else if (sec_status == SEC_E_INCOMPLETE_MESSAGE) {
             offset = secure_buffer_in[0].cbBuffer;
         } else {
-            printf("InitializeSecurityContext: 0x%x\n", sec_status);
+            fprintf(stderr, "InitializeSecurityContext: 0x%x\n", sec_status);
             ret = -1;
             goto END;
         }
         free_all_buffers(&secure_buffer_desc_out);
 
-        if (!authn_complete && !skip_recv) {
-            ret = HSSL_WANT_READ;
-            break;
-        }
     }
 END:
     free(buffer_in); // Free the temporary buffer
@@ -431,11 +427,11 @@ int hssl_connect(hssl_t _ssl)
     }
 
     ret = establish_client_security_context_second_stage(ssl);
-    printf("%s %x\n", __func__, ret);
+    // fprintf(stderr, "%s %x\n", __func__, ret);
     if (!ret) {
         SECURITY_STATUS sec_status = QueryContextAttributes(&ssl->sechandle, SECPKG_ATTR_STREAM_SIZES, &ssl->stream_sizes_);
         if (sec_status != SEC_E_OK) {
-            printf("get_stream_sizes QueryContextAttributes %d\n", sec_status);
+            fprintf(stderr, "get_stream_sizes QueryContextAttributes %d\n", sec_status);
         }
     }
     return ret;
@@ -444,26 +440,19 @@ int hssl_connect(hssl_t _ssl)
 static int decrypt_message(SecHandle security_context, SecPkgContext_StreamSizes stream_sizes, const char* in_buf, int in_len, char* out_buf, int out_len)
 {
     int msg_size = in_len - stream_sizes.cbHeader - stream_sizes.cbTrailer;
-    if (msg_size > (int)stream_sizes.cbMaximumMessage) {
-        printf("decrypt_message: Message to is too long\n");
-        return -1;
-    }
+//     if (msg_size > (int)stream_sizes.cbMaximumMessage) {
+//        fprintf(stderr, "decrypt_message: Message to is too long\n");
+//        return -1;
+//    }
 
     if (msg_size > out_len) {
-        printf("decrypt_message: Output buffer is too small\n");
-        return -1;
-    }
-
-    // Allocate a temporary buffer for decryption
-    char* decrypt_buf = malloc(in_len);
-    if (decrypt_buf == NULL) {
-        printf("decrypt_message: Memory allocation failed\n");
+        fprintf(stderr, "decrypt_message: Output buffer is too small\n");
         return -1;
     }
 
     // Initialize the secure buffers
     SecBuffer secure_buffers[4] = { 0 };
-    init_sec_buffer(&secure_buffers[0], SECBUFFER_DATA, in_len, decrypt_buf);
+    init_sec_buffer(&secure_buffers[0], SECBUFFER_DATA, in_len, in_buf);
     init_sec_buffer(&secure_buffers[1], SECBUFFER_EMPTY, 0, NULL);
     init_sec_buffer(&secure_buffers[2], SECBUFFER_EMPTY, 0, NULL);
     init_sec_buffer(&secure_buffers[3], SECBUFFER_EMPTY, 0, NULL);
@@ -472,46 +461,51 @@ static int decrypt_message(SecHandle security_context, SecPkgContext_StreamSizes
     SecBufferDesc secure_buffer_desc = { 0 };
     init_sec_buffer_desc(&secure_buffer_desc, SECBUFFER_VERSION, 4, secure_buffers);
 
-    // Copy encrypted message to in-out temp buffer
-    memcpy(decrypt_buf, in_buf, in_len);
-
     // Decrypt the message using the security context
     SECURITY_STATUS sec_status = DecryptMessage(&security_context, &secure_buffer_desc, 0, NULL);
 
     if (sec_status == SEC_E_INCOMPLETE_MESSAGE) {
-        free(decrypt_buf);
+        fprintf(stderr, "decrypt_message SEC_E_INCOMPLETE_MESSAGE\n");
         return -1;
     }
 
     if (sec_status != SEC_E_OK) {
-        printf("decrypt_message DecryptMessage: %d\n", sec_status);
-        free(decrypt_buf);
+        fprintf(stderr, "decrypt_message DecryptMessage: %d\n", sec_status);
         return -1;
     }
     if (secure_buffers[1].cbBuffer > (unsigned int)msg_size) {
-        printf("decrypt_message: Data buffer is too large\n");
-        free(decrypt_buf);
+        fprintf(stderr, "decrypt_message: Data buffer is too large\n");
         return -1;
     }
 
     memcpy(out_buf, secure_buffers[1].pvBuffer, secure_buffers[1].cbBuffer);
-    free(decrypt_buf);
     return secure_buffers[1].cbBuffer;
 }
 
 int hssl_read(hssl_t _ssl, void* buf, int len)
 {
     struct wintls_s* ssl = _ssl;
-
-    int total_decrypted_len = 0;
-
-    size_t buffer_to_decrypt_offset_ = 0;
+    // fprintf(stderr, "%s: dec_len_= %zu\n", __func__, ssl->dec_len_);
+    if (ssl->dec_len_ > 0) {
+        if (buf == NULL) {
+            return 0;
+        }
+        int decrypted = MIN(ssl->dec_len_, len);
+        memcpy(buf, ssl->decrypted_buffer_, (size_t)decrypted);
+        ssl->dec_len_ -= decrypted;
+        if (ssl->dec_len_) {
+            memmove(ssl->decrypted_buffer_, ssl->decrypted_buffer_ + decrypted, (size_t)ssl->dec_len_);
+        } else {
+            //hssl_read(_ssl, NULL, 0);
+        }
+        return decrypted;
+    }
 
     // We might have leftovers, an incomplete message from a previous call.
     // Calculate the available buffer length for tcp recv.
-    int recv_max_len = TLS_SOCKET_BUFFER_SIZE - buffer_to_decrypt_offset_;
-    int bytes_received = recv(ssl->fd, ssl->buffer_to_decrypt_ + buffer_to_decrypt_offset_, recv_max_len, 0);
-    printf("%s recv %d %d\n", __func__, bytes_received, WSAGetLastError());
+    int recv_max_len = TLS_SOCKET_BUFFER_SIZE - ssl->buffer_to_decrypt_offset_;
+    int bytes_received = recv(ssl->fd, ssl->buffer_to_decrypt_ + ssl->buffer_to_decrypt_offset_, recv_max_len, 0);
+    // fprintf(stderr, "%s recv %d %d\n", __func__, bytes_received, WSAGetLastError());
     if (bytes_received == SOCKET_ERROR) {
         if (WSAGetLastError() == WSAEWOULDBLOCK) {
             bytes_received = 0;
@@ -519,53 +513,50 @@ int hssl_read(hssl_t _ssl, void* buf, int len)
         } else {
             return -1;
         }
+    } else if (bytes_received == 0) {
+        return 0;
     }
 
-    int decrypted_buffer_offset = 0;
-    int encrypted_buffer_len = buffer_to_decrypt_offset_ + bytes_received;
-    buffer_to_decrypt_offset_ = 0;
-    char* decrypted_buffer_ = buf;
+    int encrypted_buffer_len = ssl->buffer_to_decrypt_offset_ + bytes_received;
+    ssl->buffer_to_decrypt_offset_ = 0;
     while (true) {
-        if (buffer_to_decrypt_offset_ >= encrypted_buffer_len) {
+        // fprintf(stderr, "%s:buffer_to_decrypt_offset_ = %d , encrypted_buffer_len= %d\n", __func__, ssl->buffer_to_decrypt_offset_, encrypted_buffer_len);
+        if (ssl->buffer_to_decrypt_offset_ >= encrypted_buffer_len) {
             // Reached the encrypted buffer length, we decrypted everything so we can stop.
             break;
         }
 
-        int decrypted_len = decrypt_message(ssl->sechandle, ssl->stream_sizes_, ssl->buffer_to_decrypt_ + buffer_to_decrypt_offset_,
-            encrypted_buffer_len - buffer_to_decrypt_offset_,
-            decrypted_buffer_ + decrypted_buffer_offset,
-            len - decrypted_buffer_offset);
+        int decrypted_len = decrypt_message(ssl->sechandle, ssl->stream_sizes_, ssl->buffer_to_decrypt_ + ssl->buffer_to_decrypt_offset_,
+            encrypted_buffer_len - ssl->buffer_to_decrypt_offset_, ssl->decrypted_buffer_ + ssl->dec_len_,
+            TLS_SOCKET_BUFFER_SIZE - ssl->dec_len_);
 
         if (decrypted_len == -1) {
             // Incomplete message, we shuold keep it so it will be decrypted on the next call to recv().
             // Shift the remaining buffer to the beginning and break the loop.
 
-            memmove(ssl->buffer_to_decrypt_, ssl->buffer_to_decrypt_ + buffer_to_decrypt_offset_, encrypted_buffer_len - buffer_to_decrypt_offset_);
+            memmove(ssl->buffer_to_decrypt_, ssl->buffer_to_decrypt_ + ssl->buffer_to_decrypt_offset_, encrypted_buffer_len - ssl->buffer_to_decrypt_offset_);
 
             break;
         }
 
-        total_decrypted_len += decrypted_len;
-        decrypted_buffer_offset += decrypted_len;
-        buffer_to_decrypt_offset_ += ssl->stream_sizes_.cbHeader + decrypted_len + ssl->stream_sizes_.cbTrailer;
+        ssl->dec_len_ += decrypted_len;
+        ssl->buffer_to_decrypt_offset_ += ssl->stream_sizes_.cbHeader + decrypted_len + ssl->stream_sizes_.cbTrailer;
     }
-
-    buffer_to_decrypt_offset_ = encrypted_buffer_len - buffer_to_decrypt_offset_;
-
-    return total_decrypted_len;
+    ssl->buffer_to_decrypt_offset_ = encrypted_buffer_len - ssl->buffer_to_decrypt_offset_;    
+    return hssl_read(_ssl, buf, len);
 }
 
 static int encrypt_message(SecHandle security_context, SecPkgContext_StreamSizes stream_sizes, const char* in_buf, int in_len, char* out_buf, int out_len)
 {
     if (in_len > (int)stream_sizes.cbMaximumMessage) {
-        printf("encrypt_message: Message is too long\n");
+        fprintf(stderr, "encrypt_message: Message is too long\n");
         return -1;
     }
 
     // Calculate the minimum output buffer length
     int min_out_len = stream_sizes.cbHeader + in_len + stream_sizes.cbTrailer;
     if (min_out_len > out_len) {
-        printf("encrypt_message: Output buffer is too small");
+        fprintf(stderr, "encrypt_message: Output buffer is too small");
         return -1;
     }
 
@@ -588,11 +579,11 @@ static int encrypt_message(SecHandle security_context, SecPkgContext_StreamSizes
 
     // Check the encryption status and the data buffer length
     if (sec_status != SEC_E_OK) {
-        printf("encrypt_message EncryptMessage %d\n", sec_status);
+        fprintf(stderr, "encrypt_message EncryptMessage %d\n", sec_status);
         return -1;
     }
     if (secure_buffers[1].cbBuffer > (unsigned int)in_len) {
-        printf("encrypt_message: Data buffer is too large\n");
+        fprintf(stderr, "encrypt_message: Data buffer is too large\n");
         return -1;
     }
 
@@ -609,7 +600,7 @@ int hssl_write(hssl_t _ssl, const void* buf, int len)
 
     // Check the encryption result
     if (out_len_result < 0) {
-        printf("hssl_write: Encryption failed\n");
+        fprintf(stderr, "hssl_write: Encryption failed\n");
         return -1;
     }
 
@@ -618,7 +609,7 @@ int hssl_write(hssl_t _ssl, const void* buf, int len)
 
     // Check the send result
     if (bytes_sent != out_len_result) {
-        printf("hssl_write: Send failed\n");
+        fprintf(stderr, "hssl_write: Send failed\n");
         return -1;
     }
 
