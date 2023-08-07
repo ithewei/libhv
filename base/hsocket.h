@@ -192,7 +192,7 @@ HV_INLINE int udp_broadcast(int sockfd, int on DEFAULT(1)) {
 
 HV_INLINE int ip_v6only(int sockfd, int on DEFAULT(1)) {
 #ifdef IPV6_V6ONLY
-    return setsockopt(sockfd, IPPROTO_IP, IPV6_V6ONLY, (const char*)&on, sizeof(int));
+    return setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(int));
 #else
     return 0;
 #endif
