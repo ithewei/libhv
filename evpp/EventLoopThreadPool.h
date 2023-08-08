@@ -115,9 +115,7 @@ public:
         }
 
         if (wait_threads_stopped) {
-            while (!isStopped()) {
-                hv_delay(1);
-            }
+            join();
         }
     }
 
