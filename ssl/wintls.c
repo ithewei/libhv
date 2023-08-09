@@ -2,6 +2,8 @@
 
 #ifdef WITH_WINTLS
 
+// #define PRINT_DEBUG
+// #define PRINT_ERROR
 #include "hdef.h"
 #include <schannel.h>
 #include <wincrypt.h>
@@ -194,7 +196,7 @@ static void free_all_buffers(SecBufferDesc* secure_buffer_desc)
     }
 }
 
-static size_t __sendwrapper(SOCKET fd, const char *buf, size_t len, int flags)
+static int __sendwrapper(SOCKET fd, const char* buf, size_t len, int flags)
 {
     int left = len;
     int offset = 0;
@@ -209,6 +211,20 @@ static size_t __sendwrapper(SOCKET fd, const char *buf, size_t len, int flags)
         }
     }
     return offset;
+}
+
+static int __recvwrapper(SOCKET fd, char* buf, int len, int flags)
+{
+    int ret = 0;
+    fd_set fs;
+    struct timeval interval = { 10, 0 };
+    FD_ZERO(&fs);
+    FD_SET(fd, &fs);
+    ret = select(fd + 1, &fs, NULL, NULL, &interval);
+    if (ret == 0) { // timeout
+        return -1;
+    }
+    return recv(fd, buf, len, flags);
 }
 
 int hssl_accept(hssl_t ssl)
@@ -243,7 +259,7 @@ int hssl_accept(hssl_t ssl)
     ULONG context_attributes = 0;
     TimeStamp life_time = { 0 };
 
-    secure_buffer_in[0].cbBuffer = recv(winssl->fd, (char*)secure_buffer_in[0].pvBuffer, TLS_SOCKET_BUFFER_SIZE, 0);
+    secure_buffer_in[0].cbBuffer = __recvwrapper(winssl->fd, (char*)secure_buffer_in[0].pvBuffer, TLS_SOCKET_BUFFER_SIZE, 0);
     // printd("%s recv %d %d\n", __func__, secure_buffer_in[0].cbBuffer, WSAGetLastError());
     if (secure_buffer_in[0].cbBuffer == SOCKET_ERROR && WSAGetLastError() == WSAEWOULDBLOCK) {
         ret = HSSL_WANT_READ;
@@ -302,8 +318,9 @@ END:
     return ret;
 }
 
-static void schannel_connect_step1(struct wintls_s* ssl)
+static int schannel_connect_step1(struct wintls_s* ssl)
 {
+    int ret = 0;
     ULONG context_attributes = 0;
     unsigned long context_requirements = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY | ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_STREAM;
 
@@ -327,12 +344,14 @@ static void schannel_connect_step1(struct wintls_s* ssl)
         if (rc != secure_buffer_out[0].cbBuffer) {
             // TODO: Handle the error
             printe("%s :send failed\n", __func__);
+            ret = -1;
         } else {
             printd("%s :send len=%d\n", __func__, rc);
+            ssl->connecting_state = ssl_connect_2;
         }
     }
     free_all_buffers(&secure_buffer_desc_out);
-    ssl->connecting_state = ssl_connect_2;
+    return ret;
 }
 
 static int schannel_connect_step2(struct wintls_s* ssl)
@@ -357,13 +376,12 @@ static int schannel_connect_step2(struct wintls_s* ssl)
 
     int offset = 0;
     bool skip_recv = false;
-
     bool authn_complete = false;
     while (!authn_complete) {
         int in_buffer_size = 0;
 
         if (!skip_recv) {
-            int received = recv(ssl->fd, buffer_in + offset, TLS_SOCKET_BUFFER_SIZE, 0);
+            int received = __recvwrapper(ssl->fd, buffer_in + offset, TLS_SOCKET_BUFFER_SIZE, 0);
             if (received == SOCKET_ERROR) {
                 if (WSAGetLastError() == WSAEWOULDBLOCK) {
                     ret = HSSL_WANT_READ;
@@ -554,9 +572,9 @@ int hssl_connect(hssl_t _ssl)
     int ret = 0;
     struct wintls_s* ssl = _ssl;
     if (ssl->connecting_state == ssl_connect_1) {
-        schannel_connect_step1(ssl);
+        ret = schannel_connect_step1(ssl);
     }
-    if (ssl->connecting_state == ssl_connect_2) {
+    if (!ret && ssl->connecting_state == ssl_connect_2) {
         ret = schannel_connect_step2(ssl);
     }
     // printd("%s %x\n", __func__, ret);
