@@ -15,7 +15,7 @@
 #pragma comment(lib, "Secur32.lib")
 #pragma comment(lib, "crypt32.lib")
 
-#define TLS_SOCKET_BUFFER_SIZE 33024 //2 * ( 0x4000 + 128 )
+#define TLS_SOCKET_BUFFER_SIZE 17000
 
 const char* hssl_backend()
 {
@@ -56,7 +56,7 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt)
         // Open the My store(personal store).
         HCERTSTORE hMyCertStore = CertOpenStore(CERT_STORE_PROV_SYSTEM, X509_ASN_ENCODING, 0, CERT_SYSTEM_STORE_LOCAL_MACHINE, L"MY");
         if (hMyCertStore == NULL) {
-            fprintf(stderr, "Error opening MY store for server.\n");
+            printe("Error opening MY store for server.\n");
             return NULL;
         }
         //-------------------------------------------------------
@@ -64,7 +64,7 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt)
         serverCert = CertFindCertificateInStore(hMyCertStore, X509_ASN_ENCODING, 0, CERT_FIND_SUBJECT_STR_A, opt->crt_file, NULL);
         CertCloseStore(hMyCertStore, 0);
         if (serverCert == NULL) {
-            fprintf(stderr, "Error retrieving server certificate. %x\n", GetLastError());
+            printe("Error retrieving server certificate. %x\n", GetLastError());
             return NULL;
         }
 #else
@@ -73,6 +73,12 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt)
         credData.cCreds = 1; // 数量
         credData.paCred = &serverCert;
         // credData.dwCredFormat = SCH_CRED_FORMAT_CERT_HASH;
+        credData.grbitEnabledProtocols = SP_PROT_TLS1_2_SERVER | SP_PROT_TLS1_3_SERVER;
+        credflag = SECPKG_CRED_INBOUND;
+    } else {
+        credData.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT | SP_PROT_TLS1_3_CLIENT;
+        credflag = SECPKG_CRED_OUTBOUND;
+    }
 #if 0 // just use the system defalut algs
         ALG_ID rgbSupportedAlgs[4];
         rgbSupportedAlgs[0] = CALG_DH_EPHEM;
@@ -82,29 +88,23 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* opt)
         credData.cSupportedAlgs = 4;
         credData.palgSupportedAlgs = rgbSupportedAlgs;
 #endif
-        credData.grbitEnabledProtocols = SP_PROT_TLS1_2_SERVER | SP_PROT_TLS1_3_SERVER;
-        credflag = SECPKG_CRED_INBOUND;
-    } else {
-        credData.grbitEnabledProtocols = SP_PROT_TLS1_2_CLIENT | SP_PROT_TLS1_3_CLIENT;
-        credflag = SECPKG_CRED_OUTBOUND;
-    }
-
     credData.dwVersion = SCHANNEL_CRED_VERSION;
-    // credData.dwFlags = SCH_CRED_NO_DEFAULT_CREDS | SCH_CRED_NO_SERVERNAME_CHECK | SCH_USE_STRONG_CRYPTO;
+    credData.dwFlags = SCH_CRED_NO_DEFAULT_CREDS | SCH_CRED_NO_SERVERNAME_CHECK | SCH_USE_STRONG_CRYPTO | SCH_CRED_MANUAL_CRED_VALIDATION | SCH_CRED_IGNORE_NO_REVOCATION_CHECK | SCH_CRED_IGNORE_REVOCATION_OFFLINE;
+
     // credData.dwMinimumCipherStrength = -1;
     // credData.dwMaximumCipherStrength = -1;
 
     //-------------------------------------------------------
     SecStatus = AcquireCredentialsHandle(NULL, unisp_name, credflag, NULL, &credData, NULL, NULL, hCred, &Lifetime);
     if (SecStatus != SEC_E_OK) {
-        fprintf(stderr, "ERROR: AcquireCredentialsHandle: 0x%x\n", SecStatus);
+        printe("ERROR: AcquireCredentialsHandle: 0x%x\n", SecStatus);
         abort();
     }
     // Return the handle to the caller.
     SecStatus = QueryCredentialsAttributesA(hCred, SECPKG_ATTR_SUPPORTED_ALGS, &algs);
     if (SecStatus == SEC_E_OK) {
         for (int i = 0; i < algs.cSupportedAlgs; i++) {
-            fprintf(stderr, "alg: 0x%08x\n", algs.palgSupportedAlgs[i]);
+            printd("alg: 0x%08x\n", algs.palgSupportedAlgs[i]);
         }
     }
 
@@ -115,7 +115,7 @@ void hssl_ctx_free(hssl_ctx_t ssl_ctx)
 {
     SECURITY_STATUS sec_status = FreeCredentialsHandle(ssl_ctx);
     if (sec_status != SEC_E_OK) {
-        fprintf(stderr, "free_cred_handle FreeCredentialsHandle %d\n", sec_status);
+        printe("free_cred_handle FreeCredentialsHandle %d\n", sec_status);
     }
 }
 
@@ -133,17 +133,30 @@ static void init_sec_buffer_desc(SecBufferDesc* secure_buffer_desc, unsigned lon
     secure_buffer_desc->pBuffers = buffers;
 }
 
+/* enum for the nonblocking SSL connection state machine */
+typedef enum {
+    ssl_connect_1,
+    ssl_connect_2,
+    ssl_connect_2_reading,
+    ssl_connect_2_writing,
+    ssl_connect_3,
+    ssl_connect_done
+} ssl_connect_state;
+
 struct wintls_s {
     hssl_ctx_t ssl_ctx; // CredHandle
     int fd;
-    bool first_iteration;
+    union {
+        ssl_connect_state state2;
+        ssl_connect_state connecting_state;
+    };
     SecHandle sechandle;
     SecPkgContext_StreamSizes stream_sizes_;
     size_t buffer_to_decrypt_offset_;
     size_t dec_len_;
     char encrypted_buffer_[TLS_SOCKET_BUFFER_SIZE];
     char buffer_to_decrypt_[TLS_SOCKET_BUFFER_SIZE];
-    char decrypted_buffer_[TLS_SOCKET_BUFFER_SIZE];
+    char decrypted_buffer_[TLS_SOCKET_BUFFER_SIZE + TLS_SOCKET_BUFFER_SIZE];
     char* sni;
 };
 
@@ -153,7 +166,6 @@ hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd)
     memset(ret, 0, sizeof(*ret));
     ret->ssl_ctx = ssl_ctx;
     ret->fd = fd;
-    ret->first_iteration = 1;
     ret->sechandle.dwLower = 0;
     ret->sechandle.dwUpper = 0;
     return ret;
@@ -164,7 +176,7 @@ void hssl_free(hssl_t _ssl)
     struct wintls_s* ssl = _ssl;
     SECURITY_STATUS sec_status = DeleteSecurityContext(&ssl->sechandle);
     if (sec_status != SEC_E_OK) {
-        fprintf(stderr, "hssl_free DeleteSecurityContext %d", sec_status);
+        printe("hssl_free DeleteSecurityContext %d", sec_status);
     }
     if (ssl->sni) {
         free(ssl->sni);
@@ -180,6 +192,23 @@ static void free_all_buffers(SecBufferDesc* secure_buffer_desc)
             FreeContextBuffer(buffer);
         }
     }
+}
+
+static size_t __sendwrapper(SOCKET fd, const char *buf, size_t len, int flags)
+{
+    int left = len;
+    int offset = 0;
+    while (left > 0) {
+        int bytes_sent = send(fd, buf + offset, left, flags);
+        if ((bytes_sent == SOCKET_ERROR && GetLastError() != WSAEWOULDBLOCK) || bytes_sent == 0) {
+            break;
+        }
+        if (bytes_sent > 0) {
+            offset += bytes_sent;
+            left -= bytes_sent;
+        }
+    }
+    return offset;
 }
 
 int hssl_accept(hssl_t ssl)
@@ -215,20 +244,20 @@ int hssl_accept(hssl_t ssl)
     TimeStamp life_time = { 0 };
 
     secure_buffer_in[0].cbBuffer = recv(winssl->fd, (char*)secure_buffer_in[0].pvBuffer, TLS_SOCKET_BUFFER_SIZE, 0);
-    // fprintf(stderr, "%s recv %d %d\n", __func__, secure_buffer_in[0].cbBuffer, WSAGetLastError());
+    // printd("%s recv %d %d\n", __func__, secure_buffer_in[0].cbBuffer, WSAGetLastError());
     if (secure_buffer_in[0].cbBuffer == SOCKET_ERROR && WSAGetLastError() == WSAEWOULDBLOCK) {
         ret = HSSL_WANT_READ;
         goto END;
     }
 
-    SECURITY_STATUS sec_status = AcceptSecurityContext(winssl->ssl_ctx, winssl->first_iteration ? NULL : &winssl->sechandle, &secure_buffer_desc_in,
+    SECURITY_STATUS sec_status = AcceptSecurityContext(winssl->ssl_ctx, winssl->state2 == 0 ? NULL : &winssl->sechandle, &secure_buffer_desc_in,
         context_requirements, 0, &winssl->sechandle, &secure_buffer_desc_out, &context_attributes, &life_time);
 
-    winssl->first_iteration = false;
-    // fprintf(stderr, "establish_server_security_context AcceptSecurityContext %x\n", sec_status);
+    winssl->state2 = 1;
+    // printd("establish_server_security_context AcceptSecurityContext %x\n", sec_status);
 
     if (secure_buffer_out[0].cbBuffer > 0) {
-        int rc = send(winssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
+        int rc = __sendwrapper(winssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
         if (rc != secure_buffer_out[0].cbBuffer) {
             goto END;
         }
@@ -246,7 +275,7 @@ int hssl_accept(hssl_t ssl)
         SECURITY_STATUS complete_sec_status = SEC_E_OK;
         complete_sec_status = CompleteAuthToken(&winssl->sechandle, &secure_buffer_desc_out);
         if (complete_sec_status != SEC_E_OK) {
-            fprintf(stderr, "establish_server_security_context CompleteAuthToken %x\n", complete_sec_status);
+            printe("establish_server_security_context CompleteAuthToken %x\n", complete_sec_status);
             ret = -1;
             goto END;
         }
@@ -267,16 +296,16 @@ END:
     if (authn_completed) {
         SECURITY_STATUS sec_status = QueryContextAttributes(&winssl->sechandle, SECPKG_ATTR_STREAM_SIZES, &winssl->stream_sizes_);
         if (sec_status != SEC_E_OK) {
-            fprintf(stderr, "get_stream_sizes QueryContextAttributes %d\n", sec_status);
+            printe("get_stream_sizes QueryContextAttributes %d\n", sec_status);
         }
     }
     return ret;
 }
 
-static void establish_client_security_context_first_stage(struct wintls_s* ssl)
+static void schannel_connect_step1(struct wintls_s* ssl)
 {
     ULONG context_attributes = 0;
-    unsigned long context_requirements = ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_CONFIDENTIALITY;
+    unsigned long context_requirements = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY | ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_STREAM;
 
     TimeStamp life_time = { 0 };
 
@@ -286,31 +315,33 @@ static void establish_client_security_context_first_stage(struct wintls_s* ssl)
     SecBufferDesc secure_buffer_desc_out = { 0 };
     init_sec_buffer_desc(&secure_buffer_desc_out, SECBUFFER_VERSION, 1, secure_buffer_out);
 
-    // ssl->sni = strdup("localhost");
     SECURITY_STATUS sec_status = InitializeSecurityContext(ssl->ssl_ctx, NULL, ssl->sni, context_requirements, 0, 0, NULL, 0, &ssl->sechandle,
         &secure_buffer_desc_out, &context_attributes, &life_time);
 
     if (sec_status != SEC_I_CONTINUE_NEEDED) {
-        fprintf(stderr, "InitializeSecurityContext: %x\n", sec_status);
+        printe("1InitializeSecurityContext: %x\n", sec_status);
     }
 
     if (secure_buffer_out[0].cbBuffer > 0) {
-        int rc = send(ssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
+        int rc = __sendwrapper(ssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
         if (rc != secure_buffer_out[0].cbBuffer) {
             // TODO: Handle the error
-            fprintf(stderr, "%s :send failed\n", __func__);
+            printe("%s :send failed\n", __func__);
+        } else {
+            printd("%s :send len=%d\n", __func__, rc);
         }
     }
     free_all_buffers(&secure_buffer_desc_out);
+    ssl->connecting_state = ssl_connect_2;
 }
 
-static int establish_client_security_context_second_stage(struct wintls_s* ssl)
+static int schannel_connect_step2(struct wintls_s* ssl)
 {
     int ret = 0;
     ULONG context_attributes = 0;
     bool verify_server_cert = 0;
 
-    unsigned long context_requirements = ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_CONFIDENTIALITY;
+    unsigned long context_requirements = ISC_REQ_SEQUENCE_DETECT | ISC_REQ_REPLAY_DETECT | ISC_REQ_CONFIDENTIALITY | ISC_REQ_ALLOCATE_MEMORY | ISC_REQ_STREAM;
     if (!verify_server_cert) {
         context_requirements |= ISC_REQ_MANUAL_CRED_VALIDATION;
     }
@@ -320,7 +351,7 @@ static int establish_client_security_context_second_stage(struct wintls_s* ssl)
     // Allocate a temporary buffer for input
     char* buffer_in = malloc(TLS_SOCKET_BUFFER_SIZE);
     if (buffer_in == NULL) {
-        fprintf(stderr, "establish_client_security_context_second_stage: Memory allocation failed\n");
+        printe("schannel_connect_step2: Memory allocation failed\n");
         return -1;
     }
 
@@ -338,7 +369,7 @@ static int establish_client_security_context_second_stage(struct wintls_s* ssl)
                     ret = HSSL_WANT_READ;
                     goto END;
                 } else {
-                    fprintf(stderr, "establish_client_security_context_second_stage: Receive failed\n");
+                    printe("schannel_connect_step2: Receive failed\n");
                     ret = -1;
                     goto END;
                 }
@@ -356,11 +387,11 @@ static int establish_client_security_context_second_stage(struct wintls_s* ssl)
         SecBuffer secure_buffer_in[4] = { 0 };
         init_sec_buffer(&secure_buffer_in[0], SECBUFFER_TOKEN, in_buffer_size, buffer_in);
         init_sec_buffer(&secure_buffer_in[1], SECBUFFER_EMPTY, 0, NULL);
-        init_sec_buffer(&secure_buffer_in[2], SECBUFFER_EMPTY, 0, NULL);
-        init_sec_buffer(&secure_buffer_in[3], SECBUFFER_EMPTY, 0, NULL);
+        // init_sec_buffer(&secure_buffer_in[2], SECBUFFER_EMPTY, 0, NULL);
+        // init_sec_buffer(&secure_buffer_in[3], SECBUFFER_EMPTY, 0, NULL);
 
         SecBufferDesc secure_buffer_desc_in = { 0 };
-        init_sec_buffer_desc(&secure_buffer_desc_in, SECBUFFER_VERSION, 4, secure_buffer_in);
+        init_sec_buffer_desc(&secure_buffer_desc_in, SECBUFFER_VERSION, 2, secure_buffer_in);
 
         // Output buffer
         SecBuffer secure_buffer_out[3] = { 0 };
@@ -370,86 +401,183 @@ static int establish_client_security_context_second_stage(struct wintls_s* ssl)
 
         SecBufferDesc secure_buffer_desc_out = { 0 };
         init_sec_buffer_desc(&secure_buffer_desc_out, SECBUFFER_VERSION, 3, secure_buffer_out);
-
+        printd("h2:%d\n", in_buffer_size);
         SECURITY_STATUS sec_status = InitializeSecurityContext(ssl->ssl_ctx, &ssl->sechandle, ssl->sni, context_requirements, 0, 0, &secure_buffer_desc_in, 0,
             &ssl->sechandle, &secure_buffer_desc_out, &context_attributes, &life_time);
 
+        printd("h2 0x%x inbuf[1] type=%d %d inbuf[0]=%d\n", sec_status, secure_buffer_in[1].BufferType, secure_buffer_in[1].cbBuffer, secure_buffer_in[0].cbBuffer);
         if (sec_status == SEC_E_OK || sec_status == SEC_I_CONTINUE_NEEDED) {
+            for (size_t i = 0; i < 3; i++) {
+                printd("obuf[%zu] type=%d %d\n", i, secure_buffer_out[i].BufferType, secure_buffer_out[i].cbBuffer);
+            }
             if (secure_buffer_out[0].cbBuffer > 0) {
-                int rc = send(ssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
+                int rc = __sendwrapper(ssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
                 if (rc != secure_buffer_out[0].cbBuffer) {
-                    fprintf(stderr, "establish_client_security_context_second_stage: Send failed\n");
+                    printe("schannel_connect_step2: Send failed\n");
                     // TODO: Handle the error
                     ret = -1;
                     goto END;
                 }
-                // fprintf(stderr, "%s :send ok\n", __func__);
+                // printd("%s :send ok\n", __func__);
             }
 
             if (sec_status == SEC_I_CONTINUE_NEEDED) {
-                for (int i = 1; i < 3; ++i) {
-                    if (secure_buffer_in[i].BufferType == SECBUFFER_EXTRA && secure_buffer_in[i].cbBuffer > 0) {
-                        offset = secure_buffer_in[0].cbBuffer - secure_buffer_in[i].cbBuffer;
-                        memmove(buffer_in, buffer_in + offset, secure_buffer_in[i].cbBuffer);
-                        offset = secure_buffer_in[i].cbBuffer;
-
-                        skip_recv = true;
-                        break;
-                    }
+                if (secure_buffer_in[1].BufferType == SECBUFFER_EXTRA && secure_buffer_in[1].cbBuffer > 0) {
+                    offset = secure_buffer_in[0].cbBuffer - secure_buffer_in[1].cbBuffer;
+                    memmove(buffer_in, buffer_in + offset, secure_buffer_in[1].cbBuffer);
+                    offset = secure_buffer_in[1].cbBuffer;
+                    skip_recv = true;
                 }
-            }
-
-            if (sec_status == SEC_E_OK) {
+            } else if (sec_status == SEC_E_OK) {
                 authn_complete = true;
+                ssl->connecting_state = ssl_connect_3;
             }
         } else if (sec_status == SEC_E_INCOMPLETE_MESSAGE) {
             offset = secure_buffer_in[0].cbBuffer;
         } else {
-            fprintf(stderr, "InitializeSecurityContext: 0x%x\n", sec_status);
+            printe("2InitializeSecurityContext: 0x%x\n", sec_status);
             ret = -1;
             goto END;
         }
-        free_all_buffers(&secure_buffer_desc_out);
 
+        free_all_buffers(&secure_buffer_desc_out);
     }
 END:
     free(buffer_in); // Free the temporary buffer
     return ret;
+}
+static void dumpconninfo(SecHandle* sechandle)
+{
+    SECURITY_STATUS Status;
+    SecPkgContext_ConnectionInfo ConnectionInfo;
+
+    Status = QueryContextAttributes(sechandle,
+        SECPKG_ATTR_CONNECTION_INFO,
+        (PVOID)&ConnectionInfo);
+    if (Status != SEC_E_OK) {
+        printe("Error 0x%x querying connection info\n", Status);
+        return;
+    }
+
+    printd("\n");
+
+    switch (ConnectionInfo.dwProtocol) {
+    case SP_PROT_TLS1_CLIENT:
+        printd("Protocol: TLS1\n");
+        break;
+
+    case SP_PROT_SSL3_CLIENT:
+        printd("Protocol: SSL3\n");
+        break;
+
+    case SP_PROT_PCT1_CLIENT:
+        printd("Protocol: PCT\n");
+        break;
+
+    case SP_PROT_SSL2_CLIENT:
+        printd("Protocol: SSL2\n");
+        break;
+
+    default:
+        printd("Protocol: 0x%x\n", ConnectionInfo.dwProtocol);
+    }
+
+    switch (ConnectionInfo.aiCipher) {
+    case CALG_RC4:
+        printd("Cipher: RC4\n");
+        break;
+
+    case CALG_3DES:
+        printd("Cipher: Triple DES\n");
+        break;
+
+    case CALG_RC2:
+        printd("Cipher: RC2\n");
+        break;
+
+    case CALG_DES:
+    case CALG_CYLINK_MEK:
+        printd("Cipher: DES\n");
+        break;
+
+    case CALG_SKIPJACK:
+        printd("Cipher: Skipjack\n");
+        break;
+
+    case CALG_AES_128:
+        printd("Cipher: aes128\n");
+        break;
+    default:
+        printd("Cipher: 0x%x\n", ConnectionInfo.aiCipher);
+    }
+
+    printd("Cipher strength: %d\n", ConnectionInfo.dwCipherStrength);
+
+    switch (ConnectionInfo.aiHash) {
+    case CALG_MD5:
+        printd("Hash: MD5\n");
+        break;
+
+    case CALG_SHA:
+        printd("Hash: SHA\n");
+        break;
+
+    default:
+        printd("Hash: 0x%x\n", ConnectionInfo.aiHash);
+    }
+
+    printd("Hash strength: %d\n", ConnectionInfo.dwHashStrength);
+
+    switch (ConnectionInfo.aiExch) {
+    case CALG_RSA_KEYX:
+    case CALG_RSA_SIGN:
+        printd("Key exchange: RSA\n");
+        break;
+
+    case CALG_KEA_KEYX:
+        printd("Key exchange: KEA\n");
+        break;
+
+    case CALG_DH_EPHEM:
+        printd("Key exchange: DH Ephemeral\n");
+        break;
+
+    default:
+        printd("Key exchange: 0x%x\n", ConnectionInfo.aiExch);
+    }
+
+    printd("Key exchange strength: %d\n", ConnectionInfo.dwExchStrength);
 }
 
 int hssl_connect(hssl_t _ssl)
 {
     int ret = 0;
     struct wintls_s* ssl = _ssl;
-    if (ssl->first_iteration) {
-        ssl->first_iteration = false;
-        establish_client_security_context_first_stage(ssl);
+    if (ssl->connecting_state == ssl_connect_1) {
+        schannel_connect_step1(ssl);
     }
-
-    ret = establish_client_security_context_second_stage(ssl);
-    // fprintf(stderr, "%s %x\n", __func__, ret);
+    if (ssl->connecting_state == ssl_connect_2) {
+        ret = schannel_connect_step2(ssl);
+    }
+    // printd("%s %x\n", __func__, ret);
     if (!ret) {
+        if (ssl->connecting_state == ssl_connect_3) {
+            // ret = schannel_connect_step3(ssl);
+        }
         SECURITY_STATUS sec_status = QueryContextAttributes(&ssl->sechandle, SECPKG_ATTR_STREAM_SIZES, &ssl->stream_sizes_);
         if (sec_status != SEC_E_OK) {
-            fprintf(stderr, "get_stream_sizes QueryContextAttributes %d\n", sec_status);
+            printe("get_stream_sizes QueryContextAttributes %d\n", sec_status);
+        } else {
+            printd("stream_sizes bs:%d h:%d t:%d max:%d bfs:%d\n", ssl->stream_sizes_.cbBlockSize, ssl->stream_sizes_.cbHeader, ssl->stream_sizes_.cbTrailer, ssl->stream_sizes_.cbMaximumMessage, ssl->stream_sizes_.cBuffers);
         }
+        dumpconninfo(&ssl->sechandle);
     }
     return ret;
 }
 
-static int decrypt_message(SecHandle security_context, SecPkgContext_StreamSizes stream_sizes, const char* in_buf, int in_len, char* out_buf, int out_len)
+static int decrypt_message(SecHandle security_context, unsigned long* extra, const char* in_buf, int in_len, char* out_buf, int out_len)
 {
-    int msg_size = in_len - stream_sizes.cbHeader - stream_sizes.cbTrailer;
-//     if (msg_size > (int)stream_sizes.cbMaximumMessage) {
-//        fprintf(stderr, "decrypt_message: Message to is too long\n");
-//        return -1;
-//    }
-
-    if (msg_size > out_len) {
-        fprintf(stderr, "decrypt_message: Output buffer is too small\n");
-        return -1;
-    }
-
+    printd("%s: inlen=%d\n", __func__, in_len);
     // Initialize the secure buffers
     SecBuffer secure_buffers[4] = { 0 };
     init_sec_buffer(&secure_buffers[0], SECBUFFER_DATA, in_len, in_buf);
@@ -464,28 +592,36 @@ static int decrypt_message(SecHandle security_context, SecPkgContext_StreamSizes
     // Decrypt the message using the security context
     SECURITY_STATUS sec_status = DecryptMessage(&security_context, &secure_buffer_desc, 0, NULL);
 
+    for (size_t i = 1; i < 4; i++) {
+        printd("%d: %u %u\n", i, secure_buffers[i].BufferType, secure_buffers[i].cbBuffer);
+    }
     if (sec_status == SEC_E_INCOMPLETE_MESSAGE) {
-        fprintf(stderr, "decrypt_message SEC_E_INCOMPLETE_MESSAGE\n");
+        printe("decrypt_message SEC_E_INCOMPLETE_MESSAGE\n");
         return -1;
+    } else if (sec_status == SEC_E_DECRYPT_FAILURE) {
+        printe("decrypt_message ignore SEC_E_DECRYPT_FAILURE\n");
+        return 0;
+    } else if (sec_status == SEC_E_UNSUPPORTED_FUNCTION) {
+        printe("decrypt_message ignore SEC_E_UNSUPPORTED_FUNCTION\n");
+        return 0;
     }
 
     if (sec_status != SEC_E_OK) {
-        fprintf(stderr, "decrypt_message DecryptMessage: %d\n", sec_status);
+        printe("decrypt_message DecryptMessage: 0x%x\n", sec_status);
         return -1;
     }
-    if (secure_buffers[1].cbBuffer > (unsigned int)msg_size) {
-        fprintf(stderr, "decrypt_message: Data buffer is too large\n");
-        return -1;
+    if (secure_buffers[3].BufferType == SECBUFFER_EXTRA && secure_buffers[3].cbBuffer > 0) {
+        *extra = secure_buffers[3].cbBuffer;
     }
-
     memcpy(out_buf, secure_buffers[1].pvBuffer, secure_buffers[1].cbBuffer);
+    // printd("ob:%s\n", out_buf);
     return secure_buffers[1].cbBuffer;
 }
 
 int hssl_read(hssl_t _ssl, void* buf, int len)
 {
     struct wintls_s* ssl = _ssl;
-    // fprintf(stderr, "%s: dec_len_= %zu\n", __func__, ssl->dec_len_);
+    printd("%s: dec_len_= %zu\n", __func__, ssl->dec_len_);
     if (ssl->dec_len_ > 0) {
         if (buf == NULL) {
             return 0;
@@ -496,7 +632,7 @@ int hssl_read(hssl_t _ssl, void* buf, int len)
         if (ssl->dec_len_) {
             memmove(ssl->decrypted_buffer_, ssl->decrypted_buffer_ + decrypted, (size_t)ssl->dec_len_);
         } else {
-            //hssl_read(_ssl, NULL, 0);
+            // hssl_read(_ssl, NULL, 0);
         }
         return decrypted;
     }
@@ -505,7 +641,7 @@ int hssl_read(hssl_t _ssl, void* buf, int len)
     // Calculate the available buffer length for tcp recv.
     int recv_max_len = TLS_SOCKET_BUFFER_SIZE - ssl->buffer_to_decrypt_offset_;
     int bytes_received = recv(ssl->fd, ssl->buffer_to_decrypt_ + ssl->buffer_to_decrypt_offset_, recv_max_len, 0);
-    // fprintf(stderr, "%s recv %d %d\n", __func__, bytes_received, WSAGetLastError());
+    // printd("%s recv %d %d\n", __func__, bytes_received, WSAGetLastError());
     if (bytes_received == SOCKET_ERROR) {
         if (WSAGetLastError() == WSAEWOULDBLOCK) {
             bytes_received = 0;
@@ -520,15 +656,15 @@ int hssl_read(hssl_t _ssl, void* buf, int len)
     int encrypted_buffer_len = ssl->buffer_to_decrypt_offset_ + bytes_received;
     ssl->buffer_to_decrypt_offset_ = 0;
     while (true) {
-        // fprintf(stderr, "%s:buffer_to_decrypt_offset_ = %d , encrypted_buffer_len= %d\n", __func__, ssl->buffer_to_decrypt_offset_, encrypted_buffer_len);
+        // printd("%s:buffer_to_decrypt_offset_ = %d , encrypted_buffer_len= %d\n", __func__, ssl->buffer_to_decrypt_offset_, encrypted_buffer_len);
         if (ssl->buffer_to_decrypt_offset_ >= encrypted_buffer_len) {
             // Reached the encrypted buffer length, we decrypted everything so we can stop.
             break;
         }
-
-        int decrypted_len = decrypt_message(ssl->sechandle, ssl->stream_sizes_, ssl->buffer_to_decrypt_ + ssl->buffer_to_decrypt_offset_,
+        unsigned long extra = 0;
+        int decrypted_len = decrypt_message(ssl->sechandle, &extra, ssl->buffer_to_decrypt_ + ssl->buffer_to_decrypt_offset_,
             encrypted_buffer_len - ssl->buffer_to_decrypt_offset_, ssl->decrypted_buffer_ + ssl->dec_len_,
-            TLS_SOCKET_BUFFER_SIZE - ssl->dec_len_);
+            TLS_SOCKET_BUFFER_SIZE + TLS_SOCKET_BUFFER_SIZE - ssl->dec_len_);
 
         if (decrypted_len == -1) {
             // Incomplete message, we shuold keep it so it will be decrypted on the next call to recv().
@@ -540,31 +676,32 @@ int hssl_read(hssl_t _ssl, void* buf, int len)
         }
 
         ssl->dec_len_ += decrypted_len;
-        ssl->buffer_to_decrypt_offset_ += ssl->stream_sizes_.cbHeader + decrypted_len + ssl->stream_sizes_.cbTrailer;
+        ssl->buffer_to_decrypt_offset_ = encrypted_buffer_len - extra;
     }
-    ssl->buffer_to_decrypt_offset_ = encrypted_buffer_len - ssl->buffer_to_decrypt_offset_;    
+    ssl->buffer_to_decrypt_offset_ = encrypted_buffer_len - ssl->buffer_to_decrypt_offset_;
     return hssl_read(_ssl, buf, len);
 }
 
-static int encrypt_message(SecHandle security_context, SecPkgContext_StreamSizes stream_sizes, const char* in_buf, int in_len, char* out_buf, int out_len)
+int hssl_write(hssl_t _ssl, const void* buf, int len)
 {
-    if (in_len > (int)stream_sizes.cbMaximumMessage) {
-        fprintf(stderr, "encrypt_message: Message is too long\n");
-        return -1;
+    struct wintls_s* ssl = _ssl;
+    SecPkgContext_StreamSizes* stream_sizes = &ssl->stream_sizes_;
+    if (len > (int)stream_sizes->cbMaximumMessage) {
+        len = stream_sizes->cbMaximumMessage;
     }
 
     // Calculate the minimum output buffer length
-    int min_out_len = stream_sizes.cbHeader + in_len + stream_sizes.cbTrailer;
-    if (min_out_len > out_len) {
-        fprintf(stderr, "encrypt_message: Output buffer is too small");
+    int min_out_len = stream_sizes->cbHeader + len + stream_sizes->cbTrailer;
+    if (min_out_len > TLS_SOCKET_BUFFER_SIZE) {
+        printe("encrypt_message: Output buffer is too small");
         return -1;
     }
 
     // Initialize the secure buffers
     SecBuffer secure_buffers[4] = { 0 };
-    init_sec_buffer(&secure_buffers[0], SECBUFFER_STREAM_HEADER, stream_sizes.cbHeader, out_buf);
-    init_sec_buffer(&secure_buffers[1], SECBUFFER_DATA, in_len, out_buf + stream_sizes.cbHeader);
-    init_sec_buffer(&secure_buffers[2], SECBUFFER_STREAM_TRAILER, stream_sizes.cbTrailer, out_buf + stream_sizes.cbHeader + in_len);
+    init_sec_buffer(&secure_buffers[0], SECBUFFER_STREAM_HEADER, stream_sizes->cbHeader, ssl->encrypted_buffer_);
+    init_sec_buffer(&secure_buffers[1], SECBUFFER_DATA, len, ssl->encrypted_buffer_ + stream_sizes->cbHeader);
+    init_sec_buffer(&secure_buffers[2], SECBUFFER_STREAM_TRAILER, stream_sizes->cbTrailer, ssl->encrypted_buffer_ + stream_sizes->cbHeader + len);
     init_sec_buffer(&secure_buffers[3], SECBUFFER_EMPTY, 0, NULL);
 
     // Initialize the secure buffer descriptor
@@ -572,49 +709,37 @@ static int encrypt_message(SecHandle security_context, SecPkgContext_StreamSizes
     init_sec_buffer_desc(&secure_buffer_desc, SECBUFFER_VERSION, 4, secure_buffers);
 
     // Copy the input buffer to the data buffer
-    memcpy(secure_buffers[1].pvBuffer, in_buf, in_len);
+    memcpy(secure_buffers[1].pvBuffer, buf, len);
 
     // Encrypt the message using the security context
-    SECURITY_STATUS sec_status = EncryptMessage(&security_context, 0, &secure_buffer_desc, 0);
+    SECURITY_STATUS sec_status = EncryptMessage(&ssl->sechandle, 0, &secure_buffer_desc, 0);
 
     // Check the encryption status and the data buffer length
     if (sec_status != SEC_E_OK) {
-        fprintf(stderr, "encrypt_message EncryptMessage %d\n", sec_status);
+        printe("encrypt_message EncryptMessage %d\n", sec_status);
         return -1;
     }
-    if (secure_buffers[1].cbBuffer > (unsigned int)in_len) {
-        fprintf(stderr, "encrypt_message: Data buffer is too large\n");
+    if (secure_buffers[1].cbBuffer > (unsigned int)len) {
+        printe("encrypt_message: Data buffer is too large\n");
         return -1;
     }
 
     // Adjust the minimum output buffer length
-    min_out_len = stream_sizes.cbHeader + secure_buffers[1].cbBuffer + stream_sizes.cbTrailer;
-
-    return min_out_len;
-}
-
-int hssl_write(hssl_t _ssl, const void* buf, int len)
-{
-    struct wintls_s* ssl = _ssl;
-    int out_len_result = encrypt_message(ssl->sechandle, ssl->stream_sizes_, buf, len, ssl->encrypted_buffer_, TLS_SOCKET_BUFFER_SIZE);
-
-    // Check the encryption result
-    if (out_len_result < 0) {
-        fprintf(stderr, "hssl_write: Encryption failed\n");
-        return -1;
-    }
+    min_out_len = secure_buffers[0].cbBuffer + secure_buffers[1].cbBuffer + secure_buffers[2].cbBuffer;
+    printd("enc02: %d %d\n", secure_buffers[0].cbBuffer, secure_buffers[2].cbBuffer);
 
     // Send the encrypted message to the socket
-    int bytes_sent = send(ssl->fd, ssl->encrypted_buffer_, out_len_result, 0);
-
+    int offset = __sendwrapper(ssl->fd, ssl->encrypted_buffer_, min_out_len, 0);
     // Check the send result
-    if (bytes_sent != out_len_result) {
-        fprintf(stderr, "hssl_write: Send failed\n");
+    if (offset != min_out_len) {
+        printe("hssl_write: Send failed\n");
         return -1;
+    } else {
+        printd("hssl_write: Send %d\n", min_out_len);
     }
 
     // Return the number of bytes sent excluding the header and trailer
-    return bytes_sent - ssl->stream_sizes_.cbHeader - ssl->stream_sizes_.cbTrailer;
+    return offset - secure_buffers[0].cbBuffer - secure_buffers[2].cbBuffer;
 }
 
 int hssl_close(hssl_t _ssl)
