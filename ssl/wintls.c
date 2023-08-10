@@ -224,7 +224,7 @@ static int __recvwrapper(SOCKET fd, char* buf, int len, int flags)
 
 int hssl_accept(hssl_t ssl)
 {
-    int ret = 0;
+    int ret = HSSL_ERROR;
     struct wintls_s* winssl = ssl;
     bool authn_completed = false;
 
@@ -258,48 +258,48 @@ int hssl_accept(hssl_t ssl)
     // printd("%s recv %d %d\n", __func__, secure_buffer_in[0].cbBuffer, WSAGetLastError());
     if (secure_buffer_in[0].cbBuffer == SOCKET_ERROR && WSAGetLastError() == WSAEWOULDBLOCK) {
         ret = HSSL_WANT_READ;
-        goto END;
-    }
+    } else if (secure_buffer_in[0].cbBuffer > 0) {
+        SECURITY_STATUS sec_status = AcceptSecurityContext(winssl->ssl_ctx, winssl->state2 == 0 ? NULL : &winssl->sechandle, &secure_buffer_desc_in,
+            context_requirements, 0, &winssl->sechandle, &secure_buffer_desc_out, &context_attributes, &life_time);
 
-    SECURITY_STATUS sec_status = AcceptSecurityContext(winssl->ssl_ctx, winssl->state2 == 0 ? NULL : &winssl->sechandle, &secure_buffer_desc_in,
-        context_requirements, 0, &winssl->sechandle, &secure_buffer_desc_out, &context_attributes, &life_time);
+        winssl->state2 = 1;
+        // printd("establish_server_security_context AcceptSecurityContext %x\n", sec_status);
 
-    winssl->state2 = 1;
-    // printd("establish_server_security_context AcceptSecurityContext %x\n", sec_status);
-
-    if (secure_buffer_out[0].cbBuffer > 0) {
-        int rc = __sendwrapper(winssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
-        if (rc != secure_buffer_out[0].cbBuffer) {
-            goto END;
-        }
-    }
-
-    switch (sec_status) {
-    case SEC_E_OK:
-        authn_completed = true;
-        break;
-    case SEC_I_CONTINUE_NEEDED:
-        ret = HSSL_WANT_READ;
-        break;
-    case SEC_I_COMPLETE_AND_CONTINUE:
-    case SEC_I_COMPLETE_NEEDED: {
-        SECURITY_STATUS complete_sec_status = SEC_E_OK;
-        complete_sec_status = CompleteAuthToken(&winssl->sechandle, &secure_buffer_desc_out);
-        if (complete_sec_status != SEC_E_OK) {
-            printe("establish_server_security_context CompleteAuthToken %x\n", complete_sec_status);
-            ret = -1;
-            goto END;
+        if (secure_buffer_out[0].cbBuffer > 0) {
+            int rc = __sendwrapper(winssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
+            if (rc != secure_buffer_out[0].cbBuffer) {
+                goto END;
+            }
         }
 
-        if (sec_status == SEC_I_COMPLETE_NEEDED) {
+        switch (sec_status) {
+        case SEC_E_OK:
+            ret = HSSL_OK;
             authn_completed = true;
-        } else {
+            break;
+        case SEC_I_CONTINUE_NEEDED:
             ret = HSSL_WANT_READ;
+            break;
+        case SEC_I_COMPLETE_AND_CONTINUE:
+        case SEC_I_COMPLETE_NEEDED: {
+            SECURITY_STATUS complete_sec_status = SEC_E_OK;
+            complete_sec_status = CompleteAuthToken(&winssl->sechandle, &secure_buffer_desc_out);
+            if (complete_sec_status != SEC_E_OK) {
+                printe("establish_server_security_context CompleteAuthToken %x\n", complete_sec_status);
+                goto END;
+            }
+
+            if (sec_status == SEC_I_COMPLETE_NEEDED) {
+                authn_completed = true;
+                ret = HSSL_OK;
+            } else {
+                ret = HSSL_WANT_READ;
+            }
+            break;
         }
-        break;
-    }
-    default:
-        ret = -1;
+        default:
+            break;
+        }
     }
 END:
     free_all_buffers(&secure_buffer_desc_out);
@@ -351,7 +351,7 @@ static int schannel_connect_step1(struct wintls_s* ssl)
 
 static int schannel_connect_step2(struct wintls_s* ssl)
 {
-    int ret = 0;
+    int ret = HSSL_ERROR;
     ULONG context_attributes = 0;
     bool verify_server_cert = 0;
 
@@ -366,7 +366,7 @@ static int schannel_connect_step2(struct wintls_s* ssl)
     char* buffer_in = malloc(TLS_SOCKET_BUFFER_SIZE);
     if (buffer_in == NULL) {
         printe("schannel_connect_step2: Memory allocation failed\n");
-        return -1;
+        return HSSL_ERROR;
     }
 
     int offset = 0;
@@ -380,14 +380,14 @@ static int schannel_connect_step2(struct wintls_s* ssl)
             if (received == SOCKET_ERROR) {
                 if (WSAGetLastError() == WSAEWOULDBLOCK) {
                     ret = HSSL_WANT_READ;
-                    goto END;
                 } else {
                     printe("schannel_connect_step2: Receive failed\n");
-                    ret = -1;
-                    goto END;
                 }
+                break;
+            } else if (received == 0) {
+                printe("schannel_connect_step2: peer closed\n");
+                break;
             }
-
             in_buffer_size = received + offset;
         } else {
             in_buffer_size = offset;
@@ -400,8 +400,6 @@ static int schannel_connect_step2(struct wintls_s* ssl)
         SecBuffer secure_buffer_in[4] = { 0 };
         init_sec_buffer(&secure_buffer_in[0], SECBUFFER_TOKEN, in_buffer_size, buffer_in);
         init_sec_buffer(&secure_buffer_in[1], SECBUFFER_EMPTY, 0, NULL);
-        // init_sec_buffer(&secure_buffer_in[2], SECBUFFER_EMPTY, 0, NULL);
-        // init_sec_buffer(&secure_buffer_in[3], SECBUFFER_EMPTY, 0, NULL);
 
         SecBufferDesc secure_buffer_desc_in = { 0 };
         init_sec_buffer_desc(&secure_buffer_desc_in, SECBUFFER_VERSION, 2, secure_buffer_in);
@@ -420,16 +418,15 @@ static int schannel_connect_step2(struct wintls_s* ssl)
 
         printd("h2 0x%x inbuf[1] type=%d %d inbuf[0]=%d\n", sec_status, secure_buffer_in[1].BufferType, secure_buffer_in[1].cbBuffer, secure_buffer_in[0].cbBuffer);
         if (sec_status == SEC_E_OK || sec_status == SEC_I_CONTINUE_NEEDED) {
-            for (size_t i = 0; i < 3; i++) {
-                printd("obuf[%zu] type=%d %d\n", i, secure_buffer_out[i].BufferType, secure_buffer_out[i].cbBuffer);
-            }
+            // for (size_t i = 0; i < 3; i++) {
+            //     printd("obuf[%zu] type=%d %d\n", i, secure_buffer_out[i].BufferType, secure_buffer_out[i].cbBuffer);
+            // }
             if (secure_buffer_out[0].cbBuffer > 0) {
                 int rc = __sendwrapper(ssl->fd, (const char*)secure_buffer_out[0].pvBuffer, secure_buffer_out[0].cbBuffer, 0);
                 if (rc != secure_buffer_out[0].cbBuffer) {
                     printe("schannel_connect_step2: Send failed\n");
                     // TODO: Handle the error
-                    ret = -1;
-                    goto END;
+                    break;
                 }
                 // printd("%s :send ok\n", __func__);
             }
@@ -443,22 +440,23 @@ static int schannel_connect_step2(struct wintls_s* ssl)
                 }
             } else if (sec_status == SEC_E_OK) {
                 authn_complete = true;
+                ret = HSSL_OK;
                 ssl->connecting_state = ssl_connect_3;
             }
         } else if (sec_status == SEC_E_INCOMPLETE_MESSAGE) {
             offset = secure_buffer_in[0].cbBuffer;
         } else {
             printe("2InitializeSecurityContext: 0x%x\n", sec_status);
-            ret = -1;
-            goto END;
+            break;
         }
 
         free_all_buffers(&secure_buffer_desc_out);
     }
-END:
+    // END:
     free(buffer_in); // Free the temporary buffer
     return ret;
 }
+
 static void dumpconninfo(SecHandle* sechandle)
 {
     SECURITY_STATUS Status;
