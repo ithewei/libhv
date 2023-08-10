@@ -202,7 +202,7 @@ static int __sendwrapper(SOCKET fd, const char* buf, size_t len, int flags)
     int offset = 0;
     while (left > 0) {
         int bytes_sent = send(fd, buf + offset, left, flags);
-        if ((bytes_sent == SOCKET_ERROR && GetLastError() != WSAEWOULDBLOCK) || bytes_sent == 0) {
+        if (bytes_sent == 0 || (bytes_sent == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK && WSAGetLastError() != WSAEINTR)) {
             break;
         }
         if (bytes_sent > 0) {
@@ -216,15 +216,10 @@ static int __sendwrapper(SOCKET fd, const char* buf, size_t len, int flags)
 static int __recvwrapper(SOCKET fd, char* buf, int len, int flags)
 {
     int ret = 0;
-    fd_set fs;
-    struct timeval interval = { 10, 0 };
-    FD_ZERO(&fs);
-    FD_SET(fd, &fs);
-    ret = select(fd + 1, &fs, NULL, NULL, &interval);
-    if (ret == 0) { // timeout
-        return -1;
-    }
-    return recv(fd, buf, len, flags);
+    do {
+        ret = recv(fd, buf, len, flags);
+    } while (ret == SOCKET_ERROR && WSAGetLastError() == WSAEINTR);
+    return ret;
 }
 
 int hssl_accept(hssl_t ssl)
@@ -593,7 +588,7 @@ int hssl_connect(hssl_t _ssl)
     return ret;
 }
 
-static int decrypt_message(SecHandle security_context, unsigned long* extra, const char* in_buf, int in_len, char* out_buf, int out_len)
+static int decrypt_message(SecHandle security_context, unsigned long* extra, char* in_buf, int in_len, char* out_buf, int out_len)
 {
     printd("%s: inlen=%d\n", __func__, in_len);
     // Initialize the secure buffers
@@ -658,7 +653,7 @@ int hssl_read(hssl_t _ssl, void* buf, int len)
     // We might have leftovers, an incomplete message from a previous call.
     // Calculate the available buffer length for tcp recv.
     int recv_max_len = TLS_SOCKET_BUFFER_SIZE - ssl->buffer_to_decrypt_offset_;
-    int bytes_received = recv(ssl->fd, ssl->buffer_to_decrypt_ + ssl->buffer_to_decrypt_offset_, recv_max_len, 0);
+    int bytes_received = __recvwrapper(ssl->fd, ssl->buffer_to_decrypt_ + ssl->buffer_to_decrypt_offset_, recv_max_len, 0);
     // printd("%s recv %d %d\n", __func__, bytes_received, WSAGetLastError());
     if (bytes_received == SOCKET_ERROR) {
         if (WSAGetLastError() == WSAEWOULDBLOCK) {
