@@ -46,7 +46,8 @@ jobs:
           cd cmake-build-win64
           start bin/Release/http_server_test
           bin/Release/http_client_test
-          bin/Release/curl -v http://127.0.0.1:8080/ping
+          bin/Release/curl -v -X HEAD http://example.com/
+          bin/Release/curl -v -X HEAD https://example.com/
           bin/Release/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/ping
 
   build-mac:
@@ -58,6 +59,11 @@ jobs:
         run: |
           ./configure
           make libhv evpp examples unittest
+
+      - name: test
+        run: |
+          bin/curl -v -X HEAD http://example.com/
+          bin/curl -v -X HEAD https://example.com/
 
   build-android:
     name: build-android

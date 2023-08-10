@@ -197,8 +197,15 @@ int parse_confile(const char* confile) {
         param.ca_file = ca_file.c_str();
         param.endpoint = HSSL_SERVER;
         if (g_http_server.newSslCtx(&param) != 0) {
+#ifdef OS_WIN
+            if (strcmp(hssl_backend(), "schannel") == 0) {
+                hlogw("schannel needs pkcs12 formatted certificate file.");
+                g_http_server.https_port = 0;
+            }
+#else
             hloge("SSL certificate verify failed!");
             exit(0);
+#endif
         }
         else {
             hlogi("SSL certificate verify ok!");

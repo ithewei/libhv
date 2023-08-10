@@ -13,3 +13,4 @@ bin/curl -v http://127.0.0.1:8080/
 if [ $HTTPS -gt 0 ]; then
     bin/curl -v https://127.0.0.1:8443/
 fi
+bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/ping

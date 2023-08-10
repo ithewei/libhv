@@ -206,6 +206,7 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
 }
 
 int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout) {
+    cli->Close();
     int blocktime = DEFAULT_CONNECT_TIMEOUT;
     if (timeout > 0) {
         blocktime = MIN(timeout*1000, blocktime);
@@ -240,6 +241,7 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
         if (!is_ipaddr(host)) {
             hssl_set_sni_hostname(cli->ssl, host);
         }
+        so_rcvtimeo(connfd, blocktime);
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
             fprintf(stderr, "* ssl handshake failed: %d\n", ret);
@@ -319,7 +321,9 @@ static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* 
         }
     }
 
-    if (connfd <= 0) {
+    if (connfd <= 0 || cli->host != req->host || cli->port != req->port) {
+        cli->host = req->host;
+        cli->port = req->port;
 connect:
         connfd = http_client_connect(cli, req->host.c_str(), req->port, https, connect_timeout);
         if (connfd < 0) {
@@ -347,7 +351,6 @@ send:
                 err = socket_errno();
                 if (err == EINTR) continue;
                 if (retry_count-- > 0 && left_time > req->retry_delay + connect_timeout * 1000) {
-                    cli->Close();
                     err = 0;
                     if (req->retry_delay > 0) hv_msleep(req->retry_delay);
                     goto connect;
@@ -375,7 +378,6 @@ recv:
                 goto disconnect;
             }
             if (retry_count-- > 0 && left_time > req->retry_delay + connect_timeout * 1000) {
-                cli->Close();
                 err = 0;
                 if (req->retry_delay > 0) hv_msleep(req->retry_delay);
                 goto connect;

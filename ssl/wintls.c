@@ -14,9 +14,6 @@
 #include <security.h>
 #include <sspi.h>
 
-#pragma comment(lib, "Secur32.lib")
-#pragma comment(lib, "crypt32.lib")
-
 #define TLS_SOCKET_BUFFER_SIZE 17000
 
 const char* hssl_backend()

@@ -158,7 +158,7 @@ endif()
 
 if(WIN32)
     add_definitions(-DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0600)
-    set(LIBS ${LIBS} winmm iphlpapi ws2_32)
+    set(LIBS ${LIBS} secur32 crypt32 winmm iphlpapi ws2_32)
     if(ENABLE_WINDUMP)
         add_definitions(-DENABLE_WINDUMP)
         set(LIBS ${LIBS} dbghelp)

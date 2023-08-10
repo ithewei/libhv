@@ -8,11 +8,15 @@
     !defined(WITH_GNUTLS)  &&   \
     !defined(WITH_MBEDTLS)
 #ifdef OS_WIN
-#define WITH_WINTLS
+    #define WITH_WINTLS
+    #ifdef _MSC_VER
+        #pragma comment(lib, "secur32.lib")
+        #pragma comment(lib, "crypt32.lib")
+    #endif
 #elif defined(OS_DARWIN)
-#define WITH_APPLETLS
+    #define WITH_APPLETLS
 #else
-#define HV_WITHOUT_SSL
+    #define HV_WITHOUT_SSL
 #endif
 #endif
 
