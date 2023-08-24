@@ -5,7 +5,11 @@
 #include "hplatform.h"
 
 #ifdef ENABLE_UDS
+#ifdef OS_WIN
+    #include <afunix.h> // import struct sockaddr_un
+#else
     #include <sys/un.h> // import struct sockaddr_un
+#endif
 #endif
 
 #ifdef _MSC_VER
