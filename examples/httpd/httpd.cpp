@@ -180,6 +180,11 @@ int parse_confile(const char* confile) {
     if (str.size() != 0) {
         g_http_service.limit_rate = atoi(str.c_str());
     }
+    // access_log
+    str = ini.GetValue("access_log");
+    if (str.size() != 0) {
+        g_http_service.enable_access_log = hv_getboolean(str.c_str());
+    }
     // cors
     if (ini.Get<bool>("cors")) {
         g_http_service.AllowCORS();
