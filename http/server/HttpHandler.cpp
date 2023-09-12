@@ -498,7 +498,7 @@ int HttpHandler::defaultStaticHandler() {
     std::string path = req->Path();
     const char* req_path = path.c_str();
     // path safe check
-    if (req_path[0] != '/' || strstr(req_path, "/../")) {
+    if (req_path[0] != '/' || strstr(req_path, "/..") || strstr(req_path, "\\..")) {
         return HTTP_STATUS_BAD_REQUEST;
     }
 
