@@ -21,6 +21,8 @@ using namespace hv;
 
 #define HTTP_100_CONTINUE_RESPONSE      "HTTP/1.1 100 Continue\r\n\r\n"
 #define HTTP_100_CONTINUE_RESPONSE_LEN  25
+#define HTTP_200_CONNECT_RESPONSE       "HTTP/1.1 200 Connection established\r\n\r\n"
+#define HTTP_200_CONNECT_RESPONSE_LEN   39
 
 HttpHandler::HttpHandler(hio_t* io) :
     protocol(HttpHandler::UNKNOWN),
@@ -345,6 +347,20 @@ void HttpHandler::handleRequestHeaders() {
     if (hv::startswith(pReq->url, "http")) {
         // forward proxy
         proxy = forward_proxy = 1;
+    }
+    else if (pReq->method == HTTP_CONNECT) {
+        // proxy tunnel
+        // CONNECT ip:port HTTP/1.1\r\n
+        pReq->url = "https://" + pReq->url;
+        proxy = forward_proxy = 1;
+        keepalive = true;
+    }
+
+    // printf("url=%s\n", pReq->url.c_str());
+    pReq->ParseUrl();
+
+    if (proxy) {
+        // Proxy-Connection
         auto iter = pReq->headers.find("Proxy-Connection");
         if (iter != pReq->headers.end()) {
             const char* keepalive_value = iter->second.c_str();
@@ -359,11 +375,7 @@ void HttpHandler::handleRequestHeaders() {
             }
         }
     }
-
-    // printf("url=%s\n", pReq->url.c_str());
-    pReq->ParseUrl();
-
-    if (!proxy) {
+    else {
         // reverse proxy
         std::string proxy_url = service->GetProxyUrl(pReq->path.c_str());
         if (!proxy_url.empty()) {
@@ -1083,12 +1095,22 @@ void HttpHandler::onProxyConnect(hio_t* upstream_io) {
     assert(handler != NULL && io != NULL);
     handler->proxy_connected = 1;
 
-    handler->sendProxyRequest();
+    if (handler->req->method == HTTP_CONNECT) {
+        // handler->resp->status_code = HTTP_STATUS_OK;
+        // handler->SendHttpResponse();
+        hio_write(io, HTTP_200_CONNECT_RESPONSE, HTTP_200_CONNECT_RESPONSE_LEN);
+        handler->state = SEND_DONE;
+        // NOTE: recv request then upstream
+        hio_setcb_read(io, hio_write_upstream);
+    } else {
+        handler->sendProxyRequest();
+    }
 
-    // NOTE: start recv body continue then upstream
+    // NOTE: start recv request continue then upstream
+    hio_read_start(io);
+    // NOTE: start recv response then upstream
     hio_setcb_read(upstream_io, hio_write_upstream);
     hio_read_start(upstream_io);
-    hio_read_start(io);
 }
 
 void HttpHandler::onProxyClose(hio_t* upstream_io) {
