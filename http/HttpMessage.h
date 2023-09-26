@@ -395,6 +395,7 @@ public:
     uint32_t            retry_delay;    // unit: ms
     unsigned            redirect: 1;
     unsigned            proxy   : 1;
+    unsigned            cancel  : 1;
 
     HttpRequest();
 
@@ -471,6 +472,7 @@ public:
         retry_count = count;
         retry_delay = delay;
     }
+    void Cancel() { cancel = 1; }
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1);

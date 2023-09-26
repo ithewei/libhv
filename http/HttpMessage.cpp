@@ -619,6 +619,7 @@ void HttpRequest::Init() {
     retry_delay = DEFAULT_HTTP_FAIL_RETRY_DELAY;
     redirect = 1;
     proxy = 0;
+    cancel = 0;
 }
 
 void HttpRequest::Reset() {
