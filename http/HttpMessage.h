@@ -473,6 +473,7 @@ public:
         retry_delay = delay;
     }
     void Cancel() { cancel = 1; }
+    bool IsCanceled() { return cancel == 1; }
 
     // Range: bytes=0-4095
     void SetRange(long from = 0, long to = -1);

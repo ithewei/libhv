@@ -95,6 +95,8 @@ class HttpRequest : public HttpMessage {
     // 设置重试
     void SetRetry(int count = DEFAULT_HTTP_FAIL_RETRY_COUNT,
                   int delay = DEFAULT_HTTP_FAIL_RETRY_DELAY);
+    // 取消
+    void Cancel();
 };
 
 // HttpResponse 继承自 HttpMessage

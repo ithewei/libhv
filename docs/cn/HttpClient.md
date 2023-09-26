@@ -50,6 +50,9 @@ namespace requests {
     // 通过 `multipart/form-data` 格式上传文件
     Response uploadFormFile(const char* url, const char* name, const char* filepath, std::map<std::string, std::string>& params = hv::empty_map, http_method method = HTTP_POST, const http_headers& headers = DefaultHeaders);
 
+    // 上传大文件（带上传进度回调）
+    Response uploadLargeFile(const char* url, const char* filepath, upload_progress_cb progress_cb = NULL, http_method method = HTTP_POST, const http_headers& headers = DefaultHeaders);
+
     // 下载文件 (更详细的断点续传示例代码见`examples/wget.cpp`)
     size_t downloadFile(const char* url, const char* filepath, download_progress_cb progress_cb = NULL);
 

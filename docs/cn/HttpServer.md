@@ -25,6 +25,12 @@ class HttpServer {
     // 新建SSL/TLS
     int newSslCtx(hssl_ctx_opt_t* opt);
 
+    // hooks
+    // 事件循环开始时执行的回调函数
+    std::function<void()> onWorkerStart;
+    // 事件循环结束时执行的回调函数
+    std::function<void()> onWorkerStop;
+
     // 占用当前线程运行
     int run(bool wait = true);
 
