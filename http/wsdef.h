@@ -63,8 +63,12 @@ HV_INLINE int ws_client_build_frame(
     /* bool has_mask = true */
     enum ws_opcode opcode DEFAULT(WS_OPCODE_TEXT),
     bool fin DEFAULT(true)) {
-    char mask[4];
-    *(int*)mask = rand();
+    char mask[4] = {0};
+    int i = 0;
+    int imask = rand();
+    for (i = 0; i < 4; i++) {
+        mask[i] = (imask >> (8 * i)) & 0xff;
+    }
     return ws_build_frame(out, data, data_len, mask, true, opcode, fin);
 }
 
