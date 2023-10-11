@@ -443,6 +443,10 @@ bool HttpMessage::IsKeepAlive() {
     return keepalive;
 }
 
+bool HttpMessage::IsUpgrade() {
+    auto iter = headers.find("upgrade");
+    return iter != headers.end();
+}
 
 // headers
 void HttpMessage::SetHeader(const char* key, const std::string& value) {

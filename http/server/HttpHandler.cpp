@@ -302,12 +302,12 @@ void HttpHandler::onMessageComplete() {
     addResponseHeaders();
 
     // upgrade ? handleUpgrade : HandleHttpRequest
-    upgrade = 0;
-    auto iter_upgrade = req->headers.find("upgrade");
-    if (iter_upgrade != req->headers.end()) {
-        upgrade = 1;
-        handleUpgrade(iter_upgrade->second.c_str());
-        status_code = resp->status_code;
+    if (upgrade) {
+        auto iter_upgrade = req->headers.find("upgrade");
+        if (iter_upgrade != req->headers.end()) {
+            handleUpgrade(iter_upgrade->second.c_str());
+            status_code = resp->status_code;
+        }
     } else {
         status_code = HandleHttpRequest();
         if (status_code != HTTP_STATUS_NEXT) {
@@ -341,6 +341,9 @@ void HttpHandler::handleRequestHeaders() {
 
     // keepalive
     keepalive = pReq->IsKeepAlive();
+
+    // upgrade
+    upgrade = pReq->IsUpgrade();
 
     // proxy
     proxy = forward_proxy = reverse_proxy = 0;
@@ -1107,6 +1110,7 @@ void HttpHandler::onProxyConnect(hio_t* upstream_io) {
     }
 
     // NOTE: start recv request continue then upstream
+    if (handler->upgrade) hio_setcb_read(io, hio_write_upstream);
     hio_read_start(io);
     // NOTE: start recv response then upstream
     hio_setcb_read(upstream_io, hio_write_upstream);

@@ -269,6 +269,7 @@ public:
 
     bool IsChunked();
     bool IsKeepAlive();
+    bool IsUpgrade();
 
     // headers
     void SetHeader(const char* key, const std::string& value);
