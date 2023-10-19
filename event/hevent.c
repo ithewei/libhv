@@ -149,6 +149,9 @@ void hio_ready(hio_t* io) {
 #ifdef EVENT_IOCP
     io->hovlp = NULL;
 #endif
+#ifdef EVENT_IOURING
+    io->iouring_buf = NULL;
+#endif
 
     // io_type
     fill_io_type(io);
