@@ -345,7 +345,9 @@ send:
             if (left_time != INFINITE) {
                 so_sndtimeo(cli->fd, left_time);
             }
+            if (req->cancel) goto disconnect;
             nsend = http_client_send_data(cli, data + total_nsend, len - total_nsend);
+            if (req->cancel) goto disconnect;
             if (nsend <= 0) {
                 CHECK_TIMEOUT
                 err = socket_errno();
@@ -368,7 +370,9 @@ recv:
         if (left_time != INFINITE) {
             so_rcvtimeo(cli->fd, left_time);
         }
+        if (req->cancel) goto disconnect;
         nrecv = http_client_recv_data(cli, recvbuf, sizeof(recvbuf));
+        if (req->cancel) goto disconnect;
         if (nrecv <= 0) {
             CHECK_TIMEOUT
             err = socket_errno();
