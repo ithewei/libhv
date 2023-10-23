@@ -421,6 +421,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     else {
         if(len<bufsize) {
             buf[len++] = '\n';
+        }
     }
 
     if (logger->handler) {
