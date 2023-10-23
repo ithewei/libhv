@@ -155,6 +155,10 @@ public:
     }
 
     // iobuf setting
+    void setReadBuf(void* buf, size_t len) {
+        if (io_ == NULL) return;
+        hio_set_readbuf(io_, buf, len);
+    }
     void setMaxReadBufsize(uint32_t size) {
         if (io_ == NULL) return;
         hio_set_max_read_bufsize(io_, size);
