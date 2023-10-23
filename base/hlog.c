@@ -419,7 +419,8 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
         len += snprintf(buf + len, bufsize - len, "%s", CLR_CLR "\n");
     }
     else {
-        len += snprintf(buf + len, bufsize - len, "%s", "\n");
+        if(len<bufsize) {
+            buf[len++] = '\n';
     }
 
     if (logger->handler) {
