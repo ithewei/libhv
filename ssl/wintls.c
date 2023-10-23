@@ -16,28 +16,56 @@
 
 #define TLS_SOCKET_BUFFER_SIZE 17000
 
+#ifndef SP_PROT_SSL2_SERVER
+#define SP_PROT_SSL2_SERVER             0x00000004
+#endif
+
 #ifndef SP_PROT_SSL2_CLIENT
 #define SP_PROT_SSL2_CLIENT             0x00000008
 #endif
 
+#ifndef SP_PROT_SSL3_SERVER
+#define SP_PROT_SSL3_SERVER             0x00000010
+#endif
+
 #ifndef SP_PROT_SSL3_CLIENT
-#define SP_PROT_SSL3_CLIENT             0x00000008
+#define SP_PROT_SSL3_CLIENT             0x00000020
+#endif
+
+#ifndef SP_PROT_TLS1_SERVER
+#define SP_PROT_TLS1_SERVER             0x00000040
 #endif
 
 #ifndef SP_PROT_TLS1_CLIENT
 #define SP_PROT_TLS1_CLIENT             0x00000080
 #endif
 
+#ifndef SP_PROT_TLS1_0_SERVER
+#define SP_PROT_TLS1_0_SERVER           SP_PROT_TLS1_SERVER
+#endif
+
 #ifndef SP_PROT_TLS1_0_CLIENT
 #define SP_PROT_TLS1_0_CLIENT           SP_PROT_TLS1_CLIENT
+#endif
+
+#ifndef SP_PROT_TLS1_1_SERVER
+#define SP_PROT_TLS1_1_SERVER           0x00000100
 #endif
 
 #ifndef SP_PROT_TLS1_1_CLIENT
 #define SP_PROT_TLS1_1_CLIENT           0x00000200
 #endif
 
+#ifndef SP_PROT_TLS1_2_SERVER
+#define SP_PROT_TLS1_2_SERVER           0x00000400
+#endif
+
 #ifndef SP_PROT_TLS1_2_CLIENT
 #define SP_PROT_TLS1_2_CLIENT           0x00000800
+#endif
+
+#ifndef SP_PROT_TLS1_3_SERVER
+#define SP_PROT_TLS1_3_SERVER           0x00001000
 #endif
 
 #ifndef SP_PROT_TLS1_3_CLIENT
