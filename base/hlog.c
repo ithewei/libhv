@@ -416,12 +416,11 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     }
 
     if (logger->enable_color) {
-        len += snprintf(buf + len, bufsize - len, "%s", CLR_CLR "\n");
+        len += snprintf(buf + len, bufsize - len, "%s", CLR_CLR);
     }
-    else {
-        if(len<bufsize) {
-            buf[len++] = '\n';
-        }
+
+    if(len<bufsize) {
+        buf[len++] = '\n';
     }
 
     if (logger->handler) {
