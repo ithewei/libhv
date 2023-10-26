@@ -66,7 +66,9 @@ HV_INLINE int nonblocking(int sockfd) {
 #define blocking(s)     fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
 #define nonblocking(s)  fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK)
 
-typedef int         SOCKET;
+#ifndef SOCKET
+#define SOCKET int
+#endif
 #define INVALID_SOCKET  -1
 
 HV_INLINE int closesocket(int sockfd) {
