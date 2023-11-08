@@ -324,6 +324,13 @@ static void hloop_init(hloop_t* loop) {
     // idles
     list_init(&loop->idles);
 
+#ifdef OS_LINUX
+    // signals
+    for (int i = 0; i < _NSIG; i++) {
+        list_init(&(loop->signal_events_head[i]));
+    }
+#endif
+
     // timers
     heap_init(&loop->timers, timers_compare);
     heap_init(&loop->realtimers, timers_compare);
@@ -377,6 +384,22 @@ static void hloop_cleanup(hloop_t* loop) {
         HV_FREE(idle);
     }
     list_init(&loop->idles);
+
+#ifdef OS_LINUX
+    loop->signal_io_watcher = NULL;
+    // signals
+    printd("cleanup signals...\n");
+    for (int i = 0; i < _NSIG; i++) {
+        struct list_node* sig_node = loop->signal_events_head[i].next;
+        hsig_t* signal;
+        while (sig_node != &loop->signal_events_head[i]) {
+            signal = IDLE_ENTRY(sig_node);
+            sig_node = sig_node->next;
+            HV_FREE(signal);
+        }
+        list_init(&(loop->signal_events_head[i]));
+    }
+#endif
 
     // timers
     printd("cleanup timers...\n");

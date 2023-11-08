@@ -16,11 +16,17 @@ typedef struct htimer_s     htimer_t;
 typedef struct htimeout_s   htimeout_t;
 typedef struct hperiod_s    hperiod_t;
 typedef struct hio_s        hio_t;
+#ifdef OS_LINUX
+typedef struct hsig_s       hsig_t;
+#endif
 
 typedef void (*hevent_cb)   (hevent_t* ev);
 typedef void (*hidle_cb)    (hidle_t* idle);
 typedef void (*htimer_cb)   (htimer_t* timer);
 typedef void (*hio_cb)      (hio_t* io);
+#ifdef OS_LINUX
+typedef void (*hsig_cb)     (hsig_t* signal);
+#endif
 
 typedef void (*haccept_cb)  (hio_t* io);
 typedef void (*hconnect_cb) (hio_t* io);
@@ -42,6 +48,9 @@ typedef enum {
     HEVENT_TYPE_TIMER   = HEVENT_TYPE_TIMEOUT|HEVENT_TYPE_PERIOD,
     HEVENT_TYPE_IDLE    = 0x00000100,
     HEVENT_TYPE_CUSTOM  = 0x00000400, // 1024
+#ifdef OS_LINUX
+    HEVENT_TYPE_SIGNAL  = 0x00001000,
+#endif
 } hevent_type_e;
 
 #define HEVENT_LOWEST_PRIORITY    (-5)
@@ -185,6 +194,12 @@ HV_EXPORT void hloop_post_event(hloop_t* loop, hevent_t* ev);
 // idle
 HV_EXPORT hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT(INFINITE));
 HV_EXPORT void     hidle_del(hidle_t* idle);
+
+#ifdef OS_LINUX
+// signal
+HV_EXPORT hsig_t* hsig_add(hloop_t* loop, hsig_cb cb, uint32_t signal DEFAULT(INFINITE));
+HV_EXPORT void hsig_del(hsig_t* signal);
+#endif
 
 // timer
 HV_EXPORT htimer_t* htimer_add(hloop_t* loop, htimer_cb cb, uint32_t timeout_ms, uint32_t repeat DEFAULT(INFINITE));
