@@ -217,7 +217,7 @@ public:
         }
         *reconn_setting = *setting;
     }
-    bool isReconnect() {
+    bool isReconnect() const {
         return reconn_setting && reconn_setting->cur_retry_cnt > 0;
     }
 
