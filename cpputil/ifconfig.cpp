@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
-#include <linux/if.h>
+#include <net/if.h>
 #include <arpa/inet.h>
 
 int ifconfig(std::vector<ifconfig_t>& ifcs) {
