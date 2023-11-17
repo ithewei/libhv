@@ -2,6 +2,19 @@
 
 namespace hv {
 
+int AsyncHttpClient::send(const HttpRequestPtr& req, HttpResponseCallback resp_cb) {
+    hloop_t* loop = EventLoopThread::hloop();
+    if (loop == NULL) return -1;
+    auto task = std::make_shared<HttpClientTask>();
+    task->req = req;
+    task->cb = std::move(resp_cb);
+    task->start_time = hloop_now_hrtime(loop);
+    if (req->retry_count > 0 && req->retry_delay > 0) {
+        req->retry_count = MIN(req->retry_count, req->timeout * 1000 / req->retry_delay - 1);
+    }
+    return send(task);
+}
+
 // createsocket => startConnect =>
 // onconnect => sendRequest => startRead =>
 // onread => HttpParser => resp_cb
