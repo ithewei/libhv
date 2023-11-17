@@ -174,6 +174,7 @@ bool HttpHandler::SwitchWebSocket() {
         ws_channel->opcode = (enum ws_opcode)opcode;
         switch(opcode) {
         case WS_OPCODE_CLOSE:
+            ws_channel->send(msg, WS_OPCODE_CLOSE);
             ws_channel->close();
             break;
         case WS_OPCODE_PING:

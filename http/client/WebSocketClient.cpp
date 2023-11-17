@@ -143,6 +143,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                     channel->opcode = (enum ws_opcode)opcode;
                     switch (opcode) {
                     case WS_OPCODE_CLOSE:
+                        channel->send(msg, WS_OPCODE_CLOSE);
                         channel->close();
                         break;
                     case WS_OPCODE_PING:
