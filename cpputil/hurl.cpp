@@ -182,3 +182,25 @@ const std::string& HUrl::dump() {
     }
     return url;
 }
+
+namespace hv {
+
+std::string escapeHTML(const std::string& str)  {
+    std::string ostr;
+    const char* p = str.c_str();
+    while (*p != '\0') {
+        switch (*p) {
+            case '<':   ostr += "&lt;";     break;
+            case '>':   ostr += "&gt;";     break;
+            case '&':   ostr += "&amp;";    break;
+            case '\"':  ostr += "&quot;";   break;
+            case '\'':  ostr += "&apos;";   break;
+         // case ' ':   ostr += "&nbsp;";   break;
+            default:    ostr += *p;         break;
+        }
+        ++p;
+    }
+    return ostr;
+}
+
+}

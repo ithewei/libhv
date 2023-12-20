@@ -263,7 +263,7 @@ int main(int argc, char* argv[]) {
             req.method = HTTP_POST;
         }
     }
-    req.url = HUrl::escapeUrl(url);
+    req.url = hv::escapeURL(url);
     req.http_cb = [](HttpMessage* res, http_parser_state state, const char* data, size_t size) {
         if (state == HP_HEADERS_COMPLETE) {
             if (verbose) {

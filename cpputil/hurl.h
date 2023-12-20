@@ -9,9 +9,6 @@ class HV_EXPORT HUrl {
 public:
     static std::string escape(const std::string& str, const char* unescaped_chars = "");
     static std::string unescape(const std::string& str);
-    static inline std::string escapeUrl(const std::string& url) {
-        return escape(url, ":/@?=&#+");
-    }
 
     HUrl() : port(0) {}
     ~HUrl() {}
@@ -30,5 +27,15 @@ public:
     std::string query;
     std::string fragment;
 };
+
+namespace hv {
+
+HV_INLINE std::string escapeURL(const std::string& url) {
+    return HUrl::escape(url, ":/@?=&#+");
+}
+
+HV_EXPORT std::string escapeHTML(const std::string& str);
+
+} // end namespace hv
 
 #endif // HV_URL_H_
