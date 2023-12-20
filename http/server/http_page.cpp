@@ -1,5 +1,6 @@
 #include "http_page.h"
 #include "hdir.h"
+#include "hurl.h"
 
 #define AUTOINDEX_FILENAME_MAXLEN       50
 
@@ -51,18 +52,22 @@ void make_index_of_page(const char* dir, std::string& page, const char* url) {
 
     std::list<hdir_t> dirs;
     listdir(dir, dirs);
+    std::string escaped_name;
     for (auto& item : dirs) {
         if (item.name[0] == '.' && item.name[1] == '\0') continue;
         page += "    <tr>\n";
-        size_t len = strlen(item.name) + (item.type == 'd');
+        // fix CVE-2023-26146
+        escaped_name = hv::escapeHTML(item.name);
+        const char* filename = escaped_name.c_str();
+        size_t len = escaped_name.size() + (item.type == 'd');
         // name
         snprintf(c_str, sizeof(c_str), "<a href=\"%s%s\">%s%s</a>",
-                item.name,
+                filename,
                 item.type == 'd' ? "/" : "",
-                len < AUTOINDEX_FILENAME_MAXLEN ? item.name : std::string(item.name, item.name+AUTOINDEX_FILENAME_MAXLEN-4).append("...").c_str(),
+                len < AUTOINDEX_FILENAME_MAXLEN ? filename : std::string(filename, filename+AUTOINDEX_FILENAME_MAXLEN-4).append("...").c_str(),
                 item.type == 'd' ? "/" : "");
         _ADD_TD_(page, c_str)
-        if (strcmp(item.name, "..") != 0) {
+        if (strcmp(filename, "..") != 0) {
             // mtime
             struct tm* tm = localtime(&item.mtime);
             snprintf(c_str, sizeof(c_str), "%04d-%02d-%02d %02d:%02d:%02d",

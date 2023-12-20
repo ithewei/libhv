@@ -489,6 +489,7 @@ void HttpMessage::DumpHeaders(std::string& str) {
             // %s: %s\r\n
             str += header.first;
             str += ": ";
+            // fix CVE-2023-26148
             // if the value has \r\n, translate to \\r\\n
             if (header.second.find("\r") != std::string::npos ||
                 header.second.find("\n") != std::string::npos) {

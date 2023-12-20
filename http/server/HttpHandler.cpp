@@ -250,7 +250,11 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
 
 void HttpHandler::onHeadersComplete() {
     // printf("onHeadersComplete\n");
-    handleRequestHeaders();
+    int status_code = handleRequestHeaders();
+    if (status_code != HTTP_STATUS_OK) {
+        error = ERR_REQUEST;
+        return;
+    }
 
     HttpRequest* pReq = req.get();
     if (service && service->pathHandlers.size() != 0) {
@@ -334,7 +338,7 @@ void HttpHandler::onMessageComplete() {
     }
 }
 
-void HttpHandler::handleRequestHeaders() {
+int HttpHandler::handleRequestHeaders() {
     HttpRequest* pReq = req.get();
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
@@ -362,6 +366,16 @@ void HttpHandler::handleRequestHeaders() {
 
     // printf("url=%s\n", pReq->url.c_str());
     pReq->ParseUrl();
+    // printf("path=%s\n",  pReq->path.c_str());
+    // fix CVE-2023-26147
+    if (pReq->path.find("\%") != std::string::npos) {
+        std::string unescaped_path = HUrl::unescape(pReq->path);
+        if (unescaped_path.find("\r\n") != std::string::npos) {
+            hlogw("Illegal path: %s\n",  unescaped_path.c_str());
+            resp->status_code = HTTP_STATUS_BAD_REQUEST;
+            return resp->status_code;
+        }
+    }
 
     if (proxy) {
         // Proxy-Connection
@@ -389,6 +403,7 @@ void HttpHandler::handleRequestHeaders() {
     }
 
     // TODO: rewrite url
+    return HTTP_STATUS_OK;
 }
 
 void HttpHandler::handleExpect100() {
