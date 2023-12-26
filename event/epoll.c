@@ -7,8 +7,10 @@
 
 #ifdef OS_WIN
 #include "wepoll/wepoll.h"
+typedef HANDLE  epoll_handle_t;
 #else
 #include <sys/epoll.h>
+typedef int     epoll_handle_t;
 #define epoll_close(epfd) close(epfd)
 #endif
 
@@ -17,7 +19,7 @@
 ARRAY_DECL(struct epoll_event, events);
 
 typedef struct epoll_ctx_s {
-    int                 epfd;
+    epoll_handle_t      epfd;
     struct events       events;
 } epoll_ctx_t;
 

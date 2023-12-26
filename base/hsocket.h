@@ -32,7 +32,8 @@ HV_EXPORT const char* socket_strerror(int err);
 
 #ifdef OS_WIN
 
-typedef int socklen_t;
+typedef SOCKET  hsocket_t;
+typedef int     socklen_t;
 
 void WSAInit();
 void WSADeinit();
@@ -62,6 +63,8 @@ HV_INLINE int nonblocking(int sockfd) {
 #define EMSGSIZE    WSAEMSGSIZE
 
 #else
+
+typedef int     hsocket_t;
 
 #define blocking(s)     fcntl(s, F_SETFL, fcntl(s, F_GETFL) & ~O_NONBLOCK)
 #define nonblocking(s)  fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK)

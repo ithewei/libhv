@@ -368,7 +368,7 @@ int HttpHandler::handleRequestHeaders() {
     pReq->ParseUrl();
     // printf("path=%s\n",  pReq->path.c_str());
     // fix CVE-2023-26147
-    if (pReq->path.find("\%") != std::string::npos) {
+    if (pReq->path.find("%") != std::string::npos) {
         std::string unescaped_path = HUrl::unescape(pReq->path);
         if (unescaped_path.find("\r\n") != std::string::npos) {
             hlogw("Illegal path: %s\n",  unescaped_path.c_str());

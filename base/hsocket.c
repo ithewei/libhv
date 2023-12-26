@@ -348,7 +348,7 @@ int Socketpair(int family, int type, int protocol, int sv[2]) {
     WSAInit();
 #endif
     int listenfd, connfd, acceptfd;
-    listenfd = connfd = acceptfd = INVALID_SOCKET;
+    listenfd = connfd = acceptfd = -1;
     struct sockaddr_in localaddr;
     socklen_t addrlen = sizeof(localaddr);
     memset(&localaddr, 0, addrlen);
@@ -395,13 +395,13 @@ int Socketpair(int family, int type, int protocol, int sv[2]) {
     sv[1] = acceptfd;
     return 0;
 error:
-    if (listenfd != INVALID_SOCKET) {
+    if (listenfd != -1) {
         closesocket(listenfd);
     }
-    if (connfd != INVALID_SOCKET) {
+    if (connfd != -1) {
         closesocket(connfd);
     }
-    if (acceptfd != INVALID_SOCKET) {
+    if (acceptfd != -1) {
         closesocket(acceptfd);
     }
     return -1;
