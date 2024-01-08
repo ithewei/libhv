@@ -8,6 +8,12 @@ int HttpResponseWriter::EndHeaders(const char* key /* = NULL */, const char* val
         response->SetHeader(key, value);
     }
     std::string headers = response->Dump(true, false);
+    // erase Content-Length: 0\r\n
+    std::string content_length_0("Content-Length: 0\r\n");
+    auto pos = headers.find(content_length_0);
+    if (pos != std::string::npos) {
+        headers.erase(pos, content_length_0.size());
+    }
     state = SEND_HEADER;
     return write(headers);
 }
