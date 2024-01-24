@@ -287,7 +287,7 @@ public:
         stop(true);
     }
 
-    const EventLoopPtr& loop(int idx = -1) {
+    EventLoopPtr loop(int idx = -1) {
         return TcpServerEventLoopTmpl<TSocketChannel>::loop(idx);
     }
 
