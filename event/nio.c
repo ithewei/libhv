@@ -328,6 +328,10 @@ read:
     if (nread == 0) {
         goto disconnect;
     }
+    if (nread < len) {
+        // NOTE: make string friendly
+        ((char*)buf)[nread] = '\0';
+    }
     io->readbuf.tail += nread;
     __read_cb(io, buf, nread);
     if (nread == len && !io->closed) {
