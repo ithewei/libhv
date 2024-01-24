@@ -131,7 +131,7 @@ hv::KeyValue splitKV(const std::string& str, char kv_kv, char k_v) {
             state = s_key;
             key = p+1;
         }
-        else if (*p == k_v) {
+        else if (*p == k_v && state != s_value) {
             state = s_value;
             value = p+1;
         }
