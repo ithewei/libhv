@@ -131,6 +131,7 @@ END_EXTERN_C
 #include <functional>
 #include <map>
 #include <mutex>
+#include <string>
 
 namespace hv {
 
