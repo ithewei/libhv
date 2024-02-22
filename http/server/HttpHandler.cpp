@@ -604,7 +604,7 @@ int HttpHandler::defaultStaticHandler() {
     }
     else {
         // Not Modified
-        auto iter = req->headers.find("if-not-match");
+        auto iter = req->headers.find("if-none-match");
         if (iter != req->headers.end() &&
             strcmp(iter->second.c_str(), fc->etag) == 0) {
             fc = NULL;
