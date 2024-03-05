@@ -35,6 +35,13 @@ public:
         return loop_;
     }
 
+    // delete thread-safe
+    void deleteInLoop() {
+        loop_->runInLoop([this](){
+            delete this;
+        });
+    }
+
     // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
     // @retval >=0 connfd, <0 error
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
@@ -86,7 +93,7 @@ public:
 
     // closesocket thread-safe
     void closesocket() {
-        if (channel) {
+        if (channel && channel->status != SocketChannel::CLOSED) {
             loop_->runInLoop([this](){
                 if (channel) {
                     setReconnect(NULL);

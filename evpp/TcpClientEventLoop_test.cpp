@@ -7,6 +7,8 @@
  *
  */
 
+#include <iostream>
+
 #include "TcpClient.h"
 #include "htime.h"
 
@@ -77,14 +79,35 @@ int TestMultiClientsRunInOneEventLoop(int port, int nclients) {
     auto loop_thread = std::make_shared<EventLoopThread>();
     loop_thread->start();
 
-    std::map<int, MyTcpClientPtr> clients;
+    std::map<int, MyTcpClient*> clients;
     for (int i = 0; i < nclients; ++i) {
         MyTcpClient* client = new MyTcpClient(loop_thread->loop());
         client->connect(port);
-        clients[i] = MyTcpClientPtr(client);
+        clients[i] = client;
     }
 
-    // press Enter to stop
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        if (str == "close") {
+            for (auto& pair : clients) {
+                MyTcpClient* client = pair.second;
+                client->closesocket();
+            }
+        } else if (str == "delete") {
+            for (auto& pair : clients) {
+                MyTcpClient* client = pair.second;
+                client->deleteInLoop();
+            }
+            break;
+        } else {
+            for (auto& pair : clients) {
+                MyTcpClient* client = pair.second;
+                client->send(str);
+            }
+        }
+    }
+
+    printf("Press Enter key to exit loop.\n");
     while (getchar() != '\n');
     loop_thread->stop();
     loop_thread->join();
@@ -94,7 +117,7 @@ int TestMultiClientsRunInOneEventLoop(int port, int nclients) {
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        printf("Usage: %s port\n", argv[0]);
+        printf("Usage: %s port [nclients]\n", argv[0]);
         return -10;
     }
     int port = atoi(argv[1]);

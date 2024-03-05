@@ -4,6 +4,7 @@
 #include <string>
 #include <functional>
 #include <memory>
+#include <atomic>
 
 #include "hloop.h"
 #include "hsocket.h"
@@ -193,7 +194,8 @@ public:
         CONNECTED,
         DISCONNECTED,
         CLOSED,
-    } status;
+    };
+    std::atomic<Status>          status;
     std::function<void(Buffer*)> onread;
     // NOTE: Use Channel::isWriteComplete in onwrite callback to determine whether all data has been written.
     std::function<void(Buffer*)> onwrite;
