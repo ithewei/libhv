@@ -26,6 +26,7 @@ option(WITH_NGHTTP2 "with nghttp2 library" OFF)
 option(WITH_OPENSSL "with openssl library" OFF)
 option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
+option(WITH_IOURING "linux io_uring" OFF)
 
 option(WITH_KCP "compile event/kcp" OFF)
 
@@ -68,6 +69,7 @@ check_header("fcntl.h")
 check_header("pthread.h")
 check_header("endian.h")
 check_header("sys/endian.h")
+check_header("liburing.h")
 
 # Checks for functions
 if(NOT MSVC)
@@ -85,6 +87,11 @@ check_function("pipe" "unistd.h")
 check_function("socketpair" "sys/socket.h")
 check_function("eventfd" "sys/eventfd.h")
 check_function("setproctitle" "unistd.h")
+
+if(WITH_IOURING AND HAVE_LIBURING_H)
+    set(EVENT_IOURING 1)
+    set(LIBS ${LIBS} uring)
+endif()
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hconfig.h.in ${CMAKE_CURRENT_SOURCE_DIR}/hconfig.h)
 

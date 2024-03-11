@@ -95,7 +95,13 @@ void hssl_ctx_free(hssl_ctx_t ssl_ctx) {
 hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd) {
     SSL* ssl = SSL_new((SSL_CTX*)ssl_ctx);
     if (ssl == NULL) return NULL;
-    SSL_set_fd(ssl, fd);
+    if(fd == -1){
+        BIO* read_bio = BIO_new(BIO_s_mem());
+        BIO* write_bio = BIO_new(BIO_s_mem());
+        SSL_set_bio(ssl, read_bio, write_bio);
+    }else{
+        SSL_set_fd(ssl, fd);
+    }
     return ssl;
 }
 

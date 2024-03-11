@@ -10,7 +10,9 @@
     !defined(EVENT_KQUEUE) &&   \
     !defined(EVENT_IOCP) &&     \
     !defined(EVENT_PORT) &&     \
-    !defined(EVENT_NOEVENT)
+    !defined(EVENT_NOEVENT) && \
+    !defined(EVENT_IOURING)
+
 #ifdef OS_WIN
   #if WITH_WEPOLL
     #define EVENT_EPOLL // wepoll -> iocp
