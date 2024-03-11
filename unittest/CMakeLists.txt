@@ -86,6 +86,12 @@ target_include_directories(ftp PRIVATE .. ../base ../protocol)
 add_executable(sendmail sendmail_test.c ../protocol/smtp.c ../base/hsocket.c ../util/base64.c)
 target_include_directories(sendmail PRIVATE .. ../base ../protocol ../util)
 
+# ------event------
+add_executable(event_signal event_signal_test.c ../event/hevent.c)
+target_link_libraries(event_signal ${HV_LIBRARIES})
+target_compile_definitions(event_signal PRIVATE -DPRINT_DEBUG)
+target_include_directories(event_signal PRIVATE ../event ../base ../ssl)
+
 if(UNIX)
 add_executable(webbench webbench.c)
 endif()
@@ -115,4 +121,5 @@ add_custom_target(unittest DEPENDS
     ping
     ftp
     sendmail
+    event_signal
 )

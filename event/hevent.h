@@ -1,6 +1,7 @@
 #ifndef HV_EVENT_H_
 #define HV_EVENT_H_
 
+#include <signal.h>
 #include "hloop.h"
 #include "iowatcher.h"
 #include "rudp.h"
@@ -48,6 +49,13 @@ struct hloop_s {
     // idles
     struct list_head            idles;
     uint32_t                    nidles;
+    // signals
+#ifdef OS_LINUX
+    uint32_t                    nsignals;
+    uint32_t                    enable_signal;
+    struct list_head            signal_events_head[_NSIG];
+    hio_t*                      signal_io_watcher;
+#endif
     // timers
     struct heap                 timers;     // monotonic time
     struct heap                 realtimers; // realtime
@@ -72,6 +80,15 @@ struct hidle_s {
 //private:
     struct list_node node;
 };
+
+#ifdef OS_LINUX
+struct hsig_s {
+    HEVENT_FIELDS
+    uint32_t    signal;
+    uint32_t    num_calls;
+    struct list_node self_signal_node;
+};
+#endif
 
 #define HTIMER_FIELDS                   \
     HEVENT_FIELDS                       \
