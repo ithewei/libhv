@@ -420,6 +420,7 @@ int main(int argc, char** argv) {
 - TCP客户端: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 - UDP服务端: [evpp/UdpServer_test.cpp](evpp/UdpServer_test.cpp)
 - UDP客户端: [evpp/UdpClient_test.cpp](evpp/UdpClient_test.cpp)
+- UDP组播接收:[evpp/UdpGroupDest_test.cpp](evpp/UdpGroupDest_test.cpp)
 - HTTP服务端: [examples/http_server_test.cpp](examples/http_server_test.cpp)
 - HTTP客户端: [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
