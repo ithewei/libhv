@@ -1,0 +1,226 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
+cc_binary(
+    name = "hloop_test",
+    srcs = ["hloop_test.c"],
+    deps = ["//:hv"]
+)
+
+
+cc_binary(
+    name = "htimer_test",
+    srcs = ["htimer_test.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "nc",
+    srcs = ["nc.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "tinyhttpd",
+    srcs = ["tinyhttpd.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "tinyproxyd",
+    srcs = ["tinyproxyd.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "tcp_client_test",
+    srcs = ["tcp_client_test.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "tcp_echo_server",
+    srcs = ["tcp_echo_server.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "tcp_chat_server",
+    srcs = ["tcp_chat_server.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "tcp_proxy_server",
+    srcs = ["tcp_proxy_server.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "udp_echo_server",
+    srcs = ["udp_echo_server.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "udp_proxy_server",
+    srcs = ["udp_proxy_server.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "socks5_proxy_server",
+    srcs = ["socks5_proxy_server.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "jsonrpc_client",
+    srcs = ["jsonrpc/jsonrpc_client.c", "jsonrpc/cJSON.c"] + glob(["jsonrpc/*.h"]),
+    copts = ["-DCJSON_HIDE_SYMBOLS"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "jsonrpc_server",
+    srcs = ["jsonrpc/jsonrpc_server.c", "jsonrpc/cJSON.c"] + glob(["jsonrpc/*.h"]),
+    copts = ["-DCJSON_HIDE_SYMBOLS"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "hmain_test",
+    srcs = ["hmain_test.cpp"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "nmap",
+    srcs = glob(["nmap/*"]),
+    copts = ["-DPRINT_DEBUG"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "wrk",
+    srcs = ["wrk.cpp"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "http_server_test",
+    srcs = ["http_server_test.cpp"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "websocket_server_test",
+    srcs = ["websocket_server_test.cpp"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "curl",
+    srcs = ["curl.cpp"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "wget",
+    srcs = ["wget.cpp"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "consul",
+    srcs = glob(["consul/*"]),
+    copts = ["-DPRINT_DEBUG"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "http_client_test",
+    srcs = ["http_client_test.cpp"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "websocket_client_test",
+    srcs = ["websocket_client_test.cpp"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "httpd",
+    srcs = glob(["httpd/*"]),
+    copts = ["-DPRINT_DEBUG"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "mqtt_sub",
+    srcs = ["mqtt/mqtt_sub.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "mqtt_pub",
+    srcs = ["mqtt/mqtt_pub.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
+    name = "mqtt_client_test",
+    srcs = ["mqtt/mqtt_client_test.cpp"],
+    deps = ["//:hv"]
+)
+
+config_setting(
+    name = "with_http_server_client",
+    define_values = {
+        "WITH_EVPP": "ON",
+        "WITH_HTTP": "ON",
+        "WITH_HTTP_SERVER": "ON",
+        "WITH_HTTP_CLIENT": "ON",
+    },
+)
+
+
+filegroup(
+    name = "examples",
+    srcs = [
+        ":hloop_test",
+        ":htimer_test",
+        ":nc",
+        ":tinyhttpd",
+        ":tinyproxyd",
+        ":tcp_client_test",
+        ":tcp_echo_server",
+        ":tcp_chat_server",
+        ":tcp_proxy_server",
+        ":udp_echo_server",
+        ":udp_proxy_server",
+        ":socks5_proxy_server",
+        ":jsonrpc_client",
+        ":jsonrpc_server",
+    ] + select({
+        "//:with_evpp": [":hmain_test", ":nmap"],
+        "//conditions:default": [],
+    }) + select({
+        "//:with_http": [":wrk"],
+        "//conditions:default": [],
+    }) + select({
+        "//:with_http_server": [":http_server_test", ":websocket_server_test"],
+        "//conditions:default": [],
+    }) + select({
+        "//:with_http_client": [":curl", ":wget", ":consul", ":http_client_test", ":websocket_client_test"],
+        "//conditions:default": [],
+    }) + select({
+        "with_http_server_client": [":httpd"],
+        "//conditions:default": [],
+    }) + select({
+        "//:with_mqtt": ["mqtt_sub", "mqtt_pub", "mqtt_client_test"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//:__pkg__"]
+)
+

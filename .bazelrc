@@ -1,0 +1,24 @@
+build --copt=-std=c99
+build --cxxopt=-std=c++11
+build --define BUILD_SHARED=ON
+build --define BUILD_STATIC=ON
+build --define BUILD_EXAMPLES=ON
+build --define BUILD_UNITTEST=OFF
+build --define WITH_PROTOCOL=OFF
+build --define WITH_EVPP=ON
+build --define WITH_HTTP=ON
+build --define WITH_HTTP_SERVER=ON
+build --define WITH_HTTP_CLIENT=ON
+build --define WITH_MQTT=OFF
+build --define ENABLE_UDS=OFF
+build --define USE_MULTIMAP=OFF
+build --define WITH_CURL=OFF
+build --define WITH_NGHTTP2=OFF
+build --define WITH_OPENSSL=OFF
+build --define WITH_GNUTLS=OFF
+build --define WITH_MBEDTLS=OFF
+build --define WITH_KCP=OFF
+build --define WITH_WEPOLL=ON
+build --define ENABLE_WINDUMP=OFF
+build --define BUILD_FOR_MT=OFF
+

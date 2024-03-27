@@ -1,0 +1,466 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
+
+config_setting(
+    name = "ios",
+    constraint_values = ["@platforms//apple:ios"],
+)
+
+config_setting(
+    name = "msvc",
+    values = {
+        "compiler": "msvc-cl",
+    },
+)
+
+config_setting(
+    name = "debug",
+    values = {"compilation_mode": "dbg"},
+)
+
+config_setting(
+    name = "release",
+    values = {"compilation_mode": "opt"},
+)
+
+config_setting(
+    name = "build_shared",
+    define_values = {"BUILD_SHARED": "ON"},
+)
+
+config_setting(
+    name = "build_static",
+    define_values = {"BUILD_STATIC": "ON"}
+)
+
+config_setting(
+    name = "build_examples",
+    define_values = {"BUILD_EXAMPLES": "ON"},
+)
+
+config_setting(
+    name = "build_unittest",
+    define_values = {"BUILD_UNITTEST": "ON"}
+)
+
+config_setting(
+    name = "with_protocol",
+    define_values = {"WITH_PROTOCOL": "ON"}
+)
+
+config_setting(
+    name = "with_evpp",
+    define_values = {
+        "WITH_EVPP": "ON",
+    },
+    visibility = [":__subpackages__"]
+)
+
+config_setting(
+    name = "with_http",
+    define_values = {
+        "WITH_EVPP": "ON",
+        "WITH_HTTP": "ON",
+    },
+    visibility = [":__subpackages__"]
+)
+
+config_setting(
+    name = "with_http_server",
+    define_values = {
+        "WITH_EVPP": "ON",
+        "WITH_HTTP": "ON",
+        "WITH_HTTP_SERVER": "ON",
+    },
+    visibility = [":__subpackages__"]
+)
+
+config_setting(
+    name = "with_http_client",
+    define_values = {
+        "WITH_EVPP": "ON",
+        "WITH_HTTP": "ON",
+        "WITH_HTTP_CLIENT": "ON",
+    },
+    visibility = [":__subpackages__"]
+)
+
+config_setting(
+    name = "with_evpp_nghttp2",
+    define_values = {
+        "WITH_EVPP": "ON",
+        "WITH_HTTP": "ON",
+        "WITH_NGHTTP2": "ON",
+    }
+)
+
+config_setting(
+    name = "with_mqtt",
+    define_values = {"WITH_MQTT": "ON"},
+    visibility = [":__subpackages__"],
+)
+
+config_setting(
+    name = "enable_uds",
+    define_values = {"ENABLE_UDS": "ON"}
+)
+
+config_setting(
+    name = "use_multimap",
+    define_values = {"USE_MULTIMAP": "ON"}
+)
+
+config_setting(
+    name = "with_curl",
+    define_values = {"WITH_CURL": "ON"}
+)
+
+config_setting(
+    name = "with_nghttp2",
+    define_values = {"WITH_NGHTTP2": "ON"}
+)
+
+config_setting(
+    name = "with_openssl",
+    define_values = {"WITH_OPENSSL": "ON"}
+)
+
+config_setting(
+    name = "with_gnutls",
+    define_values = {"WITH_GNUTLS": "ON"}
+)
+
+config_setting(
+    name = "with_mbedtls",
+    define_values = {"WITH_MBEDTLS": "ON"}
+)
+
+config_setting(
+    name = "with_kcp",
+    define_values = {"WITH_KCP": "ON"}
+)
+
+config_setting(
+    name = "with_wepoll",
+    constraint_values = ["@platforms//os:windows"],
+    define_values = {"WITH_WEPOLL": "ON"}
+)
+
+config_setting(
+    name = "enable_windump",
+    constraint_values = ["@platforms//os:windows"],
+    define_values = {"ENABLE_WINDUMP": "ON"}
+)
+
+config_setting(
+    name = "build_for_mt_dbg",
+    constraint_values = ["@platforms//os:windows"],
+    define_values = {
+        "BUILD_FOR_MT": "ON",
+        "compilation_mode": "dbg"
+    }
+)
+
+config_setting(
+    name = "build_for_mt_opt",
+    constraint_values = ["@platforms//os:windows"],
+    define_values = {
+        "BUILD_FOR_MT": "ON",
+        "compilation_mode": "opt"
+    }
+)
+
+genrule(
+    name = "config",
+    outs = ["hconfig.h"],
+    cmd = "($(execpath configure) && cp hconfig.h $@) || exit 1",
+    tools = ["configure"],
+)
+
+HEADERS_DIRS = ["base", "ssl", "event"] + select({
+    "with_wepoll": ["event/wepoll"],
+    "//conditions:default": [],
+}) + select({
+    "with_kcp": ["event/kcp"],
+    "//conditions:default": [],
+}) + ["util"] + select({
+    "with_protocol": ["protocol"],
+    "//conditions:default": [],
+}) + select({
+    "with_evpp": ["cpputil", "evpp"],
+    "//conditions:default": [],
+}) + select({
+    "with_http": ["http"],
+    "//conditions:default": [],
+}) + select({
+    "with_http_server": ["http/server"],
+    "//conditions:default": [],
+}) + select({
+    "with_http_client": ["http/client"],
+    "//conditions:default": [],
+}) + select({
+    "with_mqtt": ["mqtt"],
+    "//conditions:default": [],
+})
+
+COPTS = select({
+    "debug": ["-DDEBUG"],
+    "release": ["-DNDEBUG"],
+    "//conditions:default": [],
+}) + select({
+    "enable_uds": ["-DENABLE_UDS"],
+    "//conditions:default": [],
+}) + select({
+    "use_multimap": ["-DUSE_MULTIMAP"],
+    "//conditions:default": [],
+}) + select({
+    "with_curl": ["-DWITH_CURL"],
+    "//conditions:default": [],
+}) + select({
+    "with_nghttp2": ["-DWITH_NGHTTP2"],
+    "//conditions:default": [],
+}) + select({
+    "with_openssl": ["-DWITH_OPENSSL"],
+    "//conditions:default": [],
+}) + select({
+    "with_gnutls": ["-DWITH_GNUTLS"],
+    "//conditions:default": [],
+}) + select({
+    "with_mbedtls": ["-DWITH_MBEDTLS"],
+    "//conditions:default": [],
+}) + select({
+    "@platforms//os:windows": ["-DWIN32_LEAN_AND_MEAN", "-D_CRT_SECURE_NO_WARNINGS", "-D_WIN32_WINNT=0x0600"],
+    "//conditions:default": [],
+}) + select({
+    "enable_windump": ["-DENABLE_WINDUMP"],
+    "//conditions:default": [],
+}) + select({
+    "build_for_mt_dbg": ["/MTd"],
+    "build_for_mt_opt": ["/MT"],
+    "//conditions:default": [],
+})
+
+LINKOPTS = select({
+    "msvc": [],
+    "//conditions:default": ["-pthread"],
+}) + select({
+    "@platforms//os:linux": [
+        "-lpthread",
+        "-lm",
+        "-ldl",
+    ],
+    "//conditions:default": [],
+}) + select({
+    "@bazel_tools//tools/cpp:gcc": ["-lrt"],
+    "//conditions:default": [],
+})
+
+BASE_HEADERS = [
+    "base/hplatform.h",
+    "base/hdef.h",
+    "base/hatomic.h",
+    "base/herr.h",
+    "base/htime.h",
+    "base/hmath.h",
+    "base/hbase.h",
+    "base/hversion.h",
+    "base/hsysinfo.h",
+    "base/hproc.h",
+    "base/hthread.h",
+    "base/hmutex.h",
+    "base/hsocket.h",
+    "base/hlog.h",
+    "base/hbuf.h",
+    "base/hmain.h",
+    "base/hendian.h",
+]
+
+SSL_HEADERS = [
+    "ssl/hssl.h",
+]
+
+EVENT_HEADERS = [
+    "event/hloop.h",
+    "event/nlog.h",
+]
+
+UTIL_HEADERS = [
+    "util/base64.h",
+    "util/md5.h",
+    "util/sha1.h",
+]
+
+CPPUTIL_HEADERS = [
+    "cpputil/hmap.h",
+    "cpputil/hstring.h",
+    "cpputil/hfile.h",
+    "cpputil/hpath.h",
+    "cpputil/hdir.h",
+    "cpputil/hurl.h",
+    "cpputil/hscope.h",
+    "cpputil/hthreadpool.h",
+    "cpputil/hasync.h",
+    "cpputil/hobjectpool.h",
+    "cpputil/ifconfig.h",
+    "cpputil/iniparser.h",
+    "cpputil/json.hpp",
+    "cpputil/singleton.h",
+    "cpputil/ThreadLocalStorage.h",
+]
+
+EVPP_HEADERS = [
+    "evpp/Buffer.h",
+    "evpp/Channel.h",
+    "evpp/Event.h",
+    "evpp/EventLoop.h",
+    "evpp/EventLoopThread.h",
+    "evpp/EventLoopThreadPool.h",
+    "evpp/Status.h",
+    "evpp/TcpClient.h",
+    "evpp/TcpServer.h",
+    "evpp/UdpClient.h",
+    "evpp/UdpServer.h",
+]
+
+PROTOCOL_HEADERS = [
+    "protocol/icmp.h",
+    "protocol/dns.h",
+    "protocol/ftp.h",
+    "protocol/smtp.h",
+]
+
+HTTP_HEADERS = [
+    "http/httpdef.h",
+    "http/wsdef.h",
+    "http/http_content.h",
+    "http/HttpMessage.h",
+    "http/HttpParser.h",
+    "http/WebSocketParser.h",
+    "http/WebSocketChannel.h",
+]
+
+HTTP2_HEADERS = [
+    "http/http2def.h",
+    "http/grpcdef.h",
+]
+
+HTTP_CLIENT_HEADERS = [
+    "http/client/HttpClient.h",
+    "http/client/requests.h",
+    "http/client/axios.h",
+    "http/client/AsyncHttpClient.h",
+    "http/client/WebSocketClient.h",
+]
+
+HTTP_SERVER_HEADERS = [
+    "http/server/HttpServer.h",
+    "http/server/HttpService.h",
+    "http/server/HttpContext.h",
+    "http/server/HttpResponseWriter.h",
+    "http/server/WebSocketServer.h",
+]
+
+MQTT_HEADERS = [
+    "mqtt/mqtt_protocol.h",
+    "mqtt/mqtt_client.h",
+]
+
+
+HEADERS = ["hv.h", ":config", "hexport.h"] + BASE_HEADERS + SSL_HEADERS + EVENT_HEADERS + UTIL_HEADERS + select({
+    "with_protocol": PROTOCOL_HEADERS,
+    "//conditions:default": [],
+}) + select({
+    "with_evpp": CPPUTIL_HEADERS + EVPP_HEADERS,
+    "//conditions:default": [],
+}) + select({
+    "with_http": HTTP_HEADERS,
+    "//conditions:default": [],
+}) + select({
+    "with_evpp_nghttp2": HTTP2_HEADERS,
+    "//conditions:default": [],
+}) + select({
+    "with_http_server": HTTP_SERVER_HEADERS,
+    "//conditions:default": [],
+}) + select({
+    "with_http_client": HTTP_CLIENT_HEADERS,
+    "//conditions:default": [],
+}) + select({
+    "with_mqtt": MQTT_HEADERS,
+    "//conditions:default": [],
+})
+
+
+CORE_SRCS = glob(
+    ["*.h"], exclude = ["*_test.c"]
+) + glob(
+    ["base/*.h", "base/*.c", "base/*.cpp"], exclude = ["base/*_test.c"]
+) + glob(
+    ["ssl/*.h", "ssl/*.c", "ssl/*.cpp"], exclude = ["ssl/*_test.c"]
+) + glob(
+    ["event/*.h", "event/*.c", "event/*.cpp"], exclude = ["event/*_test.c"]
+) + select({
+    "with_wepoll": glob(["event/wepoll/*.h", "event/wepoll/*.c", "event/wepoll/*.cpp"], exclude = ["event/wepoll/*_test.c"]),
+    "//conditions:default": [],
+}) + select({
+    "with_kcp": glob(["event/kcp/*.h", "event/kcp/*.c", "event/kcp/*.cpp"], exclude = ["event/kcp/*_test.c"]),
+    "//conditions:default": [],
+})
+
+SRCS = CORE_SRCS + glob(["util/*.h", "util/*.c", "util/*.cpp"], exclude = ["util/*_test.c"]) + select({
+    "with_protocol": glob(["protocol/*.h", "protocol/*.c", "protocol/*.cpp"], exclude = ["protocol/*_test.c"]),
+    "//conditions:default": [],
+}) + select({
+    "with_evpp": glob(["cpputil/*.h", "cpputil/*.c", "cpputil/*.cpp", "evpp/*.h", "evpp/*.c", "evpp/*.cpp"], exclude = ["cpputil/*_test.c", "evpp/*_test.c", "evpp/*_test.cpp"]),
+    "//conditions:default": [],
+}) + select({
+    "with_http": glob(["http/*.h", "http/*.c", "http/*.cpp"], exclude = ["http/*_test.c"]),
+    "//conditions:default": [],
+}) + select({
+    "with_http_server": glob(["http/server/*.h", "http/server/*.c", "http/server/*.cpp"], exclude = ["http/server/*_test.c"]),
+    "//conditions:default": [],
+}) + select({
+    "with_http_client": glob(["http/client/*.h", "http/client/*.c", "http/client/*.cpp"], exclude = ["http/client/*_test.c"]),
+    "//conditions:default": [],
+}) + select({
+    "with_mqtt": glob(["mqtt/*.h", "mqtt/*.c", "mqtt/*.cpp"], exclude = ["mqtt/*_test.c"]),
+    "//conditions:default": [],
+})
+
+cc_library(
+    name = "hv_static",
+    srcs = SRCS,
+    hdrs = HEADERS,
+    includes = HEADERS_DIRS,
+    defines = ["HV_STATICLIB"],
+    copts = COPTS,
+    linkstatic = True,
+    linkopts = LINKOPTS,
+)
+
+
+cc_library(
+    name = "hv",
+    srcs = SRCS,
+    hdrs = HEADERS,
+    includes = HEADERS_DIRS,
+    defines = ["HV_DYNAMICLIB"],
+    copts = COPTS,
+    linkopts = LINKOPTS,
+    visibility = ["//visibility:public"]
+)
+
+filegroup(
+    name = "libhv",
+    srcs = select({
+        "build_shared": [":hv"],
+        "//conditions:default": [],
+    }) + select({
+        "build_static": [":hv_static"],
+        "//conditions:default": [],
+    })  + select({
+        "build_examples": ["//examples:examples"],
+        "//conditions:default": [],
+    })
+)
+
+
