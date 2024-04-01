@@ -1,3 +1,8 @@
+# Bazel
+bazel-*
+MODULE.bazel
+MODULE.bazel.lock
+
 # Compiled Object files
 *.o
 *.lo
