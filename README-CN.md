@@ -85,12 +85,17 @@ cmake ..
 cmake --build .
 ```
 
-3、通过vcpkg:
+3、通过bazel:
+```shell
+bazel build libhv
+```
+
+4、通过vcpkg:
 ```shell
 vcpkg install libhv
 ```
 
-4、通过xmake:
+5、通过xmake:
 ```shell
 xrepo install libhv
 ```

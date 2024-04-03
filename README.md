@@ -59,6 +59,11 @@ cmake ..
 cmake --build .
 ```
 
+or bazel:
+```shell
+bazel build libhv
+```
+
 or vcpkg:
 ```shell
 vcpkg install libhv

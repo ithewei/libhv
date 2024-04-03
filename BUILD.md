@@ -22,8 +22,14 @@ cmake .. -DWITH_OPENSSL=ON
 cmake --build .
 ```
 
+## bazel
+options see [.bazelrc](.bazelrc)
+```
+bazel build libhv
+```
+
 ## Unix
-use Makefile or cmake
+use Makefile or cmake or bazel
 
 ## Windows
 use cmake
