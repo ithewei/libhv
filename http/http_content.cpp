@@ -43,7 +43,7 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
             state = s_key;
             key = p+1;
         }
-        else if (*p == '=') {
+        else if (*p == '=' && state == s_key) {
             state = s_value;
             value = p+1;
         }
