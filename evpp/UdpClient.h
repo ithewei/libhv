@@ -60,6 +60,7 @@ public:
         if (ret != 0) {
             perror("bind");
         }
+        hio_set_localaddr(channel->io(), &local_addr.sa, SOCKADDR_LEN(&local_addr));
         return ret;
     }
 
