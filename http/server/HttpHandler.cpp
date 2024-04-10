@@ -418,11 +418,7 @@ void HttpHandler::handleExpect100() {
 void HttpHandler::addResponseHeaders() {
     HttpResponse* pResp = resp.get();
     // Server:
-    static char s_Server[64] = {'\0'};
-    if (s_Server[0] == '\0') {
-        snprintf(s_Server, sizeof(s_Server), "httpd/%s", hv_version());
-    }
-    pResp->headers["Server"] = s_Server;
+    pResp->headers["Server"] = "libhv/" HV_VERSION_STRING;
 
     // Connection:
     pResp->headers["Connection"] = keepalive ? "keep-alive" : "close";
