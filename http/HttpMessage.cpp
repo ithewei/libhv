@@ -466,6 +466,12 @@ const HttpCookie& HttpMessage::GetCookie(const std::string& name) {
         if (iter->name == name) {
             return *iter;
         }
+        auto kv_iter = iter->kv.find(name);
+        if (kv_iter != iter->kv.end()) {
+            iter->name = name;
+            iter->value = kv_iter->second;
+            return *iter;
+        }
     }
     return NoCookie;
 }
