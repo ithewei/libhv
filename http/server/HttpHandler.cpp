@@ -1098,7 +1098,7 @@ int HttpHandler::sendProxyRequest() {
     req->headers["Connection"] = keepalive ? "keep-alive" : "close";
     req->headers["X-Real-IP"] = ip;
     // NOTE: send head + received body
-    std::string msg = req->Dump(true, true);
+    std::string msg = req->Dump(true, false) + req->body;
     // printf("%s\n", msg.c_str());
     req->Reset();
 

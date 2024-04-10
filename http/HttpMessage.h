@@ -297,6 +297,7 @@ public:
     void* Content() {
         if (content == NULL && body.size() != 0) {
             content = (void*)body.data();
+            content_length = body.size();
         }
         return content;
     }
