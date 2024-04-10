@@ -72,11 +72,9 @@ int main() {
         return 200;
     });
 
-    HttpServer server;
-    server.registerHttpService(&service);
-    server.setPort(8080);
+    HttpServer server(&service);
     server.setThreadNum(4);
-    server.run();
+    server.run(":8080");
     return 0;
 }
 */
@@ -130,12 +128,20 @@ public:
         return setSslCtx(ssl_ctx);
     }
 
-    int run(bool wait = true) {
+    // run(":8080")
+    // run("0.0.0.0:8080")
+    // run("[::]:8080")
+    int run(const char* ip_port = NULL, bool wait = true) {
+        if (ip_port) {
+            hv::NetAddr listen_addr(ip_port);
+            if (listen_addr.ip.size() != 0) setHost(listen_addr.ip.c_str());
+            if (listen_addr.port != 0)      setPort(listen_addr.port);
+        }
         return http_server_run(this, wait);
     }
 
-    int start() {
-        return run(false);
+    int start(const char* ip_port = NULL) {
+        return run(ip_port, false);
     }
 
     int stop() {

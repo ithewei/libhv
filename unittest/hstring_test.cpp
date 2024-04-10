@@ -39,5 +39,14 @@ int main(int argc, char** argv) {
     std::string str11 = replace(str10, "{{title}}", "Home");
     println("replace=" + str11);
 
+    NetAddr addr1("0.0.0.0:8080");
+    println(addr1.to_string());
+
+    NetAddr addr2("[::0]:8080");
+    println(addr2.to_string());
+
+    NetAddr addr3(":8080");
+    println(addr3.to_string());
+
     return 0;
 }

@@ -46,19 +46,6 @@
 #include "httpdef.h"
 #include "http_content.h"
 
-namespace hv {
-
-struct NetAddr {
-    std::string     ip;
-    int             port;
-
-    std::string ipport() {
-        return hv::asprintf("%s:%d", ip.c_str(), port);
-    }
-};
-
-}
-
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
 // Cookie: sessionid=1; domain=.example.com; path=/; max-age=86400; secure; httponly
 struct HV_EXPORT HttpCookie {
