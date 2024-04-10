@@ -70,6 +70,7 @@ int parse_query_params(const char* query_string, QueryParams& query_params) {
 std::string dump_multipart(MultiPart& mp, const char* boundary) {
     char c_str[256] = {0};
     std::string str;
+    if (mp.empty()) return str;
     for (auto& pair : mp) {
         str += "--";
         str += boundary;
@@ -234,6 +235,7 @@ int parse_multipart(const std::string& str, MultiPart& mp, const char* boundary)
 }
 
 std::string dump_json(const hv::Json& json, int indent) {
+    if (json.empty()) return "";
     return json.dump(indent);
 }
 
