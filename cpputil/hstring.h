@@ -75,7 +75,7 @@ HV_EXPORT std::string trim_pairs(const std::string& str, const char* pairs = PAI
 HV_EXPORT std::string replace(const std::string& str, const std::string& find, const std::string& rep);
 HV_EXPORT std::string replaceAll(const std::string& str, const std::string& find, const std::string& rep);
 
-struct NetAddr {
+struct HV_EXPORT NetAddr {
     std::string     ip;
     int             port;
 
