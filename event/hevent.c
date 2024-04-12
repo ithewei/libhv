@@ -191,7 +191,8 @@ void hio_done(hio_t* io) {
 }
 
 void hio_free(hio_t* io) {
-    if (io == NULL) return;
+    if (io == NULL || io->destroy) return;
+    io->destroy = 1;
     hio_close(io);
     hrecursive_mutex_destroy(&io->write_mutex);
     HV_FREE(io->localaddr);

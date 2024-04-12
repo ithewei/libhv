@@ -417,15 +417,19 @@ hloop_t* hloop_new(int flags) {
     HV_ALLOC_SIZEOF(loop);
     hloop_init(loop);
     loop->flags |= flags;
+    hlogd("hloop_new tid=%ld", loop->tid);
     return loop;
 }
 
 void hloop_free(hloop_t** pp) {
-    if (pp && *pp) {
-        hloop_cleanup(*pp);
-        HV_FREE(*pp);
-        *pp = NULL;
-    }
+    if (pp == NULL || *pp == NULL) return;
+    hloop_t* loop = *pp;
+    if (loop->status == HLOOP_STATUS_DESTROY) return;
+    loop->status = HLOOP_STATUS_DESTROY;
+    hlogd("hloop_free tid=%ld", hv_gettid());
+    hloop_cleanup(loop);
+    HV_FREE(loop);
+    *pp = NULL;
 }
 
 // while (loop->status) { hloop_process_events(loop); }
@@ -436,6 +440,7 @@ int hloop_run(hloop_t* loop) {
     loop->status = HLOOP_STATUS_RUNNING;
     loop->pid = hv_getpid();
     loop->tid = hv_gettid();
+    hlogd("hloop_run tid=%ld", loop->tid);
 
     if (loop->intern_nevents == 0) {
         hmutex_lock(&loop->custom_events_mutex);
@@ -471,8 +476,7 @@ int hloop_run(hloop_t* loop) {
     loop->end_hrtime = gethrtime_us();
 
     if (loop->flags & HLOOP_FLAG_AUTO_FREE) {
-        hloop_cleanup(loop);
-        HV_FREE(loop);
+        hloop_free(&loop);
     }
     return 0;
 }
@@ -485,6 +489,9 @@ int hloop_wakeup(hloop_t* loop) {
 }
 
 int hloop_stop(hloop_t* loop) {
+    if (loop == NULL) return -1;
+    if (loop->status == HLOOP_STATUS_STOP) return -2;
+    hlogd("hloop_stop tid=%ld", hv_gettid());
     if (hv_gettid() != loop->tid) {
         hloop_wakeup(loop);
     }

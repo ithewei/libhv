@@ -31,7 +31,8 @@ typedef void (*hclose_cb)   (hio_t* io);
 typedef enum {
     HLOOP_STATUS_STOP,
     HLOOP_STATUS_RUNNING,
-    HLOOP_STATUS_PAUSE
+    HLOOP_STATUS_PAUSE,
+    HLOOP_STATUS_DESTROY
 } hloop_status_e;
 
 typedef enum {

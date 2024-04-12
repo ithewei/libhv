@@ -566,7 +566,7 @@ disconnect:
 
 int hio_close (hio_t* io) {
     if (io->closed) return 0;
-    if (hv_gettid() != io->loop->tid) {
+    if (io->destroy == 0 && hv_gettid() != io->loop->tid) {
         return hio_close_async(io);
     }
 
@@ -575,7 +575,7 @@ int hio_close (hio_t* io) {
         hrecursive_mutex_unlock(&io->write_mutex);
         return 0;
     }
-    if (!write_queue_empty(&io->write_queue) && io->error == 0 && io->close == 0) {
+    if (!write_queue_empty(&io->write_queue) && io->error == 0 && io->close == 0 && io->destroy == 0) {
         io->close = 1;
         hrecursive_mutex_unlock(&io->write_mutex);
         hlogw("write_queue not empty, close later.");
