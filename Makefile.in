@@ -67,7 +67,8 @@ ARCH=$(shell echo $(TARGET_PLATFORM) | awk -F'-' '{print $$1}')
 endif
 
 # CFLAGS, CXXFLAGS, ARFLAGS
-ifeq ($(BUILD_TYPE), DEBUG)
+BUILD_TYPE_UPPER := $(shell echo $(BUILD_TYPE) | tr 'a-z' 'A-Z')
+ifeq ($(BUILD_TYPE_UPPER), DEBUG)
 	DEFAULT_CFLAGS = -g -Wall -O0
 else
 	DEFAULT_CFLAGS += -O2
@@ -137,7 +138,7 @@ ifeq ($(TARGET_TYPE), SHARED)
 endif
 endif
 
-ifeq ($(BUILD_TYPE), DEBUG)
+ifeq ($(BUILD_TYPE_UPPER), DEBUG)
 	CPPFLAGS += -DDEBUG
 else
 	CPPFLAGS += -DNDEBUG
