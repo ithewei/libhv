@@ -61,6 +61,22 @@ add_executable(jsonrpc_server jsonrpc/jsonrpc_server.c jsonrpc/cJSON.c)
 target_compile_definitions(jsonrpc_server PRIVATE CJSON_HIDE_SYMBOLS)
 target_link_libraries(jsonrpc_server ${HV_LIBRARIES})
 
+if(WITH_KCP)
+    glob_headers_and_sources(KCPTUN_SMUX_FILES   kcptun/smux)
+    glob_headers_and_sources(KCPTUN_CLIENT_FILES kcptun/client)
+    glob_headers_and_sources(KCPTUN_SERVER_FILES kcptun/server)
+
+    # kcptun_client
+    add_executable(kcptun_client ${KCPTUN_SMUX_FILES} ${KCPTUN_CLIENT_FILES})
+    target_link_libraries(kcptun_client ${HV_LIBRARIES})
+
+    # kcptun_server
+    add_executable(kcptun_server ${KCPTUN_SMUX_FILES} ${KCPTUN_SERVER_FILES})
+    target_link_libraries(kcptun_server ${HV_LIBRARIES})
+
+    list(APPEND EXAMPLES kcptun_client kcptun_server)
+endif()
+
 if(WITH_EVPP)
     include_directories(../cpputil ../evpp)
 

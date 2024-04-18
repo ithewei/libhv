@@ -191,6 +191,14 @@ mqtt_pub: prepare
 mqtt_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) mqtt" SRCS="examples/mqtt/mqtt_client_test.cpp"
 
+kcptun: kcptun_client kcptun_server
+
+kcptun_client: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) examples/kcptun/smux examples/kcptun/client"
+
+kcptun_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) examples/kcptun/smux examples/kcptun/server"
+
 jsonrpc: jsonrpc_client jsonrpc_server
 
 jsonrpc_client: prepare
