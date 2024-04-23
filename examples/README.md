@@ -5,6 +5,7 @@
 ├── consul/                 consul服务注册与发现
 ├── httpd/                  HTTP服务端
 ├── jsonrpc/                json RPC示例
+├── kcptun/                 kcp隧道
 ├── mqtt/                   MQTT发布订阅示例
 ├── multi-thread/           多线程网络编程示例
 ├── nmap/                   网络扫描工具
@@ -16,6 +17,7 @@
 ├── http_client_test.c      HTTP客户端测试代码
 ├── http_server_test.c      HTTP服务端测试代码
 ├── nc.c                    网络连接工具
+├── pipe_test.c             pipe示例代码
 ├── socks5_proxy_server.c   SOCKS5代理服务
 ├── tcp_chat_server.c       TCP聊天服务
 ├── tcp_echo_server.c       TCP回显服务

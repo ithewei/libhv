@@ -416,6 +416,10 @@ hio_t* hloop_create_udp_server (hloop_t* loop, const char* host, int port);
 // 创建UDP客户端，示例代码见 examples/nc.c
 hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int port);
 
+//-----------------pipe---------------------------------------------
+// 创建pipe，示例代码见 examples/pipe_test.c
+int hio_create_pipe(hloop_t* loop, hio_t* pipeio[2]);
+
 //-----------------转发---------------------------------------------
 // hio_read(io)
 // hio_read(io->upstream_io)

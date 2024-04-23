@@ -600,6 +600,8 @@ int hio_close (hio_t* io) {
     SAFE_FREE(io->hostname);
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
+    } else if (io->io_type == HIO_TYPE_PIPE) {
+        close(io->fd);
     }
     return 0;
 }

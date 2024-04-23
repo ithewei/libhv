@@ -342,6 +342,7 @@ int main(int argc, char** argv) {
 ### c version
 - [examples/hloop_test.c](examples/hloop_test.c)
 - [examples/htimer_test.c](examples/htimer_test.c)
+- [examples/pipe_test.c](examples/pipe_test.c)
 - [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
 - [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
 - [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
@@ -369,7 +370,6 @@ int main(int argc, char** argv) {
 - [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
-- [examples/kcptun](examples/kcptun)
 - [examples/protorpc](examples/protorpc)
 - [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
 
@@ -381,6 +381,7 @@ int main(int argc, char** argv) {
 - [examples/curl](examples/curl.cpp)
 - [examples/wget](examples/wget.cpp)
 - [examples/consul](examples/consul)
+- [examples/kcptun](examples/kcptun)
 
 ## 🥇 Benchmark
 ### `pingpong echo-servers`

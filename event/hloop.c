@@ -1025,3 +1025,25 @@ hio_t* hloop_create_udp_server(hloop_t* loop, const char* host, int port) {
 hio_t* hloop_create_udp_client(hloop_t* loop, const char* host, int port) {
     return hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_CLIENT_SIDE);
 }
+
+int hio_create_pipe(hloop_t* loop, hio_t* pipeio[2]) {
+    int pipefd[2];
+    hio_type_e type = HIO_TYPE_PIPE;
+#if defined(OS_UNIX) && HAVE_PIPE
+    if (pipe(pipefd) != 0) {
+        hloge("pipe create failed!");
+        return -1;
+    }
+#else
+    if (Socketpair(AF_INET, SOCK_STREAM, 0, pipefd) != 0) {
+        hloge("socketpair create failed!");
+        return -1;
+    }
+    type = HIO_TYPE_TCP;
+#endif
+    pipeio[0] = hio_get(loop, pipefd[0]);
+    pipeio[1] = hio_get(loop, pipefd[1]);
+    pipeio[0]->io_type = type;
+    pipeio[1]->io_type = type;
+    return 0;
+}

@@ -94,6 +94,7 @@ typedef enum {
     HIO_TYPE_STDIO      = 0x0000000F,
 
     HIO_TYPE_FILE       = 0x00000010,
+    HIO_TYPE_PIPE       = 0x00000020,
 
     HIO_TYPE_IP         = 0x00000100,
     HIO_TYPE_SOCK_RAW   = 0x00000F00,
@@ -435,6 +436,10 @@ HV_EXPORT hio_t* hloop_create_udp_server (hloop_t* loop, const char* host, int p
 // @udp_server: hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_CLIENT_SIDE)
 // @see examples/nc.c
 HV_EXPORT hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int port);
+
+//-----------------pipe---------------------------------------------
+// @see examples/pipe_test.c
+HV_EXPORT int hio_create_pipe(hloop_t* loop, hio_t* pipeio[2]);
 
 //-----------------upstream---------------------------------------------
 // hio_read(io)

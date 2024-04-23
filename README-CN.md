@@ -402,6 +402,7 @@ int main(int argc, char** argv) {
 ### c版本
 - 事件循环:     [examples/hloop_test.c](examples/hloop_test.c)
 - 定时器:       [examples/htimer_test.c](examples/htimer_test.c)
+- pipe示例:     [examples/pipe_test.c](examples/pipe_test.c)
 - TCP回显服务:  [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
 - TCP聊天服务:  [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
 - TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
@@ -429,7 +430,6 @@ int main(int argc, char** argv) {
 - HTTP客户端: [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
-- kcptun隧道: [examples/kcptun](examples/kcptun)
 - protobufRPC示例: [examples/protorpc](examples/protorpc)
 - Qt中使用libhv示例: [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
 
@@ -441,6 +441,7 @@ int main(int argc, char** argv) {
 - URL请求工具:  [examples/curl](examples/curl.cpp)
 - 文件下载工具: [examples/wget](examples/wget.cpp)
 - 服务注册与发现: [examples/consul](examples/consul)
+- kcptun隧道: [examples/kcptun](examples/kcptun)
 
 ## 🥇 性能测试
 

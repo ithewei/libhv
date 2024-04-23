@@ -470,6 +470,7 @@
 - hio_setup_ssl_upstream
 - hio_setup_udp_upstream
 - hio_create_socket
+- hio_create_pipe
 - hio_context
 - hio_set_context
 - htimer_add
