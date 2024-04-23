@@ -279,3 +279,24 @@ endif()
 if(BUILD_UNITTEST)
     add_subdirectory(unittest)
 endif()
+
+# CPack settings
+set(CPACK_PACKAGE_NAME "libhv")
+set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+set(CPACK_PACKAGE_RELEASE 1)
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "A high-performance C/C++ network library")
+set(CPACK_PACKAGE_VENDOR "libhv")
+set(CPACK_PACKAGE_CONTACT "ithewei <ithewei@163.com>")
+set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CMAKE_HOST_SYSTEM_PROCESSOR}")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+
+# Specify the package generators
+set(CPACK_GENERATOR "TGZ;DEB;RPM")
+
+# Enable CPack debug output
+set(CPACK_PACKAGE_DEBUG True)
+
+# https://cmake.org/cmake/help/latest/variable/CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION.html
+set(CPACK_ERROR_ON_ABSOLUTE_INSTALL_DESTINATION "ON")
+include(CPack)
