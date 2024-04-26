@@ -11,16 +11,18 @@ typedef struct hevent_s     hevent_t;
 
 // NOTE: The following structures are subclasses of hevent_t,
 // inheriting hevent_t data members and function members.
+typedef struct hio_s        hio_t;
 typedef struct hidle_s      hidle_t;
 typedef struct htimer_s     htimer_t;
 typedef struct htimeout_s   htimeout_t;
 typedef struct hperiod_s    hperiod_t;
-typedef struct hio_s        hio_t;
+typedef struct hevent_s     hsignal_t;
 
 typedef void (*hevent_cb)   (hevent_t* ev);
+typedef void (*hio_cb)      (hio_t* io);
 typedef void (*hidle_cb)    (hidle_t* idle);
 typedef void (*htimer_cb)   (htimer_t* timer);
-typedef void (*hio_cb)      (hio_t* io);
+typedef void (*hsignal_cb)  (hsignal_t* sig);
 
 typedef void (*haccept_cb)  (hio_t* io);
 typedef void (*hconnect_cb) (hio_t* io);
@@ -42,6 +44,7 @@ typedef enum {
     HEVENT_TYPE_PERIOD  = 0x00000020,
     HEVENT_TYPE_TIMER   = HEVENT_TYPE_TIMEOUT|HEVENT_TYPE_PERIOD,
     HEVENT_TYPE_IDLE    = 0x00000100,
+    HEVENT_TYPE_SIGNAL  = 0x00000200,
     HEVENT_TYPE_CUSTOM  = 0x00000400, // 1024
 } hevent_type_e;
 
@@ -183,6 +186,10 @@ HV_EXPORT void* hloop_userdata(hloop_t* loop);
  */
 // NOTE: hloop_post_event is thread-safe, used to post event from other thread to loop thread.
 HV_EXPORT void hloop_post_event(hloop_t* loop, hevent_t* ev);
+
+// signal
+HV_EXPORT hsignal_t* hsignal_add(hloop_t* loop, hsignal_cb cb, int signo);
+HV_EXPORT void       hsignal_del(hsignal_t* sig);
 
 // idle
 HV_EXPORT hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT(INFINITE));

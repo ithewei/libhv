@@ -25,6 +25,7 @@
 #define HIO_READ_UNTIL_DELIM    0x4
 
 ARRAY_DECL(hio_t*, io_array);
+ARRAY_DECL(hsignal_t*, signal_array);
 QUEUE_DECL(hevent_t, event_queue);
 
 struct hloop_s {
@@ -45,6 +46,9 @@ struct hloop_s {
     uint32_t                    npendings;
     // pendings: with priority as array.index
     hevent_t*                   pendings[HEVENT_PRIORITY_SIZE];
+    // signals
+    struct signal_array         signals;
+    uint32_t                    nsignals;
     // idles
     struct list_head            idles;
     uint32_t                    nidles;

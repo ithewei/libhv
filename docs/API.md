@@ -479,6 +479,8 @@
 - htimer_reset
 - hidle_add
 - hidle_del
+- hsignal_add
+- hsignal_del
 
 ### nlog.h
 - network_logger

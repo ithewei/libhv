@@ -394,6 +394,14 @@ static void hloop_cleanup(hloop_t* loop) {
     }
     heap_init(&loop->realtimers, NULL);
 
+    // signals
+    printd("cleanup signals...\n");
+    for (int i = 0; i < loop->signals.maxsize; ++i) {
+        hsignal_t* sig = loop->signals.ptr[i];
+        HV_FREE(sig);
+    }
+    signal_array_cleanup(&loop->signals);
+
     // readbuf
     if (loop->readbuf.base && loop->readbuf.len) {
         HV_FREE(loop->readbuf.base);
@@ -585,6 +593,55 @@ void  hloop_set_userdata(hloop_t* loop, void* userdata) {
 
 void* hloop_userdata(hloop_t* loop) {
     return loop->userdata;
+}
+
+static hloop_t* s_signal_loop = NULL;
+static void signal_handler(int signo) {
+    if (!s_signal_loop) return;
+    if (signo >= s_signal_loop->signals.maxsize) return;
+    hsignal_t* sig = s_signal_loop->signals.ptr[signo];
+    if (!sig) return;
+    hloop_post_event(s_signal_loop, sig);
+}
+
+hsignal_t* hsignal_add(hloop_t* loop, hsignal_cb cb, int signo) {
+    int max_signo = 64;
+#ifdef _NSIG
+    max_signo = _NSIG;
+#endif
+    if (signo <= 0 || signo >= max_signo) {
+        hloge("signo %d over %d!", signo, max_signo);
+        return NULL;
+    }
+    if (loop->signals.maxsize == 0) {
+        signal_array_init(&loop->signals, max_signo);
+    }
+    hsignal_t* sig = loop->signals.ptr[signo];
+    if (sig == NULL) {
+        HV_ALLOC_SIZEOF(sig);
+        sig->loop = loop;
+        sig->event_type = HEVENT_TYPE_SIGNAL;
+        // NOTE: use event_id as signo
+        sig->event_id = signo;
+        sig->cb = cb;
+        sig->priority = HEVENT_HIGHEST_PRIORITY;
+        loop->signals.ptr[signo] = sig;
+        loop->nsignals++;
+    }
+    EVENT_ACTIVE(sig);
+    s_signal_loop = loop;
+    signal(signo, signal_handler);
+    return sig;
+}
+
+void hsignal_del(hsignal_t* sig) {
+    if (!sig->active) return;
+    hloop_t* loop = sig->loop;
+    int signo = (int)sig->event_id;
+    if (signo >= loop->signals.maxsize) return;
+    loop->signals.ptr[signo] = NULL;
+    loop->nsignals--;
+    EVENT_DEL(sig);
 }
 
 hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat) {

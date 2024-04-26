@@ -64,6 +64,11 @@ void on_custom_events(hevent_t* ev) {
     printf("on_custom_events event_type=%d userdata=%ld\n", (int)ev->event_type, (long)(intptr_t)ev->userdata);
 }
 
+void on_signal(hsignal_t* sig) {
+    printf("on_signal signo=%d\n", (int)hevent_id(sig));
+    hloop_stop(hevent_loop(sig));
+}
+
 int main() {
     // memcheck atexit
     HV_MEMCHECK;
@@ -86,6 +91,9 @@ int main() {
     int minute = time(NULL)%3600/60;
     htimer_add_period(loop, cron_minutely, -1, -1, -1, -1, -1, INFINITE);
     htimer_add_period(loop, cron_hourly, minute+1, -1, -1, -1, -1, INFINITE);
+
+    // test signal: enter Ctrl-C to trigger
+    hsignal_add(loop, on_signal, SIGINT);
 
     // test network_logger
     htimer_add(loop, timer_write_log, 1000, INFINITE);

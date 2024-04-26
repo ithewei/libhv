@@ -43,7 +43,7 @@ struct hevent_s {
 // 获取事件用户数据
 #define hevent_userdata(ev)     (((hevent_t*)(ev))->userdata)
 
-// hidle_t、htimer_t、hio_t皆是继承自hevent_t，继承上面的数据成员和函数方法
+// hio_t、htimer_t、hsignal_t、hidle_t皆是继承自hevent_t，继承上面的数据成员和函数方法
 
 // 新建事件循环
 hloop_t* hloop_new(int flags DEFAULT(HLOOP_FLAG_AUTO_FREE));
@@ -106,6 +106,12 @@ void* hloop_userdata(hloop_t* loop);
 
 // 投递事件
 void hloop_post_event(hloop_t* loop, hevent_t* ev);
+
+// 添加信号处理
+hsignal_t* hsignal_add(hloop_t* loop, hsignal_cb cb, int signo);
+
+// 删除信号处理
+void       hsignal_del(hsignal_t* sig);
 
 // 添加空闲事件
 hidle_t* hidle_add(hloop_t* loop, hidle_cb cb, uint32_t repeat DEFAULT(INFINITE));
