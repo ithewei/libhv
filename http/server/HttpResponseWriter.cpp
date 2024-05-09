@@ -67,8 +67,10 @@ int HttpResponseWriter::SSEvent(const std::string& data, const char* event /* = 
     if (state == SEND_BEGIN) {
         EndHeaders("Content-Type", "text/event-stream");
     }
-    std::string msg;
-    msg =  "event: "; msg += event; msg += "\n";
+    std::string msg="";
+    if(event != nullptr){
+      msg =  "event: "; msg += event; msg += "\n";
+    }
     msg += "data: ";  msg += data;  msg += "\n\n";
     state = SEND_BODY;
     return write(msg);
