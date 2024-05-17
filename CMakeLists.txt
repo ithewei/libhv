@@ -228,12 +228,19 @@ if(WITH_MQTT)
 endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
+if(WIN32)
+    set(CMAKE_RC_FLAGS_DEBUG -D_DEBUG)
+    configure_file(${PROJECT_SOURCE_DIR}/${PROJECT_NAME}.rc.in ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.rc)
+	list(APPEND LIBHV_SRCS ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.rc)
+endif()
 
 file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
 file(INSTALL ${LIBHV_HEADERS} DESTINATION ${PROJECT_SOURCE_DIR}/include/hv)
 
 if(BUILD_SHARED)
     add_library(hv SHARED ${LIBHV_SRCS})
+	set_target_properties(hv PROPERTIES PREFIX lib)
+	set_target_properties(hv PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
     target_compile_definitions(hv PRIVATE HV_DYNAMICLIB)
     target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS}
         INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)

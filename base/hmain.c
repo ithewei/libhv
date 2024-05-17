@@ -97,13 +97,13 @@ int main_ctx_init(int argc, char** argv) {
         g_main_ctx.oldpid = -1;
     }
 #else
-    HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, g_main_ctx.oldpid);
-    if (hproc == NULL) {
-        g_main_ctx.oldpid = -1;
+    HANDLE hproc = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION, FALSE, g_main_ctx.oldpid);
+	DWORD exitCode = 0;
+    if (hproc) {
+		GetExitCodeProcess(hproc, &exitCode);
+		CloseHandle(hproc);
     }
-    else {
-        CloseHandle(hproc);
-    }
+	if(exitCode != STILL_ACTIVE) g_main_ctx.oldpid = -1;
 #endif
 
     // save arg
