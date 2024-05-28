@@ -27,40 +27,27 @@ static int mtu = 1350;
 static int sndwnd = 128;
 static int rcvwnd = 512;
 
-// short options
-static const char options[] = "hvdl:r:m:";
 // long options
 static const option_t long_options[] = {
-    {'h', "help",       NO_ARGUMENT},
-    {'v', "version",    NO_ARGUMENT},
-    {'d', "daemon",     NO_ARGUMENT},
-    {'l', "localaddr",  REQUIRED_ARGUMENT},
-    {'r', "remoteaddr", REQUIRED_ARGUMENT},
-    {'m', "mode",       REQUIRED_ARGUMENT},
-    { 0,  "mtu",        REQUIRED_ARGUMENT},
-    { 0,  "sndwnd",     REQUIRED_ARGUMENT},
-    { 0,  "rcvwnd",     REQUIRED_ARGUMENT},
+    {'h', "help",       NO_ARGUMENT,        "Print this information"},
+    {'v', "version",    NO_ARGUMENT,        "Print version"},
+    {'d', "daemon",     NO_ARGUMENT,        "Daemonize"},
+    {'l', "localaddr",  REQUIRED_ARGUMENT,  "local listen address (default: \":8388\")"},
+    {'r', "remoteaddr", REQUIRED_ARGUMENT,  "kcp server address (default: \"127.0.0.1:4000\")"},
+    {'m', "mode",       REQUIRED_ARGUMENT,  "profiles: fast3, fast2, fast, normal, (default: \"fast\")"},
+    { 0,  "mtu",        REQUIRED_ARGUMENT,  "set maxinum transmission unit for UDP packets (default: 1350)"},
+    { 0,  "sndwnd",     REQUIRED_ARGUMENT,  "set send window size(num of packets) (default: 128)"},
+    { 0,  "rcvwnd",     REQUIRED_ARGUMENT,  "set receive window size(num of packets) (default: 512)"},
 };
-
-static const char detail_options[] = R"(
-  -h|--help                 Print this information
-  -v|--version              Print version
-  -d|--daemon               Daemonize
-  -l|--localaddr value      local listen address (default: ":8388")
-  -r|--remoteaddr value     kcp server address (default: "127.0.0.1:4000")
-  -m|--mode value           profiles: fast3, fast2, fast, normal (default: "fast")
-     --mtu value            set maximum transmission unit for UDP packets (default: 1350)
-     --sndwnd value         set send window size(num of packets) (default: 128)
-     --rcvwnd value         set receive window size(num of packets) (default: 512)
-)";
 
 static void print_version() {
     printf("%s version %s\n", g_main_ctx.program_name, hv_compile_version());
 }
 
 static void print_help() {
-    printf("Usage: %s [%s]\n", g_main_ctx.program_name, options);
-    printf("Options:\n%s\n", detail_options);
+    char detail_options[1024] = {0};
+    dump_opt_long(long_options, ARRAY_SIZE(long_options), detail_options, sizeof(detail_options));
+    printf("%s\n", detail_options);
 }
 
 static char listen_host[64] = "0.0.0.0";
@@ -260,7 +247,6 @@ int main(int argc, char** argv) {
 
     // g_main_ctx
     main_ctx_init(argc, argv);
-    //int ret = parse_opt(argc, argv, options);
     int ret = parse_opt_long(argc, argv, long_options, ARRAY_SIZE(long_options));
     if (ret != 0) {
         print_help();
