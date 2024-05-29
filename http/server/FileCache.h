@@ -64,10 +64,7 @@ public:
     int             stat_interval;
     int             expired_time;
 
-    FileCache() {
-        stat_interval = 10; // s
-        expired_time  = 60; // s
-    }
+    FileCache();
 
     struct OpenParam {
         bool need_read;
