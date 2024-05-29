@@ -2,13 +2,13 @@
 bazel-*
 MODULE.bazel
 MODULE.bazel.lock
-
+.idea/
 # Compiled Object files
 *.o
 *.lo
 *.slo
 *.obj
-
+cmake-build-debug/
 # Precompiled Headers
 *.gch
 *.pch
