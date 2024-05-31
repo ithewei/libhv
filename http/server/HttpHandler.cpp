@@ -153,8 +153,10 @@ void HttpHandler::Close() {
 }
 
 bool HttpHandler::SwitchHTTP2() {
-    parser.reset(HttpParser::New(HTTP_SERVER, ::HTTP_V2));
-    if (parser == NULL) {
+    HttpParser *new_parser = HttpParser::New(HTTP_SERVER, ::HTTP_V2);
+    if (new_parser != NULL) {
+        parser.reset(new_parser);
+    } else {
         return false;
     }
     protocol = HTTP_V2;
