@@ -102,7 +102,7 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=416 on linux-x64
+// sizeof(struct hio_s)=424 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
@@ -121,7 +121,7 @@ struct hio_s {
     unsigned    alloced_ssl_ctx :1; // for hio_new_ssl_ctx
 // public:
     hio_type_e  io_type;
-    uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
+    uint64_t    id; // fd cannot be used as unique identifier, so we provide an id
     int         fd;
     int         error;
     int         events;
@@ -207,7 +207,7 @@ void hio_init(hio_t* io);
 void hio_ready(hio_t* io);
 void hio_done(hio_t* io);
 void hio_free(hio_t* io);
-uint32_t hio_next_id();
+uint64_t hio_next_id();
 
 void hio_accept_cb(hio_t* io);
 void hio_connect_cb(hio_t* io);

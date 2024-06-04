@@ -270,7 +270,7 @@ HV_EXPORT bool hio_exists(hloop_t* loop, int fd);
 
 // hio_t fields
 // NOTE: fd cannot be used as unique identifier, so we provide an id.
-HV_EXPORT uint32_t hio_id (hio_t* io);
+HV_EXPORT uint64_t hio_id (hio_t* io);
 HV_EXPORT int hio_fd      (hio_t* io);
 HV_EXPORT int hio_error   (hio_t* io);
 HV_EXPORT int hio_events  (hio_t* io);

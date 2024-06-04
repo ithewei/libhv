@@ -53,7 +53,7 @@ public:
 
     hio_t*      io() { return io_; }
     int         fd() { return fd_; }
-    uint32_t    id() { return id_; }
+    uint64_t    id() { return id_; }
     int error() { return hio_error(io_); }
 
     // context
@@ -186,7 +186,7 @@ public:
 public:
     hio_t*      io_;
     int         fd_;
-    uint32_t    id_;
+    uint64_t    id_;
     void*       ctx_;
     enum Status {
         OPENED,

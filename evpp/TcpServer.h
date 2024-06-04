@@ -145,21 +145,21 @@ public:
 
     // channel
     const TSocketChannelPtr& addChannel(hio_t* io) {
-        uint32_t id = hio_id(io);
+        uint64_t id = hio_id(io);
         auto channel = std::make_shared<TSocketChannel>(io);
         std::lock_guard<std::mutex> locker(mutex_);
         channels[id] = channel;
         return channels[id];
     }
 
-    TSocketChannelPtr getChannelById(uint32_t id) {
+    TSocketChannelPtr getChannelById(uint64_t id) {
         std::lock_guard<std::mutex> locker(mutex_);
         auto iter = channels.find(id);
         return iter != channels.end() ? iter->second : NULL;
     }
 
     void removeChannel(const TSocketChannelPtr& channel) {
-        uint32_t id = channel->id();
+        uint64_t id = channel->id();
         std::lock_guard<std::mutex> locker(mutex_);
         channels.erase(id);
     }
@@ -268,7 +268,7 @@ public:
 
 private:
     // id => TSocketChannelPtr
-    std::map<uint32_t, TSocketChannelPtr>   channels; // GUAREDE_BY(mutex_)
+    std::map<uint64_t, TSocketChannelPtr>   channels; // GUAREDE_BY(mutex_)
     std::mutex                              mutex_;
 
     EventLoopPtr            acceptor_loop;

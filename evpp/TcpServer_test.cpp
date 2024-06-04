@@ -33,9 +33,9 @@ int main(int argc, char* argv[]) {
     srv.onConnection = [](const SocketChannelPtr& channel) {
         std::string peeraddr = channel->peeraddr();
         if (channel->isConnected()) {
-            printf("%s connected! connfd=%d id=%d tid=%ld\n", peeraddr.c_str(), channel->fd(), channel->id(), currentThreadEventLoop->tid());
+            printf("%s connected! connfd=%d id=%ld tid=%ld\n", peeraddr.c_str(), channel->fd(), channel->id(), currentThreadEventLoop->tid());
         } else {
-            printf("%s disconnected! connfd=%d id=%d tid=%ld\n", peeraddr.c_str(), channel->fd(), channel->id(), currentThreadEventLoop->tid());
+            printf("%s disconnected! connfd=%d id=%ld tid=%ld\n", peeraddr.c_str(), channel->fd(), channel->id(), currentThreadEventLoop->tid());
         }
     };
     srv.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {

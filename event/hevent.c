@@ -11,7 +11,7 @@ uint64_t hloop_next_event_id() {
     return ++s_id;
 }
 
-uint32_t hio_next_id() {
+uint64_t hio_next_id() {
     static hatomic_t s_id = HATOMIC_VAR_INIT(0);
     return ++s_id;
 }
@@ -215,7 +215,7 @@ bool hio_is_closed(hio_t* io) {
     return io->ready == 0 && io->closed == 1;
 }
 
-uint32_t hio_id (hio_t* io) {
+uint64_t hio_id (hio_t* io) {
     return io->id;
 }
 

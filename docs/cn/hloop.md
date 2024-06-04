@@ -179,7 +179,7 @@ void on_accpet(hio_t* io) {
 bool hio_exists(hloop_t* loop, int fd);
 
 // 返回一个唯一标示ID
-uint32_t hio_id (hio_t* io);
+uint64_t hio_id (hio_t* io);
 
 // 返回文件描述符
 int hio_fd      (hio_t* io);
