@@ -32,7 +32,11 @@ public:
     }
 
     EventLoopPtr loop(int idx = -1) {
-        return worker_threads.loop(idx);
+        EventLoopPtr worker_loop = worker_threads.loop(idx);
+        if (worker_loop == NULL) {
+            worker_loop = acceptor_loop;
+        }
+        return worker_loop;
     }
 
     //@retval >=0 listenfd, <0 error
@@ -200,6 +204,7 @@ private:
         // NOTE: attach to worker loop
         EventLoop* worker_loop = currentThreadEventLoop;
         assert(worker_loop != NULL);
+        //hlogi("worker loop tid=%d", worker_loop->tid());
         hio_attach(worker_loop->loop(), connio);
 
         const TSocketChannelPtr& channel = server->addChannel(connio);
