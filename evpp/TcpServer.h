@@ -32,7 +32,11 @@ public:
     }
 
     EventLoopPtr loop(int idx = -1) {
-        return worker_threads.loop(idx);
+        EventLoopPtr worker_loop = worker_threads.loop(idx);
+        if (worker_loop == NULL) {
+            worker_loop = acceptor_loop;
+        }
+        return worker_loop;
     }
 
     //@retval >=0 listenfd, <0 error
