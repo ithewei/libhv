@@ -316,7 +316,7 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
         if (pOption->arg_type == NO_ARGUMENT) {
             // -h
             value = OPTION_ENABLE;
-        } else if (pOption->arg_type == REQUIRED_ARGUMENT) {
+        } else {
             if (delim) {
                 // --port=80
                 value = delim+1;
@@ -327,9 +327,12 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
                 } else if (argv[i+1] != NULL) {
                     // --port 80
                     value = argv[++i];
-                } else {
+                } else if (pOption->arg_type == REQUIRED_ARGUMENT) {
                     printf("Option '%s' requires parament\n", opt);
                     return -20;
+                } else {
+                    // arg_type == OPTIONAL_ARGUMENT
+                    value = OPTION_ENABLE;
                 }
             }
         }
