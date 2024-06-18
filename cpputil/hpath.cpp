@@ -71,7 +71,7 @@ std::string HPath::filename(const std::string& filepath) {
     } else {
         pos1++;
     }
-    std::string file = filepath.substr(pos1, -1);
+    std::string file = filepath.substr(pos1);
 
     std::string::size_type pos2 = file.find_last_of(".");
     if (pos2 == std::string::npos) {
@@ -87,13 +87,13 @@ std::string HPath::suffixname(const std::string& filepath) {
     } else {
         pos1++;
     }
-    std::string file = filepath.substr(pos1, -1);
+    std::string file = filepath.substr(pos1);
 
     std::string::size_type pos2 = file.find_last_of(".");
     if (pos2 == std::string::npos) {
         return "";
     }
-    return file.substr(pos2+1, -1);
+    return file.substr(pos2+1);
 }
 
 std::string HPath::join(const std::string& dir, const std::string& filename) {
