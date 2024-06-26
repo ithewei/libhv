@@ -8,7 +8,7 @@
 #include "httpdef.h"    // import http_content_type_str_by_suffix
 #include "http_page.h"  // import make_index_of_page
 
-#ifdef OS_WIN
+#ifdef _MSC_VER
 #include <codecvt>
 #endif
 
@@ -20,7 +20,7 @@ FileCache::FileCache() {
 }
 
 static int hv_open(char const* filepath, int flags) {
-#ifdef OS_WIN
+#ifdef _MSC_VER
     std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> conv;
     auto wfilepath = conv.from_bytes(filepath);
     int fd = _wopen(wfilepath.c_str(), flags);
