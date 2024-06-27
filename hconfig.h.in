@@ -98,5 +98,6 @@
 
 #cmakedefine WITH_WEPOLL    1
 #cmakedefine WITH_KCP       1
+#cmakedefine EVENT_IOURING  1
 
 #endif // HV_CONFIG_H_

@@ -1,5 +1,5 @@
 #include "iowatcher.h"
-#ifndef EVENT_IOCP
+#if !defined(EVENT_IOCP) && !defined(EVENT_IOURING)
 #include "hevent.h"
 #include "hsocket.h"
 #include "hssl.h"

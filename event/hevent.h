@@ -184,6 +184,10 @@ struct hio_s {
     void*       hovlp;          // for iocp/overlapio
 #endif
 
+#ifdef EVENT_IOURING
+    void*       iouring_buf;
+#endif
+
 #if WITH_RUDP
     rudp_t          rudp;
 #if WITH_KCP
