@@ -269,9 +269,12 @@ static int __nio_read(hio_t* io, void* buf, int len) {
     return nread;
 }
 
-static uint8_t __isaddr_any(sockaddr_u *addr) {
+static void __getlocaladdr(hio_t *io) {
     // sin6 has the same offset
-    return addr->sin.sin_port == 0;
+    if (((sockaddr_u*)io->localaddr)->sin.sin_port == 0) {
+        socklen_t addrlen = sizeof(sockaddr_u);
+        getsockname(io->fd, io->localaddr, &addrlen);
+    }
 }
 
 static int __nio_write(hio_t* io, const void* buf, int len) {
@@ -293,10 +296,7 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
     case HIO_TYPE_KCP:
     case HIO_TYPE_IP:
         nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
-        if(nwrite >= 0 && __isaddr_any((sockaddr_u *)io->localaddr)){
-            socklen_t addrlen = sizeof(sockaddr_u);
-            getsockname(io->fd, io->localaddr, &addrlen);
-        }
+        __getlocaladdr(io);
         break;
     default:
         nwrite = write(io->fd, buf, len);
