@@ -289,7 +289,7 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
     case HIO_TYPE_IP:
     {
         nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
-        if (io->localaddr->sa_family == 0) {
+        if (((sockaddr_u*)io->localaddr)->sin.sin_port == 0) {
             socklen_t addrlen = sizeof(sockaddr_u);
             getsockname(io->fd, io->localaddr, &addrlen);
         }
