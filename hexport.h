@@ -37,32 +37,6 @@
     #define HV_UNUSED
 #endif
 
-// @param[IN | OUT | INOUT]
-#ifndef IN
-#define IN
-#endif
-
-#ifndef OUT
-#define OUT
-#endif
-
-#ifndef INOUT
-#define INOUT
-#endif
-
-// @field[OPTIONAL | REQUIRED | REPEATED]
-#ifndef OPTIONAL
-#define OPTIONAL
-#endif
-
-#ifndef REQUIRED
-#define REQUIRED
-#endif
-
-#ifndef REPEATED
-#define REPEATED
-#endif
-
 #ifdef __cplusplus
 
 #ifndef EXTERN_C
