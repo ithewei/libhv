@@ -298,7 +298,9 @@ public:
     // start thread-safe
     void start(bool wait_threads_started = true) {
         TcpServerEventLoopTmpl<TSocketChannel>::start(wait_threads_started);
-        EventLoopThread::start(wait_threads_started);
+        if (!isRunning()) {
+            EventLoopThread::start(wait_threads_started);
+        }
     }
 
     // stop thread-safe
