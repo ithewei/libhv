@@ -82,6 +82,7 @@ HV_EXPORT char* hv_strncat(char* dest, const char* src, size_t n);
 #endif
 
 HV_EXPORT char* hv_strnchr(const char* s, char c, size_t n);
+HV_EXPORT char* hv_strnrchr(const char* s, char c, size_t n);
 
 #define hv_strrchr_dot(str) strrchr(str, '.')
 HV_EXPORT char* hv_strrchr_dir(const char* filepath);

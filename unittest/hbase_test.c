@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
             4);
 
     const char* test_urls[] = {
+        "http://user:pswd@[www.example.com]:80/path?query#fragment",
         "http://user:pswd@www.example.com:80/path?query#fragment",
         "http://user:pswd@www.example.com/path?query#fragment",
         "http://www.example.com/path?query#fragment",
