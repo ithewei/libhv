@@ -29,8 +29,8 @@ public:
                 if (cookie.parse(header_value)) {
                     parsed->cookies.emplace_back(cookie);
                     header_field.clear();
-		    header_value.clear();
-	            return;
+                    header_value.clear();
+                    return;
                 }
             }
             parsed->headers[header_field] = header_value;
