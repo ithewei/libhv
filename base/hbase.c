@@ -484,8 +484,19 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
         // @
         host = pos + 1;
     }
-    // port
-    const char* port = hv_strnrchr(host, ':', ep - host);
+    // host:port or ipv4:port or [ipv6]:port
+    const char* hostend = host;
+    if (*host == '[') {
+        pos = hv_strnchr(host, ']', ep - host);
+        if (pos) {
+            // ipv6
+            host++;
+            hostend = pos;
+            stURL->fields[HV_URL_HOST].off = host - begin;
+            stURL->fields[HV_URL_HOST].len = hostend - host;
+        }
+    }
+    const char* port = hv_strnchr(hostend, ':', ep - hostend);
     if (port) {
         stURL->fields[HV_URL_PORT].off = port + 1 - begin;
         stURL->fields[HV_URL_PORT].len = ep - port - 1;
@@ -503,15 +514,10 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
             }
         }
     }
-    // host
-    unsigned short hostlen = port - host;
-    if (hostlen > 2 && host[0] == '[' && host[hostlen-1] == ']') {
-        // ipv6
-        host++;
-        hostlen -= 2;
+    if (stURL->fields[HV_URL_HOST].len == 0) {
+        stURL->fields[HV_URL_HOST].off = host - begin;
+        stURL->fields[HV_URL_HOST].len = port - host;
     }
-    stURL->fields[HV_URL_HOST].off = host - begin;
-    stURL->fields[HV_URL_HOST].len = hostlen;
     if (ep == end) return 0;
     // /path
     sp = ep;
