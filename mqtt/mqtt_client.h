@@ -102,6 +102,7 @@ HV_EXPORT int mqtt_client_reconnect(mqtt_client_t* cli);
 // on_connect -> mqtt_client_login ->
 // on_connack
 HV_EXPORT void mqtt_client_set_connect_timeout(mqtt_client_t* cli, int ms);
+HV_EXPORT void mqtt_client_set_host(mqtt_client_t* cli, const char* host, int port, int ssl);
 HV_EXPORT int  mqtt_client_connect(mqtt_client_t* cli,
         const char* host,
         int port DEFAULT(DEFAULT_MQTT_PORT),
@@ -201,6 +202,10 @@ public:
 
     void setConnectTimeout(int ms) {
         mqtt_client_set_connect_timeout(client, ms);
+    }
+
+    void setHost(const char* host, int port = DEFAULT_MQTT_PORT, int ssl = 0) {
+        mqtt_client_set_host(client, host, port, ssl);
     }
 
     int connect(const char* host, int port = DEFAULT_MQTT_PORT, int ssl = 0) {
