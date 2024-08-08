@@ -485,6 +485,12 @@ void mqtt_client_set_connect_timeout(mqtt_client_t* cli, int ms) {
     cli->connect_timeout = ms;
 }
 
+void mqtt_client_set_host(mqtt_client_t* cli, const char* host, int port, int ssl) {
+    hv_strncpy(cli->host, host, sizeof(cli->host));
+    cli->port = port;
+    cli->ssl = ssl;
+}
+
 int mqtt_client_connect(mqtt_client_t* cli, const char* host, int port, int ssl) {
     if (!cli) return -1;
     hv_strncpy(cli->host, host, sizeof(cli->host));
