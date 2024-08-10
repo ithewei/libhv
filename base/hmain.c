@@ -316,7 +316,7 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
         if (pOption->arg_type == NO_ARGUMENT) {
             // -h
             value = OPTION_ENABLE;
-        } else if (pOption->arg_type == REQUIRED_ARGUMENT) {
+        } else {
             if (delim) {
                 // --port=80
                 value = delim+1;
@@ -327,9 +327,12 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
                 } else if (argv[i+1] != NULL) {
                     // --port 80
                     value = argv[++i];
-                } else {
+                } else if (pOption->arg_type == REQUIRED_ARGUMENT) {
                     printf("Option '%s' requires parament\n", opt);
                     return -20;
+                } else {
+                    // arg_type == OPTIONAL_ARGUMENT
+                    value = OPTION_ENABLE;
                 }
             }
         }
@@ -341,6 +344,69 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
         }
     }
     return 0;
+}
+
+int dump_opt_long(const option_t* long_options, int opt_size, char* out_str, int out_size) {
+    /*
+     * Usage: program_name [short_options]
+     * Options:
+     *   -%c|--%s          description
+     *   -%c|--%s <value>  description
+     *   -%c|--%s [value]  description
+     */
+    int align = 0, max_align = 0;
+    char short_options[256] = {0};
+    char* p = short_options;
+    for (int i = 0; i < opt_size; ++i) {
+        if (long_options[i].short_opt > 0) {
+            *p++ = long_options[i].short_opt;
+        }
+        if (long_options[i].arg_type == NO_ARGUMENT) {
+            // "  -%c|--%s  "
+            align = 9 + strlen(long_options[i].long_opt);
+        } else {
+            // "  -%c|--%s <value>  "
+            align = 17 + strlen(long_options[i].long_opt);
+            if (long_options[i].short_opt > 0) {
+                *p++ = ':';
+            }
+        }
+        if (align > max_align) max_align = align;
+    }
+
+    int offset = 0;
+    if (*g_main_ctx.program_name) {
+        offset = snprintf(out_str, out_size, "Usage: %s [%s]\n", g_main_ctx.program_name, short_options);
+    }
+    offset += snprintf(out_str + offset, out_size - offset, "Options:\n");
+    char short_opt_chars[4] = {0};
+    for (int i = 0; i < opt_size; ++i) {
+        if (long_options[i].short_opt > 0) {
+            // -%c|
+            short_opt_chars[0] = '-';
+            short_opt_chars[1] = long_options[i].short_opt;
+            short_opt_chars[2] = '|';
+        } else {
+            short_opt_chars[0] = ' ';
+            short_opt_chars[1] = ' ';
+            short_opt_chars[2] = ' ';
+        }
+        if (long_options[i].arg_type == NO_ARGUMENT) {
+            // "  -%c|--%s  "
+            align = 9 + strlen(long_options[i].long_opt);
+        } else {
+            // "  -%c|--%s <value>  "
+            align = 17 + strlen(long_options[i].long_opt);
+        }
+        offset += snprintf(out_str + offset, out_size - offset, "  %s--%s%s  %*s%s\n",
+                short_opt_chars,
+                long_options[i].long_opt,
+                long_options[i].arg_type == REQUIRED_ARGUMENT ? " <value>" :
+                long_options[i].arg_type == OPTIONAL_ARGUMENT ? " [value]" : "",
+                max_align - align, "",
+                long_options[i].description ? long_options[i].description : "");
+    }
+    return offset;
 }
 
 #if defined(OS_UNIX) && !HAVE_SETPROCTITLE

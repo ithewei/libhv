@@ -269,6 +269,7 @@
 - main_ctx_init
 - parse_opt
 - parse_opt_long
+- dump_opt_long
 - get_arg
 - get_env
 - setproctitle

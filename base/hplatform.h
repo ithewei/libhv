@@ -41,6 +41,7 @@
     #undef  OS_UNIX
     #define OS_WIN
 #else
+    #undef  OS_WIN
     #define OS_UNIX
 #endif
 

@@ -8,7 +8,27 @@
 #include "httpdef.h"    // import http_content_type_str_by_suffix
 #include "http_page.h"  // import make_index_of_page
 
+#ifdef _MSC_VER
+#include <codecvt>
+#endif
+
 #define ETAG_FMT    "\"%zx-%zx\""
+
+FileCache::FileCache() {
+    stat_interval = 10; // s
+    expired_time  = 60; // s
+}
+
+static int hv_open(char const* filepath, int flags) {
+#ifdef _MSC_VER
+    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> conv;
+    auto wfilepath = conv.from_bytes(filepath);
+    int fd = _wopen(wfilepath.c_str(), flags);
+#else
+    int fd = open(filepath, flags);
+#endif
+    return fd;
+}
 
 file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
     std::lock_guard<std::mutex> locker(mutex_);
@@ -32,7 +52,7 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
 #ifdef O_BINARY
         flags |= O_BINARY;
 #endif
-        int fd = open(filepath, flags);
+        int fd = hv_open(filepath, flags);
         if (fd < 0) {
 #ifdef OS_WIN
             // NOTE: open(dir) return -1 on windows

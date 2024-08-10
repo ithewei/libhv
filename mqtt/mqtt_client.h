@@ -48,7 +48,7 @@ struct mqtt_client_s {
     // privdata
     hloop_t*    loop;
     hio_t*      io;
-    htimer_t*   reconn_timer;
+    htimer_t*   timer;
     // SSL/TLS
     hssl_ctx_t ssl_ctx;
     // thread-safe

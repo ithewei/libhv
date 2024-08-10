@@ -44,6 +44,7 @@ public:
                Functor pre = Functor(),
                Functor post = Functor()) {
         if (status() >= kStarting && status() < kStopped) return;
+        if (isRunning()) return;
         setStatus(kStarting);
 
         thread_ = std::make_shared<std::thread>(&EventLoopThread::loop_thread, this, pre, post);

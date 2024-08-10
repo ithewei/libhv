@@ -38,36 +38,25 @@ static void print_help();
 static int  parse_confile(const char* confile);
 static void worker_fn(void* userdata);
 
-// short options
-static const char options[] = "hvc:ts:dp:";
 // long options
 static const option_t long_options[] = {
-    {'h', "help",       NO_ARGUMENT},
-    {'v', "version",    NO_ARGUMENT},
-    {'c', "confile",    REQUIRED_ARGUMENT},
-    {'t', "test",       NO_ARGUMENT},
-    {'s', "signal",     REQUIRED_ARGUMENT},
-    {'d', "daemon",     NO_ARGUMENT},
-    {'p', "port",       REQUIRED_ARGUMENT}
+    {'h', "help",       NO_ARGUMENT,        "Print this information"},
+    {'v', "version",    NO_ARGUMENT,        "Print version"},
+    {'c', "confile",    REQUIRED_ARGUMENT,  "Set configure file, default etc/{program}.conf"},
+    {'t', "test",       NO_ARGUMENT,        "Test configure file and exit"},
+    {'s', "signal",     REQUIRED_ARGUMENT,  "send signal to process, signal=[start,stop,restart,status,reload]"},
+    {'d', "daemon",     NO_ARGUMENT,        "Daemonize"},
+    {'p', "port",       REQUIRED_ARGUMENT,  "Set listen port"}
 };
-static const char detail_options[] = R"(
-  -h|--help                 Print this information
-  -v|--version              Print version
-  -c|--confile <confile>    Set configure file, default etc/{program}.conf
-  -t|--test                 Test configure file and exit
-  -s|--signal <signal>      Send <signal> to process,
-                            <signal>=[start,stop,restart,status,reload]
-  -d|--daemon               Daemonize
-  -p|--port <port>          Set listen port
-)";
 
 void print_version() {
     printf("%s version %s\n", g_main_ctx.program_name, hv_compile_version());
 }
 
 void print_help() {
-    printf("Usage: %s [%s]\n", g_main_ctx.program_name, options);
-    printf("Options:\n%s\n", detail_options);
+    char detail_options[1024] = {0};
+    dump_opt_long(long_options, ARRAY_SIZE(long_options), detail_options, sizeof(detail_options));
+    printf("%s\n", detail_options);
 }
 
 int parse_confile(const char* confile) {
@@ -170,7 +159,6 @@ int main(int argc, char** argv) {
         print_help();
         exit(10);
     }
-    // int ret = parse_opt(argc, argv, options);
     int ret = parse_opt_long(argc, argv, long_options, ARRAY_SIZE(long_options));
     if (ret != 0) {
         print_help();

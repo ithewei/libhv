@@ -195,6 +195,17 @@ char* hv_strnchr(const char* s, char c, size_t n) {
     return NULL;
 }
 
+char* hv_strnrchr(const char* s, char c, size_t n) {
+    assert(s != NULL);
+    const char* p = s;
+    const char* last = NULL;
+    while (*p != '\0' && n-- > 0) {
+        if (*p == c) last = p;
+        ++p;
+    }
+    return (char*)last;
+}
+
 char* hv_strrchr_dir(const char* filepath) {
     char* p = (char*)filepath;
     while (*p) ++p;
@@ -473,8 +484,19 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
         // @
         host = pos + 1;
     }
-    // port
-    const char* port = hv_strnchr(host, ':', ep - host);
+    // host:port or ipv4:port or [ipv6]:port
+    const char* hostend = host;
+    if (*host == '[') {
+        pos = hv_strnchr(host, ']', ep - host);
+        if (pos) {
+            // ipv6
+            host++;
+            hostend = pos;
+            stURL->fields[HV_URL_HOST].off = host - begin;
+            stURL->fields[HV_URL_HOST].len = hostend - host;
+        }
+    }
+    const char* port = hv_strnchr(hostend, ':', ep - hostend);
     if (port) {
         stURL->fields[HV_URL_PORT].off = port + 1 - begin;
         stURL->fields[HV_URL_PORT].len = ep - port - 1;
@@ -492,9 +514,10 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
             }
         }
     }
-    // host
-    stURL->fields[HV_URL_HOST].off = host - begin;
-    stURL->fields[HV_URL_HOST].len = port - host;
+    if (stURL->fields[HV_URL_HOST].len == 0) {
+        stURL->fields[HV_URL_HOST].off = host - begin;
+        stURL->fields[HV_URL_HOST].len = port - host;
+    }
     if (ep == end) return 0;
     // /path
     sp = ep;

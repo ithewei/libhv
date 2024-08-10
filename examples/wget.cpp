@@ -21,7 +21,7 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
     req.url = url;
     ret = cli.send(&req, &resp);
     if (ret != 0) {
-        fprintf(stderr, "request error: %d\n", ret);
+        fprintf(stderr, "HEAD request error: %d\n", ret);
         return ret;
     }
     printd("%s", resp.Dump(true, false).c_str());
@@ -85,7 +85,7 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         };
         ret = cli.send(&req, &resp);
         if (ret != 0) {
-            fprintf(stderr, "request error: %d\n", ret);
+            fprintf(stderr, "GET request error: %d\n", ret);
             goto error;
         }
         goto success;
@@ -99,7 +99,7 @@ static int wget(const char* url, const char* filepath, wget_progress_cb progress
         printd("%s", req.Dump(true, false).c_str());
         ret = cli.send(&req, &resp);
         if (ret != 0) {
-            fprintf(stderr, "request error: %d\n", ret);
+            fprintf(stderr, "GET Range: bytes=%ld-%ld request error: %d\n", from, to, ret);
             goto error;
         }
         printd("%s", resp.Dump(true, false).c_str());

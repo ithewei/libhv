@@ -32,7 +32,11 @@ public:
     }
 
     EventLoopPtr loop(int idx = -1) {
-        return worker_threads.loop(idx);
+        EventLoopPtr worker_loop = worker_threads.loop(idx);
+        if (worker_loop == NULL) {
+            worker_loop = acceptor_loop;
+        }
+        return worker_loop;
     }
 
     //@retval >=0 listenfd, <0 error
@@ -294,7 +298,9 @@ public:
     // start thread-safe
     void start(bool wait_threads_started = true) {
         TcpServerEventLoopTmpl<TSocketChannel>::start(wait_threads_started);
-        EventLoopThread::start(wait_threads_started);
+        if (!isRunning()) {
+            EventLoopThread::start(wait_threads_started);
+        }
     }
 
     // stop thread-safe

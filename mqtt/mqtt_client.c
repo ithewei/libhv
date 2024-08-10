@@ -3,6 +3,7 @@
 #include "hlog.h"
 #include "herr.h"
 #include "hendian.h"
+#include "hsocket.h"
 
 static unsigned short mqtt_next_mid() {
     static unsigned short s_mid = 0;
@@ -165,10 +166,25 @@ static int mqtt_client_login(mqtt_client_t* cli) {
     return nwrite < 0 ? nwrite : 0;
 }
 
+static void connect_timeout_cb(htimer_t* timer) {
+    mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(timer);
+    if (cli == NULL) return;
+    cli->timer = NULL;
+    cli->error = ETIMEDOUT;
+    hio_t* io = cli->io;
+    if (io == NULL) return;
+    char localaddrstr[SOCKADDR_STRLEN] = {0};
+    char peeraddrstr[SOCKADDR_STRLEN] = {0};
+    hlogw("connect timeout [%s] <=> [%s]",
+            SOCKADDR_STR(hio_localaddr(io), localaddrstr),
+            SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
+    hio_close(io);
+}
+
 static void reconnect_timer_cb(htimer_t* timer) {
     mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(timer);
     if (cli == NULL) return;
-    cli->reconn_timer = NULL;
+    cli->timer = NULL;
     mqtt_client_reconnect(cli);
 }
 
@@ -182,8 +198,8 @@ static void on_close(hio_t* io) {
     // reconnect
     if (cli->reconn_setting && reconn_setting_can_retry(cli->reconn_setting)) {
         uint32_t delay = reconn_setting_calc_delay(cli->reconn_setting);
-        cli->reconn_timer = htimer_add(cli->loop, reconnect_timer_cb, delay, 1);
-        hevent_set_userdata(cli->reconn_timer, cli);
+        cli->timer = htimer_add(cli->loop, reconnect_timer_cb, delay, 1);
+        hevent_set_userdata(cli->timer, cli);
     }
 }
 
@@ -214,6 +230,10 @@ static void on_packet(hio_t* io, void* buf, int len) {
             return;
         }
         cli->connected = 1;
+        if (cli->timer) {
+            htimer_del(cli->timer);
+            cli->timer = NULL;
+        }
         if (cli->keepalive) {
             cli->ping_cnt = 0;
             hio_set_heartbeat(io, cli->keepalive * 1000, mqtt_send_ping);
@@ -478,13 +498,14 @@ int mqtt_client_connect(mqtt_client_t* cli, const char* host, int port, int ssl)
         }
         hio_enable_ssl(io);
     }
-    if (cli->connect_timeout > 0) {
-        hio_set_connect_timeout(io, cli->connect_timeout);
-    }
     cli->io = io;
     hevent_set_userdata(io, cli);
     hio_setcb_connect(io, on_connect);
     hio_setcb_close(io, on_close);
+    if (cli->connect_timeout > 0) {
+        cli->timer = htimer_add(cli->loop, connect_timeout_cb, cli->connect_timeout, 1);
+        hevent_set_userdata(cli->timer, cli);
+    }
     return hio_connect(io);
 }
 
