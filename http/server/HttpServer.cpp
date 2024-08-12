@@ -278,3 +278,34 @@ int http_server_stop(http_server_t* server) {
     server->privdata = NULL;
     return 0;
 }
+
+namespace hv {
+
+std::shared_ptr<hv::EventLoop> HttpServer::loop(int idx) {
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)privdata;
+    if (privdata == NULL) return NULL;
+    std::lock_guard<std::mutex> locker(privdata->mutex_);
+    if (privdata->loops.empty()) return NULL;
+    if (idx >= 0 && idx < (int)privdata->loops.size()) {
+        return privdata->loops[idx];
+    }
+    EventLoop* cur = currentThreadEventLoop;
+    for (auto& loop : privdata->loops) {
+        if (loop.get() == cur) return loop;
+    }
+    return NULL;
+}
+
+size_t HttpServer::connectionNum() {
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)privdata;
+    if (privdata == NULL) return 0;
+    std::lock_guard<std::mutex> locker(privdata->mutex_);
+    if (privdata->loops.empty()) return 0;
+    size_t total = 0;
+    for (auto& loop : privdata->loops) {
+        total += loop->connectionNum;
+    }
+    return total;
+}
+
+}
