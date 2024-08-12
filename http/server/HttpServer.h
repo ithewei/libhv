@@ -83,7 +83,7 @@ int main() {
 
 namespace hv {
 
-class HttpServer : public http_server_t {
+class HV_EXPORT HttpServer : public http_server_t {
 public:
     HttpServer(HttpService* service = NULL)
         : http_server_t()
