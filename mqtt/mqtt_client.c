@@ -184,6 +184,7 @@ static void connect_timeout_cb(htimer_t* timer) {
 static void reconnect_timer_cb(htimer_t* timer) {
     mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(timer);
     if (cli == NULL) return;
+    if(cli->timer)htimer_del(cli->timer);
     cli->timer = NULL;
     mqtt_client_reconnect(cli);
 }
@@ -491,7 +492,15 @@ int mqtt_client_connect(mqtt_client_t* cli, const char* host, int port, int ssl)
     cli->port = port;
     cli->ssl = ssl;
     hio_t* io = hio_create_socket(cli->loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
-    if (io == NULL) return -1;
+    if (io == NULL) {
+        if (cli->reconn_setting && reconn_setting_can_retry(cli->reconn_setting)) {
+            uint32_t delay = reconn_setting_calc_delay(cli->reconn_setting);
+            cli->timer = htimer_add(cli->loop, reconnect_timer_cb, delay, 1);
+            hevent_set_userdata(cli->timer, cli);
+            return 0;
+        }
+        return -1;
+    }
     if (ssl) {
         if (cli->ssl_ctx) {
             hio_set_ssl_ctx(io, cli->ssl_ctx);
