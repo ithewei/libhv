@@ -282,7 +282,7 @@ int http_server_stop(http_server_t* server) {
 namespace hv {
 
 std::shared_ptr<hv::EventLoop> HttpServer::loop(int idx) {
-    HttpServerPrivdata* privdata = (HttpServerPrivdata*)privdata;
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)this->privdata;
     if (privdata == NULL) return NULL;
     std::lock_guard<std::mutex> locker(privdata->mutex_);
     if (privdata->loops.empty()) return NULL;
@@ -297,7 +297,7 @@ std::shared_ptr<hv::EventLoop> HttpServer::loop(int idx) {
 }
 
 size_t HttpServer::connectionNum() {
-    HttpServerPrivdata* privdata = (HttpServerPrivdata*)privdata;
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)this->privdata;
     if (privdata == NULL) return 0;
     std::lock_guard<std::mutex> locker(privdata->mutex_);
     if (privdata->loops.empty()) return 0;
