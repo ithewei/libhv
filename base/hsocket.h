@@ -82,9 +82,11 @@ HV_INLINE int nonblocking(int s) {
     return fcntl(s, F_SETFL, fcntl(s, F_GETFL) |  O_NONBLOCK);
 }
 
+#ifndef closesocket
 HV_INLINE int closesocket(int sockfd) {
     return close(sockfd);
 }
+#endif
 
 #endif
 

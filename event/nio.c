@@ -323,15 +323,14 @@ read:
             // goto read_done;
             return;
         } else if (err == EMSGSIZE) {
-            // ignore
-            return;
+            nread = len;
         } else {
             // perror("read");
             io->error = err;
             goto read_error;
         }
     }
-    if (nread == 0) {
+    if (nread == 0 && (io->io_type & HIO_TYPE_SOCK_STREAM)) {
         goto disconnect;
     }
     if (nread < len) {
@@ -385,7 +384,7 @@ write:
             goto write_error;
         }
     }
-    if (nwrite == 0) {
+    if (nwrite == 0 && (io->io_type & HIO_TYPE_SOCK_STREAM)) {
         goto disconnect;
     }
     pbuf->offset += nwrite;
@@ -516,11 +515,11 @@ try_write:
                 goto write_error;
             }
         }
-        if (nwrite == 0) {
-            goto disconnect;
-        }
         if (nwrite == len) {
             goto write_done;
+        }
+        if (nwrite == 0 && (io->io_type & HIO_TYPE_SOCK_STREAM)) {
+            goto disconnect;
         }
 enqueue:
         hio_add(io, hio_handle_events, HV_WRITE);
