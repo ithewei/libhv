@@ -29,7 +29,7 @@
 #include "hbuf.h"
 
 // cpp
-#ifdef __cplusplus
+#if defined (__cplusplus) && defined (WITH_EVPP)
 #include "hmap.h"       // <map>
 #include "hstring.h"    // <string>
 #include "hfile.h"
