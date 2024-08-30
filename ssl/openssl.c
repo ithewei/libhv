@@ -49,7 +49,7 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
         }
 
         if (param->crt_file && *param->crt_file) {
-            if (!SSL_CTX_use_certificate_file(ctx, param->crt_file, SSL_FILETYPE_PEM)) {
+            if (!SSL_CTX_use_certificate_chain_file(ctx, param->crt_file)) {
                 fprintf(stderr, "ssl crt_file error!\n");
                 goto error;
             }
