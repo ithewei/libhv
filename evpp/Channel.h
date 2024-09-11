@@ -188,6 +188,7 @@ public:
     int         fd_;
     uint32_t    id_;
     void*       ctx_;
+    void*       usrprivateptr;
     enum Status {
         OPENED,
         CONNECTING,
