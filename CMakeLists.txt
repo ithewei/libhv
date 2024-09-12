@@ -86,6 +86,14 @@ check_function("socketpair" "sys/socket.h")
 check_function("eventfd" "sys/eventfd.h")
 check_function("setproctitle" "unistd.h")
 
+if (NOT HAVE_CLOCK_GETTIME)
+    include(CheckLibraryExists)
+    check_library_exists(rt clock_gettime "" HAVE_CLOCK_GETTIME_IN_RT)
+    if (HAVE_CLOCK_GETTIME_IN_RT)
+        set(HAVE_CLOCK_GETTIME ${HAVE_CLOCK_GETTIME_IN_RT})
+    endif()
+endif()
+
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hconfig.h.in ${CMAKE_CURRENT_SOURCE_DIR}/hconfig.h)
 
 # see Makefile.in
