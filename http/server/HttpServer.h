@@ -63,6 +63,8 @@ HV_EXPORT int http_server_run(http_server_t* server, int wait = 1);
 // NOTE: stop all loops and join all threads
 HV_EXPORT int http_server_stop(http_server_t* server);
 
+// NOTE: just run loop()
+HV_EXPORT void http_server_run_with_start(http_server_t* server);
 /*
 #include "HttpServer.h"
 using namespace hv;
@@ -151,6 +153,14 @@ public:
 
     int start(const char* ip_port = NULL) {
         return run(ip_port, false);
+    }
+
+    int start_before_run(const char* ip_port = NULL) {
+        return run(ip_port, true);
+    }
+
+    void run_with_start(void) {
+        http_server_run_with_start(this);
     }
 
     int stop() {

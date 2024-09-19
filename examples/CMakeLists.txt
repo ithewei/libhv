@@ -18,6 +18,9 @@ list(APPEND EXAMPLES
 
 include_directories(.. ../base ../ssl ../event ../util)
 
+add_executable(http_server_one_thread_test http_server_one_thread_test.cpp)
+target_link_libraries(http_server_one_thread_test ${HV_LIBRARIES})
+
 add_executable(hloop_test hloop_test.c)
 target_link_libraries(hloop_test ${HV_LIBRARIES})
 
