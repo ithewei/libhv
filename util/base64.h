@@ -4,7 +4,7 @@
 #include "hexport.h"
 
 #define BASE64_ENCODE_OUT_SIZE(s)   (((s) + 2) / 3 * 4)
-#define BASE64_DECODE_OUT_SIZE(s)   (((s)) / 4 * 3)
+#define BASE64_DECODE_OUT_SIZE(s)   (((s) + 3) / 4 * 3)
 
 BEGIN_EXTERN_C
 
