@@ -366,6 +366,7 @@ int main(int argc, char** argv) {
 - [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
 - [evpp/UdpServer_test.cpp](evpp/UdpServer_test.cpp)
 - [evpp/UdpClient_test.cpp](evpp/UdpClient_test.cpp)
+- [evpp/UdpGroupDest_test.cpp](evpp/UdpGroupDest_test.cpp)
 - [examples/http_server_test.cpp](examples/http_server_test.cpp)
 - [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
