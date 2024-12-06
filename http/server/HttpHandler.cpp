@@ -1,5 +1,10 @@
 #include "HttpHandler.h"
 
+#ifdef OS_UNIX
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
+
 #include "hversion.h"
 #include "herr.h"
 #include "hlog.h"
@@ -596,7 +601,49 @@ int HttpHandler::defaultStaticHandler() {
                 status_code = defaultLargeFileHandler();
             }
         } else {
+#ifdef OS_UNIX
+            auto dir_path = HPath::dirname(filepath.c_str());
+            auto home_page = HPath::basename(filepath.c_str());
+            if (!HPath::exists(dir_path.c_str()) || home_page != DEFAULT_HOME_PAGE) {
+                return HTTP_STATUS_NOT_FOUND;
+            }
+
+            std::stringstream ss;
+            ss << "<html><body><h3>Directory listing for " << dir_path << "</h3><ul>";
+            DIR* dir = opendir(dir_path.c_str());
+            if (!dir) {
+                return HTTP_STATUS_NOT_FOUND;
+            }
+
+            struct dirent* entry = nullptr;
+            while ((entry = readdir(dir)) != nullptr) {
+                std::string filename = entry->d_name;
+
+                // skip dir_path . and ..
+                if (filename == "." || filename == "..") {
+                    continue;
+                }
+
+                struct stat f_stat;
+                if (stat(HPath::join(dir_path, filename).c_str(), &f_stat) != 0) {
+                    continue;
+                }
+
+                if (S_ISREG(f_stat.st_mode)) {
+                    ss << "<li><a href=\"" << req->url << filename << "\">" << filename << "</a></li>";
+                } else if (S_ISDIR(f_stat.st_mode)) {
+                    ss << "<li><a href=\"" << req->url << filename << "/\">" << filename << "</a></li>";
+                }
+            }
+            closedir(dir);
+            ss << "</ul></body></html>";
+            resp->SetBody(ss.str());
+            resp->status_code = HTTP_STATUS_OK;
+            resp->content_type = TEXT_HTML;
+            return HTTP_STATUS_OK;
+#else
             status_code = HTTP_STATUS_NOT_FOUND;
+#endif
         }
     }
     else {

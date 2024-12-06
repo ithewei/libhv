@@ -39,6 +39,8 @@ int main(int argc, char** argv) {
     /* Static file service */
     // curl -v http://ip:port/
     router.Static("/", "./html");
+    // curl -v http://ip:port/docs/
+    router.Static("/docs/", "./docs");
 
     /* Forward proxy service */
     router.EnableForwardProxy();
