@@ -57,7 +57,7 @@ static inline bool atomic_flag_test_and_set(atomic_flag* p) {
 #define ATOMIC_INC          InterlockedIncrement
 #define ATOMIC_DEC          InterlockedDecrement
 
-#elif defined(__GNUC__)
+#elif __GNUC_PREREQ(4, 1)
 
 #define ATOMIC_FLAG_TEST_AND_SET    atomic_flag_test_and_set
 static inline bool atomic_flag_test_and_set(atomic_flag* p) {

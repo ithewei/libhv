@@ -85,7 +85,7 @@ const char* hssl_backend()
     return "schannel";
 }
 
-static PCCERT_CONTEXT getservercert(const char* path)
+static inline PCCERT_CONTEXT getservercert(const char* path)
 {
     /*
     According to the information I searched from the internet, it is not possible to specify an x509 private key and certificate using the

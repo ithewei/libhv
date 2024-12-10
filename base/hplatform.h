@@ -141,6 +141,10 @@
 #warning "Untested compiler!"
 #endif
 
+#ifndef __GNUC_PREREQ
+#define __GNUC_PREREQ(a, b)	0
+#endif
+
 // headers
 #ifdef OS_WIN
     #ifndef _WIN32_WINNT
