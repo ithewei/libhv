@@ -187,8 +187,10 @@ process_timers:
     //         blocktime, nios, loop->nios, ntimers, loop->ntimers, nidles, loop->nidles,
     //         loop->nactives, npendings, ncbs);
     return ncbs;
+    (void)nios;
 }
 
+#ifdef DEBUG
 static void hloop_stat_timer_cb(htimer_t* timer) {
     hloop_t* loop = timer->loop;
     // hlog_set_level(LOG_LEVEL_DEBUG);
@@ -198,6 +200,7 @@ static void hloop_stat_timer_cb(htimer_t* timer) {
         (unsigned long long)loop->loop_cnt,
         loop->nactives, loop->nios, loop->ntimers, loop->nidles);
 }
+#endif
 
 static void eventfd_read_cb(hio_t* io, void* buf, int readbytes) {
     hloop_t* loop = io->loop;
