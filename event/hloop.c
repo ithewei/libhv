@@ -10,6 +10,10 @@
 #include "hsocket.h"
 #include "hthread.h"
 
+#if defined(__APPLE__)
+#undef HAVE_EVENTFD
+#endif
+
 #if defined(OS_UNIX) && HAVE_EVENTFD
 #include "sys/eventfd.h"
 #endif
