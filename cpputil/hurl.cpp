@@ -163,7 +163,7 @@ const std::string& HUrl::dump() {
         if (port != 80 && port != 443) {
             char buf[16] = {0};
             snprintf(buf, sizeof(buf), ":%d", port);
-            url += port;
+            url += buf;
         }
     }
     // /path
