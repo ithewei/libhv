@@ -139,6 +139,11 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
                 return -1;
             }
             head_len = setting->body_offset + varint_bytes - setting->length_field_bytes;
+        } else {
+            hloge("Unknown length_field_coding!");
+            io->error = ERR_INVALID_PARAM;
+            hio_close(io);
+            return -1;
         }
         package_len = head_len + body_len + setting->length_adjustment;
         if (remain >= package_len) {

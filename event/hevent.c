@@ -849,6 +849,9 @@ void hio_set_unpack(hio_t* io, unpack_setting_t* setting) {
         assert(io->unpack_setting->body_offset >=
                io->unpack_setting->length_field_offset +
                io->unpack_setting->length_field_bytes);
+        if (io->unpack_setting->length_field_coding == 0) {
+            io->unpack_setting->length_field_coding = ENCODE_BY_BIG_ENDIAN;
+        }
     }
 
     // NOTE: unpack must have own readbuf
