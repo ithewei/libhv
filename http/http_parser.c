@@ -1342,7 +1342,6 @@ reexecute:
                  */
                 parser->flags &= ~F_CHUNKED;
               }
-              }
               break;
 
             /* upgrade */
