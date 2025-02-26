@@ -31,7 +31,7 @@ public:
 namespace hv {
 
 HV_INLINE std::string escapeURL(const std::string& url) {
-    return HUrl::escape(url, ":/@?=&#+");
+    return HUrl::escape(url, ":/@[]?=&#+");
 }
 
 HV_EXPORT std::string escapeHTML(const std::string& str);

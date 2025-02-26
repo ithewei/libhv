@@ -85,6 +85,7 @@ struct HV_EXPORT NetAddr {
 
     void from_string(const std::string& ipport);
     std::string to_string();
+    static std::string to_string(const char* ip, int port);
 };
 
 } // end namespace hv

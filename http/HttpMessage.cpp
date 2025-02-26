@@ -746,7 +746,7 @@ void HttpRequest::FillHost(const char* host, int port) {
             port == DEFAULT_HTTPS_PORT) {
             headers["Host"] = host;
         } else {
-            headers["Host"] = asprintf("%s:%d", host, port);
+            headers["Host"] = hv::NetAddr::to_string(host, port);
         }
     }
 }
