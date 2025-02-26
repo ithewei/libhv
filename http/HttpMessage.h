@@ -253,6 +253,7 @@ public:
     void FillContentType();
     // body.size -> content_length <-> headers["Content-Length"]
     void FillContentLength();
+    bool NeedContentLength();
 
     bool IsChunked();
     bool IsKeepAlive();
