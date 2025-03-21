@@ -325,8 +325,8 @@ public:
         return 200;
     }
 
-    int Data(void* data, int len, bool nocopy = true) {
-        content_type = APPLICATION_OCTET_STREAM;
+    int Data(void* data, int len, bool nocopy = true, http_content_type data_content_type = APPLICATION_OCTET_STREAM) {
+        content_type = data_content_type;
         if (nocopy) {
             content = data;
             content_length = len;
