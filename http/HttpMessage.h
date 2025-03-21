@@ -319,10 +319,10 @@ public:
         }
     }
 
-    int String(const std::string& str) {
+    int String(const std::string& str, int return_code = 200) {
         content_type = TEXT_PLAIN;
         body = str;
-        return 200;
+        return return_code;
     }
 
     int Data(void* data, int len, bool nocopy = true, http_content_type data_content_type = APPLICATION_OCTET_STREAM) {
