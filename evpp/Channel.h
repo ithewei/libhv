@@ -180,6 +180,10 @@ public:
     int close(bool async = false) {
         if (isClosed()) return -1;
         status = CLOSED;
+        // NOTE: avoid to trigger on_close if not set onclose
+        if (onclose == NULL && hio_getcb_close(io_) == on_close) {
+            hio_setcb_close(io_, NULL);
+        }
         return async ? hio_close_async(io_) : hio_close(io_);
     }
 
