@@ -640,7 +640,7 @@ HV_INLINE void reconn_setting_reset(reconn_setting_t* reconn) {
 HV_INLINE bool reconn_setting_can_retry(reconn_setting_t* reconn) {
     ++reconn->cur_retry_cnt;
     return reconn->max_retry_cnt == INFINITE ||
-           reconn->cur_retry_cnt < reconn->max_retry_cnt;
+           reconn->cur_retry_cnt <= reconn->max_retry_cnt;
 }
 
 HV_INLINE uint32_t reconn_setting_calc_delay(reconn_setting_t* reconn) {
