@@ -12,6 +12,7 @@ BEGIN_EXTERN_C
 #define hmutex_init             InitializeCriticalSection
 #define hmutex_destroy          DeleteCriticalSection
 #define hmutex_lock             EnterCriticalSection
+#define hmutex_trylock          TryEnterCriticalSection
 #define hmutex_unlock           LeaveCriticalSection
 
 #define hrecursive_mutex_t          CRITICAL_SECTION
@@ -79,6 +80,7 @@ static inline void honce(honce_t* once, honce_fn fn) {
 #define hmutex_init(pmutex)     pthread_mutex_init(pmutex, NULL)
 #define hmutex_destroy          pthread_mutex_destroy
 #define hmutex_lock             pthread_mutex_lock
+#define hmutex_trylock(pmutex)  (pthread_mutex_trylock(pmutex) == 0)
 #define hmutex_unlock           pthread_mutex_unlock
 
 #define hrecursive_mutex_t          pthread_mutex_t

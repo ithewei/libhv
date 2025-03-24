@@ -401,6 +401,19 @@ append:
     return;
 }
 
+bool HttpMessage::NeedContentLength() {
+    if (type == HTTP_RESPONSE) {
+        HttpResponse* res = (HttpResponse*)(this);
+        if (res->status_code / 100 == 1 ||
+            res->status_code == HTTP_STATUS_NO_CONTENT ||
+            res->status_code == HTTP_STATUS_NOT_MODIFIED) {
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
 void HttpMessage::FillContentLength() {
     auto iter = headers.find("Content-Length");
     if (iter != headers.end()) {
@@ -411,7 +424,7 @@ void HttpMessage::FillContentLength() {
         content_length = body.size();
     }
     if (iter == headers.end() && !IsChunked() && content_type != TEXT_EVENT_STREAM) {
-        if (content_length != 0 || type == HTTP_RESPONSE) {
+        if (content_length != 0 || NeedContentLength()) {
             headers["Content-Length"] = hv::to_string(content_length);
         }
     }
@@ -746,7 +759,7 @@ void HttpRequest::FillHost(const char* host, int port) {
             port == DEFAULT_HTTPS_PORT) {
             headers["Host"] = host;
         } else {
-            headers["Host"] = asprintf("%s:%d", host, port);
+            headers["Host"] = hv::NetAddr::to_string(host, port);
         }
     }
 }

@@ -428,9 +428,10 @@ void hio_write_cb(hio_t* io, const void* buf, int len) {
 void hio_close_cb(hio_t* io) {
     io->connected = 0;
     io->closed = 1;
-    if (io->close_cb) {
+    hclose_cb close_cb = io->close_cb;
+    if (close_cb) {
         // printd("close_cb------\n");
-        io->close_cb(io);
+        close_cb(io);
         // printd("close_cb======\n");
     }
 }
@@ -849,6 +850,9 @@ void hio_set_unpack(hio_t* io, unpack_setting_t* setting) {
         assert(io->unpack_setting->body_offset >=
                io->unpack_setting->length_field_offset +
                io->unpack_setting->length_field_bytes);
+        if (io->unpack_setting->length_field_coding == 0) {
+            io->unpack_setting->length_field_coding = ENCODE_BY_BIG_ENDIAN;
+        }
     }
 
     // NOTE: unpack must have own readbuf

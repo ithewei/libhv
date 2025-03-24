@@ -217,11 +217,12 @@ void NetAddr::from_string(const std::string& ipport) {
 }
 
 std::string NetAddr::to_string() {
-    const char* fmt = "%s:%d";
-    if (ip.find(':') != std::string::npos) {
-        fmt = "[%s]:%d";
-    }
-    return hv::asprintf(fmt, ip.c_str(), port);
+    return NetAddr::to_string(ip.c_str(), port);
+}
+
+std::string NetAddr::to_string(const char* ip, int port) {
+    const char* fmt = strchr(ip, ':') ? "[%s]:%d" : "%s:%d";
+    return hv::asprintf(fmt, ip, port);
 }
 
 } // end namespace hv
