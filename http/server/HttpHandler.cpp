@@ -524,6 +524,7 @@ int HttpHandler::defaultRequestHandler() {
 int HttpHandler::defaultStaticHandler() {
     // file service
     std::string path = req->Path();
+    while(path.back() == '\\') path.pop_back();
     const char* req_path = path.c_str();
     // path safe check
     if (req_path[0] != '/' || strstr(req_path, "/..") || strstr(req_path, "\\..")) {
