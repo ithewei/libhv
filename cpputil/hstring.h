@@ -88,6 +88,12 @@ struct HV_EXPORT NetAddr {
     static std::string to_string(const char* ip, int port);
 };
 
+// windows wchar and utf8 conver
+#ifdef OS_WIN
+HV_EXPORT std::string wchar_to_utf8(const std::wstring &wstr);
+HV_EXPORT std::wstring utf8_to_wchar(const std::string &str);
+#endif // OS_WIN
+
 } // end namespace hv
 
 #endif // HV_STRING_H_
