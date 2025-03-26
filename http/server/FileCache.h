@@ -36,6 +36,7 @@ typedef struct file_cache_s {
     }
 
     bool is_complete() {
+        if(S_ISDIR(st.st_mode)) return filebuf.len > 0;
         return filebuf.len == st.st_size;
     }
 
