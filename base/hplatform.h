@@ -17,6 +17,7 @@
 #elif defined(__APPLE__) && (defined(__GNUC__) || defined(__xlC__) || defined(__xlc__))
     #include <TargetConditionals.h>
     #if defined(TARGET_OS_MAC) && TARGET_OS_MAC
+        #include <AvailabilityMacros.h>
         #define OS_MAC
     #elif defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
         #define OS_IOS

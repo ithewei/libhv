@@ -19,7 +19,12 @@
 #elif defined(OS_DARWIN)
 static inline long hv_gettid() {
     uint64_t tid = 0;
+/* pthread_threadid_np is not available before 10.6 and in 10.6 for ppc */
+#if MAC_OS_X_VERSION_MIN_REQUIRED < 1060 || defined(__POWERPC__)
+    tid = pthread_mach_thread_np(pthread_self());
+#else
     pthread_threadid_np(NULL, &tid);
+#endif
     return tid;
 }
 #elif HAVE_PTHREAD_H
