@@ -3,6 +3,7 @@
 #include "hplatform.h"
 
 #ifdef OS_WIN
+#include "hstring.h" // import hv::utf8_to_wchar hv::wchar_to_utf8
 //FILETIME starts from 1601-01-01 UTC, epoch from 1970-01-01 UTC
 //FILETIME unit (100ns)
 #define FILETIME_EPOCH_DIFF     11644473600 // s
@@ -61,15 +62,15 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
 #elif defined(OS_WIN)
     // FindFirstFile -> FindNextFile -> FindClose
     strcat(path, "*");
-    WIN32_FIND_DATAA data;
-    HANDLE h = FindFirstFileA(path, &data);
+    WIN32_FIND_DATAW data;
+    HANDLE h = FindFirstFileW(hv::utf8_to_wchar(path).c_str(), &data);
     if (h == NULL) {
         return -1;
     }
     hdir_t tmp;
     do {
         memset(&tmp, 0, sizeof(hdir_t));
-        strncpy(tmp.name, data.cFileName, sizeof(tmp.name));
+        strncpy(tmp.name, hv::wchar_to_utf8(data.cFileName).c_str(), sizeof(tmp.name));
         tmp.type = 'f';
         if (data.dwFileAttributes & _A_SUBDIR) {
             tmp.type = 'd';
@@ -80,7 +81,7 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
         tmp.mtime = FileTime2Epoch(data.ftLastWriteTime);
         tmp.ctime = FileTime2Epoch(data.ftCreationTime);
         dirs.push_back(tmp);
-    } while (FindNextFileA(h, &data));
+    } while (FindNextFileW(h, &data));
     FindClose(h);
 #endif
     dirs.sort(less);
