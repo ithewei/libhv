@@ -52,27 +52,32 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
 #ifdef O_BINARY
         flags |= O_BINARY;
 #endif
+        int fd = -1;
 #ifdef OS_WIN
         if(wfilepath.empty()) wfilepath = hv::utf8_to_wchar(filepath);
-        const int fd = _wopen(wfilepath.c_str(), flags);
-        if (fd < 0) {
+        if(_wstat(wfilepath.c_str(), (struct _stat*)&st) != 0) {
+            param->error = ERR_OPEN_FILE;
+            return NULL;
+        }
+        if(S_ISREG(st.st_mode)) {
+            fd = _wopen(wfilepath.c_str(), flags);
+        }else if (S_ISDIR(st.st_mode)) {
             // NOTE: open(dir) return -1 on windows
-            _wstat(wfilepath.c_str(), (struct _stat*)&st);
-            if(!S_ISDIR(st.st_mode)) {
-                param->error = ERR_OPEN_FILE;
-                return NULL;
-            }
+            fd = 0;
         }
 #else
-        const int fd = open(filepath, flags);
+        if(stat(filepath, &st) != 0) {
+            param->error = ERR_OPEN_FILE;
+            return NULL;
+        }
+        fd = open(filepath, flags);
+#endif
         if (fd < 0) {
             param->error = ERR_OPEN_FILE;
             return NULL;
         }
-#endif
         defer(if (fd > 0) { close(fd); })
         if (fc == NULL) {
-            if (fd > 0) fstat(fd, &st);
             if (S_ISREG(st.st_mode) ||
                 (S_ISDIR(st.st_mode) &&
                  filepath[strlen(filepath)-1] == '/')) {
