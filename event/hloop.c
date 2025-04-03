@@ -1036,6 +1036,10 @@ hio_t* hio_create_socket(hloop_t* loop, const char* host, int port, hio_type_e t
     assert(io != NULL);
     io->io_type = type;
     if (side == HIO_SERVER_SIDE) {
+        if (port == 0) {
+            socklen_t addrlen = sizeof(sockaddr_u);
+            getsockname(sockfd, &addr.sa, &addrlen);
+        }
         hio_set_localaddr(io, &addr.sa, sockaddr_len(&addr));
         io->priority = HEVENT_HIGH_PRIORITY;
     } else {
