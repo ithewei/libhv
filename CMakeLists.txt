@@ -31,6 +31,7 @@ option(WITH_MBEDTLS "with mbedtls library" OFF)
 option(WITH_KCP "compile event/kcp" OFF)
 
 if(WIN32 OR MINGW)
+    option(USE_DISCONNECTEX "compile closesocket -> use DisconnectEx" OFF)
     option(WITH_WEPOLL "compile event/wepoll -> use iocp" ON)
     option(ENABLE_WINDUMP "Windows MiniDumpWriteDump" OFF)
     option(BUILD_FOR_MT "build for /MT" OFF)
