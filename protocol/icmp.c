@@ -63,17 +63,6 @@ int ping(const char* host, int cnt) {
             goto error;
         }
     }
-
-#ifdef _WIN32
-    unsigned long mode = 1;
-    if (ioctlsocket(sockfd, FIONBIO, &mode) != NO_ERROR) {
-#else
-    int flags = fcntl(sockfd, F_GETFL, 0);
-    if ((flags == -1) || fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-#endif
-        perror("Cannot set socket options!");
-        goto error;
-    }
     ret = blocking(sockfd);
     if (ret < 0) {
         perror("ioctlsocket blocking");
