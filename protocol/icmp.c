@@ -48,20 +48,15 @@ int ping(const char* host, int cnt) {
         }
         return -socket_errno();
     }
-    uint8_t ttl = 255;
-    switch (peeraddr.sa.sa_family) {
-    case AF_INET6:
-        if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *)&ttl, sizeof(uint8_t)) < 0) {
-            perror("Cannot set socket options!");
-            goto error;
-        }
-        break;
-    case AF_INET:
-    default:
-        if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, (char *)&ttl, sizeof(uint8_t)) < 0) {
-            perror("Cannot set socket options!");
-            goto error;
-        }
+#ifdef _WIN32
+    unsigned long mode = 1;
+    if (ioctlsocket(sockfd, FIONBIO, &mode) != NO_ERROR) {
+#else
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    if ((flags == -1) || fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
+#endif
+        perror("Cannot set socket options!");
+        goto error;
     }
     ret = blocking(sockfd);
     if (ret < 0) {
