@@ -14,8 +14,8 @@ int ping(const char* host, int cnt) {
     uint64_t start_hrtime, end_hrtime;
     int timeout = 0;
     int sendbytes = 64;
-    char sendbuf[64];
-    char recvbuf[128]; // iphdr + icmp = 84 at least
+    char sendbuf[64] = {0};
+    char recvbuf[256]; // iphdr + icmp = 84 at least
     icmp_t* icmp_req = (icmp_t*)sendbuf;
     iphdr_t* ipheader = (iphdr_t*)recvbuf;
     icmp_t* icmp_res;
@@ -35,13 +35,49 @@ int ping(const char* host, int cnt) {
     int ret = ResolveAddr(host, &peeraddr);
     if (ret != 0) return ret;
     sockaddr_ip(&peeraddr, ip, sizeof(ip));
-    int sockfd = socket(peeraddr.sa.sa_family, SOCK_RAW, IPPROTO_ICMP);
-    if (sockfd < 0) {
+    const bool addr_ipv6 = (peeraddr.sa.sa_family == AF_INET6);
+    int sockfd = socket(peeraddr.sa.sa_family, SOCK_RAW, addr_ipv6 ? IPPROTO_ICMPV6 : IPPROTO_ICMP);
+#ifdef _WIN32
+    if (sockfd == INVALID_SOCKET) {
+#else
+    if (sockfd <= 0) {
+#endif
         perror("socket");
         if (errno == EPERM) {
             fprintf(stderr, "please use root or sudo to create a raw socket.\n");
         }
         return -socket_errno();
+    }
+    uint8_t ttl = 255;
+    switch (peeraddr.sa.sa_family) {
+    case AF_INET6:
+        if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_UNICAST_HOPS, (char *)&ttl, sizeof(uint8_t)) < 0) {
+            perror("Cannot set socket options!");
+            goto error;
+        }
+        break;
+    case AF_INET:
+    default:
+        if (setsockopt(sockfd, IPPROTO_IP, IP_TTL, (char *)&ttl, sizeof(uint8_t)) < 0) {
+            perror("Cannot set socket options!");
+            goto error;
+        }
+    }
+
+#ifdef _WIN32
+    unsigned long mode = 1;
+    if (ioctlsocket(sockfd, FIONBIO, &mode) != NO_ERROR) {
+#else
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    if ((flags == -1) || fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
+#endif
+        perror("Cannot set socket options!");
+        goto error;
+    }
+    ret = blocking(sockfd);
+    if (ret < 0) {
+        perror("ioctlsocket blocking");
+        goto error;
     }
 
     timeout = PING_TIMEOUT;
@@ -57,7 +93,7 @@ int ping(const char* host, int cnt) {
         goto error;
     }
 
-    icmp_req->icmp_type = ICMP_ECHO;
+    icmp_req->icmp_type = addr_ipv6 ? ICMPV6_ECHO : ICMP_ECHO;
     icmp_req->icmp_code = 0;
     icmp_req->icmp_id = pid16;
     for (int i = 0; i < sendbytes - sizeof(icmphdr_t); ++i) {
@@ -68,7 +104,9 @@ int ping(const char* host, int cnt) {
         // NOTE: checksum
         icmp_req->icmp_seq = ++seq;
         icmp_req->icmp_cksum = 0;
-        icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sendbytes);
+        // ICMP IPv6不传校验码
+        if(!addr_ipv6) 
+            icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sendbytes);
         start_hrtime = gethrtime_us();
         addrlen = sockaddr_len(&peeraddr);
         int nsend = sendto(sockfd, sendbuf, sendbytes, 0, &peeraddr.sa, addrlen);
@@ -78,20 +116,41 @@ int ping(const char* host, int cnt) {
         }
         ++send_cnt;
         addrlen = sizeof(peeraddr);
-        int nrecv = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, &peeraddr.sa, &addrlen);
-        if (nrecv < 0) {
-            perror("recvfrom");
-            continue;
+        int nrecv;
+        bool is_recv_fail = false;
+        while (true) {
+            memset(recvbuf, 0, sizeof(recvbuf));
+            nrecv = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, &peeraddr.sa, &addrlen);
+            if (nrecv < 0) {
+                end_hrtime = gethrtime_us();
+                rtt = (end_hrtime - start_hrtime) / 1000.0f;
+                if(rtt >= PING_TIMEOUT) {
+                    is_recv_fail = true;
+                    perror("recvfrom");
+                    break;
+                }
+            } else {
+                break;
+            }
         }
+        if(is_recv_fail) continue;
         ++recv_cnt;
         end_hrtime = gethrtime_us();
         // check valid
         bool valid = false;
-        int iphdr_len = ipheader->ihl * 4;
+        // IPv6的ICMP包不含IP头
+        int iphdr_len = addr_ipv6 ? 0 : ipheader->ihl * 4;
         int icmp_len = nrecv - iphdr_len;
         if (icmp_len == sendbytes) {
-            icmp_res = (icmp_t*)(recvbuf + ipheader->ihl*4);
-            if (icmp_res->icmp_type == ICMP_ECHOREPLY &&
+            icmp_res = (icmp_t*)(recvbuf + iphdr_len);
+            uint16_t cksum = 0;
+            if (!addr_ipv6) {
+                //IPv4校验需先把数据包中的校验码段置0
+                cksum = icmp_res->icmp_cksum;
+                icmp_res->icmp_cksum = 0;
+            }
+            if ((icmp_res->icmp_type == (addr_ipv6 ? ICMPV6_ECHOREPLY : ICMP_ECHOREPLY)) &&                 
+                (addr_ipv6 || (cksum == checksum((uint8_t*)icmp_res, icmp_len))) &&  // IPv6不检验校验码
                 icmp_res->icmp_id == pid16 &&
                 icmp_res->icmp_seq == seq) {
                 valid = true;
@@ -105,7 +164,10 @@ int ping(const char* host, int cnt) {
         min_rtt = MIN(rtt, min_rtt);
         max_rtt = MAX(rtt, max_rtt);
         total_rtt += rtt;
-        printd("%d bytes from %s: icmp_seq=%u ttl=%u time=%.1f ms\n", icmp_len, ip, seq, ipheader->ttl, rtt);
+        if (addr_ipv6)
+            printd("%d bytes from %s: icmp_seq=%u time=%.1f ms\n", icmp_len, ip, seq, rtt);
+        else
+            printd("%d bytes from %s: icmp_seq=%u ttl=%u time=%.1f ms\n", icmp_len, ip, seq, ipheader->ttl, rtt);
         fflush(stdout);
         ++ok_cnt;
         if (cnt > 0) hv_sleep(1); // sleep a while, then agian
