@@ -91,24 +91,11 @@ int ping(const char* host, int cnt) {
         }
         ++send_cnt;
         addrlen = sizeof(peeraddr);
-        int nrecv;
-        bool is_recv_fail = false;
-        while (true) {
-            memset(recvbuf, 0, sizeof(recvbuf));
-            nrecv = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, &peeraddr.sa, &addrlen);
-            if (nrecv < 0) {
-                end_hrtime = gethrtime_us();
-                rtt = (end_hrtime - start_hrtime) / 1000.0f;
-                if(rtt >= PING_TIMEOUT) {
-                    is_recv_fail = true;
-                    perror("recvfrom");
-                    break;
-                }
-            } else {
-                break;
-            }
+        int nrecv = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, &peeraddr.sa, &addrlen);
+        if (nrecv < 0) {
+            perror("recvfrom");
+            continue;
         }
-        if(is_recv_fail) continue;
         ++recv_cnt;
         end_hrtime = gethrtime_us();
         // check valid
