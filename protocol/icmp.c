@@ -91,6 +91,7 @@ int ping(const char *host, int cnt) {
         }
         ++send_cnt;
         addrlen = sizeof(peeraddr);
+        memset(recvbuf, 0, sizeof(recvbuf));
         int nrecv = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, &peeraddr.sa, &addrlen);
         if (nrecv < 0) {
             perror("recvfrom");
