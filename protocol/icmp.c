@@ -5,8 +5,8 @@
 #include "hsocket.h"
 #include "htime.h"
 
-#define PING_TIMEOUT    1000 // ms
-int ping(const char* host, int cnt) {
+#define PING_TIMEOUT 1000 // ms
+int ping(const char *host, int cnt) {
     static uint16_t seq = 0;
     uint16_t pid16 = (uint16_t)getpid();
     char ip[64] = {0};
@@ -16,9 +16,9 @@ int ping(const char* host, int cnt) {
     int sendbytes = 64;
     char sendbuf[64] = {0};
     char recvbuf[256]; // iphdr + icmp = 84 at least
-    icmp_t* icmp_req = (icmp_t*)sendbuf;
-    iphdr_t* ipheader = (iphdr_t*)recvbuf;
-    icmp_t* icmp_res;
+    icmp_t *icmp_req = (icmp_t *)sendbuf;
+    iphdr_t *ipheader = (iphdr_t *)recvbuf;
+    icmp_t *icmp_res;
     // ping stat
     int send_cnt = 0;
     int recv_cnt = 0;
@@ -26,9 +26,9 @@ int ping(const char* host, int cnt) {
     float rtt, min_rtt, max_rtt, total_rtt;
     rtt = max_rtt = total_rtt = 0.0f;
     min_rtt = 1000000.0f;
-    //min_rtt = MIN(rtt, min_rtt);
-    //max_rtt = MAX(rtt, max_rtt);
-    // gethostbyname -> socket -> setsockopt -> sendto -> recvfrom -> closesocket
+    // min_rtt = MIN(rtt, min_rtt);
+    // max_rtt = MAX(rtt, max_rtt);
+    //  gethostbyname -> socket -> setsockopt -> sendto -> recvfrom -> closesocket
     sockaddr_u peeraddr;
     socklen_t addrlen = sizeof(peeraddr);
     memset(&peeraddr, 0, addrlen);
@@ -48,7 +48,7 @@ int ping(const char* host, int cnt) {
         }
         return -socket_errno();
     }
-    
+
     ret = blocking(sockfd);
     if (ret < 0) {
         perror("ioctlsocket blocking");
@@ -80,8 +80,8 @@ int ping(const char* host, int cnt) {
         icmp_req->icmp_seq = ++seq;
         icmp_req->icmp_cksum = 0;
         // ICMP IPv6不传校验码
-        if(!addr_ipv6) 
-            icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sendbytes);
+        if (!addr_ipv6)
+            icmp_req->icmp_cksum = checksum((uint8_t *)icmp_req, sendbytes);
         start_hrtime = gethrtime_us();
         addrlen = sockaddr_len(&peeraddr);
         int nsend = sendto(sockfd, sendbuf, sendbytes, 0, &peeraddr.sa, addrlen);
@@ -103,19 +103,17 @@ int ping(const char* host, int cnt) {
         // IPv6的ICMP包不含IP头
         int iphdr_len = addr_ipv6 ? 0 : ipheader->ihl * 4;
         int icmp_len = nrecv - iphdr_len;
-	uint16_t cksum = 0, cksum1 = 0;
+        uint16_t cksum = 0, cksum1 = 0;
         if (icmp_len == sendbytes) {
-            icmp_res = (icmp_t*)(recvbuf + iphdr_len);
+            icmp_res = (icmp_t *)(recvbuf + iphdr_len);
             if (!addr_ipv6) {
-                //IPv4校验需先把数据包中的校验码段置0
+                // IPv4校验需先把数据包中的校验码段置0
                 cksum = icmp_res->icmp_cksum;
                 icmp_res->icmp_cksum = 0;
-		cksum1 = checksum((uint8_t*)icmp_res, icmp_len);
+                cksum1 = checksum((uint8_t *)icmp_res, icmp_len);
             }
-            if ((icmp_res->icmp_type == (addr_ipv6 ? ICMPV6_ECHOREPLY : ICMP_ECHOREPLY)) &&                 
-                (addr_ipv6 || (cksum == cksum1)) &&  // IPv6不检验校验码
-                icmp_res->icmp_id == pid16 &&
-                icmp_res->icmp_seq == seq) {
+            if ((icmp_res->icmp_type == (addr_ipv6 ? ICMPV6_ECHOREPLY : ICMP_ECHOREPLY)) && (addr_ipv6 || (cksum == cksum1)) && // IPv6不检验校验码
+                icmp_res->icmp_id == pid16 && icmp_res->icmp_seq == seq) {
                 valid = true;
             }
         }
@@ -123,7 +121,7 @@ int ping(const char* host, int cnt) {
             printd("recv invalid icmp packet! recvsz: %d, icmphsz: %d, type: %d, code: %d, checksum: %d == %d, id: %d, seq: %d\n", nrecv, icmp_len, icmp_res->icmp_type, icmp_res->icmp_code, cksum, cksum1, icmp_res->icmp_id, icmp_res->icmp_seq);
             continue;
         }
-        rtt = (end_hrtime-start_hrtime) / 1000.0f;
+        rtt = (end_hrtime - start_hrtime) / 1000.0f;
         min_rtt = MIN(rtt, min_rtt);
         max_rtt = MAX(rtt, max_rtt);
         total_rtt += rtt;
@@ -138,9 +136,9 @@ int ping(const char* host, int cnt) {
     end_tick = gettick_ms();
     printd("--- %s ping statistics ---\n", host);
     printd("%d packets transmitted, %d received, %d%% packet loss, time %d ms\n",
-        send_cnt, recv_cnt, (send_cnt-recv_cnt)*100/(send_cnt==0?1:send_cnt), end_tick-start_tick);
+           send_cnt, recv_cnt, (send_cnt - recv_cnt) * 100 / (send_cnt == 0 ? 1 : send_cnt), end_tick - start_tick);
     printd("rtt min/avg/max = %.3f/%.3f/%.3f ms\n",
-        min_rtt, total_rtt/(ok_cnt==0?1:ok_cnt), max_rtt);
+           min_rtt, total_rtt / (ok_cnt == 0 ? 1 : ok_cnt), max_rtt);
 
     closesocket(sockfd);
     return ok_cnt;
