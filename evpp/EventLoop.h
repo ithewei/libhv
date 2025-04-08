@@ -169,6 +169,7 @@ public:
 
     void queueInLoop(Functor fn) {
         postEvent([fn](Event* ev) {
+            (void)(ev);
             if (fn) fn();
         });
     }
