@@ -238,6 +238,11 @@ if(WITH_MQTT)
 endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
+if(WIN32)
+    set(CMAKE_RC_FLAGS_DEBUG -D_DEBUG)
+    configure_file(${PROJECT_SOURCE_DIR}/${PROJECT_NAME}.rc.in ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.rc)
+    list(APPEND LIBHV_SRCS ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.rc)
+endif()
 
 file(INSTALL ${LIBHV_HEADERS} DESTINATION include/hv)
 file(INSTALL ${LIBHV_HEADERS} DESTINATION ${PROJECT_SOURCE_DIR}/include/hv)
@@ -266,6 +271,10 @@ if(BUILD_STATIC)
         EXPORT libhvConfig
         ARCHIVE DESTINATION lib)
     add_custom_target(libhv_static DEPENDS hv_static)
+endif()
+
+if(WIN32)
+    install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}> DESTINATION bin OPTIONAL)
 endif()
 
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)

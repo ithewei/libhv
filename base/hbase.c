@@ -414,7 +414,7 @@ size_t hv_parse_size(const char* str) {
             case 'K': case 'k': n <<= 10; break;
             case 'M': case 'm': n <<= 20; break;
             case 'G': case 'g': n <<= 30; break;
-            case 'T': case 't': n <<= 40; break;
+            case 'T': case 't': if(sizeof(size_t) > 5) n <<= 40; break;
             default:                      break;
             }
             size += n;

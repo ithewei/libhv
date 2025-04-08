@@ -42,14 +42,14 @@ typedef volatile long long          atomic_llong;
 typedef volatile unsigned long long atomic_ullong;
 typedef volatile size_t             atomic_size_t;
 
-typedef struct atomic_flag { atomic_bool _Value; } atomic_flag;
+typedef struct atomic_flag { atomic_long _Value; } atomic_flag;
 
 #ifdef _WIN32
 
 #define ATOMIC_FLAG_TEST_AND_SET    atomic_flag_test_and_set
 static inline bool atomic_flag_test_and_set(atomic_flag* p) {
     // return InterlockedIncrement((LONG*)&p->_Value, 1);
-    return InterlockedCompareExchange((LONG*)&p->_Value, 1, 0);
+    return InterlockedCompareExchange(&p->_Value, 1, 0);
 }
 
 #define ATOMIC_ADD          InterlockedAdd
