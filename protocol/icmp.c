@@ -48,16 +48,7 @@ int ping(const char* host, int cnt) {
         }
         return -socket_errno();
     }
-#ifdef _WIN32
-    unsigned long mode = 1;
-    if (ioctlsocket(sockfd, FIONBIO, &mode) != NO_ERROR) {
-#else
-    int flags = fcntl(sockfd, F_GETFL, 0);
-    if ((flags == -1) || fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
-#endif
-        perror("Cannot set socket options!");
-        goto error;
-    }
+    
     ret = blocking(sockfd);
     if (ret < 0) {
         perror("ioctlsocket blocking");
@@ -125,23 +116,24 @@ int ping(const char* host, int cnt) {
         // IPv6的ICMP包不含IP头
         int iphdr_len = addr_ipv6 ? 0 : ipheader->ihl * 4;
         int icmp_len = nrecv - iphdr_len;
+	uint16_t cksum = 0, cksum1 = 0;
         if (icmp_len == sendbytes) {
             icmp_res = (icmp_t*)(recvbuf + iphdr_len);
-            uint16_t cksum = 0;
             if (!addr_ipv6) {
                 //IPv4校验需先把数据包中的校验码段置0
                 cksum = icmp_res->icmp_cksum;
                 icmp_res->icmp_cksum = 0;
+		cksum1 = checksum((uint8_t*)icmp_res, icmp_len);
             }
             if ((icmp_res->icmp_type == (addr_ipv6 ? ICMPV6_ECHOREPLY : ICMP_ECHOREPLY)) &&                 
-                (addr_ipv6 || (cksum == checksum((uint8_t*)icmp_res, icmp_len))) &&  // IPv6不检验校验码
+                (addr_ipv6 || (cksum == cksum1)) &&  // IPv6不检验校验码
                 icmp_res->icmp_id == pid16 &&
                 icmp_res->icmp_seq == seq) {
                 valid = true;
             }
         }
         if (valid == false) {
-            printd("recv invalid icmp packet!\n");
+            printd("recv invalid icmp packet! recvsz: %d, icmphsz: %d, type: %d, code: %d, checksum: %d == %d, id: %d, seq: %d\n", nrecv, icmp_len, icmp_res->icmp_type, icmp_res->icmp_code, cksum, cksum1, icmp_res->icmp_id, icmp_res->icmp_seq);
             continue;
         }
         rtt = (end_hrtime-start_hrtime) / 1000.0f;
