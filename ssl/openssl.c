@@ -1,5 +1,5 @@
 #include "hssl.h"
-
+#include "hlog.h"
 #ifdef WITH_OPENSSL
 
 #include "openssl/ssl.h"
@@ -117,6 +117,12 @@ int hssl_accept(hssl_t ssl) {
     else if (err == SSL_ERROR_WANT_WRITE) {
         return HSSL_WANT_WRITE;
     }
+    else if (err == SSL_ERROR_SYSCALL) {
+        hloge("SSL_accept errno:%d,error:%s", errno, strerror(errno));
+    }
+    else {
+        hloge("SSL_accept: %s", ERR_error_string(ERR_get_error(), NULL));
+    }
     return err;
 }
 
@@ -130,6 +136,12 @@ int hssl_connect(hssl_t ssl) {
     }
     else if (err == SSL_ERROR_WANT_WRITE) {
         return HSSL_WANT_WRITE;
+    }
+    else if (err == SSL_ERROR_SYSCALL) {
+        hloge("SSL_connect errno:%d,error:%s", errno, strerror(errno));
+    }
+    else {
+        hloge("SSL_connect: %s", ERR_error_string(ERR_get_error(), NULL));
     }
     return err;
 }

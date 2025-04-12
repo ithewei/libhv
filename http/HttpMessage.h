@@ -386,6 +386,13 @@ public:
     unsigned            redirect: 1;
     unsigned            proxy   : 1;
     unsigned            cancel  : 1;
+    struct {
+        unsigned        relative_current : 1;    // ref regxp:(/|\\)\.(/|\\|$)
+        unsigned        relative_parent  : 1;    // ref regxp:(/|\\)\.\.(/|\\|$)
+        unsigned        crlf             : 1;    // fix CVE-2023-26147
+        unsigned        repeat_slash     : 1;    // repeat "\\" or "//"
+        unsigned        back_slash       : 1;    // note '\' compatibility
+    } path_safe;
 
     HttpRequest();
 
@@ -420,6 +427,8 @@ public:
     // url -> structed url
     void ParseUrl();
 
+    // path safe check
+    void CheckPathSafe();
     // /path?query#fragment
     std::string FullPath() { return path; }
     // /path

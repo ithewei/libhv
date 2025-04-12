@@ -92,7 +92,7 @@ bool HttpCookie::parse(const std::string& str) {
                 httponly = true;
             }
             else {
-                hlogw("Unrecognized key '%s'", key.c_str());
+                hlogi("Cookie Unrecognized key '%s'", key.c_str());
             }
         }
 
@@ -660,6 +660,12 @@ void HttpRequest::Init() {
     redirect = 1;
     proxy = 0;
     cancel = 0;
+    // NOTE: safe issues exist by default
+    path_safe.relative_current = true;
+    path_safe.relative_parent = true;
+    path_safe.crlf = true;
+    path_safe.repeat_slash = true;
+    path_safe.back_slash = true;
 }
 
 void HttpRequest::Reset() {
@@ -742,6 +748,73 @@ void HttpRequest::ParseUrl() {
     // query
     if (parser.fields[HV_URL_QUERY].len > 0) {
         parse_query_params(url.c_str()+parser.fields[HV_URL_QUERY].off, query_params);
+    }
+}
+
+void HttpRequest::CheckPathSafe() {
+    const char* p = path.c_str();
+    // The first character must be '/'
+    if (*p != '/') return;
+    path_safe.relative_current = false;
+    path_safe.relative_parent = false;
+    path_safe.crlf = false;
+    path_safe.repeat_slash = false;
+    path_safe.back_slash = false;
+    bool notPath = false;
+    while (*p != '\0') {
+        switch (*p) {
+            case '?':
+            case '#':
+                notPath = true;
+                break;
+
+            case '%':
+                if (p[1] != '0') break;
+                if ((p[2] == 'd' || p[2] == 'D') || (p[2] == 'a' || p[2] == 'A')) {
+                    // discover escape %0D or %0A
+                    path_safe.crlf = true;
+                    p += 2;
+                }
+                break;
+
+            case '\r':
+            case '\n':
+                path_safe.crlf = true;
+                break;
+
+            case '\\':
+                if (notPath) break;
+                path_safe.back_slash = true;
+            case '/':
+                if (notPath) break;
+                if ((p[1] == '.' && p[2] == '.') && (p[3] == '/' || p[3] == '\\' || p[3] == '\0')) {
+                    // discover relative parent path regxp:(/|\\)\.\.(/|\\|$)
+                    path_safe.relative_parent = true;
+                    p += 2;
+                } else if (p[1] == '/' || p[1] == '\\') {
+                    // discover repeat "\\" or "//"
+                    path_safe.repeat_slash = true;
+                } else if (p[1] == '.' && (p[2] == '/' || p[2] == '\\' || p[2] == '\0')) {
+                    // discover relative current path regxp:(/|\\)\.(/|\\|$)
+                    path_safe.relative_current = true;
+                    p += 1;
+                }
+                break;
+#ifdef OS_WIN
+            // windows supports trailing infinite '.'
+            case '.':
+                if (notPath) break;
+                while (*(++p) == '.') {}
+                --p;
+                if (p[1] == '\0') {
+                    path_safe.relative_current = true;
+                }
+                break;
+#endif
+            default:
+                break;
+        }
+        ++p;
     }
 }
 

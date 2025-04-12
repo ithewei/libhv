@@ -88,10 +88,31 @@ struct HV_EXPORT NetAddr {
     static std::string to_string(const char* ip, int port);
 };
 
-// windows wchar and utf8 conver
+// windows wchar and utf8/ansi conver
 #ifdef OS_WIN
-HV_EXPORT std::string wchar_to_utf8(const std::wstring &wstr);
-HV_EXPORT std::wstring utf8_to_wchar(const std::string &str);
+HV_EXPORT std::string wchar_to_string(const UINT codePage, const std::wstring &wstr);
+HV_EXPORT std::wstring string_to_wchar(const UINT codePage, const std::string &str);
+
+HV_INLINE std::string wchar_to_utf8(const std::wstring &wstr) {
+    return wchar_to_string(CP_UTF8, wstr);
+}
+
+HV_INLINE std::string wchar_to_ansi(const std::wstring &wstr) {
+    return wchar_to_string(CP_ACP, wstr);
+}
+
+HV_INLINE std::wstring utf8_to_wchar(const std::string &str) {
+    return string_to_wchar(CP_UTF8, str);
+}
+
+HV_INLINE std::string utf8_to_ansi(const std::string &str) {
+    return wchar_to_string(CP_ACP, string_to_wchar(CP_UTF8, str));
+}
+
+HV_INLINE std::string ansi_to_utf8(const std::string &str) {
+    return wchar_to_string(CP_UTF8, string_to_wchar(CP_ACP, str));
+}
+
 #endif // OS_WIN
 
 } // end namespace hv

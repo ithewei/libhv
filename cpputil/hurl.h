@@ -36,6 +36,8 @@ HV_INLINE std::string escapeURL(const std::string& url) {
 
 HV_EXPORT std::string escapeHTML(const std::string& str);
 
+HV_EXPORT std::string compressRelativePath(const std::string &path);
+
 } // end namespace hv
 
 #endif // HV_URL_H_

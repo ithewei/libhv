@@ -203,4 +203,45 @@ std::string escapeHTML(const std::string& str)  {
     return ostr;
 }
 
+std::string compressRelativePath(const std::string &path) {
+    std::string result;
+    result.reserve(path.size());
+    const char *p = path.c_str();
+    while (*p != '\0') {
+        if (*p == '/') {
+            if (result.back() != '/') result.push_back('/');
+            ++p;
+            continue;
+        }
+        if (*p == '.' && result.back() == '/') {
+            if (p[1] == '\0') break;
+            if (p[1] == '/') {
+                p += 2;
+                continue;
+            }
+        }
+#ifdef OS_WIN
+        if (*p == '\\') {
+            if (result.back() != '/') result.push_back('/');
+            ++p;
+            continue;
+        }
+        if (*p == '.') {
+            if ((p[1] == '\\' || p[1] == '/') && result.back() == '/') {
+                p += 2;
+                continue;
+            }
+            // windows supports trailing infinite '.'
+            int i = 1;
+            while (*(++p) == '.') { ++i; }
+            if (*p == '\0') break;
+            result.append(i, '.');
+        }
+#endif
+        result.push_back(*p);
+        ++p;
+    }
+    return result;
+}
+
 }

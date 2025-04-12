@@ -2,6 +2,7 @@
 
 #include "Http1Parser.h"
 #include "Http2Parser.h"
+#include "hlog.h"
 
 HttpParser* HttpParser::New(http_session_type type, http_version version) {
     HttpParser* hp = NULL;
@@ -12,7 +13,7 @@ HttpParser* HttpParser::New(http_session_type type, http_version version) {
 #ifdef WITH_NGHTTP2
         hp = new Http2Parser(type);
 #else
-        fprintf(stderr, "Please recompile WITH_NGHTTP2!\n");
+        hlogi("Please recompile WITH_NGHTTP2!\n");
 #endif
     }
 

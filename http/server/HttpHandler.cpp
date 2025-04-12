@@ -42,6 +42,7 @@ HttpHandler::HttpHandler(hio_t* io) :
     tid(0),
     // for http
     io(io),
+    server(NULL),
     service(NULL),
     api_handler(NULL),
     // for websocket
@@ -251,13 +252,23 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
 
 void HttpHandler::onHeadersComplete() {
     // printf("onHeadersComplete\n");
-    int status_code = handleRequestHeaders();
-    if (status_code != HTTP_STATUS_OK) {
-        error = ERR_REQUEST;
-        return;
+    handleRequestHeaders();
+    if (service->headerHandler) {
+        const int status_code = customHttpHandler(service->headerHandler);
+        if (status_code != HTTP_STATUS_OK && status_code != HTTP_STATUS_NEXT) {
+            SetError(ERR_REQUEST, static_cast<http_status>(status_code));
+            return;
+        }
     }
 
     HttpRequest* pReq = req.get();
+    if (req->path_safe.crlf) {
+        // fix CVE-2023-26147
+        hloge("[%s:%d] Illegal crlf path: %s", ip, port, pReq->path.c_str());
+        SetError(ERR_REQUEST);
+        return;
+    }
+
     if (service && service->pathHandlers.size() != 0) {
         service->GetRoute(pReq, &api_handler);
     }
@@ -331,7 +342,7 @@ void HttpHandler::onMessageComplete() {
 
     if (status_code != HTTP_STATUS_NEXT) {
         // keepalive ? Reset : Close
-        if (keepalive) {
+        if (error == 0 && keepalive) {
             Reset();
         } else {
             state = WANT_CLOSE;
@@ -339,7 +350,7 @@ void HttpHandler::onMessageComplete() {
     }
 }
 
-int HttpHandler::handleRequestHeaders() {
+void HttpHandler::handleRequestHeaders() {
     HttpRequest* pReq = req.get();
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
@@ -367,16 +378,7 @@ int HttpHandler::handleRequestHeaders() {
 
     // printf("url=%s\n", pReq->url.c_str());
     pReq->ParseUrl();
-    // printf("path=%s\n",  pReq->path.c_str());
-    // fix CVE-2023-26147
-    if (pReq->path.find("%") != std::string::npos) {
-        std::string unescaped_path = HUrl::unescape(pReq->path);
-        if (unescaped_path.find("\r\n") != std::string::npos) {
-            hlogw("Illegal path: %s\n",  unescaped_path.c_str());
-            resp->status_code = HTTP_STATUS_BAD_REQUEST;
-            return resp->status_code;
-        }
-    }
+    pReq->CheckPathSafe();
 
     if (proxy) {
         // Proxy-Connection
@@ -404,7 +406,6 @@ int HttpHandler::handleRequestHeaders() {
     }
 
     // TODO: rewrite url
-    return HTTP_STATUS_OK;
 }
 
 void HttpHandler::handleExpect100() {
@@ -467,9 +468,9 @@ postprocessor:
         pResp->status_code = (http_status)status_code;
         if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
             if (service->errorHandler) {
-                customHttpHandler(service->errorHandler);
+                status_code = customHttpHandler(service->errorHandler);
             } else {
-                defaultErrorHandler();
+                status_code = defaultErrorHandler();
             }
         }
     }
@@ -481,7 +482,10 @@ postprocessor:
         pResp->headers["Etag"] = fc->etag;
     }
     if (service->postprocessor) {
-        customHttpHandler(service->postprocessor);
+        status_code = customHttpHandler(service->postprocessor);
+    }
+    if (status_code == HTTP_STATUS_WANT_CLOSE) {
+        error = ERR_REQUEST;
     }
 
     if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
@@ -525,13 +529,20 @@ int HttpHandler::defaultStaticHandler() {
     // file service
     std::string path = req->Path();
     const char* req_path = path.c_str();
-    // path safe check
-    if (req_path[0] != '/' || strstr(req_path, "/..") || strstr(req_path, "\\..")) {
+    if (req->path_safe.relative_parent) {
+        hloge("[%s:%d] not allowed relative parent path: %s", ip, port, req_path);
         return HTTP_STATUS_BAD_REQUEST;
     }
 
     std::string filepath;
-    bool is_dir = path.back() == '/' &&
+    if (req->path_safe.relative_current || req->path_safe.repeat_slash || req->path_safe.back_slash) {
+        // prevent malicious request format '/./////\\ \file.txt\...' Duplicate alloc of the same file '/file.txt' cache map
+        path = hv::compressRelativePath(path);
+        req_path = path.c_str();
+        hlogi("unique map filepath after relative path compress: %s", req_path);
+    }
+
+    const bool is_dir = path.back() == '/' &&
                   service->index_of.size() > 0 &&
                   hv_strstartswith(req_path, service->index_of.c_str());
     if (is_dir) {
@@ -574,7 +585,7 @@ int HttpHandler::defaultStaticHandler() {
             if (service->largeFileHandler) {
                 status_code = customHttpHandler(service->largeFileHandler);
             } else {
-                status_code = defaultLargeFileHandler();
+                status_code = defaultLargeFileHandler(filepath);
             }
         }
         return status_code;
@@ -593,7 +604,7 @@ int HttpHandler::defaultStaticHandler() {
             if (service->largeFileHandler) {
                 status_code = customHttpHandler(service->largeFileHandler);
             } else {
-                status_code = defaultLargeFileHandler();
+                status_code = defaultLargeFileHandler(filepath);
             }
         } else {
             status_code = HTTP_STATUS_NOT_FOUND;
@@ -618,10 +629,9 @@ int HttpHandler::defaultStaticHandler() {
     return status_code;
 }
 
-int HttpHandler::defaultLargeFileHandler() {
+int HttpHandler::defaultLargeFileHandler(const std::string &filepath) {
     if (!writer) return HTTP_STATUS_NOT_IMPLEMENTED;
     if (!isFileOpened()) {
-        std::string filepath = service->GetStaticFilepath(req->Path().c_str());
         if (filepath.empty() || openFile(filepath.c_str()) != 0) {
             return HTTP_STATUS_NOT_FOUND;
         }
@@ -853,7 +863,7 @@ int HttpHandler::SendHttpStatusResponse(http_status status_code) {
     if (state > WANT_SEND) return 0;
     resp->status_code = status_code;
     addResponseHeaders();
-    HandleHttpRequest();
+    if (HandleHttpRequest() == HTTP_STATUS_NEXT) return 0;
     state = WANT_SEND;
     return SendHttpResponse();
 }
@@ -863,7 +873,11 @@ int HttpHandler::openFile(const char* filepath) {
     closeFile();
     file = new LargeFile;
     file->timer = INVALID_TIMER_ID;
+#ifdef OS_WIN
+    return file->open(hv::utf8_to_ansi(filepath).c_str(), "rb");
+#else
     return file->open(filepath, "rb");
+#endif
 }
 
 bool HttpHandler::isFileOpened() {
@@ -953,7 +967,7 @@ int HttpHandler::upgradeWebSocket() {
     if (iter_protocol != req->headers.end()) {
         hv::StringList subprotocols = hv::split(iter_protocol->second, ',');
         if (subprotocols.size() > 0) {
-            hlogw("%s: %s => just select first protocol %s", SEC_WEBSOCKET_PROTOCOL, iter_protocol->second.c_str(), subprotocols[0].c_str());
+            hlogw("[%s:%d] %s: %s => just select first protocol %s", ip, port, SEC_WEBSOCKET_PROTOCOL, iter_protocol->second.c_str(), subprotocols[0].c_str());
             resp->headers[SEC_WEBSOCKET_PROTOCOL] = subprotocols[0];
         }
     }
@@ -983,7 +997,7 @@ int HttpHandler::upgradeHTTP2() {
     SendHttpResponse();
 
     if (!SwitchHTTP2()) {
-        hloge("[%s:%d] unsupported HTTP2", ip, port);
+        hlogw("[%s:%d] unsupported HTTP2", ip, port);
         return SetError(ERR_INVALID_PROTOCOL);
     }
 
@@ -1010,7 +1024,7 @@ int HttpHandler::handleForwardProxy() {
     if (service && service->enable_forward_proxy) {
         return connectProxy(req->url);
     } else {
-        hlogw("Forbidden to forward proxy %s", req->url.c_str());
+        hlogw("[%s:%d] Forbidden to forward proxy %s", ip, port, req->url.c_str());
         SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
     }
     return 0;
@@ -1043,7 +1057,7 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
     }
 
     if (forward_proxy && !service->IsTrustProxy(url.host.c_str())) {
-        hlogw("Forbidden to proxy %s", url.host.c_str());
+        hlogw("[%s:%d] Forbidden to proxy %s", ip, port, url.host.c_str());
         SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
         return 0;
     }
