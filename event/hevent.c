@@ -602,7 +602,7 @@ static void __write_timeout_cb(htimer_t* timer) {
         if (io->io_type & HIO_TYPE_SOCKET) {
             char localaddrstr[SOCKADDR_STRLEN] = {0};
             char peeraddrstr[SOCKADDR_STRLEN] = {0};
-            hlogw("write timeout [%s] <=> [%s]",
+            hlogi("write timeout [%s] <=> [%s]",
                     SOCKADDR_STR(io->localaddr, localaddrstr),
                     SOCKADDR_STR(io->peeraddr, peeraddrstr));
         }

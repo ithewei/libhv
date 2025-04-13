@@ -29,6 +29,8 @@ typedef struct http_server_s {
     // hooks
     std::function<void()> onWorkerStart;
     std::function<void()> onWorkerStop;
+    std::function<bool(hio_t* io)> onAccept;
+    std::function<void(hio_t* io)> onClose;
     // SSL/TLS
     hssl_ctx_t  ssl_ctx;
     unsigned    alloced_ssl_ctx: 1;
