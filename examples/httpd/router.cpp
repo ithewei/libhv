@@ -7,8 +7,9 @@
 
 void Router::Register(hv::HttpService& router) {
     /* handler chain */
-    // preprocessor -> middleware -> processor -> postprocessor
+    // headerHandler -> preprocessor -> middleware -> processor -> postprocessor
     // processor: pathHandlers -> staticHandler -> errorHandler
+    router.headerHandler = Handler::headerHandler;
     router.preprocessor = Handler::preprocessor;
     router.postprocessor = Handler::postprocessor;
     // router.errorHandler = Handler::errorHandler;

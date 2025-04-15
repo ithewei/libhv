@@ -108,7 +108,8 @@ namespace hv {
 
 struct HV_EXPORT HttpService {
     /* handler chain */
-    // preprocessor -> middleware -> processor -> postprocessor
+    // headerHandler -> preprocessor -> middleware -> processor -> postprocessor
+    http_handler        headerHandler;
     http_handler        preprocessor;
     http_handlers       middleware;
     // processor: pathHandlers -> staticHandler -> errorHandler

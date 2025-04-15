@@ -9,10 +9,8 @@
 #include "hstring.h"
 #include "EventLoop.h" // import setTimeout, setInterval
 
-int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
+int Handler::headerHandler(HttpRequest* req, HttpResponse* resp) {
     // printf("%s:%d\n", req->client_addr.ip.c_str(), req->client_addr.port);
-    // printf("%s\n", req->Dump(true, true).c_str());
-
 #if REDIRECT_HTTP_TO_HTTPS
     // 301
     if (req->scheme == "http") {
@@ -25,6 +23,11 @@ int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
     // if (req->content_type != APPLICATION_JSON) {
     //     return response_status(resp, HTTP_STATUS_BAD_REQUEST);
     // }
+    return HTTP_STATUS_NEXT;
+}
+
+int Handler::preprocessor(HttpRequest* req, HttpResponse* resp) {
+    // printf("%s\n", req->Dump(true, true).c_str());
 
     // Deserialize request body to json, form, etc.
     req->ParseBody();

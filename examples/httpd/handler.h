@@ -5,7 +5,8 @@
 
 class Handler {
 public:
-    // preprocessor => middleware -> handlers => postprocessor
+    // headerHandler => preprocessor => middleware -> handlers => postprocessor
+    static int headerHandler(HttpRequest* req, HttpResponse* resp);
     static int preprocessor(HttpRequest* req, HttpResponse* resp);
     static int postprocessor(HttpRequest* req, HttpResponse* resp);
     static int errorHandler(const HttpContextPtr& ctx);

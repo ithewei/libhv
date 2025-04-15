@@ -143,7 +143,7 @@ public:
 
 private:
     const HttpContextPtr& context();
-    int   handleRequestHeaders();
+    void  handleRequestHeaders();
     // Expect: 100-continue
     void  handleExpect100();
     void  addResponseHeaders();

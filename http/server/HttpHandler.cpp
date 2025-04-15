@@ -251,13 +251,35 @@ int HttpHandler::invokeHttpHandler(const http_handler* handler) {
 
 void HttpHandler::onHeadersComplete() {
     // printf("onHeadersComplete\n");
-    int status_code = handleRequestHeaders();
-    if (status_code != HTTP_STATUS_OK) {
-        error = ERR_REQUEST;
-        return;
+    handleRequestHeaders();
+    if (service->headerHandler) {
+        const int status_code = customHttpHandler(service->headerHandler);
+        if (status_code != HTTP_STATUS_OK && status_code != HTTP_STATUS_NEXT) {
+            SetError(ERR_REQUEST, static_cast<http_status>(status_code));
+            return;
+        }
     }
 
     HttpRequest* pReq = req.get();
+    const char *p = pReq->path.c_str();
+    while (*p != '\0') {
+        switch (*p) {
+            case '%':
+                if (p[1] != '0') break;
+                if (p[2] != 'd' && p[2] != 'D' && p[2] != 'a' && p[2] != 'A') break;
+            case '\r':
+            case '\n':
+                // fix CVE-2023-26147
+                hloge("[%s:%d] Illegal crlf path: %s", ip, port, pReq->path.c_str());
+                SetError(ERR_REQUEST);
+                return;
+
+            default:
+                break;
+        }
+        ++p;
+    }
+
     if (service && service->pathHandlers.size() != 0) {
         service->GetRoute(pReq, &api_handler);
     }
@@ -339,7 +361,7 @@ void HttpHandler::onMessageComplete() {
     }
 }
 
-int HttpHandler::handleRequestHeaders() {
+void HttpHandler::handleRequestHeaders() {
     HttpRequest* pReq = req.get();
     pReq->scheme = ssl ? "https" : "http";
     pReq->client_addr.ip = ip;
@@ -367,16 +389,6 @@ int HttpHandler::handleRequestHeaders() {
 
     // printf("url=%s\n", pReq->url.c_str());
     pReq->ParseUrl();
-    // printf("path=%s\n",  pReq->path.c_str());
-    // fix CVE-2023-26147
-    if (pReq->path.find("%") != std::string::npos) {
-        std::string unescaped_path = HUrl::unescape(pReq->path);
-        if (unescaped_path.find("\r\n") != std::string::npos) {
-            hlogw("Illegal path: %s\n",  unescaped_path.c_str());
-            resp->status_code = HTTP_STATUS_BAD_REQUEST;
-            return resp->status_code;
-        }
-    }
 
     if (proxy) {
         // Proxy-Connection
@@ -404,7 +416,6 @@ int HttpHandler::handleRequestHeaders() {
     }
 
     // TODO: rewrite url
-    return HTTP_STATUS_OK;
 }
 
 void HttpHandler::handleExpect100() {
