@@ -521,18 +521,24 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
     if (ep == end) return 0;
     // /path
     sp = ep;
-    ep = strchr(sp, '?');
-    if (ep == NULL) ep = end;
+    const char* query = strchr(sp, '?');
+    const char* fragment = strchr(sp, '#');
+    if (query && fragment) ep = MIN(query, fragment);
+    else if (query == NULL && fragment) ep = fragment;
+    else if (query == NULL) ep = end;
+    else ep = query;
     stURL->fields[HV_URL_PATH].off = sp - begin;
     stURL->fields[HV_URL_PATH].len = ep - sp;
     if (ep == end) return 0;
-    // ?query
-    sp = ep + 1;
-    ep = strchr(sp, '#');
-    if (ep == NULL) ep = end;
-    stURL->fields[HV_URL_QUERY].off = sp - begin;
-    stURL->fields[HV_URL_QUERY].len = ep - sp;
-    if (ep == end) return 0;
+    if (ep != fragment) {
+        // ?query
+        sp = ep + 1;
+        ep = fragment;
+        if (ep == NULL) ep = end;
+        stURL->fields[HV_URL_QUERY].off = sp - begin;
+        stURL->fields[HV_URL_QUERY].len = ep - sp;
+        if (ep == end) return 0;
+    }
     // #fragment
     sp = ep + 1;
     ep = end;
