@@ -331,7 +331,7 @@ void HttpHandler::onMessageComplete() {
 
     if (status_code != HTTP_STATUS_NEXT) {
         // keepalive ? Reset : Close
-        if (keepalive) {
+        if (error == 0 && keepalive) {
             Reset();
         } else {
             state = WANT_CLOSE;
@@ -467,9 +467,9 @@ postprocessor:
         pResp->status_code = (http_status)status_code;
         if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
             if (service->errorHandler) {
-                customHttpHandler(service->errorHandler);
+                status_code = customHttpHandler(service->errorHandler);
             } else {
-                defaultErrorHandler();
+                status_code = defaultErrorHandler();
             }
         }
     }
@@ -481,7 +481,10 @@ postprocessor:
         pResp->headers["Etag"] = fc->etag;
     }
     if (service->postprocessor) {
-        customHttpHandler(service->postprocessor);
+        status_code = customHttpHandler(service->postprocessor);
+    }
+    if (status_code == HTTP_STATUS_WANT_CLOSE) {
+        error = ERR_REQUEST;
     }
 
     if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
@@ -671,7 +674,7 @@ int HttpHandler::defaultErrorHandler() {
         resp->content_type = TEXT_HTML;
         make_http_status_page(resp->status_code, resp->body);
     }
-    return 0;
+    return resp->status_code;
 }
 
 int HttpHandler::FeedRecvData(const char* data, size_t len) {
@@ -853,7 +856,7 @@ int HttpHandler::SendHttpStatusResponse(http_status status_code) {
     if (state > WANT_SEND) return 0;
     resp->status_code = status_code;
     addResponseHeaders();
-    HandleHttpRequest();
+    if (HandleHttpRequest() == HTTP_STATUS_NEXT) return 0;
     state = WANT_SEND;
     return SendHttpResponse();
 }

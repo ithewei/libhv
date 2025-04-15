@@ -34,6 +34,7 @@
  */
 #define HTTP_STATUS_NEXT        0
 #define HTTP_STATUS_UNFINISHED  0
+#define HTTP_STATUS_WANT_CLOSE  1
 // NOTE: http_sync_handler run on IO thread
 typedef std::function<int(HttpRequest* req, HttpResponse* resp)>                            http_sync_handler;
 // NOTE: http_async_handler run on hv::async threadpool
