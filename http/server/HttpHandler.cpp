@@ -574,7 +574,7 @@ int HttpHandler::defaultStaticHandler() {
             if (service->largeFileHandler) {
                 status_code = customHttpHandler(service->largeFileHandler);
             } else {
-                status_code = defaultLargeFileHandler();
+                status_code = defaultLargeFileHandler(filepath);
             }
         }
         return status_code;
@@ -593,7 +593,7 @@ int HttpHandler::defaultStaticHandler() {
             if (service->largeFileHandler) {
                 status_code = customHttpHandler(service->largeFileHandler);
             } else {
-                status_code = defaultLargeFileHandler();
+                status_code = defaultLargeFileHandler(filepath);
             }
         } else {
             status_code = HTTP_STATUS_NOT_FOUND;
@@ -618,10 +618,9 @@ int HttpHandler::defaultStaticHandler() {
     return status_code;
 }
 
-int HttpHandler::defaultLargeFileHandler() {
+int HttpHandler::defaultLargeFileHandler(const std::string &filepath) {
     if (!writer) return HTTP_STATUS_NOT_IMPLEMENTED;
     if (!isFileOpened()) {
-        std::string filepath = service->GetStaticFilepath(req->Path().c_str());
         if (filepath.empty() || openFile(filepath.c_str()) != 0) {
             return HTTP_STATUS_NOT_FOUND;
         }
@@ -863,7 +862,11 @@ int HttpHandler::openFile(const char* filepath) {
     closeFile();
     file = new LargeFile;
     file->timer = INVALID_TIMER_ID;
+#ifdef OS_WIN
+    return file->open(hv::utf8_to_ansi(filepath).c_str(), "rb");
+#else
     return file->open(filepath, "rb");
+#endif
 }
 
 bool HttpHandler::isFileOpened() {
