@@ -115,8 +115,7 @@ int nmap_discover(Nmap* nmap) {
         memset(&peeraddr, 0, addrlen);
         peeraddr.sin_family = AF_INET;
         peeraddr.sin_addr.s_addr = iter->first;
-        hio_set_peeraddr(io, (struct sockaddr*)&peeraddr, addrlen);
-        hsendto(loop, hio_fd(io), sendbuf, sizeof(sendbuf), NULL);
+        hio_sendto(io, sendbuf, sizeof(sendbuf), (struct sockaddr*)&peeraddr);
         ++ctx.send_cnt;
     }
 

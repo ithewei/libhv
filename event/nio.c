@@ -269,7 +269,7 @@ static int __nio_read(hio_t* io, void* buf, int len) {
     return nread;
 }
 
-static int __nio_write(hio_t* io, const void* buf, int len) {
+static int __nio_write(hio_t* io, const void* buf, int len, struct sockaddr* addr) {
     int nwrite = 0;
     switch (io->io_type) {
     case HIO_TYPE_SSL:
@@ -288,7 +288,8 @@ static int __nio_write(hio_t* io, const void* buf, int len) {
     case HIO_TYPE_KCP:
     case HIO_TYPE_IP:
     {
-        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
+        if (addr == NULL) addr = io->peeraddr;
+        nwrite = sendto(io->fd, buf, len, 0, addr, SOCKADDR_LEN(addr));
         if (((sockaddr_u*)io->localaddr)->sin.sin_port == 0) {
             socklen_t addrlen = sizeof(sockaddr_u);
             getsockname(io->fd, io->localaddr, &addrlen);
@@ -371,7 +372,7 @@ write:
     char* base = pbuf->base;
     char* buf = base + pbuf->offset;
     int len = pbuf->len - pbuf->offset;
-    nwrite = __nio_write(io, buf, len);
+    nwrite = __nio_write(io, buf, len, NULL);
     // printd("write retval=%d\n", nwrite);
     if (nwrite < 0) {
         err = socket_errno();
@@ -485,7 +486,7 @@ int hio_read (hio_t* io) {
     return 0;
 }
 
-int hio_write (hio_t* io, const void* buf, size_t len) {
+static int hio_write4 (hio_t* io, const void* buf, size_t len, struct sockaddr* addr) {
     if (io->closed) {
         hloge("hio_write called but fd[%d] already closed!", io->fd);
         return -1;
@@ -501,7 +502,7 @@ int hio_write (hio_t* io, const void* buf, size_t len) {
 #endif
     if (write_queue_empty(&io->write_queue)) {
 try_write:
-        nwrite = __nio_write(io, buf, len);
+        nwrite = __nio_write(io, buf, len, addr);
         // printd("write retval=%d\n", nwrite);
         if (nwrite < 0) {
             err = socket_errno();
@@ -567,6 +568,14 @@ disconnect:
         hio_close_async(io);
     }
     return nwrite < 0 ? nwrite : -1;
+}
+
+int hio_write (hio_t* io, const void* buf, size_t len) {
+    return hio_write4(io, buf, len, NULL);
+}
+
+int hio_sendto (hio_t* io, const void* buf, size_t len, struct sockaddr* addr) {
+    return hio_write4(io, buf, len, addr);
 }
 
 int hio_close (hio_t* io) {

@@ -296,14 +296,15 @@ int hio_read (hio_t* io) {
     return hio_add(io, hio_handle_events, HV_READ);
 }
 
-int hio_write(hio_t* io, const void* buf, size_t len) {
+static int hio_write4 (hio_t* io, const void* buf, size_t len, struct sockaddr* addr) {
     int nwrite = 0;
 try_send:
     if (io->io_type == HIO_TYPE_TCP) {
         nwrite = send(io->fd, buf, len, 0);
     }
     else if (io->io_type == HIO_TYPE_UDP) {
-        nwrite = sendto(io->fd, buf, len, 0, io->peeraddr, sizeof(struct sockaddr_in6));
+        if (addr == NULL) addr = io->peeraddr;
+        nwrite = sendto(io->fd, buf, len, 0, addr, sizeof(struct sockaddr_in6));
     }
     else if (io->io_type == HIO_TYPE_IP) {
         goto WSASend;
@@ -354,7 +355,8 @@ WSASend:
         }
         else if (io->io_type == HIO_TYPE_UDP ||
                  io->io_type == HIO_TYPE_IP) {
-            ret = WSASendTo(io->fd, &hovlp->buf, 1, &dwbytes, flags, io->peeraddr, sizeof(struct sockaddr_in6), &hovlp->ovlp, NULL);
+            if (addr == NULL) addr = io->peeraddr;
+            ret = WSASendTo(io->fd, &hovlp->buf, 1, &dwbytes, flags, addr, sizeof(struct sockaddr_in6), &hovlp->ovlp, NULL);
         }
         else {
             ret = -1;
@@ -371,8 +373,18 @@ WSASend:
     }
 write_error:
 disconnect:
-    hio_close(io);
+    if (io->io_type & HIO_TYPE_SOCK_STREAM) {
+        hio_close(io);
+    }
     return 0;
+}
+
+int hio_write (hio_t* io, const void* buf, size_t len) {
+    return hio_write4(io, buf, len, NULL);
+}
+
+int hio_sendto (hio_t* io, const void* buf, size_t len, struct sockaddr* addr) {
+    return hio_write4(io, buf, len, addr);
 }
 
 int hio_close (hio_t* io) {

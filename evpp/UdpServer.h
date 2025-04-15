@@ -89,9 +89,7 @@ public:
     // sendto thread-safe
     int sendto(const void* data, int size, struct sockaddr* peeraddr = NULL) {
         if (channel == NULL) return -1;
-        std::lock_guard<std::mutex> locker(sendto_mutex);
-        if (peeraddr) hio_set_peeraddr(channel->io(), peeraddr, SOCKADDR_LEN(peeraddr));
-        return channel->write(data, size);
+        return hio_sendto(channel->io(), data, size, peeraddr);
     }
     int sendto(Buffer* buf, struct sockaddr* peeraddr = NULL) {
         return sendto(buf->data(), buf->size(), peeraddr);
@@ -126,7 +124,6 @@ public:
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
 private:
-    std::mutex              sendto_mutex;
     EventLoopPtr            loop_;
 };
 
