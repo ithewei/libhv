@@ -225,10 +225,17 @@ size_t websocket_build_frame(char * frame, websocket_flags flags, const char mas
         body_offset = 4;
     } else {
         frame[1] |= 127;
-        frame[2] = (char) ((data_len >> 56) & 0xFF);
-        frame[3] = (char) ((data_len >> 48) & 0xFF);
-        frame[4] = (char) ((data_len >> 40) & 0xFF);
-        frame[5] = (char) ((data_len >> 32) & 0xFF);
+        if(sizeof(size_t) < 8) {
+            frame[2] = 0;
+            frame[3] = 0;
+            frame[4] = 0;
+            frame[5] = 0;
+        } else {
+            frame[2] = (char) ((data_len >> 56) & 0xFF);
+            frame[3] = (char) ((data_len >> 48) & 0xFF);
+            frame[4] = (char) ((data_len >> 40) & 0xFF);
+            frame[5] = (char) ((data_len >> 32) & 0xFF);
+        }
         frame[6] = (char) ((data_len >> 24) & 0xFF);
         frame[7] = (char) ((data_len >> 16) & 0xFF);
         frame[8] = (char) ((data_len >>  8) & 0xFF);

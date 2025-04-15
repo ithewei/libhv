@@ -163,6 +163,12 @@ static void loop_thread(void* userdata) {
     hlogi("EventLoop stopped, pid=%ld tid=%ld", hv_getpid(), hv_gettid());
 }
 
+#ifdef OS_WIN
+static void WINAPI loop_thread_stdcall(void* userdata) {
+    return loop_thread(userdata);
+}
+#endif
+
 /* @workflow:
  * http_server_run -> Listen -> master_workers_run / hthread_create ->
  * loop_thread -> accept -> EventLoop::run ->
@@ -215,7 +221,11 @@ int http_server_run(http_server_t* server, int wait) {
         // multi-threads
         if (server->worker_threads == 0) server->worker_threads = 1;
         for (int i = wait ? 1 : 0; i < server->worker_threads; ++i) {
+#ifdef OS_WIN
+            hthread_t thrd = hthread_create((hthread_routine)loop_thread_stdcall, server);
+#else
             hthread_t thrd = hthread_create((hthread_routine)loop_thread, server);
+#endif
             privdata->threads.push_back(thrd);
         }
         if (wait) {

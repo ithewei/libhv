@@ -171,6 +171,7 @@ public:
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
         hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
         loop_->setTimeout(delay, [this](TimerID timerID){
+            (void)(timerID);
             startConnect();
         });
         return 0;
