@@ -80,7 +80,7 @@ static void ssl_server_handshake(hio_t* io) {
         }
     }
     else {
-        hloge("ssl handshake failed: %d", ret);
+        hloge("ssl server handshake failed: %d", ret);
         io->error = ERR_SSL_HANDSHAKE;
         hio_close(io);
     }
@@ -101,7 +101,7 @@ static void ssl_client_handshake(hio_t* io) {
         }
     }
     else {
-        hloge("ssl handshake failed: %d", ret);
+        hloge("ssl client handshake failed: %d", ret);
         io->error = ERR_SSL_HANDSHAKE;
         hio_close(io);
     }

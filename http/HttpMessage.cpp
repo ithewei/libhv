@@ -92,7 +92,7 @@ bool HttpCookie::parse(const std::string& str) {
                 httponly = true;
             }
             else {
-                hlogw("Unrecognized key '%s'", key.c_str());
+                hlogi("Cookie Unrecognized key '%s'", key.c_str());
             }
         }
 
