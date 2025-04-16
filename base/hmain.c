@@ -549,21 +549,22 @@ int signal_init(procedure_t reload_fn, void* reload_userdata) {
 #include <mmsystem.h> // for timeSetEvent
 
 // win32 use Event
-//static HANDLE s_hEventTerm = NULL;
+static HANDLE s_hEventTerm = NULL;
+static HANDLE s_hEventTermWait = NULL;
 static HANDLE s_hEventReload = NULL;
 
 static void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2) {
     DWORD ret;
-    /*
+
     ret = WaitForSingleObject(s_hEventTerm, 0);
     if (ret == WAIT_OBJECT_0) {
         hlogi("pid=%d recv event [TERM]", getpid());
         if (getpid_from_pidfile() == getpid()) {
+            SetEvent(s_hEventTermWait);
             timeKillEvent(uTimerID);
             exit(0);
         }
     }
-    */
 
     ret = WaitForSingleObject(s_hEventReload, 0);
     if (ret == WAIT_OBJECT_0) {
@@ -575,8 +576,10 @@ static void WINAPI on_timer(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PT
 }
 
 static void signal_cleanup(void) {
-    //CloseHandle(s_hEventTerm);
-    //s_hEventTerm = NULL;
+    CloseHandle(s_hEventTerm);
+    s_hEventTerm = NULL;
+    CloseHandle(s_hEventTermWait);
+    s_hEventTermWait = NULL;
     CloseHandle(s_hEventReload);
     s_hEventReload = NULL;
 }
@@ -586,11 +589,17 @@ int signal_init(procedure_t reload_fn, void* reload_userdata) {
     g_main_ctx.reload_userdata = reload_userdata;
 
     char eventname[MAX_PATH] = {0};
-    //snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
-    //s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
-    //s_hEventTerm = OpenEvent(EVENT_ALL_ACCESS, FALSE, eventname);
+    snprintf(eventname, sizeof(eventname), "%s_term_event", g_main_ctx.program_name);
+    s_hEventTerm = CreateEvent(NULL, FALSE, FALSE, eventname);
+    if(s_hEventTerm == NULL) return -1;
+
+    snprintf(eventname, sizeof(eventname), "%s_term_wait_event", g_main_ctx.program_name);
+    s_hEventTermWait = CreateEvent(NULL, FALSE, FALSE, eventname);
+    if(s_hEventTermWait == NULL) return -2;
+
     snprintf(eventname, sizeof(eventname), "%s_reload_event", g_main_ctx.program_name);
     s_hEventReload = CreateEvent(NULL, FALSE, FALSE, eventname);
+    if(s_hEventReload == NULL) return -3;
 
     timeSetEvent(1000, 1000, on_timer, 0, TIME_PERIODIC);
 
@@ -603,8 +612,8 @@ static void kill_proc(int pid) {
 #ifdef OS_UNIX
     kill(pid, SIGNAL_TERMINATE);
 #else
-    //SetEvent(s_hEventTerm);
-    //hv_sleep(1);
+    SetEvent(s_hEventTerm);
+    if (WaitForSingleObject(s_hEventTermWait, 2000) == WAIT_OBJECT_0) return;
     HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
     if (hproc) {
         TerminateProcess(hproc, 0);
