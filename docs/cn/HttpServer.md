@@ -93,10 +93,11 @@ class HttpService {
     // 返回注册的路由路径列表
     hv::StringList Paths();
 
-    // 处理流程：前处理器 -> 中间件 -> 处理器 -> 后处理器
-    // preprocessor -> middleware -> processor -> postprocessor
+    // 处理流程：标头处理器 -> 前处理器 -> 中间件 -> 处理器 -> 后处理器
+    // headerHandler -> preprocessor -> middleware -> processor -> postprocessor
 
     // 数据成员
+    http_handler    headerHandler;  // 标头处理器
     http_handler    preprocessor;   // 前处理器
     http_handlers   middleware;     // 中间件
     http_handler    processor;      // 处理器
