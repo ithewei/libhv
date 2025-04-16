@@ -380,11 +380,11 @@ disconnect:
 }
 
 int hio_write (hio_t* io, const void* buf, size_t len) {
-    return hio_write4(io, buf, len, NULL);
+    return hio_write4(io, buf, len, io->peeraddr);
 }
 
 int hio_sendto (hio_t* io, const void* buf, size_t len, struct sockaddr* addr) {
-    return hio_write4(io, buf, len, addr);
+    return hio_write4(io, buf, len, addr ? addr : io->peeraddr);
 }
 
 int hio_close (hio_t* io) {
