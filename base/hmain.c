@@ -12,6 +12,7 @@
 #endif
 
 main_ctx_t  g_main_ctx;
+printf_t printf_fn = printf;
 
 static void init_arg_kv(int maxsize) {
     g_main_ctx.arg_kv_size = 0;
@@ -217,7 +218,7 @@ int parse_opt(int argc, char** argv, const char* options) {
         while (*++p) {
             int arg_type = get_arg_type(*p, options);
             if (arg_type == UNDEFINED_OPTION) {
-                printf("Invalid option '%c'\n", *p);
+                printf_fn("Invalid option '%c'\n", *p);
                 return -20;
             } else if (arg_type == NO_ARGUMENT) {
                 save_arg_kv(p, 1, OPTION_ENABLE, 0);
@@ -230,7 +231,7 @@ int parse_opt(int argc, char** argv, const char* options) {
                     save_arg_kv(p, 1, argv[++i], 0);
                     break;
                 } else {
-                    printf("Option '%c' requires param\n", *p);
+                    printf_fn("Option '%c' requires param\n", *p);
                     return -30;
                 }
             }
@@ -288,7 +289,7 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
         char* delim = strchr(arg, OPTION_DELIM);
         if (delim) {
             if (delim == arg || delim == arg+arg_len-1 || delim-arg > MAX_OPTION) {
-                printf("Invalid option '%s'\n", argv[i]);
+                printf_fn("Invalid option '%s'\n", argv[i]);
                 return -10;
             }
             memcpy(opt, arg, delim-arg);
@@ -308,7 +309,7 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
                 save_arg_list(arg);
                 continue;
             } else {
-                printf("Invalid option: '%s'\n", argv[i]);
+                printf_fn("Invalid option: '%s'\n", argv[i]);
                 return -10;
             }
         }
@@ -328,7 +329,7 @@ int parse_opt_long(int argc, char** argv, const option_t* long_options, int size
                     // --port 80
                     value = argv[++i];
                 } else if (pOption->arg_type == REQUIRED_ARGUMENT) {
-                    printf("Option '%s' requires parament\n", opt);
+                    printf_fn("Option '%s' requires parament\n", opt);
                     return -20;
                 } else {
                     // arg_type == OPTIONAL_ARGUMENT
@@ -614,48 +615,55 @@ static void kill_proc(int pid) {
 }
 
 void signal_handle(const char* signal) {
+    if (signal_handle_noexit(signal)) exit(0);
+}
+
+bool signal_handle_noexit(const char* signal) {
     if (strcmp(signal, "start") == 0) {
         if (g_main_ctx.oldpid > 0) {
-            printf("%s is already running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
-            exit(0);
+            printf_fn("%s is already running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
+            return true;
         }
     } else if (strcmp(signal, "stop") == 0) {
         if (g_main_ctx.oldpid > 0) {
             kill_proc(g_main_ctx.oldpid);
-            printf("%s stop/waiting\n", g_main_ctx.program_name);
+            printf_fn("%s stop/waiting\n", g_main_ctx.program_name);
         } else {
-            printf("%s is already stopped\n", g_main_ctx.program_name);
+            printf_fn("%s is already stopped\n", g_main_ctx.program_name);
         }
-        exit(0);
+        return true;
     } else if (strcmp(signal, "restart") == 0) {
         if (g_main_ctx.oldpid > 0) {
             kill_proc(g_main_ctx.oldpid);
-            printf("%s stop/waiting\n", g_main_ctx.program_name);
+            printf_fn("%s stop/waiting\n", g_main_ctx.program_name);
             hv_sleep(1);
         }
     } else if (strcmp(signal, "status") == 0) {
         if (g_main_ctx.oldpid > 0) {
-            printf("%s start/running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
+            printf_fn("%s start/running, pid=%d\n", g_main_ctx.program_name, g_main_ctx.oldpid);
         } else {
-            printf("%s stop/waiting\n", g_main_ctx.program_name);
+            printf_fn("%s is already stopped\n", g_main_ctx.program_name);
         }
-        exit(0);
+        return true;
     } else if (strcmp(signal, "reload") == 0) {
         if (g_main_ctx.oldpid > 0) {
-            printf("reload confile [%s]\n", g_main_ctx.confile);
+            printf_fn("reload confile [%s]\n", g_main_ctx.confile);
 #ifdef OS_UNIX
             kill(g_main_ctx.oldpid, SIGNAL_RELOAD);
 #else
             SetEvent(s_hEventReload);
 #endif
+            hv_sleep(1);
+        } else {
+            printf_fn("%s is already stopped\n", g_main_ctx.program_name);
         }
-        hv_sleep(1);
-        exit(0);
+        return true;
     } else {
-        printf("Invalid signal: '%s'\n", signal);
-        exit(0);
+        printf_fn("Invalid signal: '%s'\n", signal);
+        return true;
     }
-    printf("%s start/running\n", g_main_ctx.program_name);
+    printf_fn("%s start/running\n", g_main_ctx.program_name);
+    return false;
 }
 
 // master-workers processes
