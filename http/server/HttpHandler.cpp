@@ -895,7 +895,7 @@ int HttpHandler::sendFile() {
     int readbytes = MIN(file->buf.len, resp->content_length);
     size_t nread = file->read(file->buf.base, readbytes);
     if (nread <= 0) {
-        hloge("read file error!");
+        hloge("read file: %s error!", file->filepath);
         error = ERR_READ_FILE;
         writer->close(true);
         return nread;
@@ -967,7 +967,7 @@ int HttpHandler::upgradeWebSocket() {
     if (iter_protocol != req->headers.end()) {
         hv::StringList subprotocols = hv::split(iter_protocol->second, ',');
         if (subprotocols.size() > 0) {
-            hlogw("%s: %s => just select first protocol %s", SEC_WEBSOCKET_PROTOCOL, iter_protocol->second.c_str(), subprotocols[0].c_str());
+            hlogw("[%s:%d] %s: %s => just select first protocol %s", ip, port, SEC_WEBSOCKET_PROTOCOL, iter_protocol->second.c_str(), subprotocols[0].c_str());
             resp->headers[SEC_WEBSOCKET_PROTOCOL] = subprotocols[0];
         }
     }
@@ -997,7 +997,7 @@ int HttpHandler::upgradeHTTP2() {
     SendHttpResponse();
 
     if (!SwitchHTTP2()) {
-        hloge("[%s:%d] unsupported HTTP2", ip, port);
+        hlogw("[%s:%d] unsupported HTTP2", ip, port);
         return SetError(ERR_INVALID_PROTOCOL);
     }
 
@@ -1024,7 +1024,7 @@ int HttpHandler::handleForwardProxy() {
     if (service && service->enable_forward_proxy) {
         return connectProxy(req->url);
     } else {
-        hlogw("Forbidden to forward proxy %s", req->url.c_str());
+        hlogw("[%s:%d] Forbidden to forward proxy %s", ip, port, req->url.c_str());
         SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
     }
     return 0;
@@ -1057,7 +1057,7 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
     }
 
     if (forward_proxy && !service->IsTrustProxy(url.host.c_str())) {
-        hlogw("Forbidden to proxy %s", url.host.c_str());
+        hlogw("[%s:%d] Forbidden to proxy %s", ip, port, url.host.c_str());
         SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
         return 0;
     }
