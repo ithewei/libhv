@@ -67,6 +67,7 @@ typedef enum {
 #define DEFAULT_LOG_REMAIN_DAYS     1
 #define DEFAULT_LOG_MAX_BUFSIZE     (1<<14)  // 16k
 #define DEFAULT_LOG_MAX_FILESIZE    (1<<24)  // 16M
+#define DEFAULT_LOG_TRUNCATE_PERCENT 0.99f   // truncate when exceeded max filesize
 
 // logger: default file_logger
 // network_logger() see event/nlog.h
@@ -113,6 +114,7 @@ HV_EXPORT void logger_set_max_filesize(logger_t* logger, unsigned long long file
 // 16, 16M, 16MB
 HV_EXPORT void logger_set_max_filesize_by_str(logger_t* logger, const char* filesize);
 HV_EXPORT void logger_set_remain_days(logger_t* logger, int days);
+HV_EXPORT void logger_set_truncate_percent(logger_t* logger, float percent);
 HV_EXPORT void logger_enable_fsync(logger_t* logger, int on);
 HV_EXPORT void logger_fsync(logger_t* logger);
 HV_EXPORT const char* logger_get_cur_file(logger_t* logger);
@@ -133,6 +135,7 @@ HV_EXPORT void      hv_destroy_default_logger(void);
 #define hlog_set_max_filesize(filesize) logger_set_max_filesize(hlog, filesize)
 #define hlog_set_max_filesize_by_str(filesize) logger_set_max_filesize_by_str(hlog, filesize)
 #define hlog_set_remain_days(days)      logger_set_remain_days(hlog, days)
+#define hlog_set_truncate_percent(val)  logger_set_truncate_percent(hlog, val)
 #define hlog_enable_fsync()             logger_enable_fsync(hlog, 1)
 #define hlog_disable_fsync()            logger_enable_fsync(hlog, 0)
 #define hlog_fsync()                    logger_fsync(hlog)

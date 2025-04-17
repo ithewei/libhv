@@ -64,6 +64,9 @@ void logger_set_max_filesize(logger_t* logger, unsigned long long filesize);
 // 16, 16M, 16MB
 void logger_set_max_filesize_by_str(logger_t* logger, const char* filesize);
 
+// 设置日志文件翻转截断百分比
+void logger_set_truncate_percent(logger_t* logger, float percent);
+
 // 设置日志文件保留天数
 void logger_set_remain_days(logger_t* logger, int days);
 

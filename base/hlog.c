@@ -1,5 +1,6 @@
 #include "hlog.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,6 +45,7 @@ struct logger_s {
     // for file logger
     char                filepath[256];
     unsigned long long  max_filesize;
+    float               truncate_percent;
     int                 remain_days;
     int                 enable_fsync;
     FILE*               fp_;
@@ -67,6 +69,7 @@ static void logger_init(logger_t* logger) {
 
     logger->fp_ = NULL;
     logger->max_filesize = DEFAULT_LOG_MAX_FILESIZE;
+    logger->truncate_percent = DEFAULT_LOG_TRUNCATE_PERCENT;
     logger->remain_days = DEFAULT_LOG_REMAIN_DAYS;
     logger->enable_fsync = 1;
     logger_set_file(logger, DEFAULT_LOG_FILE);
@@ -146,6 +149,11 @@ void logger_set_remain_days(logger_t* logger, int days) {
     logger->remain_days = days;
 }
 
+void logger_set_truncate_percent(logger_t* logger, float percent) {
+    assert(percent <= 1.0f);
+    logger->truncate_percent = percent;
+}
+
 void logger_set_max_bufsize(logger_t* logger, unsigned int bufsize) {
     logger->bufsize = bufsize;
     logger->buf = (char*)realloc(logger->buf, bufsize);
@@ -214,6 +222,68 @@ static void logfile_name(const char* filepath, time_t ts, char* buf, int len) {
             tm->tm_mday);
 }
 
+static void logfile_truncate(logger_t* logger) {
+    // close
+    if (logger->fp_) {
+        fclose(logger->fp_);
+        logger->fp_ = NULL;
+    }
+    char tmp_logfile[sizeof(logger->cur_logfile) + 4] = {0};
+    FILE* tmpfile = NULL;
+    if (logger->truncate_percent < 1.0f) {
+        snprintf(tmp_logfile, sizeof(tmp_logfile), "%s.tmp", logger->cur_logfile);
+        tmpfile = fopen(tmp_logfile, "w");
+    }
+    if (tmpfile) {
+        // truncate percent
+        logger->fp_ = fopen(logger->cur_logfile, "r");
+        if (logger->fp_) {
+            fseek(logger->fp_, 0, SEEK_END);
+            long filesize = ftell(logger->fp_);
+            long truncate_size = (long)((double)filesize * logger->truncate_percent);
+            fseek(logger->fp_, -(filesize - truncate_size), SEEK_CUR);
+            long cur_pos = ftell(logger->fp_);
+            char buf[4096] = {0};
+            const char* pbuf = buf;
+            size_t nread = 0, nwrite = 0;
+            char find_newline = 0;
+            while ((nread = fread(buf, 1, sizeof(buf), logger->fp_)) > 0) {
+                pbuf = buf;
+                if (find_newline == 0) {
+                    while (nread > 0) {
+                        if (*pbuf == '\n') {
+                            find_newline = 1;
+                            ++pbuf;
+                            --nread;
+                            break;
+                        }
+                        ++pbuf;
+                        --nread;
+                    }
+                }
+                if (nread > 0) {
+                    nwrite += fwrite(pbuf, 1, nread, tmpfile);
+                }
+            }
+            fclose(tmpfile);
+            fclose(logger->fp_);
+            logger->fp_ = NULL;
+            remove(logger->cur_logfile);
+            rename(tmp_logfile, logger->cur_logfile);
+        }
+    } else {
+        // truncate all
+        // remove(logger->cur_logfile);
+        logger->fp_ = fopen(logger->cur_logfile, "w");
+        if (logger->fp_) {
+            fclose(logger->fp_);
+            logger->fp_ = NULL;
+        }
+    }
+    // reopen
+    logger->fp_ = fopen(logger->cur_logfile, "a");
+}
+
 static FILE* logfile_shift(logger_t* logger) {
     time_t ts_now = time(NULL);
     int interval_days = logger->last_logfile_ts == 0 ? 0 : (ts_now+s_gmtoff) / SECONDS_PER_DAY - (logger->last_logfile_ts+s_gmtoff) / SECONDS_PER_DAY;
@@ -258,17 +328,8 @@ static FILE* logfile_shift(logger_t* logger) {
         fseek(logger->fp_, 0, SEEK_END);
         long filesize = ftell(logger->fp_);
         if (filesize > logger->max_filesize) {
-            fclose(logger->fp_);
-            logger->fp_ = NULL;
-            // ftruncate
-            logger->fp_ = fopen(logger->cur_logfile, "w");
-            // reopen with O_APPEND for multi-processes
-            if (logger->fp_) {
-                fclose(logger->fp_);
-                logger->fp_ = fopen(logger->cur_logfile, "a");
-            }
-        }
-        else {
+            logfile_truncate(logger);
+        } else {
             logger->can_write_cnt = (logger->max_filesize - filesize) / logger->bufsize;
         }
     }
@@ -419,7 +480,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
         len += snprintf(buf + len, bufsize - len, "%s", CLR_CLR);
     }
 
-    if(len<bufsize) {
+    if(len < bufsize) {
         buf[len++] = '\n';
     }
 

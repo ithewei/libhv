@@ -254,6 +254,7 @@
 - logger_set_max_bufsize
 - logger_set_max_filesize
 - logger_set_remain_days
+- logger_set_truncate_percent
 - logger_get_cur_file
 - hlogd, hlogi, hlogw, hloge, hlogf
 - LOGD, LOGI, LOGW, LOGE, LOGF

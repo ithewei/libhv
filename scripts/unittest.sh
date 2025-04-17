@@ -11,6 +11,7 @@ bin/ifconfig
 bin/mkdir_p 123/456
 bin/ls
 bin/rmdir_p 123/456
+bin/hlog_test
 
 bin/base64
 bin/md5
