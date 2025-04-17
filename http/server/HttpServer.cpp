@@ -296,12 +296,14 @@ std::shared_ptr<hv::EventLoop> HttpServer::loop(int idx) {
     if (privdata == NULL) return NULL;
     std::lock_guard<std::mutex> locker(privdata->mutex_);
     if (privdata->loops.empty()) return NULL;
-    if (idx >= 0 && idx < (int)privdata->loops.size()) {
-        return privdata->loops[idx];
+    if (idx < 0) {
+        EventLoop* cur = currentThreadEventLoop;
+        for (auto& loop : privdata->loops) {
+            if (loop.get() == cur) return loop;
+        }
     }
-    EventLoop* cur = currentThreadEventLoop;
-    for (auto& loop : privdata->loops) {
-        if (loop.get() == cur) return loop;
+    else if (idx >= 0 && idx < (int)privdata->loops.size()) {
+        return privdata->loops[idx];
     }
     return NULL;
 }
