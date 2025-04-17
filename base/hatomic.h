@@ -52,8 +52,14 @@ static inline bool atomic_flag_test_and_set(atomic_flag* p) {
     return InterlockedCompareExchange(&p->_Value, 1, 0);
 }
 
-#define ATOMIC_ADD          InterlockedAdd
-#define ATOMIC_SUB(p, n)    InterlockedAdd(p, -n)
+#if WINVER > 0x0600
+    #define ATOMIC_ADD          InterlockedAdd
+    #define ATOMIC_SUB(p, n)    InterlockedAdd(p, -n)
+#else
+    #define ATOMIC_ADD(p, n)    (InterlockedExchangeAdd(p, n) + n)
+    #define ATOMIC_SUB(p, n)    (InterlockedExchangeAdd(p, -n) - n)
+#endif
+
 #define ATOMIC_INC          InterlockedIncrement
 #define ATOMIC_DEC          InterlockedDecrement
 
