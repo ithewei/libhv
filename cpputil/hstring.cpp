@@ -226,24 +226,25 @@ std::string NetAddr::to_string(const char* ip, int port) {
 }
 
 #ifdef OS_WIN
-std::string wchar_to_utf8(const std::wstring &wstr) {
+std::string wchar_to_string(const UINT codePage, const std::wstring &wstr) {
   std::string str(4 * wstr.size() + 1, '\0');
   str.resize(WideCharToMultiByte(
-    CP_UTF8, 0, 
-    wstr.c_str(), wstr.size(), 
-    const_cast<char*>(str.data()), str.size(), 
+    codePage, 0,
+    wstr.c_str(), wstr.size(),
+    const_cast<char*>(str.data()), str.size(),
     NULL, NULL));
   return str;
 }
 
-std::wstring utf8_to_wchar(const std::string &str) {
-  std::wstring wstr(2 * str.size() + 1, '\0');
+std::wstring string_to_wchar(const UINT codePage, const std::string &str) {
+  std::wstring wstr(2 * str.size() + 2, '\0');
   wstr.resize(MultiByteToWideChar(
-    CP_UTF8, 0, 
-    str.c_str(), str.size(), 
+    codePage, 0,
+    str.c_str(), str.size(),
     const_cast<wchar_t*>(wstr.data()), wstr.size()));
   return wstr;
 }
+
 #endif // OS_WIN
 
 } // end namespace hv

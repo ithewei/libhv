@@ -156,7 +156,7 @@ private:
     // default handlers
     int defaultRequestHandler();
     int defaultStaticHandler();
-    int defaultLargeFileHandler();
+    int defaultLargeFileHandler(const std::string &filepath);
     int defaultErrorHandler();
     int customHttpHandler(const http_handler& handler);
     int invokeHttpHandler(const http_handler* handler);
