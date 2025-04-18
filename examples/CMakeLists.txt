@@ -178,4 +178,9 @@ if(WITH_MQTT)
     list(APPEND EXAMPLES mqtt_sub mqtt_pub mqtt_client_test)
 endif()
 
+include_directories(../protocol)
+add_executable(ping ping.c ../protocol/icmp.c)
+target_compile_definitions(ping PRIVATE PRINT_DEBUG)
+target_link_libraries(ping ${HV_LIBRARIES})
+
 add_custom_target(examples DEPENDS ${EXAMPLES})
