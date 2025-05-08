@@ -53,7 +53,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
 
     // wss
     bool wss = strncmp(url.c_str(), "wss", 3) == 0;
-    if (wss) {
+    if (wss && !http_req_->IsProxy()) {
         withTLS();
     }
 
