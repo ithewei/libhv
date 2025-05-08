@@ -242,10 +242,9 @@ static void logfile_truncate(logger_t* logger) {
             long filesize = ftell(logger->fp_);
             long truncate_size = (long)((double)filesize * logger->truncate_percent);
             fseek(logger->fp_, -(filesize - truncate_size), SEEK_CUR);
-            long cur_pos = ftell(logger->fp_);
             char buf[4096] = {0};
             const char* pbuf = buf;
-            size_t nread = 0, nwrite = 0;
+            size_t nread = 0;
             char find_newline = 0;
             while ((nread = fread(buf, 1, sizeof(buf), logger->fp_)) > 0) {
                 pbuf = buf;
@@ -262,7 +261,7 @@ static void logfile_truncate(logger_t* logger) {
                     }
                 }
                 if (nread > 0) {
-                    nwrite += fwrite(pbuf, 1, nread, tmpfile);
+                    fwrite(pbuf, 1, nread, tmpfile);
                 }
             }
             fclose(tmpfile);
