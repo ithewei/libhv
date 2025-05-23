@@ -80,7 +80,10 @@ public:
 
     int stop() {
         if (status == STOP) return -1;
-        status = STOP;
+        {
+            std::unique_lock<std::mutex> locker(task_mutex);
+            status = STOP;
+        }
         task_cond.notify_all();
         for (auto& i : threads) {
             if (i.thread->joinable()) {
