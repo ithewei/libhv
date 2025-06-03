@@ -273,7 +273,7 @@ if(BUILD_STATIC)
     add_custom_target(libhv_static DEPENDS hv_static)
 endif()
 
-if(WIN32)
+if(WIN32 AND NOT MINGW)
     install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}> DESTINATION bin OPTIONAL)
 endif()
 
