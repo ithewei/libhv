@@ -56,7 +56,9 @@ int on_status(http_parser* parser, const char *at, size_t length) {
 int on_header_field(http_parser* parser, const char *at, size_t length) {
     printd("on_header_field:%.*s\n", (int)length, at);
     Http1Parser* hp = (Http1Parser*)parser->data;
-    hp->handle_header();
+    if (hp->state != HP_HEADER_FIELD) {
+        hp->handle_header();
+    }
     hp->state = HP_HEADER_FIELD;
     hp->header_field.append(at, length);
     return 0;
