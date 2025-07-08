@@ -170,6 +170,26 @@ const char* sockaddr_str(sockaddr_u* addr, char* buf, int len) {
     return buf;
 }
 
+int sockaddr_compare(const sockaddr_u* addr1, const sockaddr_u* addr2) {
+    if (addr1->sa.sa_family != addr2->sa.sa_family)
+        return addr1->sa.sa_family - addr2->sa.sa_family;
+    if (addr1->sa.sa_family == AF_INET) {
+        if (addr1->sin.sin_family != addr2->sin.sin_family)
+            return addr1->sin.sin_family - addr2->sin.sin_family;
+        if (addr1->sin.sin_port != addr2->sin.sin_port)
+            return addr1->sin.sin_port - addr2->sin.sin_port;
+        return memcmp(&addr1->sin.sin_addr, &addr2->sin.sin_addr, sizeof(struct in_addr));
+    }
+    else if (addr1->sa.sa_family == AF_INET6) {
+        if (addr1->sin6.sin6_family != addr2->sin6.sin6_family)
+            return addr1->sin6.sin6_family - addr2->sin6.sin6_family;
+        if (addr1->sin6.sin6_port != addr2->sin6.sin6_port)
+            return addr1->sin6.sin6_port - addr2->sin6.sin6_port;
+        return memcmp(&addr1->sin6.sin6_addr, &addr2->sin6.sin6_addr, sizeof(struct in_addr));
+    }
+    return memcmp(addr1, addr2, sizeof(sockaddr_u));
+}
+
 static int sockaddr_bind(sockaddr_u* localaddr, int type) {
     // socket -> setsockopt -> bind
 #ifdef SOCK_CLOEXEC
