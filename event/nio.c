@@ -499,7 +499,7 @@ static int hio_write4 (hio_t* io, const void* buf, size_t len, struct sockaddr* 
     hrecursive_mutex_lock(&io->write_mutex);
 #if WITH_KCP
     if (io->io_type == HIO_TYPE_KCP) {
-        nwrite = hio_write_kcp(io, buf, len);
+        nwrite = hio_write_kcp(io, buf, len, addr);
         // if (nwrite < 0) goto write_error;
         goto write_done;
     }

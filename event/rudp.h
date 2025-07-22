@@ -45,7 +45,7 @@ rudp_entry_t* rudp_get(rudp_t* rudp, struct sockaddr* addr);
 void          rudp_del(rudp_t* rudp, struct sockaddr* addr);
 
 // rudp_get(&io->rudp, io->peeraddr)
-rudp_entry_t* hio_get_rudp(hio_t* io);
+rudp_entry_t* hio_get_rudp(hio_t* io, struct sockaddr* addr DEFAULT(NULL));
 
 #endif // WITH_RUDP
 
