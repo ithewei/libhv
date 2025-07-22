@@ -42,8 +42,8 @@ int hio_set_kcp(hio_t* io, kcp_setting_t* setting) {
     return 0;
 }
 
-kcp_t* hio_get_kcp(hio_t* io, uint32_t conv) {
-    rudp_entry_t* rudp = hio_get_rudp(io);
+kcp_t* hio_get_kcp(hio_t* io, uint32_t conv, struct sockaddr* addr) {
+    rudp_entry_t* rudp = hio_get_rudp(io, addr);
     assert(rudp != NULL);
     kcp_t* kcp = &rudp->kcp;
     if (kcp->ikcp != NULL) return kcp;
@@ -80,17 +80,18 @@ static void hio_write_kcp_event_cb(hevent_t* ev) {
     hio_t* io = (hio_t*)ev->userdata;
     hbuf_t* buf = (hbuf_t*)ev->privdata;
 
-    hio_write_kcp(io, buf->base, buf->len);
+    hio_write_kcp(io, buf->base + sizeof(sockaddr_u), buf->len - sizeof(sockaddr_u), (struct sockaddr*)buf->base);
 
     HV_FREE(buf);
 }
 
-static int hio_write_kcp_async(hio_t* io, const void* data, size_t len) {
+static int hio_write_kcp_async(hio_t* io, const void* data, size_t len, struct sockaddr* addr) {
     hbuf_t* buf = NULL;
-    HV_ALLOC(buf, sizeof(hbuf_t) + len);
+    HV_ALLOC(buf, sizeof(hbuf_t) + sizeof(sockaddr_u) + len);
     buf->base = (char*)buf + sizeof(hbuf_t);
-    buf->len = len;
-    memcpy(buf->base, data, len);
+    buf->len = len + sizeof(sockaddr_u);
+    memcpy(buf->base, addr, sizeof(sockaddr_u));
+    memcpy(buf->base + sizeof(sockaddr_u), data, len);
 
     hevent_t ev;
     memset(&ev, 0, sizeof(ev));
@@ -101,12 +102,12 @@ static int hio_write_kcp_async(hio_t* io, const void* data, size_t len) {
     return len;
 }
 
-int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
+int hio_write_kcp(hio_t* io, const void* buf, size_t len, struct sockaddr* addr) {
     if (hv_gettid() != io->loop->tid) {
-        return hio_write_kcp_async(io, buf, len);
+        return hio_write_kcp_async(io, buf, len, addr);
     }
     IUINT32 conv = io->kcp_setting ? io->kcp_setting->conv : 0;
-    kcp_t* kcp = hio_get_kcp(io, conv);
+    kcp_t* kcp = hio_get_kcp(io, conv, addr);
     // printf("hio_write_kcp conv=%u=%u\n", conv, kcp->conv);
     int nsend = ikcp_send(kcp->ikcp, (const char*)buf, len);
     // printf("ikcp_send len=%d nsend=%d\n", (int)len, nsend);
@@ -120,7 +121,7 @@ int hio_write_kcp(hio_t* io, const void* buf, size_t len) {
 
 int hio_read_kcp (hio_t* io, void* buf, int readbytes) {
     IUINT32 conv = ikcp_getconv(buf);
-    kcp_t* kcp = hio_get_kcp(io, conv);
+    kcp_t* kcp = hio_get_kcp(io, conv, NULL);
     // printf("hio_read_kcp conv=%u=%u\n", conv, kcp->conv);
     if (kcp->conv != conv) {
         hloge("recv invalid kcp packet!");

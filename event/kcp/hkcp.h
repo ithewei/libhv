@@ -21,9 +21,9 @@ typedef struct kcp_s {
 // NOTE: kcp_create in hio_get_kcp
 void kcp_release(kcp_t* kcp);
 
-kcp_t* hio_get_kcp  (hio_t* io, uint32_t conv);
+kcp_t* hio_get_kcp  (hio_t* io, uint32_t conv, struct sockaddr* addr DEFAULT(NULL));
 int    hio_read_kcp (hio_t* io, void* buf, int readbytes);
-int    hio_write_kcp(hio_t* io, const void* buf, size_t len);
+int    hio_write_kcp(hio_t* io, const void* buf, size_t len, struct sockaddr* addr DEFAULT(NULL));
 
 #endif
 
