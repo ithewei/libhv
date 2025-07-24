@@ -136,8 +136,8 @@ void rudp_del(rudp_t* rudp, struct sockaddr* addr) {
     hmutex_unlock(&rudp->mutex);
 }
 
-rudp_entry_t* hio_get_rudp(hio_t* io) {
-    rudp_entry_t* rudp = rudp_get(&io->rudp, io->peeraddr);
+rudp_entry_t* hio_get_rudp(hio_t* io, struct sockaddr* addr) {
+    rudp_entry_t* rudp = rudp_get(&io->rudp, addr ? addr : io->peeraddr);
     rudp->io = io;
     return rudp;
 }
