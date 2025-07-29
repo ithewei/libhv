@@ -291,5 +291,13 @@ void hio_memmove_readbuf(hio_t* io);
         EVENT_ACTIVE(ev);\
         ev->pending = 0;\
     } while(0)
+    
+#define EVENT_UNPENDING(ev) \
+    do {\
+        if (ev->pending) {\
+            ev->pending = 0;\
+            ev->loop->npendings--;\
+        }\
+    } while(0)
 
 #endif // HV_EVENT_H_
