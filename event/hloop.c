@@ -117,7 +117,7 @@ static int hloop_process_pendings(hloop_t* loop) {
         cur = loop->pendings[i];
         while (cur) {
             next = cur->pending_next;
-            if (cur->pending) {
+            if (cur->pending && cur->loop == loop) {
                 if (cur->active && cur->cb) {
                     cur->cb(cur);
                     ++ncbs;
@@ -875,6 +875,7 @@ int hio_del(hio_t* io, int events) {
         io->loop->nios--;
         // NOTE: not EVENT_DEL, avoid free
         EVENT_INACTIVE(io);
+        EVENT_UNPENDING(io);
     }
     return 0;
 }
