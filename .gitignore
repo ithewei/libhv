@@ -9,6 +9,9 @@ MODULE.bazel.lock
 *.slo
 *.obj
 
+# Compiled Depfile
+*.d
+
 # Precompiled Headers
 *.gch
 *.pch
