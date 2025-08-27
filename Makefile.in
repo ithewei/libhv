@@ -94,6 +94,9 @@ ifeq ($(findstring -std, $(CXXFLAGS)), )
 override CXXFLAGS += -std=c++11
 endif
 
+override CFLAGS += -MMD
+override CXXFLAGS += -MMD
+
 ARFLAGS ?= cr
 
 # DIRS
@@ -125,6 +128,7 @@ override SRCS += $(filter-out %_test.c %_test.cc %_test.cpp, $(ALL_SRCS))
 # OBJS += $(patsubst %.cc, %.o, $(SRCS))
 # OBJS += $(patsubst %.cpp, %.o, $(SRCS))
 OBJS := $(addsuffix .o, $(basename $(SRCS)))
+DEPS := $(OBJS:.o=.d)
 
 INSTALLED_INCS=$(addprefix $(PREFIX)/$(INCDIR)/, $(shell ls $(INCDIR)))
 INSTALLED_LIBS=$(addprefix $(PREFIX)/$(LIBDIR)/, $(shell ls $(LIBDIR)))
@@ -282,7 +286,7 @@ endif
 endif
 
 clean:
-	$(RM) $(OBJS)
+	$(RM) $(OBJS) $(DEPS)
 	#$(RM) $(LIBDIR)
 	#$(RM) $(BINDIR)
 
@@ -303,5 +307,7 @@ dist:
 
 undist:
 	$(RM) $(DISTDIR)
+
+-include $(DEPS)
 
 .PHONY: default all prepare clean install uninstall dist undist
