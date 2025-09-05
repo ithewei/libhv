@@ -57,8 +57,12 @@ HttpHandler::HttpHandler(hio_t* io) :
     // Init();
 }
 
-HttpHandler::~HttpHandler() {
-    Close();
+HttpHandler::~HttpHandler() noexcept {
+    try {
+        Close();
+    } catch (...) {
+        // silently swallow exceptions to avoid terminate
+    }
 }
 
 bool HttpHandler::Init(int http_version) {
