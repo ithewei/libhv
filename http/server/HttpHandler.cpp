@@ -827,7 +827,7 @@ return_header:
         {
             // NOTE: remove file cache if > FILE_CACHE_MAX_SIZE
             if (fc && fc->filebuf.len > FILE_CACHE_MAX_SIZE) {
-                files->Close(fc);
+                files->Close(fc->filepath.c_str());
             }
             fc = NULL;
             header.clear();

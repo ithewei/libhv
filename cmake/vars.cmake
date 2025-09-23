@@ -50,6 +50,7 @@ set(CPPUTIL_HEADERS
     cpputil/iniparser.h
     cpputil/json.hpp
     cpputil/singleton.h
+    cpputil/LRUCache.h
     cpputil/ThreadLocalStorage.h
 )
 

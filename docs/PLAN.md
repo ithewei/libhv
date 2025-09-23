@@ -12,7 +12,6 @@
 ## Improving
 
 - Path router: optimized matching via trie?
-- FileCache use LRUCache
 
 ## Plan
 
