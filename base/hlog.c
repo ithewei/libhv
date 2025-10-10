@@ -463,6 +463,7 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
                 buf[len++] = *p;
             }
             ++p;
+            if (len >= bufsize) break;
         }
     } else {
         len += snprintf(buf + len, bufsize - len, "%04d-%02d-%02d %02d:%02d:%02d.%03d %s ",
@@ -475,12 +476,15 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
         va_end(ap);
     }
 
-    if (logger->enable_color) {
+    if (logger->enable_color && len < bufsize) {
         len += snprintf(buf + len, bufsize - len, "%s", CLR_CLR);
     }
 
-    if(len < bufsize) {
+    if (len < bufsize) {
         buf[len++] = '\n';
+    } else {
+        buf[bufsize - 1] = '\n';
+        len = bufsize;
     }
 
     if (logger->handler) {
