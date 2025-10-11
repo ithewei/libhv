@@ -203,7 +203,7 @@ enum http_method {
     XX(IMAGE_PNG,               image/png,                png)          \
     XX(IMAGE_GIF,               image/gif,                gif)          \
     XX(IMAGE_ICO,               image/x-icon,             ico)          \
-    XX(IMAGE_BMP,               image/x-ms-bmp,           bmp)          \
+    XX(IMAGE_BMP,               image/bmp,                bmp)          \
     XX(IMAGE_SVG,               image/svg+xml,            svg)          \
     XX(IMAGE_TIFF,              image/tiff,               tiff)         \
     XX(IMAGE_WEBP,              image/webp,               webp)         \
