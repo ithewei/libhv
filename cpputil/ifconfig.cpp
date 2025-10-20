@@ -97,13 +97,18 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
     PIP_ADAPTER_ADDRESSES pAddrs = NULL;
     ULONG buflen = 0;
     GetAdaptersAddresses(AF_INET, 0, NULL, pAddrs, &buflen);
+	if (buflen <= 0) return -20;
     pAddrs = (PIP_ADAPTER_ADDRESSES)malloc(buflen);
     GetAdaptersAddresses(AF_INET, 0, NULL, pAddrs, &buflen);
 
     PIP_ADAPTER_INFO pInfos = NULL;
     buflen = 0;
     GetAdaptersInfo(pInfos, &buflen);
-    pInfos = (PIP_ADAPTER_INFO)malloc(buflen);
+	if (buflen <= 0) {
+		free(pAddrs);
+		return -20;
+    }
+	pInfos = (PIP_ADAPTER_INFO)malloc(buflen);
     GetAdaptersInfo(pInfos, &buflen);
 
     ifconfig_t ifc;
