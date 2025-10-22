@@ -11,6 +11,12 @@
 #define environ (*_NSGetEnviron())
 #endif
 
+#ifdef OS_UNIX
+#include <sys/file.h>
+#endif
+
+static FILE* s_fp = NULL;
+
 main_ctx_t  g_main_ctx;
 printf_t printf_fn = printf;
 
@@ -74,7 +80,7 @@ int main_ctx_init(int argc, char** argv) {
         get_executable_path(argv[0], MAX_PATH);
     }
 
-    get_run_dir(g_main_ctx.run_dir, sizeof(g_main_ctx.run_dir));
+    if (!hv_exists(g_main_ctx.run_dir)) get_run_dir(g_main_ctx.run_dir, sizeof(g_main_ctx.run_dir));
     //printf("run_dir=%s\n", g_main_ctx.run_dir);
     strncpy(g_main_ctx.program_name, hv_basename(argv[0]), sizeof(g_main_ctx.program_name));
 #ifdef OS_WIN
@@ -90,21 +96,36 @@ int main_ctx_init(int argc, char** argv) {
     snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_dir, g_main_ctx.program_name);
     snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.logfile), "%s/logs/%s.log", g_main_ctx.run_dir, g_main_ctx.program_name);
     hlog_set_file(g_main_ctx.logfile);
-
+#ifdef OS_WIN
+    // Only Windows does not allow deleting occupied files
+    remove(g_main_ctx.pidfile);
+#endif
     g_main_ctx.pid = getpid();
     g_main_ctx.oldpid = getpid_from_pidfile();
 #ifdef OS_UNIX
+    s_fp = fopen(g_main_ctx.pidfile, "a");
+    if (s_fp != NULL) {
+        if (flock(fileno(s_fp), LOCK_EX | LOCK_NB) == 0) {
+            // The lock is successful, indicating that oldpid has ended
+            g_main_ctx.oldpid = -1;
+            flock(fileno(s_fp), LOCK_UN);
+        }
+        fclose(s_fp);
+        s_fp = NULL;
+    }
     if (kill(g_main_ctx.oldpid, 0) == -1 && errno == ESRCH) {
         g_main_ctx.oldpid = -1;
     }
-#else
-    HANDLE hproc = OpenProcess(PROCESS_TERMINATE, FALSE, g_main_ctx.oldpid);
-    if (hproc == NULL) {
-        g_main_ctx.oldpid = -1;
-    }
-    else {
+#endif
+
+#ifdef OS_WIN
+    DWORD exitCode = 0;
+    const HANDLE hproc = OpenProcess(PROCESS_TERMINATE | PROCESS_QUERY_INFORMATION, FALSE, g_main_ctx.oldpid);
+    if (hproc) {
+        GetExitCodeProcess(hproc, &exitCode);
         CloseHandle(hproc);
     }
+    if (exitCode != STILL_ACTIVE) g_main_ctx.oldpid = -1;
 #endif
 
     // save arg
@@ -430,22 +451,38 @@ void setproctitle(const char* fmt, ...) {
 #endif
 
 int create_pidfile() {
-    FILE* fp = fopen(g_main_ctx.pidfile, "w");
-    if (fp == NULL) {
+    s_fp = fopen(g_main_ctx.pidfile, "a");
+    if (s_fp == NULL) {
         hloge("fopen('%s') error: %d", g_main_ctx.pidfile, errno);
         return -1;
     }
-
+#ifdef OS_UNIX
+    if (flock(fileno(s_fp), LOCK_EX | LOCK_NB) < 0) {
+        hloge("flock('%s') error: %d", g_main_ctx.pidfile, errno);
+        fclose(s_fp);
+        s_fp = NULL;
+        return -1;
+    }
+    ftruncate(fileno(s_fp), 0);
+#else
+    chsize(fileno(s_fp), 0);
+#endif
     g_main_ctx.pid = hv_getpid();
-    fprintf(fp, "%d\n", (int)g_main_ctx.pid);
-    fclose(fp);
+    fprintf(s_fp, "%d\n", (int)g_main_ctx.pid);
+    fflush(s_fp);
     hlogi("create_pidfile('%s') pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
     atexit(delete_pidfile);
     return 0;
 }
 
 void delete_pidfile(void) {
+    if (s_fp == NULL) return;
     hlogi("delete_pidfile('%s') pid=%d", g_main_ctx.pidfile, g_main_ctx.pid);
+#ifdef OS_UNIX
+    flock(fileno(s_fp), LOCK_UN);
+#endif
+    fclose(s_fp);
+    s_fp = NULL;
     remove(g_main_ctx.pidfile);
 }
 
