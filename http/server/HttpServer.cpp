@@ -38,13 +38,17 @@ static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     if (handler == NULL) return;
 
-    hevent_set_userdata(io, NULL);
-    delete handler;
-
+    http_server_t* server = (http_server_t*)handler->server;
+    if (server->onClose) {
+        hevent_set_userdata(io, handler->userdata);
+        server->onClose(io);
+    }
     EventLoop* loop = currentThreadEventLoop;
     if (loop) {
         --loop->connectionNum;
     }
+    hevent_set_userdata(io, NULL);
+    delete handler;
 }
 
 static void on_accept(hio_t* io) {
@@ -65,6 +69,12 @@ static void on_accept(hio_t* io) {
         hio_close(io);
         return;
     }
+    if (server->onAccept) {
+        if (!server->onAccept(io)) {
+            hio_close(io);
+            return;
+        }
+    }
     ++loop->connectionNum;
 
     hio_setcb_close(io, on_close);
@@ -82,6 +92,9 @@ static void on_accept(hio_t* io) {
     sockaddr_u* peeraddr = (sockaddr_u*)hio_peeraddr(io);
     sockaddr_ip(peeraddr, handler->ip, sizeof(handler->ip));
     handler->port = sockaddr_port(peeraddr);
+    // http server
+    handler->server = server;
+    handler->userdata = hevent_userdata(io);
     // http service
     handler->service = service;
     // websocket service
