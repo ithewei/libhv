@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 cmake_policy(SET CMP0077 NEW)
 
-project(hv VERSION 1.3.3)
+project(hv VERSION 1.3.4)
 
 option(BUILD_SHARED "build shared library" ON)
 option(BUILD_STATIC "build static library" ON)
