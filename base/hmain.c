@@ -470,7 +470,10 @@ void signal_handler(int signo) {
     switch (signo) {
     case SIGINT:
     case SIGNAL_TERMINATE:
-        hlogi("killall processes");
+        hlogi("master process is about to end");
+        g_main_ctx.master_wait = true;
+    case SIGNAL_KILLWORKER:
+        hlogi("kill all worker processes");
         signal(SIGCHLD, SIG_IGN);
         // master send SIGKILL => workers
         for (int i = 0; i < g_main_ctx.worker_processes; ++i) {
@@ -478,7 +481,8 @@ void signal_handler(int signo) {
             kill(g_main_ctx.proc_ctxs[i].pid, SIGKILL);
             g_main_ctx.proc_ctxs[i].pid = -1;
         }
-        exit(0);
+        g_main_ctx.worker_processes = 0;
+        if (g_main_ctx.master_wait) exit(0);
         break;
     case SIGCHLD:
     {
@@ -542,6 +546,7 @@ int signal_init(procedure_t reload_fn, void* reload_userdata) {
     signal(SIGCHLD, signal_handler);
     signal(SIGNAL_TERMINATE, signal_handler);
     signal(SIGNAL_RELOAD, signal_handler);
+    signal(SIGNAL_KILLWORKER, signal_handler);
 
     return 0;
 }
@@ -737,6 +742,7 @@ int master_workers_run(procedure_t worker_fn, void* worker_userdata,
         setproctitle("%s: master process", g_main_ctx.program_name);
         signal(SIGNAL_RELOAD, signal_handler);
 #endif
+        g_main_ctx.master_wait = wait;
         g_main_ctx.worker_processes = worker_processes;
         int bytes = g_main_ctx.worker_processes * sizeof(proc_ctx_t);
         SAFE_ALLOC(g_main_ctx.proc_ctxs, bytes);
