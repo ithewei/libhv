@@ -42,6 +42,8 @@ HttpHandler::HttpHandler(hio_t* io) :
     tid(0),
     // for http
     io(io),
+    server(NULL),
+    userdata(NULL),
     service(NULL),
     api_handler(NULL),
     // for websocket
@@ -224,6 +226,7 @@ const HttpContextPtr& HttpHandler::context() {
         ctx->response = resp;
         ctx->writer = writer;
     }
+    ctx->userdata = this->userdata;
     return ctx;
 }
 

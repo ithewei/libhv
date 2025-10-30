@@ -43,6 +43,7 @@ MODULE.bazel.lock
 .vs
 .vscode
 .DS_Store
+.idea
 
 tags
 cscope*
