@@ -1,6 +1,7 @@
 #ifndef HV_HTTP_CLIENT_H_
 #define HV_HTTP_CLIENT_H_
 
+#include "EventLoop.h"
 #include "hexport.h"
 #include "hssl.h"
 #include "HttpMessage.h"
@@ -76,6 +77,7 @@ HV_EXPORT int http_client_send_data(http_client_t* cli, const char* data, int si
 HV_EXPORT int http_client_recv_data(http_client_t* cli, char* data, int size);
 HV_EXPORT int http_client_recv_response(http_client_t* cli, HttpResponse* resp);
 HV_EXPORT int http_client_close(http_client_t* cli);
+HV_EXPORT int http_client_reuse_loop(http_client_t *cli, hv::EventLoopPtr loop);
 
 namespace hv {
 
@@ -160,6 +162,10 @@ public:
     }
     int close() {
         return http_client_close(_client);
+    }
+    //if need, set once, set before sendAsync
+    int reuseLoop(EventLoopPtr loop) {
+        return http_client_reuse_loop(_client, std::move(loop));
     }
 
 private:
