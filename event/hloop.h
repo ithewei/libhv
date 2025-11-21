@@ -497,6 +497,7 @@ typedef enum {
     ENCODE_BY_VARINT        = 17,               // 1 MSB + 7 bits
     ENCODE_BY_LITTEL_ENDIAN = LITTLE_ENDIAN,    // 1234
     ENCODE_BY_BIG_ENDIAN    = BIG_ENDIAN,       // 4321
+    ENCODE_BY_ASN1          = 80,               // asn1 decode int
 } unpack_coding_e;
 
 typedef struct unpack_setting_s {
@@ -517,7 +518,7 @@ typedef struct unpack_setting_s {
          *
          * package_len = head_len + body_len + length_adjustment
          *
-         * if (length_field_coding == ENCODE_BY_VARINT) head_len = body_offset + varint_bytes - length_field_bytes;
+         * if (length_field_coding == ENCODE_BY_VARINT || length_field_coding == ENCODE_BY_ASN1) head_len = body_offset + varint_bytes - length_field_bytes;
          * else head_len = body_offset;
          *
          * length_field stores body length, exclude head length,
