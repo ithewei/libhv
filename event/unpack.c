@@ -139,6 +139,18 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
                 return -1;
             }
             head_len = setting->body_offset + varint_bytes - setting->length_field_bytes;
+        }
+        else if (setting->length_field_coding == ENCODE_BY_ASN1) {
+            int varint_bytes = ep - lp;
+            body_len = asn1_decode(lp, &varint_bytes);
+            if (varint_bytes == 0) break;
+            if (varint_bytes == -1) {
+                hloge("varint is too big!");
+                io->error = ERR_OVER_LIMIT;
+                hio_close(io);
+                return -1;
+            }
+            head_len = setting->body_offset + varint_bytes - setting->length_field_bytes;
         } else {
             hloge("Unknown length_field_coding!");
             io->error = ERR_INVALID_PARAM;
