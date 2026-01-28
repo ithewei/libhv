@@ -105,6 +105,14 @@ public:
 
     int startConnect() {
         if (channel == NULL || channel->isClosed()) {
+            // Re-resolve DNS to get the latest IP address
+            memset(&remote_addr, 0, sizeof(remote_addr));
+            int ret = sockaddr_set_ipport(&remote_addr, remote_host.c_str(), remote_port);
+            if (ret != 0) {
+                hloge("sockaddr_set_ipport %s:%d failed!\n", remote_host.c_str(), remote_port);
+                return ret;
+            }
+            
             int connfd = createsocket(&remote_addr.sa);
             if (connfd < 0) {
                 hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, connfd);
