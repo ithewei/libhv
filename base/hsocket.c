@@ -2,6 +2,10 @@
 
 #include "hdef.h"
 
+#ifdef OS_UNIX
+#include <poll.h>
+#endif
+
 #ifdef OS_WIN
 #include "hatomic.h"
 static hatomic_flag_t s_wsa_initialized = HATOMIC_FLAG_INIT;
@@ -260,6 +264,20 @@ static int ListenFD(int sockfd) {
 static int ConnectFDTimeout(int connfd, int ms) {
     int err = 0;
     socklen_t optlen = sizeof(err);
+
+#ifdef OS_UNIX
+    // Use poll() to avoid FD_SETSIZE limit (fd >= 1024 crashes with select)
+    struct pollfd pfd;
+    pfd.fd = connfd;
+    pfd.events = POLLOUT;
+    pfd.revents = 0;
+    int ret = poll(&pfd, 1, ms);
+    if (ret < 0) {
+        perror("poll");
+        goto error;
+    }
+#else
+    // Windows: select() is safe (fd_set uses different implementation)
     struct timeval tv = { ms / 1000, (ms % 1000) * 1000 };
     fd_set writefds;
     FD_ZERO(&writefds);
@@ -269,6 +287,7 @@ static int ConnectFDTimeout(int connfd, int ms) {
         perror("select");
         goto error;
     }
+#endif
     if (ret == 0) {
         errno = ETIMEDOUT;
         goto error;
