@@ -81,89 +81,87 @@ namespace hv {
 
 class HttpClient {
 public:
-    HttpClient(const char* host = NULL, int port = DEFAULT_HTTP_PORT, int https = 0) {
-        _client = http_client_new(host, port, https);
-    }
-
-    ~HttpClient() {
-        if (_client) {
-            http_client_del(_client);
-            _client = NULL;
-        }
-    }
+    HttpClient(const char* host = NULL, int port = DEFAULT_HTTP_PORT, int https = 0)
+        : client_(http_client_new(host, port, https))
+    {}
 
     // timeout: s
     int setTimeout(int timeout) {
-        return http_client_set_timeout(_client, timeout);
+        return http_client_set_timeout(client_.get(), timeout);
     }
 
     // SSL/TLS
     int setSslCtx(hssl_ctx_t ssl_ctx) {
-        return http_client_set_ssl_ctx(_client, ssl_ctx);
+        return http_client_set_ssl_ctx(client_.get(), ssl_ctx);
     }
     int newSslCtx(hssl_ctx_opt_t* opt) {
-        return http_client_new_ssl_ctx(_client, opt);
+        return http_client_new_ssl_ctx(client_.get(), opt);
     }
 
     // headers
     int clearHeaders() {
-        return http_client_clear_headers(_client);
+        return http_client_clear_headers(client_.get());
     }
     int setHeader(const char* key, const char* value) {
-        return http_client_set_header(_client, key, value);
+        return http_client_set_header(client_.get(), key, value);
     }
     int delHeader(const char* key) {
-        return http_client_del_header(_client, key);
+        return http_client_del_header(client_.get(), key);
     }
     const char* getHeader(const char* key) {
-        return http_client_get_header(_client, key);
+        return http_client_get_header(client_.get(), key);
     }
 
     // http_proxy
     int setHttpProxy(const char* host, int port) {
-        return http_client_set_http_proxy(_client, host, port);
+        return http_client_set_http_proxy(client_.get(), host, port);
     }
     // https_proxy
     int setHttpsProxy(const char* host, int port) {
-        return http_client_set_https_proxy(_client, host, port);
+        return http_client_set_https_proxy(client_.get(), host, port);
     }
     // no_proxy
     int addNoProxy(const char* host) {
-        return http_client_add_no_proxy(_client, host);
+        return http_client_add_no_proxy(client_.get(), host);
     }
 
     // sync
     int send(HttpRequest* req, HttpResponse* resp) {
-        return http_client_send(_client, req, resp);
+        return http_client_send(client_.get(), req, resp);
     }
 
     // async
     int sendAsync(HttpRequestPtr req, HttpResponseCallback resp_cb = NULL) {
-        return http_client_send_async(_client, req, std::move(resp_cb));
+        return http_client_send_async(client_.get(), req, std::move(resp_cb));
     }
 
     // low-level api
     int connect(const char* host, int port = DEFAULT_HTTP_PORT, int https = 0, int timeout = DEFAULT_HTTP_CONNECT_TIMEOUT) {
-        return http_client_connect(_client, host, port, https, timeout);
+        return http_client_connect(client_.get(), host, port, https, timeout);
     }
     int sendHeader(HttpRequest* req) {
-        return http_client_send_header(_client, req);
+        return http_client_send_header(client_.get(), req);
     }
     int sendData(const char* data, int size) {
-        return http_client_send_data(_client, data, size);
+        return http_client_send_data(client_.get(), data, size);
     }
     int recvData(char* data, int size) {
-        return http_client_recv_data(_client, data, size);
+        return http_client_recv_data(client_.get(), data, size);
     }
     int recvResponse(HttpResponse* resp) {
-        return http_client_recv_response(_client, resp);
+        return http_client_recv_response(client_.get(), resp);
     }
     int close() {
-        return http_client_close(_client);
+        return http_client_close(client_.get());        
     }
 
 private:
-    http_client_t* _client;
+    struct http_client_deleter {
+        void operator()(http_client_t* cli) const {
+            http_client_del(cli);
+        }
+    };
+    std::unique_ptr<http_client_t, http_client_deleter> client_;
 };
 
 }
