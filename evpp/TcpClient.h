@@ -105,7 +105,13 @@ public:
 
     int startConnect() {
         if (channel == NULL || channel->isClosed()) {
-            int connfd = createsocket(&remote_addr.sa);
+            int connfd = -1;
+            if (reconn_setting && reconn_setting->cur_retry_cnt > 1) {
+                // Resolve DNS to get the latest IP address
+                connfd = createsocket(remote_port, remote_host.c_str());
+            } else {
+                connfd = createsocket(&remote_addr.sa);
+            }
             if (connfd < 0) {
                 hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, connfd);
                 return connfd;
