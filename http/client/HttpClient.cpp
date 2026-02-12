@@ -1,5 +1,6 @@
 #include "HttpClient.h"
 
+#include <memory>
 #include <mutex>
 
 #ifdef WITH_CURL
@@ -731,3 +732,10 @@ int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
 
     return http_client_exec_async(hv_default_async_http_client(), req, std::move(resp_cb));
 }
+
+int http_client_reuse_loop(http_client_t *cli, hv::EventLoopPtr loop) {
+    if (!cli || !loop) return ERR_NULL_POINTER;
+    cli->async_client_ = std::make_shared<hv::AsyncHttpClient>(std::move(loop));
+    return 0;
+}
+
