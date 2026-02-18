@@ -98,6 +98,11 @@ typedef struct tcphdr_s {
 #define ICMP_ADDRESS		17	/* Address Mask Request		*/
 #define ICMP_ADDRESSREPLY	18	/* Address Mask Reply		*/
 
+#define ICMPV6_DEST_UNREACH 1
+#define ICMPV6_TIME_EXCEEDED 3
+#define ICMPV6_ECHO 128
+#define ICMPV6_ECHOREPLY 129
+
 // sizeof(icmphdr_t) = 8
 typedef struct icmphdr_s {
     uint8_t     type;   // message type
