@@ -244,7 +244,7 @@ int http_server_stop(http_server_t* server) {
 
 #ifdef OS_UNIX
     if (server->worker_processes) {
-        signal_handle("stop");
+        if (g_main_ctx.pid) kill(g_main_ctx.pid, SIGNAL_KILLWORKER);
         return 0;
     }
 #endif
