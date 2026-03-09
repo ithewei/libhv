@@ -35,7 +35,8 @@ int ping(const char* host, int cnt) {
     int ret = ResolveAddr(host, &peeraddr);
     if (ret != 0) return ret;
     sockaddr_ip(&peeraddr, ip, sizeof(ip));
-    int sockfd = socket(peeraddr.sa.sa_family, SOCK_RAW, IPPROTO_ICMP);
+    int is_ipv6 = (peeraddr.sa.sa_family == AF_INET6);
+    int sockfd = socket(peeraddr.sa.sa_family, SOCK_RAW, is_ipv6 ? IPPROTO_ICMPV6 : IPPROTO_ICMP);
     if (sockfd < 0) {
         perror("socket");
         if (errno == EPERM) {
@@ -57,7 +58,7 @@ int ping(const char* host, int cnt) {
         goto error;
     }
 
-    icmp_req->icmp_type = ICMP_ECHO;
+    icmp_req->icmp_type = is_ipv6 ? ICMP6_ECHO_REQUEST : ICMP_ECHO;
     icmp_req->icmp_code = 0;
     icmp_req->icmp_id = pid16;
     for (int i = 0; i < sendbytes - sizeof(icmphdr_t); ++i) {
@@ -87,11 +88,11 @@ int ping(const char* host, int cnt) {
         end_hrtime = gethrtime_us();
         // check valid
         bool valid = false;
-        int iphdr_len = ipheader->ihl * 4;
+        int iphdr_len = is_ipv6 ? 0 : ipheader->ihl * 4;
         int icmp_len = nrecv - iphdr_len;
         if (icmp_len == sendbytes) {
-            icmp_res = (icmp_t*)(recvbuf + ipheader->ihl*4);
-            if (icmp_res->icmp_type == ICMP_ECHOREPLY &&
+            icmp_res = (icmp_t*)(recvbuf + iphdr_len);
+            if (icmp_res->icmp_type == (is_ipv6 ? ICMP6_ECHO_REPLY : ICMP_ECHOREPLY) &&
                 icmp_res->icmp_id == pid16 &&
                 icmp_res->icmp_seq == seq) {
                 valid = true;
@@ -105,7 +106,7 @@ int ping(const char* host, int cnt) {
         min_rtt = MIN(rtt, min_rtt);
         max_rtt = MAX(rtt, max_rtt);
         total_rtt += rtt;
-        printd("%d bytes from %s: icmp_seq=%u ttl=%u time=%.1f ms\n", icmp_len, ip, seq, ipheader->ttl, rtt);
+        printd("%d bytes from %s: icmp_seq=%u ttl=%u time=%.1f ms\n", icmp_len, ip, seq, is_ipv6 ? 0 : ipheader->ttl, rtt);
         fflush(stdout);
         ++ok_cnt;
         if (cnt > 0) hv_sleep(1); // sleep a while, then agian
