@@ -69,11 +69,11 @@ static void mqtt_send_disconnect(hio_t* io) {
 // Returns 1 on success, 0 on malformed data
 static int mqtt_v5_skip_properties(unsigned char** pp, unsigned char* end) {
     unsigned char* p = *pp;
-    int remaining = end - p;
-    if (remaining <= 0) return 0;
-    int prop_len = (int)varint_decode(p, &remaining);
-    if (remaining <= 0) return 0;
-    p += remaining; // skip varint bytes
+    int bytes = end - p;
+    if (bytes <= 0) return 0;
+    int prop_len = (int)varint_decode(p, &bytes);
+    if (bytes <= 0) return 0;
+    p += bytes;     // skip varint bytes
     if (p + prop_len > end) return 0;
     p += prop_len;  // skip properties data
     *pp = p;
