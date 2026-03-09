@@ -186,6 +186,7 @@ void hssl_ctx_free(hssl_ctx_t ssl_ctx)
     if (sec_status != SEC_E_OK) {
         printe("free_cred_handle FreeCredentialsHandle %d\n", sec_status);
     }
+    free(ssl_ctx);
 }
 
 static void init_sec_buffer(SecBuffer* secure_buffer, unsigned long type, unsigned long len, void* buffer)
