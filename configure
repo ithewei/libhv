@@ -17,6 +17,12 @@ options:
   --enable-FEATURE
   --disable-FEATURE
 
+build:
+  --enable-shared           build shared library?          (DEFAULT: $BUILD_SHARED)
+  --disable-shared          do not build shared library
+  --enable-static           build static library?          (DEFAULT: $BUILD_STATIC)
+  --disable-static          do not build static library
+
 modules:
   --with-protocol       compile protocol module?        (DEFAULT: $WITH_PROTOCOL)
   --with-evpp           compile evpp module?            (DEFAULT: $WITH_EVPP)
@@ -64,6 +70,20 @@ do
         --libdir=*)
             KEY="INSTALL_LIBDIR"
             VAL=${opt:9}
+            ;;
+        --enable-shared)
+            KEY="BUILD_SHARED"
+            ;;
+        --disable-shared)
+            KEY="BUILD_SHARED"
+            VAL=no
+            ;;
+        --enable-static)
+            KEY="BUILD_STATIC"
+            ;;
+        --disable-static)
+            KEY="BUILD_STATIC"
+            VAL=no
             ;;
         --with-*)
             KEY="WITH_${opt:7}"

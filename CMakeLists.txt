@@ -267,6 +267,7 @@ if(BUILD_STATIC)
     target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS}
         INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
     target_link_libraries(hv_static ${LIBS})
+    set_target_properties(hv_static PROPERTIES OUTPUT_NAME hv)
     install(TARGETS hv_static
         EXPORT libhvConfig
         ARCHIVE DESTINATION lib)

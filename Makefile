@@ -8,6 +8,9 @@ ifeq ($(WITH_KCP), yes)
 CORE_SRCDIRS += event/kcp
 endif
 
+BUILD_SHARED ?= yes
+BUILD_STATIC ?= yes
+
 LIBHV_SRCDIRS = $(CORE_SRCDIRS) util
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
 LIBHV_HEADERS += $(BASE_HEADERS) $(SSL_HEADERS) $(EVENT_HEADERS) $(UTIL_HEADERS)
@@ -52,8 +55,8 @@ default: all
 all: libhv examples
 	@echo "make all done, please enjoy libhv."
 
-examples: hmain_test htimer_test hloop_test pipe_test \
-	nc nmap tinyhttpd tinyproxyd httpd curl wget wrk consul \
+EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
+	nc tinyhttpd tinyproxyd \
 	tcp_client_test \
 	tcp_echo_server \
 	tcp_chat_server \
@@ -64,13 +67,29 @@ examples: hmain_test htimer_test hloop_test pipe_test \
 	multi-acceptor-processes \
 	multi-acceptor-threads \
 	one-acceptor-multi-workers \
-	http_server_test http_client_test \
-	websocket_server_test \
-	websocket_client_test \
-	mqtt_sub \
-	mqtt_pub \
-	mqtt_client_test \
 	jsonrpc
+
+ifeq ($(WITH_EVPP), yes)
+EXAMPLES += nmap
+ifeq ($(WITH_HTTP), yes)
+EXAMPLES += wrk
+ifeq ($(WITH_HTTP_SERVER), yes)
+EXAMPLES += http_server_test websocket_server_test
+endif
+ifeq ($(WITH_HTTP_CLIENT), yes)
+EXAMPLES += curl wget consul http_client_test websocket_client_test
+ifeq ($(WITH_HTTP_SERVER), yes)
+EXAMPLES += httpd
+endif
+endif
+endif
+endif
+
+ifeq ($(WITH_MQTT), yes)
+EXAMPLES += mqtt_sub mqtt_pub mqtt_client_test
+endif
+
+examples: $(EXAMPLES)
 	@echo "make examples done."
 
 clean:
@@ -84,7 +103,17 @@ prepare:
 
 libhv:
 	$(MKDIR) lib
+ifeq ($(BUILD_SHARED), yes)
+ifeq ($(BUILD_STATIC), yes)
 	$(MAKEF) TARGET=$@ TARGET_TYPE="SHARED|STATIC" SRCDIRS="$(LIBHV_SRCDIRS)"
+else
+	$(MAKEF) TARGET=$@ TARGET_TYPE="SHARED" SRCDIRS="$(LIBHV_SRCDIRS)"
+endif
+else
+ifeq ($(BUILD_STATIC), yes)
+	$(MAKEF) TARGET=$@ TARGET_TYPE="STATIC" SRCDIRS="$(LIBHV_SRCDIRS)"
+endif
+endif
 	$(MKDIR) include/hv
 	$(CP) $(LIBHV_HEADERS) include/hv
 	@echo "make libhv done."
