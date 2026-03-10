@@ -127,6 +127,8 @@ void HttpHandler::Reset() {
     if (io) {
         writer = std::make_shared<HttpResponseWriter>(io, resp);
         writer->status = hv::SocketChannel::CONNECTED;
+    } else {
+        writer = NULL;
     }
     parser->InitRequest(req.get());
     // Re-hook http_cb for the new request object
