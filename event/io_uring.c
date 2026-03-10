@@ -61,9 +61,10 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
         poll_mask |= POLLOUT;
     }
 
+    struct io_uring_sqe* sqe;
     if (io->events != 0) {
         // Cancel the existing poll request first
-        struct io_uring_sqe* sqe = io_uring_get_sqe(&ctx->ring);
+        sqe = io_uring_get_sqe(&ctx->ring);
         if (sqe == NULL) return -1;
         io_uring_prep_poll_remove(sqe, (uint64_t)fd);
         io_uring_sqe_set_data64(sqe, IO_URING_CANCEL_TAG);
@@ -72,7 +73,7 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
     }
 
     // Add poll for the combined events
-    struct io_uring_sqe* sqe = io_uring_get_sqe(&ctx->ring);
+    sqe = io_uring_get_sqe(&ctx->ring);
     if (sqe == NULL) return -1;
     io_uring_prep_poll_add(sqe, fd, poll_mask);
     io_uring_sqe_set_data64(sqe, (uint64_t)fd);
@@ -147,7 +148,7 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
         if (ret == -ETIME || ret == -EINTR) {
             return 0;
         }
-        perror("io_uring");
+        perror("io_uring_wait_cqe");
         return ret;
     }
 
