@@ -69,7 +69,11 @@ int ping(const char* host, int cnt) {
         // NOTE: checksum
         icmp_req->icmp_seq = ++seq;
         icmp_req->icmp_cksum = 0;
-        icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sendbytes);
+        // NOTE: ICMPv6 checksum includes a pseudo-header and is auto-computed
+        // by the kernel for IPPROTO_ICMPV6 raw sockets.
+        if (!is_ipv6) {
+            icmp_req->icmp_cksum = checksum((uint8_t*)icmp_req, sendbytes);
+        }
         start_hrtime = gethrtime_us();
         addrlen = sockaddr_len(&peeraddr);
         int nsend = sendto(sockfd, sendbuf, sendbytes, 0, &peeraddr.sa, addrlen);
@@ -78,8 +82,13 @@ int ping(const char* host, int cnt) {
             continue;
         }
         ++send_cnt;
-        addrlen = sizeof(peeraddr);
-        int nrecv = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, &peeraddr.sa, &addrlen);
+        int nrecv;
+        do {
+            addrlen = sizeof(peeraddr);
+            nrecv = recvfrom(sockfd, recvbuf, sizeof(recvbuf), 0, &peeraddr.sa, &addrlen);
+            // For IPv6, raw sockets receive all ICMPv6 types (e.g. Neighbor
+            // Discovery).  Skip anything that is not an echo reply.
+        } while (is_ipv6 && nrecv >= (int)sizeof(icmphdr_t) && ((icmp_t*)recvbuf)->icmp_type != ICMP6_ECHO_REPLY);
         if (nrecv < 0) {
             perror("recvfrom");
             continue;
@@ -106,7 +115,11 @@ int ping(const char* host, int cnt) {
         min_rtt = MIN(rtt, min_rtt);
         max_rtt = MAX(rtt, max_rtt);
         total_rtt += rtt;
-        printd("%d bytes from %s: icmp_seq=%u ttl=%u time=%.1f ms\n", icmp_len, ip, seq, is_ipv6 ? 0 : ipheader->ttl, rtt);
+        if (is_ipv6) {
+            printd("%d bytes from %s: icmp_seq=%u hlim=? time=%.1f ms\n", icmp_len, ip, seq, rtt);
+        } else {
+            printd("%d bytes from %s: icmp_seq=%u ttl=%u time=%.1f ms\n", icmp_len, ip, seq, ipheader->ttl, rtt);
+        }
         fflush(stdout);
         ++ok_cnt;
         if (cnt > 0) hv_sleep(1); // sleep a while, then agian
