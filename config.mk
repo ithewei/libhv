@@ -1,6 +1,3 @@
-# Don't modify this file, you should modify config.mk or
-# run ./configure --with-MODULE --enable-FEATURE
-
 PREFIX=/usr/local
 INSTALL_INCDIR=$(PREFIX)/include/hv
 INSTALL_LIBDIR=$(PREFIX)/lib
