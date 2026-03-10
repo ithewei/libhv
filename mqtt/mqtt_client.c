@@ -85,7 +85,7 @@ static int mqtt_v5_skip_properties(unsigned char** pp, unsigned char* end) {
  * 2 + protocol_name + 1 protocol_version + 1 conn_flags + 2 keepalive +
  * [v5: properties] +
  * 2 + [client_id] +
- * [v5: 2 + will_properties] + [2 + will_topic + 2 + will_payload] +
+ * [v5: varint + will_properties] + [2 + will_topic + 2 + will_payload] +
  * [2 + username] + [2 + password]
  */
 static int mqtt_client_login(mqtt_client_t* cli) {
