@@ -346,9 +346,8 @@ int ConnectTimeout(const char* host, int port, int ms) {
     unsigned int elapsed = gettick_ms() - start_time;
     int remaining = ms - (int)elapsed;
     if (remaining <= 0) {
-        closesocket(connfd);
         errno = ETIMEDOUT;
-        return -ETIMEDOUT;
+        return socket_errno_negative(connfd);
     }
     return ConnectFDTimeout(connfd, remaining);
 }

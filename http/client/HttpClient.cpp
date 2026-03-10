@@ -244,7 +244,12 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
         }
         unsigned int elapsed = gettick_ms() - start_time;
         int ssl_timeout = blocktime - (int)elapsed;
-        if (ssl_timeout <= 0) ssl_timeout = 1;
+        if (ssl_timeout <= 0) {
+            hssl_free(cli->ssl);
+            cli->ssl = NULL;
+            closesocket(connfd);
+            return NABS(ETIMEDOUT);
+        }
         so_rcvtimeo(connfd, ssl_timeout);
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
