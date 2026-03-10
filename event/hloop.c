@@ -771,6 +771,8 @@ const char* hio_engine() {
     return  "iocp";
 #elif defined(EVENT_PORT)
     return  "evport";
+#elif defined(EVENT_IO_URING)
+    return  "io_uring";
 #else
     return  "noevent";
 #endif

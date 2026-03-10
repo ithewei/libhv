@@ -193,6 +193,10 @@ endif
 endif
 endif
 
+ifeq ($(WITH_IO_URING), yes)
+	LDFLAGS += -luring
+endif
+
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
 LDFLAGS += $(addprefix -l, $(LIBS))
 

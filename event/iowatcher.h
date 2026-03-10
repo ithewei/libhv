@@ -10,6 +10,7 @@
     !defined(EVENT_KQUEUE) &&   \
     !defined(EVENT_IOCP) &&     \
     !defined(EVENT_PORT) &&     \
+    !defined(EVENT_IO_URING) && \
     !defined(EVENT_NOEVENT)
 #ifdef OS_WIN
   #if WITH_WEPOLL
@@ -18,7 +19,11 @@
     #define EVENT_POLL  // WSAPoll
   #endif
 #elif defined(OS_LINUX)
-#define EVENT_EPOLL
+  #if WITH_IO_URING
+    #define EVENT_IO_URING
+  #else
+    #define EVENT_EPOLL
+  #endif
 #elif defined(OS_MAC)
 #define EVENT_KQUEUE
 #elif defined(OS_BSD)
