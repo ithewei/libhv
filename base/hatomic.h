@@ -52,10 +52,10 @@ static inline bool atomic_flag_test_and_set(atomic_flag* p) {
     return InterlockedCompareExchange(&p->_Value, 1, 0);
 }
 
-#define ATOMIC_ADD          InterlockedAdd
-#define ATOMIC_SUB(p, n)    InterlockedAdd(p, -n)
-#define ATOMIC_INC          InterlockedIncrement
-#define ATOMIC_DEC          InterlockedDecrement
+#define ATOMIC_ADD          InterlockedExchangeAdd
+#define ATOMIC_SUB(p, n)    InterlockedExchangeAdd(p, -(n))
+#define ATOMIC_INC(p)       InterlockedExchangeAdd(p, 1)
+#define ATOMIC_DEC(p)       InterlockedExchangeAdd(p, -1)
 
 #elif __GNUC_PREREQ(4, 1)
 
