@@ -111,17 +111,43 @@ bool HttpHandler::Init(int http_version) {
 void HttpHandler::Reset() {
     state = WANT_RECV;
     error = 0;
-    req->Reset();
-    resp->Reset();
+    // Create new request/response to avoid race condition with async handlers
+    // that may still hold shared_ptr references to the old req/resp objects.
+    // This prevents crashes when HTTP pipeline data arrives while an async
+    // response is still being written.
+    req  = std::make_shared<HttpRequest>();
+    resp = std::make_shared<HttpResponse>();
+    if (protocol == HTTP_V2) {
+        resp->http_major = req->http_major = 2;
+        resp->http_minor = req->http_minor = 0;
+    }
     ctx = NULL;
     api_handler = NULL;
     closeFile();
-    if (writer) {
-        writer->Begin();
-        writer->onwrite = NULL;
-        writer->onclose = NULL;
+    if (io) {
+        writer = std::make_shared<HttpResponseWriter>(io, resp);
+        writer->status = hv::SocketChannel::CONNECTED;
     }
     parser->InitRequest(req.get());
+    // Re-hook http_cb for the new request object
+    req->http_cb = [this](HttpMessage* msg, http_parser_state state, const char* data, size_t size) {
+        if (this->state == WANT_CLOSE) return;
+        switch (state) {
+        case HP_HEADERS_COMPLETE:
+            if (this->error != 0) return;
+            onHeadersComplete();
+            break;
+        case HP_BODY:
+            if (this->error != 0) return;
+            onBody(data, size);
+            break;
+        case HP_MESSAGE_COMPLETE:
+            onMessageComplete();
+            break;
+        default:
+            break;
+        }
+    };
 }
 
 void HttpHandler::Close() {
