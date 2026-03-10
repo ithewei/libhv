@@ -1,20 +1,37 @@
-
 PREFIX=/usr/local
 INSTALL_INCDIR=$(PREFIX)/include/hv
 INSTALL_LIBDIR=$(PREFIX)/lib
+
+BUILD_SHARED=yes
+BUILD_STATIC=yes
+
+# modules
+# include icmp dns ftp smtp
 WITH_PROTOCOL=no
+
 WITH_EVPP=yes
 WITH_HTTP=yes
 WITH_HTTP_SERVER=yes
 WITH_HTTP_CLIENT=yes
 WITH_MQTT=no
+
+# features
+# base/hsocket.h: Unix Domain Socket
 ENABLE_UDS=no
+# base/RAII.cpp: Windows MiniDumpWriteDump
 ENABLE_WINDUMP=no
+# http/http_content.h: KeyValue,QueryParams,MultiPart
 USE_MULTIMAP=no
+
+# dependencies
+# for http/client
 WITH_CURL=no
+# for http2
 WITH_NGHTTP2=no
+# for SSL/TLS
 WITH_OPENSSL=no
 WITH_GNUTLS=no
 WITH_MBEDTLS=no
+
+# rudp
 WITH_KCP=no
-CONFIG_DATE=20220224
