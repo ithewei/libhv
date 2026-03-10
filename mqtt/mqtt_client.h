@@ -172,6 +172,10 @@ public:
         mqtt_client_set_id(client, id);
     }
 
+    void setProtocolVersion(unsigned char version) {
+        client->protocol_version = version;
+    }
+
     void setWill(mqtt_message_t* will) {
         mqtt_client_set_will(client, will);
     }
