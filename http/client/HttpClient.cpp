@@ -211,6 +211,7 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
     if (timeout > 0) {
         blocktime = MIN(timeout*1000, blocktime);
     }
+    unsigned int start_time = gettick_ms();
     int connfd = ConnectTimeout(host, port, blocktime);
     if (connfd < 0) {
         hloge("connect %s:%d failed!", host, port);
@@ -241,7 +242,10 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
         if (!is_ipaddr(host)) {
             hssl_set_sni_hostname(cli->ssl, host);
         }
-        so_rcvtimeo(connfd, blocktime);
+        unsigned int elapsed = gettick_ms() - start_time;
+        int ssl_timeout = blocktime - (int)elapsed;
+        if (ssl_timeout <= 0) ssl_timeout = 1;
+        so_rcvtimeo(connfd, ssl_timeout);
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
             fprintf(stderr, "* ssl handshake failed: %d\n", ret);
@@ -328,6 +332,14 @@ connect:
         connfd = http_client_connect(cli, req->host.c_str(), req->port, https, connect_timeout);
         if (connfd < 0) {
             return connfd;
+        }
+        if (timeout_ms > 0) {
+            cur_time = gettick_ms();
+            if (cur_time - start_time >= timeout_ms) {
+                cli->Close();
+                return ERR_TASK_TIMEOUT;
+            }
+            left_time = timeout_ms - (cur_time - start_time);
         }
     }
 

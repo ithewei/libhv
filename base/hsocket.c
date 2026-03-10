@@ -1,6 +1,7 @@
 #include "hsocket.h"
 
 #include "hdef.h"
+#include "htime.h"
 
 #ifdef OS_UNIX
 #include <poll.h>
@@ -339,9 +340,17 @@ int ConnectNonblock(const char* host, int port) {
 }
 
 int ConnectTimeout(const char* host, int port, int ms) {
+    unsigned int start_time = gettick_ms();
     int connfd = Connect(host, port, 1);
     if (connfd < 0) return connfd;
-    return ConnectFDTimeout(connfd, ms);
+    unsigned int elapsed = gettick_ms() - start_time;
+    int remaining = ms - (int)elapsed;
+    if (remaining <= 0) {
+        closesocket(connfd);
+        errno = ETIMEDOUT;
+        return -ETIMEDOUT;
+    }
+    return ConnectFDTimeout(connfd, remaining);
 }
 
 #ifdef ENABLE_UDS

@@ -268,7 +268,7 @@ unittest: prepare
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase            -o bin/hthread_test      unittest/hthread_test.cpp     -pthread
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hmutex_test       unittest/hmutex_test.c        base/htime.c   -pthread
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/connect_test      unittest/connect_test.c       base/hsocket.c base/htime.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/socketpair_test   unittest/socketpair_test.c    base/hsocket.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/socketpair_test   unittest/socketpair_test.c    base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/base64            unittest/base64_test.c        util/base64.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/md5               unittest/md5_test.c           util/md5.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/sha1              unittest/sha1_test.c          util/sha1.c
@@ -282,10 +282,10 @@ unittest: prepare
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/threadpool_test   unittest/threadpool_test.cpp  -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/objectpool_test   unittest/objectpool_test.cpp  -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Ievpp -Icpputil -Ihttp -Ihttp/client -Ihttp/server -o bin/sizeof_test unittest/sizeof_test.cpp
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c  base/hsocket.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c  base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c util/base64.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
 
 run-unittest: unittest
 	bash scripts/unittest.sh
