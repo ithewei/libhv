@@ -29,7 +29,10 @@ option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
 
 option(WITH_KCP "compile event/kcp" OFF)
-option(WITH_IO_URING "with io_uring" OFF)
+
+if(CMAKE_SYSTEM_NAME MATCHES "Linux")
+    option(WITH_IO_URING "with io_uring" OFF)
+endif()
 
 if(WIN32 OR MINGW)
     option(WITH_WEPOLL "compile event/wepoll -> use iocp" ON)
@@ -166,7 +169,7 @@ if(WITH_MBEDTLS)
     set(LIBS ${LIBS} mbedtls mbedx509 mbedcrypto)
 endif()
 
-if(WITH_IO_URING)
+if(CMAKE_SYSTEM_NAME MATCHES "Linux" AND WITH_IO_URING)
     set(LIBS ${LIBS} uring)
 endif()
 
