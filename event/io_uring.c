@@ -182,6 +182,7 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
         if (io == NULL) continue;
 
         if (cqe->res < 0) {
+            // Poll request failed: notify registered events, or both if none registered
             io->revents |= (io->events ? io->events : HV_RDWR);
             EVENT_PENDING(io);
             ++nevents;
