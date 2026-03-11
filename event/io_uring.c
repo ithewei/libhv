@@ -9,7 +9,7 @@
 #include <poll.h>
 
 #define IO_URING_ENTRIES    1024
-#define IO_URING_CANCEL_TAG UINT64_MAX
+#define IO_URING_CANCEL_TAG ((void*)(uintptr_t)-1)
 
 typedef struct io_uring_ctx_s {
     struct io_uring ring;
@@ -80,7 +80,7 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
         sqe = io_uring_get_sqe_safe(&ctx->ring);
         if (sqe == NULL) return -1;
         io_uring_prep_poll_remove(sqe, (uint64_t)fd);
-        io_uring_sqe_set_data64(sqe, IO_URING_CANCEL_TAG);
+        io_uring_sqe_set_data(sqe, IO_URING_CANCEL_TAG);
     } else {
         ctx->nfds++;
     }
@@ -89,7 +89,7 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
     sqe = io_uring_get_sqe_safe(&ctx->ring);
     if (sqe == NULL) return -1;
     io_uring_prep_poll_add(sqe, fd, poll_mask);
-    io_uring_sqe_set_data64(sqe, (uint64_t)fd);
+    io_uring_sqe_set_data(sqe, (void*)(uintptr_t)fd);
 
     io_uring_submit(&ctx->ring);
     return 0;
@@ -121,7 +121,7 @@ int iowatcher_del_event(hloop_t* loop, int fd, int events) {
     struct io_uring_sqe* sqe = io_uring_get_sqe_safe(&ctx->ring);
     if (sqe == NULL) return -1;
     io_uring_prep_poll_remove(sqe, (uint64_t)fd);
-    io_uring_sqe_set_data64(sqe, IO_URING_CANCEL_TAG);
+    io_uring_sqe_set_data(sqe, IO_URING_CANCEL_TAG);
 
     if (poll_mask == 0) {
         ctx->nfds--;
@@ -130,7 +130,7 @@ int iowatcher_del_event(hloop_t* loop, int fd, int events) {
         sqe = io_uring_get_sqe_safe(&ctx->ring);
         if (sqe == NULL) return -1;
         io_uring_prep_poll_add(sqe, fd, poll_mask);
-        io_uring_sqe_set_data64(sqe, (uint64_t)fd);
+        io_uring_sqe_set_data(sqe, (void*)(uintptr_t)fd);
     }
 
     io_uring_submit(&ctx->ring);
@@ -167,19 +167,26 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
 
     int nevents = 0;
     int sqe_queued = 0;
-    unsigned head;
-    unsigned ncqes = 0;
-    io_uring_for_each_cqe(&ctx->ring, head, cqe) {
-        ncqes++;
-        uint64_t data = io_uring_cqe_get_data64(cqe);
+    unsigned nready = io_uring_cq_ready(&ctx->ring);
+    unsigned i;
+    for (i = 0; i < nready; ++i) {
+        if (io_uring_peek_cqe(&ctx->ring, &cqe) != 0) break;
+        void* data = io_uring_cqe_get_data(cqe);
         if (data == IO_URING_CANCEL_TAG) {
+            io_uring_cqe_seen(&ctx->ring, cqe);
             continue;
         }
 
-        int fd = (int)data;
-        if (fd < 0 || fd >= loop->ios.maxsize) continue;
+        int fd = (int)(uintptr_t)data;
+        if (fd < 0 || fd >= loop->ios.maxsize) {
+            io_uring_cqe_seen(&ctx->ring, cqe);
+            continue;
+        }
         hio_t* io = loop->ios.ptr[fd];
-        if (io == NULL) continue;
+        if (io == NULL) {
+            io_uring_cqe_seen(&ctx->ring, cqe);
+            continue;
+        }
 
         if (cqe->res < 0) {
             // Poll request failed: notify registered events, or both if none registered
@@ -200,6 +207,8 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
             }
         }
 
+        io_uring_cqe_seen(&ctx->ring, cqe);
+
         // io_uring POLL_ADD is one-shot, re-arm for the same events
         unsigned remask = 0;
         if (io->events & HV_READ) remask |= POLLIN;
@@ -208,13 +217,11 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
             struct io_uring_sqe* sqe = io_uring_get_sqe_safe(&ctx->ring);
             if (sqe) {
                 io_uring_prep_poll_add(sqe, fd, remask);
-                io_uring_sqe_set_data64(sqe, (uint64_t)fd);
+                io_uring_sqe_set_data(sqe, (void*)(uintptr_t)fd);
                 sqe_queued = 1;
             }
         }
     }
-
-    io_uring_cq_advance(&ctx->ring, ncqes);
 
     if (sqe_queued) {
         io_uring_submit(&ctx->ring);
