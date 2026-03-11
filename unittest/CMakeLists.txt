@@ -73,7 +73,7 @@ target_include_directories(objectpool_test PRIVATE .. ../base ../cpputil)
 target_link_libraries(objectpool_test -lpthread)
 
 # ------protocol------
-add_executable(nslookup nslookup_test.c ../protocol/dns.c)
+add_executable(nslookup nslookup_test.c ../protocol/dns.c ../base/hsocket.c ../base/htime.c)
 target_include_directories(nslookup PRIVATE .. ../base ../protocol)
 
 add_executable(ping ping_test.c ../protocol/icmp.c ../base/hsocket.c ../base/htime.c)

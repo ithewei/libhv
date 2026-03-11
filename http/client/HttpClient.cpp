@@ -330,6 +330,12 @@ static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* 
         }
     }
 
+    char recvbuf[1024] = {0};
+    char* data = NULL;
+    size_t len  = 0;
+    int total_nsend, nsend, nrecv;
+    total_nsend = nsend = nrecv = 0;
+
     if (connfd <= 0 || cli->host != req->host || cli->port != req->port) {
         cli->host = req->host;
         cli->port = req->port;
@@ -338,23 +344,13 @@ connect:
         if (connfd < 0) {
             return connfd;
         }
-        if (timeout_ms > 0) {
-            cur_time = gettick_ms();
-            if (cur_time - start_time >= timeout_ms) {
-                cli->Close();
-                return ERR_TASK_TIMEOUT;
-            }
-            left_time = timeout_ms - (cur_time - start_time);
-        }
+        CHECK_TIMEOUT
     }
 
     cli->parser->SubmitRequest(req);
-    char recvbuf[1024] = {0};
-    int total_nsend, nsend, nrecv;
-    total_nsend = nsend = nrecv = 0;
 send:
-    char* data = NULL;
-    size_t len  = 0;
+    data = NULL;
+    len  = 0;
     while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
         while (total_nsend < len) {
