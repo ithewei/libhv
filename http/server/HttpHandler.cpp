@@ -86,6 +86,11 @@ bool HttpHandler::Init(int http_version) {
         tid = hv_gettid();
     }
     parser->InitRequest(req.get());
+    hookHttpCb();
+    return true;
+}
+
+void HttpHandler::hookHttpCb() {
     // NOTE: hook http_cb
     req->http_cb = [this](HttpMessage* msg, http_parser_state state, const char* data, size_t size) {
         if (this->state == WANT_CLOSE) return;
@@ -105,7 +110,6 @@ bool HttpHandler::Init(int http_version) {
             break;
         }
     };
-    return true;
 }
 
 void HttpHandler::Reset() {
@@ -124,6 +128,16 @@ void HttpHandler::Reset() {
     ctx = NULL;
     api_handler = NULL;
     closeFile();
+    if (writer) {
+        // Retire old writer: mark DISCONNECTED and clear io_ so that
+        // ~Channel() won't close the hio_t when the async handler's
+        // shared_ptr reference is eventually released, and any
+        // further write attempts through the old writer fail gracefully.
+        writer->status = hv::SocketChannel::DISCONNECTED;
+        writer->io_ = NULL;
+        writer->onwrite = NULL;
+        writer->onclose = NULL;
+    }
     if (io) {
         writer = std::make_shared<HttpResponseWriter>(io, resp);
         writer->status = hv::SocketChannel::CONNECTED;
@@ -131,25 +145,7 @@ void HttpHandler::Reset() {
         writer = NULL;
     }
     parser->InitRequest(req.get());
-    // Re-hook http_cb for the new request object
-    req->http_cb = [this](HttpMessage* msg, http_parser_state state, const char* data, size_t size) {
-        if (this->state == WANT_CLOSE) return;
-        switch (state) {
-        case HP_HEADERS_COMPLETE:
-            if (this->error != 0) return;
-            onHeadersComplete();
-            break;
-        case HP_BODY:
-            if (this->error != 0) return;
-            onBody(data, size);
-            break;
-        case HP_MESSAGE_COMPLETE:
-            onMessageComplete();
-            break;
-        default:
-            break;
-        }
-    };
+    hookHttpCb();
 }
 
 void HttpHandler::Close() {

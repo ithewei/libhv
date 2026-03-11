@@ -149,6 +149,7 @@ private:
     void  addResponseHeaders();
 
     // http_cb
+    void hookHttpCb();
     void onHeadersComplete();
     void onBody(const char* data, size_t size);
     void onMessageComplete();
