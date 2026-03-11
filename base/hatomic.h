@@ -44,7 +44,19 @@ typedef volatile size_t             atomic_size_t;
 
 typedef struct atomic_flag { atomic_long _Value; } atomic_flag;
 
-#ifdef _WIN32
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1))
+
+#define ATOMIC_FLAG_TEST_AND_SET    atomic_flag_test_and_set
+static inline bool atomic_flag_test_and_set(atomic_flag* p) {
+    return !__sync_bool_compare_and_swap(&p->_Value, 0, 1);
+}
+
+#define ATOMIC_ADD          __sync_fetch_and_add
+#define ATOMIC_SUB          __sync_fetch_and_sub
+#define ATOMIC_INC(p)       ATOMIC_ADD(p, 1)
+#define ATOMIC_DEC(p)       ATOMIC_SUB(p, 1)
+
+#elif defined(_WIN32)
 
 #define ATOMIC_FLAG_TEST_AND_SET    atomic_flag_test_and_set
 static inline bool atomic_flag_test_and_set(atomic_flag* p) {
@@ -56,18 +68,6 @@ static inline bool atomic_flag_test_and_set(atomic_flag* p) {
 #define ATOMIC_SUB(p, n)    InterlockedExchangeAdd(p, -(n))
 #define ATOMIC_INC(p)       InterlockedExchangeAdd(p, 1)
 #define ATOMIC_DEC(p)       InterlockedExchangeAdd(p, -1)
-
-#elif __GNUC_PREREQ(4, 1)
-
-#define ATOMIC_FLAG_TEST_AND_SET    atomic_flag_test_and_set
-static inline bool atomic_flag_test_and_set(atomic_flag* p) {
-    return !__sync_bool_compare_and_swap(&p->_Value, 0, 1);
-}
-
-#define ATOMIC_ADD          __sync_fetch_and_add
-#define ATOMIC_SUB          __sync_fetch_and_sub
-#define ATOMIC_INC(p)       ATOMIC_ADD(p, 1)
-#define ATOMIC_DEC(p)       ATOMIC_SUB(p, 1)
 
 #endif
 
