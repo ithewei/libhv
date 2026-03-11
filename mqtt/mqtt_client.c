@@ -6,10 +6,12 @@
 #include "hsocket.h"
 #include "hmath.h"
 
-static unsigned short mqtt_next_mid() {
-    static unsigned short s_mid = 0;
-    if (++s_mid == 0) s_mid = 1;
-    return s_mid;
+static unsigned short mqtt_next_mid(mqtt_client_t* cli) {
+    hmutex_lock(&cli->mutex_);
+    if (++cli->mid_ == 0) cli->mid_ = 1;
+    unsigned short mid = cli->mid_;
+    hmutex_unlock(&cli->mutex_);
+    return mid;
 }
 
 static int mqtt_client_send(mqtt_client_t* cli, const void* buf, int len) {
@@ -629,7 +631,7 @@ int mqtt_client_publish(mqtt_client_t* cli, mqtt_message_t* msg) {
     PUSH16(p, topic_len);
     PUSH_N(p, msg->topic, topic_len);
     if (msg->qos) {
-        mid = mqtt_next_mid();
+        mid = mqtt_next_mid(cli);
         PUSH16(p, mid);
     }
     // MQTT v5: publish properties (empty)
@@ -672,7 +674,7 @@ int mqtt_client_subscribe(mqtt_client_t* cli, const char* topic, int qos) {
     unsigned char* p = buf;
     int headlen = mqtt_head_pack(&head, p);
     p += headlen;
-    unsigned short mid = mqtt_next_mid();
+    unsigned short mid = mqtt_next_mid(cli);
     PUSH16(p, mid);
     // MQTT v5: subscribe properties (empty)
     if (cli->protocol_version == MQTT_PROTOCOL_V5) {
@@ -706,7 +708,7 @@ int mqtt_client_unsubscribe(mqtt_client_t* cli, const char* topic) {
     unsigned char* p = buf;
     int headlen = mqtt_head_pack(&head, p);
     p += headlen;
-    unsigned short mid = mqtt_next_mid();
+    unsigned short mid = mqtt_next_mid(cli);
     PUSH16(p, mid);
     // MQTT v5: unsubscribe properties (empty)
     if (cli->protocol_version == MQTT_PROTOCOL_V5) {
