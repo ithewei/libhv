@@ -157,7 +157,14 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
             hio_close(io);
             return -1;
         }
-        package_len = head_len + body_len + setting->length_adjustment;
+        int signed_package_len = (int)head_len + (int)body_len + setting->length_adjustment;
+        if (signed_package_len <= 0 || signed_package_len > (int)setting->package_max_length) {
+            hloge("Invalid package length %d!", signed_package_len);
+            io->error = ERR_OVER_LIMIT;
+            hio_close(io);
+            return -1;
+        }
+        package_len = (unsigned int)signed_package_len;
         if (remain >= package_len) {
             hio_read_cb(io, (void*)p, package_len);
             handled += package_len;

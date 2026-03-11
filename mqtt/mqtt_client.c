@@ -8,7 +8,8 @@
 
 static unsigned short mqtt_next_mid() {
     static unsigned short s_mid = 0;
-    return ++s_mid;
+    if (++s_mid == 0) s_mid = 1;
+    return s_mid;
 }
 
 static int mqtt_client_send(mqtt_client_t* cli, const void* buf, int len) {
@@ -231,6 +232,7 @@ static void mqtt_client_add_reconnect_timer(mqtt_client_t* cli) {
 
 static void on_close(hio_t* io) {
     mqtt_client_t* cli = (mqtt_client_t*)hevent_userdata(io);
+    if (cli == NULL) return;
     cli->connected = 0;
     if (cli->cb) {
         cli->head.type = MQTT_TYPE_DISCONNECT;
