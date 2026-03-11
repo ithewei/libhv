@@ -211,6 +211,7 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
     if (timeout > 0) {
         blocktime = MIN(timeout*1000, blocktime);
     }
+    unsigned int start_time = gettick_ms();
     int connfd = ConnectTimeout(host, port, blocktime);
     if (connfd < 0) {
         hloge("connect %s:%d failed!", host, port);
@@ -241,7 +242,15 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
         if (!is_ipaddr(host)) {
             hssl_set_sni_hostname(cli->ssl, host);
         }
-        so_rcvtimeo(connfd, blocktime);
+        unsigned int elapsed = gettick_ms() - start_time;
+        int ssl_timeout = blocktime - (int)elapsed;
+        if (ssl_timeout <= 0) {
+            hssl_free(cli->ssl);
+            cli->ssl = NULL;
+            closesocket(connfd);
+            return NABS(ETIMEDOUT);
+        }
+        so_rcvtimeo(connfd, ssl_timeout);
         int ret = hssl_connect(cli->ssl);
         if (ret != 0) {
             fprintf(stderr, "* ssl handshake failed: %d\n", ret);
@@ -321,6 +330,12 @@ static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* 
         }
     }
 
+    char recvbuf[1024] = {0};
+    char* data = NULL;
+    size_t len  = 0;
+    int total_nsend, nsend, nrecv;
+    total_nsend = nsend = nrecv = 0;
+
     if (connfd <= 0 || cli->host != req->host || cli->port != req->port) {
         cli->host = req->host;
         cli->port = req->port;
@@ -329,15 +344,13 @@ connect:
         if (connfd < 0) {
             return connfd;
         }
+        CHECK_TIMEOUT
     }
 
     cli->parser->SubmitRequest(req);
-    char recvbuf[1024] = {0};
-    int total_nsend, nsend, nrecv;
-    total_nsend = nsend = nrecv = 0;
 send:
-    char* data = NULL;
-    size_t len  = 0;
+    data = NULL;
+    len  = 0;
     while (cli->parser->GetSendData(&data, &len)) {
         total_nsend = 0;
         while (total_nsend < len) {
