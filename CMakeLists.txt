@@ -169,7 +169,10 @@ if(WITH_MBEDTLS)
     set(LIBS ${LIBS} mbedtls mbedx509 mbedcrypto)
 endif()
 
-if(CMAKE_SYSTEM_NAME MATCHES "Linux" AND WITH_IO_URING)
+if(WITH_IO_URING)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message(FATAL_ERROR "WITH_IO_URING is only supported on Linux because liburing is Linux-only.")
+    endif()
     set(LIBS ${LIBS} uring)
 endif()
 
