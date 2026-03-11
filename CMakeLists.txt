@@ -104,6 +104,9 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/hconfig.h.in ${CMAKE_CURRENT_SOURCE_D
 # see Makefile.in
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED True)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    set(CMAKE_C_EXTENSIONS ON)
+endif()
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
@@ -174,8 +177,6 @@ if(WITH_IO_URING)
         message(FATAL_ERROR "WITH_IO_URING is only supported on Linux because liburing is Linux-only.")
     endif()
     set(LIBS ${LIBS} uring)
-    # liburing headers require GNU C extensions (typeof, statement expressions, etc.)
-    set_source_files_properties(event/io_uring.c PROPERTIES COMPILE_OPTIONS "-std=gnu99")
 endif()
 
 if(WIN32 OR MINGW)
