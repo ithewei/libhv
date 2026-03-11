@@ -199,6 +199,14 @@ ifeq ($(WITH_IO_URING), yes)
 endif
 endif
 
+# liburing headers require GNU C extensions (typeof, statement expressions, etc.)
+ifeq ($(OS), Linux)
+ifeq ($(WITH_IO_URING), yes)
+event/io_uring.o: event/io_uring.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) -std=gnu99 -c $< -o $@
+endif
+endif
+
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
 LDFLAGS += $(addprefix -l, $(LIBS))
 

@@ -174,6 +174,8 @@ if(WITH_IO_URING)
         message(FATAL_ERROR "WITH_IO_URING is only supported on Linux because liburing is Linux-only.")
     endif()
     set(LIBS ${LIBS} uring)
+    # liburing headers require GNU C extensions (typeof, statement expressions, etc.)
+    set_source_files_properties(event/io_uring.c PROPERTIES COMPILE_OPTIONS "-std=gnu99")
 endif()
 
 if(WIN32 OR MINGW)
