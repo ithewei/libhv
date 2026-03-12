@@ -87,7 +87,11 @@ endif
 endif
 
 ifeq ($(findstring -std, $(CFLAGS)), )
+ifeq ($(OS), Linux)
+override CFLAGS += -std=gnu99
+else
 override CFLAGS += -std=c99
+endif
 endif
 
 ifeq ($(findstring -std, $(CXXFLAGS)), )
@@ -192,6 +196,13 @@ ifeq ($(WITH_MBEDTLS), yes)
 endif
 endif
 endif
+
+ifeq ($(OS), Linux)
+ifeq ($(WITH_IO_URING), yes)
+	LDFLAGS += -luring
+endif
+endif
+
 
 LDFLAGS += $(addprefix -L, $(LIBDIRS))
 LDFLAGS += $(addprefix -l, $(LIBS))

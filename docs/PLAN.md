@@ -1,7 +1,7 @@
 ## Done
 
 - base: cross platfrom infrastructure
-- event: select/poll/epoll/wepoll/kqueue/port
+- event: select/poll/epoll/wepoll/kqueue/port/io_uring
 - ssl: openssl/gnutls/mbedtls/wintls/appletls
 - rudp: KCP
 - evpp: c++ EventLoop interface similar to muduo and evpp
@@ -22,7 +22,6 @@
 - hrpc = libhv + protobuf
 - rudp: FEC, ARQ, UDT, QUIC
 - kcptun
-- have a taste of io_uring
 - coroutine
 - cppsocket.io
 - IM-libhv

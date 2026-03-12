@@ -45,6 +45,9 @@ dependencies:
 rudp:
   --with-kcp            compile with kcp?               (DEFAULT: $WITH_KCP)
 
+event:
+  --with-io_uring       compile with io_uring?          (DEFAULT: $WITH_IO_URING)
+
 END
 }
 
@@ -298,6 +301,7 @@ option=WITH_MBEDTLS && check_option
 option=ENABLE_UDS && check_option
 option=USE_MULTIMAP && check_option
 option=WITH_KCP && check_option
+option=WITH_IO_URING && check_option
 
 # end confile
 cat << END >> $confile
