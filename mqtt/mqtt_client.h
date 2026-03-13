@@ -53,6 +53,7 @@ struct mqtt_client_s {
     hssl_ctx_t ssl_ctx;
     // thread-safe
     hmutex_t mutex_;
+    unsigned short mid_;  // message ID counter, protected by mutex_
 };
 
 BEGIN_EXTERN_C
