@@ -97,6 +97,12 @@ int main(int argc, char** argv) {
         writer->End();
     });
 
+    // curl -v http://ip:port/close
+    // Test HTTP_STATUS_CLOSE: closes connection without sending any response
+    router.GET("/close", [](HttpRequest* req, HttpResponse* resp) {
+        return HTTP_STATUS_CLOSE;
+    });
+
     // middleware
     router.AllowCORS();
     router.Use([](HttpRequest* req, HttpResponse* resp) {

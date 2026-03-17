@@ -254,6 +254,10 @@ void HttpHandler::onHeadersComplete() {
     handleRequestHeaders();
     if (service->headerHandler) {
         const int status_code = customHttpHandler(service->headerHandler);
+        if (status_code == HTTP_STATUS_CLOSE) {
+            state = WANT_CLOSE;
+            return;
+        }
         if (status_code != HTTP_STATUS_OK && status_code != HTTP_STATUS_NEXT) {
             SetError(ERR_REQUEST, static_cast<http_status>(status_code));
             return;
@@ -338,6 +342,10 @@ void HttpHandler::onMessageComplete() {
         }
     } else {
         status_code = HandleHttpRequest();
+        if (status_code == HTTP_STATUS_CLOSE) {
+            state = WANT_CLOSE;
+            return;
+        }
         if (status_code != HTTP_STATUS_NEXT) {
             SendHttpResponse();
         }
@@ -478,11 +486,16 @@ postprocessor:
         pResp->status_code = (http_status)status_code;
         if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
             if (service->errorHandler) {
-                customHttpHandler(service->errorHandler);
+                status_code = customHttpHandler(service->errorHandler);
             } else {
                 defaultErrorHandler();
             }
         }
+    }
+    // Handle HTTP_STATUS_CLOSE: close connection without response
+    if (status_code == HTTP_STATUS_CLOSE) {
+        state = WANT_CLOSE;
+        return HTTP_STATUS_CLOSE;
     }
     if (fc) {
         pResp->content = fc->filebuf.base;
@@ -492,7 +505,11 @@ postprocessor:
         pResp->headers["Etag"] = fc->etag;
     }
     if (service->postprocessor) {
-        customHttpHandler(service->postprocessor);
+        status_code = customHttpHandler(service->postprocessor);
+        if (status_code == HTTP_STATUS_CLOSE) {
+            state = WANT_CLOSE;
+            return HTTP_STATUS_CLOSE;
+        }
     }
 
     if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
@@ -760,7 +777,7 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
             if (parser->IsComplete()) state = WANT_SEND;
             else return 0;
         case HANDLE_END:
-             state = WANT_SEND;
+            state = WANT_SEND;
         case WANT_SEND:
             state = SEND_HEADER;
         case SEND_HEADER:
