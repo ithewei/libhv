@@ -4,6 +4,7 @@
 #include <mach-o/dyld.h> // for _NSGetExecutablePath
 #endif
 
+#include <ctype.h>  // for tolower
 #include "hatomic.h"
 
 #ifndef RAND_MAX
@@ -542,6 +543,7 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
 }
 
 int hv_normalize_path(char *path) {
+    if (!path) return 0;
     if (*path != '/') return 0;
     int pos = 1;
 #ifdef OS_WIN
@@ -586,7 +588,7 @@ int hv_normalize_path(char *path) {
             default:
 #ifdef OS_WIN
                 // windows is not case sensitive
-                path[pos++] = (char)tolower(path[i]);
+                path[pos++] = (char)tolower((unsigned char)path[i]);
 #else
                 path[pos++] = path[i];
 #endif
