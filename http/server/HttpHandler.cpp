@@ -524,7 +524,9 @@ int HttpHandler::defaultRequestHandler() {
 int HttpHandler::defaultStaticHandler() {
     // file service
     std::string path = req->Path();
-    path.resize(hv_normalize_path(const_cast<char*>(path.c_str())));
+    if (!path.empty()) {
+        path.resize(hv_normalize_path(&path[0]));
+    }
     if (path.empty()) {
         hloge("[%s:%d] Illegal relative path: %s", ip, port, req->path.c_str());
         return HTTP_STATUS_BAD_REQUEST;
