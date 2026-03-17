@@ -492,6 +492,11 @@ postprocessor:
             }
         }
     }
+    // Handle HTTP_STATUS_CLOSE: close connection without response
+    if (status_code == HTTP_STATUS_CLOSE) {
+        state = WANT_CLOSE;
+        return HTTP_STATUS_CLOSE;
+    }
     if (fc) {
         pResp->content = fc->filebuf.base;
         pResp->content_length = fc->filebuf.len;
@@ -501,12 +506,10 @@ postprocessor:
     }
     if (service->postprocessor) {
         status_code = customHttpHandler(service->postprocessor);
-    }
-
-    // Handle HTTP_STATUS_CLOSE: close connection without response
-    if (status_code == HTTP_STATUS_CLOSE) {
-        state = WANT_CLOSE;
-        return HTTP_STATUS_CLOSE;
+        if (status_code == HTTP_STATUS_CLOSE) {
+            state = WANT_CLOSE;
+            return HTTP_STATUS_CLOSE;
+        }
     }
 
     if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
