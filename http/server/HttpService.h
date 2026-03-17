@@ -29,11 +29,13 @@
 /*
  * @param[in]  req:  parsed structured http request
  * @param[out] resp: structured http response
- * @return  0:                  handle next
- *          http_status_code:   handle done
+ * @return  HTTP_STATUS_NEXT:       handle next
+ *          HTTP_STATUS_CLOSE:      close connection
+ *          http_status_code:       handle done
  */
 #define HTTP_STATUS_NEXT        0
 #define HTTP_STATUS_UNFINISHED  0
+#define HTTP_STATUS_CLOSE       -100
 // NOTE: http_sync_handler run on IO thread
 typedef std::function<int(HttpRequest* req, HttpResponse* resp)>                            http_sync_handler;
 // NOTE: http_async_handler run on hv::async threadpool
