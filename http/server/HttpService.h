@@ -157,6 +157,7 @@ struct HV_EXPORT HttpService {
      * @client  bin/wget http://127.0.0.1:8080/downloads/test.zip
      */
     int limit_rate; // limit send rate, unit: KB/s
+    HttpCompressionOptions compression;
 
     unsigned enable_access_log      :1;
     unsigned enable_forward_proxy   :1;
@@ -178,6 +179,7 @@ struct HV_EXPORT HttpService {
         file_cache_stat_interval = DEFAULT_FILE_CACHE_STAT_INTERVAL;
         file_cache_expired_time = DEFAULT_FILE_CACHE_EXPIRED_TIME;
         limit_rate = -1; // unlimited
+        compression = DefaultServerCompressionOptions();
 
         enable_access_log = 1;
         enable_forward_proxy = 0;

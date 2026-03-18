@@ -38,6 +38,8 @@ features:
 dependencies:
   --with-curl           compile with curl?              (DEFAULT: $WITH_CURL)
   --with-nghttp2        compile with nghttp2?           (DEFAULT: $WITH_NGHTTP2)
+  --with-zlib           compile with zlib?              (DEFAULT: $WITH_ZLIB)
+  --with-zstd           compile with zstd?              (DEFAULT: $WITH_ZSTD)
   --with-openssl        compile with openssl?           (DEFAULT: $WITH_OPENSSL)
   --with-gnutls         compile with gnutls?            (DEFAULT: $WITH_GNUTLS)
   --with-mbedtls        compile with mbedtls?           (DEFAULT: $WITH_MBEDTLS)

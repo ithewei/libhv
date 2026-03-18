@@ -35,11 +35,14 @@
     F(1017, INVALID_FMT,        "Invalid format")   \
     F(1018, INVALID_PROTOCOL,   "Invalid protocol") \
     F(1019, INVALID_PACKAGE,    "Invalid package")  \
+    F(1020, UNSUPPORTED_CONTENT_ENCODING, "Unsupported content encoding") \
     \
     F(1021, OUT_OF_RANGE,   "Out of range")     \
     F(1022, OVER_LIMIT,     "Over the limit")       \
     F(1023, MISMATCH,       "Mismatch")         \
     F(1024, PARSE,          "Parse failed")     \
+    F(1025, COMPRESS,       "Compress failed")  \
+    F(1026, DECOMPRESS,     "Decompress failed")\
     \
     F(1030, OPEN_FILE,      "Open file failed") \
     F(1031, SAVE_FILE,      "Save file failed") \

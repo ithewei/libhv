@@ -79,7 +79,7 @@ bool HttpHandler::Init(int http_version) {
         hloop_t* loop = hevent_loop(io);
         pid = hloop_pid(loop);
         tid = hloop_tid(loop);
-        writer = std::make_shared<HttpResponseWriter>(io, resp);
+        writer = std::make_shared<HttpResponseWriter>(io, req, resp, service);
         writer->status = hv::SocketChannel::CONNECTED;
     } else {
         pid = hv_getpid();
@@ -116,10 +116,15 @@ void HttpHandler::Reset() {
     ctx = NULL;
     api_handler = NULL;
     closeFile();
+    request_decoder.Reset();
+    request_original_encoding.clear();
+    ws_compression = WebSocketCompressionHandshake();
     if (writer) {
         writer->Begin();
         writer->onwrite = NULL;
         writer->onclose = NULL;
+        writer->request = req;
+        writer->service = service;
     }
     parser->InitRequest(req.get());
 }
@@ -171,6 +176,18 @@ bool HttpHandler::SwitchWebSocket() {
     protocol = WEBSOCKET;
     ws_parser  = std::make_shared<WebSocketParser>();
     ws_channel = std::make_shared<WebSocketChannel>(io, WS_SERVER);
+    WebSocketCompressionOptions resolved_compression = ws_service ? ws_service->compression : WebSocketCompressionOptions();
+    if (!ws_compression.enabled) {
+        resolved_compression.enabled = false;
+    } else {
+        resolved_compression.enabled = true;
+        resolved_compression.client_no_context_takeover = ws_compression.client_no_context_takeover;
+        resolved_compression.server_no_context_takeover = ws_compression.server_no_context_takeover;
+        resolved_compression.client_max_window_bits = ws_compression.client_max_window_bits;
+        resolved_compression.server_max_window_bits = ws_compression.server_max_window_bits;
+    }
+    ws_channel->setCompression(resolved_compression);
+    ws_parser->setCompression(resolved_compression, resolved_compression.enabled, false);
     ws_parser->onMessage = [this](int opcode, const std::string& msg){
         ws_channel->opcode = (enum ws_opcode)opcode;
         switch(opcode) {
@@ -289,6 +306,7 @@ void HttpHandler::onHeadersComplete() {
     }
 
     if (api_handler && api_handler->state_handler) {
+        prepareRequestDecompression();
         api_handler->state_handler(context(), HP_HEADERS_COMPLETE, NULL, 0);
         return;
     }
@@ -299,22 +317,37 @@ void HttpHandler::onHeadersComplete() {
     }
 
     // Expect: 100-continue
-    handleExpect100();
+    prepareRequestDecompression();
+    if (error == 0) {
+        handleExpect100();
+    }
 }
 
 void HttpHandler::onBody(const char* data, size_t size) {
-    if (api_handler && api_handler->state_handler) {
-        api_handler->state_handler(context(), HP_BODY, data, size);
-        return;
-    }
-
     if (proxy && proxy_connected) {
         if (io) hio_write_upstream(io, (void*)data, size);
         return;
     }
 
-    req->body.append(data, size);
-    return;
+    if (request_decoder.active()) {
+        std::string out;
+        int ret = request_decoder.Update(data, size, out);
+        if (ret != 0) {
+            SetError(ret, ret == ERR_OVER_LIMIT ? HTTP_STATUS_PAYLOAD_TOO_LARGE : HTTP_STATUS_BAD_REQUEST);
+            return;
+        }
+        if (!out.empty()) {
+            req->body.append(out);
+            if (api_handler && api_handler->state_handler) {
+                api_handler->state_handler(context(), HP_BODY, out.data(), out.size());
+            }
+        }
+    } else {
+        req->body.append(data, size);
+        if (api_handler && api_handler->state_handler) {
+            api_handler->state_handler(context(), HP_BODY, data, size);
+        }
+    }
 }
 
 void HttpHandler::onMessageComplete() {
@@ -329,6 +362,28 @@ void HttpHandler::onMessageComplete() {
     if (proxy) {
         if (proxy_connected) Reset();
         return;
+    }
+
+    if (request_decoder.active()) {
+        std::string out;
+        int ret = request_decoder.Finish(out);
+        if (ret != 0) {
+            SetError(ret, ret == ERR_OVER_LIMIT ? HTTP_STATUS_PAYLOAD_TOO_LARGE : HTTP_STATUS_BAD_REQUEST);
+            SendHttpStatusResponse(resp->status_code);
+            return;
+        }
+        if (!out.empty()) {
+            req->body.append(out);
+            if (api_handler && api_handler->state_handler) {
+                api_handler->state_handler(context(), HP_BODY, out.data(), out.size());
+            }
+        }
+        NormalizeDecodedMessage(req.get());
+    } else if (!request_original_encoding.empty()) {
+        NormalizeDecodedMessage(req.get());
+    } else {
+        req->content = NULL;
+        req->content_length = req->body.size();
     }
 
     addResponseHeaders();
@@ -444,6 +499,68 @@ void HttpHandler::addResponseHeaders() {
     pResp->headers["Connection"] = keepalive ? "keep-alive" : "close";
 }
 
+void HttpHandler::prepareRequestDecompression() {
+    request_decoder.Reset();
+    request_original_encoding.clear();
+    if (proxy || service == NULL) {
+        return;
+    }
+    HttpCompressionOptions options = req->compression_inherit ? service->compression : req->compression;
+    if (!options.enabled || !options.decompress_request) {
+        return;
+    }
+    request_original_encoding = req->GetHeader("Content-Encoding");
+    if (request_original_encoding.empty()) {
+        bool allow_identity = (options.enabled_encodings & HTTP_CONTENT_ENCODING_IDENTITY_MASK) != 0;
+        if (!allow_identity && (req->IsChunked() || req->ContentLength() > 0)) {
+            SetError(ERR_UNSUPPORTED_CONTENT_ENCODING, HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
+        }
+        return;
+    }
+    std::vector<http_content_encoding> encodings;
+    if (!ParseContentEncodingHeader(request_original_encoding, &encodings)) {
+        if (!request_original_encoding.empty()) {
+            SetError(ERR_UNSUPPORTED_CONTENT_ENCODING, HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
+        }
+        return;
+    }
+    if (encodings.empty()) {
+        return;
+    }
+    for (size_t i = 0; i < encodings.size(); ++i) {
+        if (!SupportsEncoding(options, encodings[i])) {
+            SetError(ERR_UNSUPPORTED_CONTENT_ENCODING, HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
+            return;
+        }
+    }
+    int ret = request_decoder.Init(encodings, options.max_decoded_size);
+    if (ret != 0) {
+        SetError(ret, ret == ERR_UNSUPPORTED_CONTENT_ENCODING ? HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE : HTTP_STATUS_BAD_REQUEST);
+    } else if (request_decoder.active()) {
+        PrepareDecodedMessageHeaders(req.get());
+    }
+}
+
+int HttpHandler::prepareResponseCompression(bool streaming) {
+    if (service == NULL || proxy) {
+        return 0;
+    }
+    HttpCompressionOptions options = resp->compression_inherit ? service->compression : resp->compression;
+    http_content_encoding encoding = HTTP_CONTENT_ENCODING_IDENTITY;
+    int ret = ApplyResponseCompression(req.get(), resp.get(), options, streaming, &encoding);
+    if (ret != 0) {
+        hlogw("[%s:%d] response compression failed: %d", ip, port, ret);
+        return ret;
+    }
+    if (encoding != HTTP_CONTENT_ENCODING_GZIP && encoding != HTTP_CONTENT_ENCODING_ZSTD) {
+        return 0;
+    }
+    if (fc) {
+        fc = NULL;
+    }
+    return 0;
+}
+
 int HttpHandler::HandleHttpRequest() {
     // preprocessor -> middleware -> processor -> postprocessor
     HttpRequest* pReq = req.get();
@@ -509,6 +626,60 @@ postprocessor:
         if (status_code == HTTP_STATUS_CLOSE) {
             state = WANT_CLOSE;
             return HTTP_STATUS_CLOSE;
+        }
+    }
+
+    if (service != NULL) {
+        HttpCompressionOptions options = pResp->compression_inherit ? service->compression : pResp->compression;
+        AdvertiseAcceptEncoding(pResp, options, error == ERR_UNSUPPORTED_CONTENT_ENCODING);
+        if (fc &&
+            pResp->status_code == HTTP_STATUS_OK &&
+            (pReq->method == HTTP_GET || pReq->method == HTTP_HEAD)) {
+            bool vary_accept_encoding = ShouldCompressResponse(pReq, pResp, options, false);
+            http_content_encoding encoding = SelectResponseContentEncoding(pReq, pResp, options, false);
+            if (encoding != HTTP_CONTENT_ENCODING_UNKNOWN) {
+                std::string etag = fc->etag;
+                if (encoding != HTTP_CONTENT_ENCODING_IDENTITY) {
+                    etag = BuildContentEncodingETag(etag, encoding);
+                }
+                auto iter = pReq->headers.find("if-none-match");
+                if (iter != pReq->headers.end() &&
+                    strcmp(iter->second.c_str(), etag.c_str()) == 0) {
+                    std::string last_modified = fc->last_modified;
+                    fc = NULL;
+                    pResp->status_code = HTTP_STATUS_NOT_MODIFIED;
+                    pResp->body.clear();
+                    pResp->content = NULL;
+                    pResp->content_length = 0;
+                    pResp->headers["Content-Length"] = "0";
+                    pResp->headers["Last-Modified"] = last_modified;
+                    pResp->SetContentEncoding(encoding);
+                    pResp->headers["Etag"] = etag;
+                    if (vary_accept_encoding) {
+                        EnsureVaryAcceptEncoding(pResp);
+                    }
+                } else {
+                    iter = pReq->headers.find("if-modified-since");
+                    if (iter != pReq->headers.end() &&
+                        strcmp(iter->second.c_str(), fc->last_modified) == 0) {
+                        std::string last_modified = fc->last_modified;
+                        fc = NULL;
+                        pResp->status_code = HTTP_STATUS_NOT_MODIFIED;
+                        pResp->body.clear();
+                        pResp->content = NULL;
+                        pResp->content_length = 0;
+                        pResp->headers["Content-Length"] = "0";
+                        pResp->headers["Last-Modified"] = last_modified;
+                        pResp->SetContentEncoding(encoding);
+                        pResp->headers["Etag"] = etag;
+                        if (vary_accept_encoding) {
+                            EnsureVaryAcceptEncoding(pResp);
+                        }
+                    } else if (encoding == HTTP_CONTENT_ENCODING_IDENTITY) {
+                        pResp->headers["Etag"] = etag;
+                    }
+                }
+            }
         }
     }
 
@@ -611,7 +782,7 @@ int HttpHandler::defaultStaticHandler() {
     // FileCache
     FileCache::OpenParam param;
     param.max_read = service->max_file_cache_size;
-    param.need_read = !(req->method == HTTP_HEAD || has_range);
+    param.need_read = !has_range;
     param.path = req_path;
     if (files) {
         fc = files->Open(filepath.c_str(), &param);
@@ -627,22 +798,6 @@ int HttpHandler::defaultStaticHandler() {
             status_code = HTTP_STATUS_NOT_FOUND;
         }
     }
-    else {
-        // Not Modified
-        auto iter = req->headers.find("if-none-match");
-        if (iter != req->headers.end() &&
-            strcmp(iter->second.c_str(), fc->etag) == 0) {
-            fc = NULL;
-            return HTTP_STATUS_NOT_MODIFIED;
-        }
-
-        iter = req->headers.find("if-modified-since");
-        if (iter != req->headers.end() &&
-            strcmp(iter->second.c_str(), fc->last_modified) == 0) {
-            fc = NULL;
-            return HTTP_STATUS_NOT_MODIFIED;
-        }
-    }
     return status_code;
 }
 
@@ -655,10 +810,25 @@ int HttpHandler::defaultLargeFileHandler(const std::string &filepath) {
         resp->content_length = file->size();
         resp->SetContentTypeByFilename(filepath.c_str());
     }
+    int ret = prepareResponseCompression(true);
+    if (ret != 0) {
+        closeFile();
+        return ret;
+    }
+    if (resp->status_code == HTTP_STATUS_NOT_ACCEPTABLE) {
+        closeFile();
+        return resp->status_code;
+    }
     if (service->limit_rate == 0) {
         // forbidden to send large file
         resp->content_length = 0;
         resp->status_code = HTTP_STATUS_FORBIDDEN;
+        closeFile();
+        return resp->status_code;
+    }
+    if (req->method == HTTP_HEAD) {
+        closeFile();
+        return resp->status_code;
     } else {
         size_t bufsize = 40960; // 40K
         file->buf.resize(bufsize);
@@ -788,10 +958,9 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
             if (pReq->method == HTTP_HEAD) {
                 if (fc) {
                     pResp->headers["Accept-Ranges"] = "bytes";
-                    pResp->headers["Content-Length"] = hv::to_string(fc->st.st_size);
-                } else {
-                    pResp->headers["Content-Type"] = "text/html";
-                    pResp->headers["Content-Length"] = "0";
+                }
+                if (pResp->headers.find("Content-Length") == pResp->headers.end()) {
+                    pResp->headers["Content-Length"] = hv::to_string(pResp->ContentLength());
                 }
                 state = SEND_DONE;
                 goto return_nobody;
@@ -865,7 +1034,13 @@ int HttpHandler::SendHttpResponse(bool submit) {
     if (!io || !parser) return -1;
     char* data = NULL;
     size_t len = 0, total_len = 0;
-    if (submit) parser->SubmitResponse(resp.get());
+    if (submit) {
+        int ret = prepareResponseCompression(false);
+        if (ret != 0) {
+            return ret;
+        }
+        parser->SubmitResponse(resp.get());
+    }
     while (GetSendData(&data, &len)) {
         // printf("GetSendData %d\n", (int)len);
         if (data && len) {
@@ -967,6 +1142,23 @@ int HttpHandler::upgradeWebSocket() {
     Upgrade: websocket
     Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=
     */
+    std::string request_extensions = req->GetHeader(SEC_WEBSOCKET_EXTENSIONS);
+    std::string ws_extensions;
+    ws_compression = WebSocketCompressionHandshake();
+    if (!request_extensions.empty()) {
+        WebSocketCompressionHandshake offer;
+        if (!ParseWebSocketCompressionExtensions(request_extensions, &offer)) {
+            hloge("[%s:%d] invalid %s: %s", ip, port, SEC_WEBSOCKET_EXTENSIONS, request_extensions.c_str());
+            return SetError(ERR_INVALID_PROTOCOL);
+        }
+        if (ws_service &&
+            offer.enabled &&
+            NegotiateWebSocketCompression(request_extensions, ws_service->compression, &ws_compression, &ws_extensions) &&
+            !ws_extensions.empty()) {
+            resp->headers[SEC_WEBSOCKET_EXTENSIONS] = ws_extensions;
+        }
+    }
+
     resp->status_code = HTTP_STATUS_SWITCHING_PROTOCOLS;
     resp->headers["Connection"] = "Upgrade";
     resp->headers["Upgrade"] = "websocket";

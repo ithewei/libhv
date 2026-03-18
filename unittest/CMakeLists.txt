@@ -90,6 +90,16 @@ if(UNIX)
 add_executable(webbench webbench.c)
 endif()
 
+if(WITH_HTTP AND WITH_HTTP_SERVER AND WITH_HTTP_CLIENT)
+add_executable(http_compression_test http_compression_test.cpp)
+target_include_directories(http_compression_test PRIVATE .. ../base ../ssl ../event ../evpp ../cpputil ../http ../http/client ../http/server)
+target_link_libraries(http_compression_test ${HV_LIBRARIES})
+
+add_executable(websocket_compression_test websocket_compression_test.cpp)
+target_include_directories(websocket_compression_test PRIVATE .. ../base ../ssl ../event ../evpp ../cpputil ../http ../http/client ../http/server)
+target_link_libraries(websocket_compression_test ${HV_LIBRARIES})
+endif()
+
 add_custom_target(unittest DEPENDS
     mkdir_p
     rmdir_p
@@ -116,3 +126,7 @@ add_custom_target(unittest DEPENDS
     ftp
     sendmail
 )
+
+if(WITH_HTTP AND WITH_HTTP_SERVER AND WITH_HTTP_CLIENT)
+add_dependencies(unittest http_compression_test websocket_compression_test)
+endif()

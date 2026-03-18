@@ -29,3 +29,5 @@ bin/socketpair_test
 # bin/threadpool_test
 # bin/objectpool_test
 bin/sizeof_test
+[ -x bin/http_compression_test ] && bin/http_compression_test
+[ -x bin/websocket_compression_test ] && bin/websocket_compression_test

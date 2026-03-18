@@ -12,6 +12,8 @@
 
 namespace hv {
 
+class HttpResponseDecoderAdapter;
+
 template<typename Conn>
 class ConnPool {
 public:
@@ -60,6 +62,7 @@ struct HttpClientContext {
 
     HttpResponsePtr     resp;
     HttpParserPtr       parser;
+    std::shared_ptr<HttpResponseDecoderAdapter> resp_adapter;
     TimerID             timerID;
 
     HttpClientContext() {
@@ -80,6 +83,7 @@ struct HttpClientContext {
     void cancelTask() {
         cancelTimer();
         task = NULL;
+        resp_adapter = NULL;
     }
 
     void callback() {
@@ -94,10 +98,12 @@ struct HttpClientContext {
     void successCallback() {
         callback();
         resp = NULL;
+        resp_adapter = NULL;
     }
 
     void errorCallback() {
         resp = NULL;
+        resp_adapter = NULL;
         callback();
     }
 };
