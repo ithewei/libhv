@@ -540,3 +540,59 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
     stURL->fields[HV_URL_FRAGMENT].len = ep - sp;
     return 0;
 }
+
+int hv_normalize_path(char *path) {
+    if (*path != '/') return 0;
+    int pos = 1;
+#ifdef OS_WIN
+    int sum = 0;
+#endif
+    for (int i = 1; path[i] != '\0'; ++i) {
+        switch (path[i]) {
+            case '\\':
+            case '/':
+                if (path[pos - 1] != '/') path[pos++] = '/';
+                break;
+
+            case '.':
+                if (path[pos - 1] == '/') {
+                    if (path[i + 1] == '.' && (path[i + 2] == '/' || path[i + 2] == '\\' || path[i + 2] == '\0')) {
+                        while (--pos > 0) {
+                            if (path[pos - 1] == '/') break;
+                        }
+                        if (pos < 1) return 0;
+                        i += path[i + 2] == '\0' ? 1 : 2;
+                        break;
+                    }
+                    if (path[i + 1] == '\0') break;
+                    if (path[i + 1] == '/' || path[i + 1] == '\\') {
+                        ++i;
+                        break;
+                    }
+                }
+                path[pos++] = '.';
+#ifdef OS_WIN
+                // windows does not have a trailing '.'
+                sum = 1;
+                while (path[i + sum] == '.') {
+                    path[pos++] = '.';
+                    ++sum;
+                }
+                if (path[i + sum] == '\0') pos -= sum;
+                i += sum - 1;
+#endif
+                break;
+
+            default:
+#ifdef OS_WIN
+                // windows is not case sensitive
+                path[pos++] = (char)tolower(path[i]);
+#else
+                path[pos++] = path[i];
+#endif
+                break;
+        }
+    }
+    path[pos] = '\0';
+    return pos;
+}
