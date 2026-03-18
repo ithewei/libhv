@@ -1666,14 +1666,14 @@ bool NegotiateWebSocketCompression(
         negotiated->client_max_window_bits = 15;
         if (offer.client_max_window_bits_requested) {
             negotiated->client_max_window_bits =
-                    std::min(NormalizeWindowBits(local_options.client_max_window_bits),
-                             NormalizeWindowBits(offer.client_max_window_bits));
+                    (std::min)(NormalizeWindowBits(local_options.client_max_window_bits),
+                               NormalizeWindowBits(offer.client_max_window_bits));
         }
         negotiated->server_max_window_bits = NormalizeWindowBits(local_options.server_max_window_bits);
         if (offer.server_max_window_bits_requested) {
             negotiated->server_max_window_bits =
-                    std::min(negotiated->server_max_window_bits,
-                             NormalizeWindowBits(offer.server_max_window_bits));
+                    (std::min)(negotiated->server_max_window_bits,
+                               NormalizeWindowBits(offer.server_max_window_bits));
         }
 
         std::string header = "permessage-deflate";
