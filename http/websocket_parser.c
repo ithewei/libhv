@@ -65,6 +65,15 @@ size_t websocket_parser_execute(websocket_parser *parser, const websocket_parser
                 if(CC & (1<<7)) {
                     parser->flags |= WS_FIN;
                 }
+                if(CC & (1<<6)) {
+                    parser->flags |= WS_RSV1;
+                }
+                if(CC & (1<<5)) {
+                    parser->flags |= WS_RSV2;
+                }
+                if(CC & (1<<4)) {
+                    parser->flags |= WS_RSV3;
+                }
                 SET_STATE(s_head);
 
                 frame_offset++;
@@ -210,6 +219,9 @@ size_t websocket_build_frame(char * frame, websocket_flags flags, const char mas
     frame[1] = 0;
     if(flags & WS_FIN) {
         frame[0] = (char) (1 << 7);
+    }
+    if(flags & WS_RSV1) {
+        frame[0] |= (char)(1 << 6);
     }
     frame[0] |= flags & WS_OP_MASK;
     if(flags & WS_HAS_MASK) {

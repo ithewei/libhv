@@ -6,6 +6,7 @@
 #include "hlog.h"
 #include "hurl.h"
 #include "base64.h"
+#include "http_compress.h"
 
 using namespace hv;
 
@@ -176,6 +177,8 @@ void HttpMessage::Init() {
     content = NULL;
     content_length = 0;
     content_type = CONTENT_TYPE_NONE;
+    compression = HttpCompressionOptions();
+    compression_inherit = true;
 }
 
 void HttpMessage::Reset() {
@@ -461,6 +464,70 @@ bool HttpMessage::IsUpgrade() {
     return iter != headers.end();
 }
 
+http_content_encoding HttpMessage::ContentEncoding() {
+    std::vector<http_content_encoding> encodings;
+    if (!hv::ParseContentEncodingHeader(GetHeader("Content-Encoding"), &encodings)) {
+        return HTTP_CONTENT_ENCODING_UNKNOWN;
+    }
+    return encodings.empty() ? HTTP_CONTENT_ENCODING_IDENTITY : encodings.back();
+}
+
+void HttpMessage::SetContentEncoding(http_content_encoding encoding) {
+    if (encoding == HTTP_CONTENT_ENCODING_IDENTITY || encoding == HTTP_CONTENT_ENCODING_UNKNOWN) {
+        headers.erase("Content-Encoding");
+    } else {
+        headers["Content-Encoding"] = http_content_encoding_str(encoding);
+    }
+}
+
+bool HttpMessage::HasCompressedContent() {
+    std::vector<http_content_encoding> encodings;
+    return hv::ParseContentEncodingHeader(GetHeader("Content-Encoding"), &encodings) &&
+           !encodings.empty();
+}
+
+bool HttpMessage::IsCompressibleContentType() {
+    switch (ContentType()) {
+    case TEXT_PLAIN:
+    case TEXT_HTML:
+    case TEXT_CSS:
+    case TEXT_CSV:
+    case TEXT_MARKDOWN:
+    case APPLICATION_JAVASCRIPT:
+    case APPLICATION_JSON:
+    case APPLICATION_XML:
+    case APPLICATION_XHTML:
+    case APPLICATION_ATOM:
+    case APPLICATION_RSS:
+    case APPLICATION_WASM:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool HttpMessage::IsPrecompressedContentType() {
+    switch (ContentType()) {
+    case APPLICATION_ZIP:
+    case APPLICATION_GZIP:
+    case APPLICATION_7Z:
+    case APPLICATION_RAR:
+    case IMAGE_JPEG:
+    case IMAGE_PNG:
+    case IMAGE_GIF:
+    case IMAGE_ICO:
+    case IMAGE_BMP:
+    case IMAGE_WEBP:
+    case VIDEO_MP4:
+    case VIDEO_WEBM:
+    case VIDEO_MPEG:
+    case APPLICATION_PDF:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // headers
 void HttpMessage::SetHeader(const char* key, const std::string& value) {
     headers[key] = value;
@@ -468,6 +535,14 @@ void HttpMessage::SetHeader(const char* key, const std::string& value) {
 std::string HttpMessage::GetHeader(const char* key, const std::string& defvalue) {
     auto iter = headers.find(key);
     return iter == headers.end() ? defvalue : iter->second;
+}
+
+void HttpMessage::SetAcceptEncoding(unsigned mask) {
+    if (mask == 0) {
+        headers.erase("Accept-Encoding");
+        return;
+    }
+    headers["Accept-Encoding"] = hv::BuildAcceptEncodingHeader(mask);
 }
 
 // cookies
@@ -492,6 +567,8 @@ const HttpCookie& HttpMessage::GetCookie(const std::string& name) {
 // body
 void HttpMessage::SetBody(const std::string& body) {
     this->body = body;
+    content = NULL;
+    content_length = body.size();
 }
 const std::string& HttpMessage::Body() {
     return this->body;

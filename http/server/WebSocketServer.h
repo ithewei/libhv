@@ -19,11 +19,16 @@ struct WebSocketService {
     std::function<void(const WebSocketChannelPtr&, const std::string&)>     onmessage;
     std::function<void(const WebSocketChannelPtr&)>                         onclose;
     int ping_interval;
+    WebSocketCompressionOptions compression;
 
     WebSocketService() : ping_interval(0) {}
 
     void setPingInterval(int ms) {
         ping_interval = ms;
+    }
+
+    void setCompression(const WebSocketCompressionOptions& options) {
+        compression = options;
     }
 };
 

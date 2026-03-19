@@ -39,6 +39,9 @@ typedef enum websocket_flags {
     // marks
     WS_FINAL_FRAME = 0x10,
     WS_HAS_MASK    = 0x20,
+    WS_RSV1        = 0x40,
+    WS_RSV2        = 0x80,
+    WS_RSV3        = 0x100,
 } websocket_flags;
 
 #define WS_OP_MASK 0xF

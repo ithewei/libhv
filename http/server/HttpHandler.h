@@ -7,6 +7,7 @@
 
 #include "WebSocketServer.h"
 #include "WebSocketParser.h"
+#include "http_compress.h"
 
 class HttpHandler {
 public:
@@ -58,6 +59,8 @@ public:
     HttpParserPtr           parser;
     HttpContextPtr          ctx;
     http_handler*           api_handler;
+    hv::HttpStreamingDecompressor request_decoder;
+    std::string             request_original_encoding;
 
     // for GetSendData
     std::string             header;
@@ -67,6 +70,7 @@ public:
     WebSocketService*       ws_service;
     WebSocketChannelPtr     ws_channel;
     WebSocketParserPtr      ws_parser;
+    hv::WebSocketCompressionHandshake ws_compression;
     uint64_t                last_send_ping_time;
     uint64_t                last_recv_pong_time;
 
@@ -147,6 +151,8 @@ private:
     // Expect: 100-continue
     void  handleExpect100();
     void  addResponseHeaders();
+    void  prepareRequestDecompression();
+    int   prepareResponseCompression(bool streaming = false);
 
     // http_cb
     void onHeadersComplete();

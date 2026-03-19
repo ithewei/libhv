@@ -2,6 +2,7 @@
 
 #include "base64.h"
 #include "hlog.h"
+#include "http_compress.h"
 
 #define DEFAULT_WS_PING_INTERVAL    3000 // ms
 
@@ -81,6 +82,13 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
             if (http_req_->GetHeader(SEC_WEBSOCKET_VERSION).empty()) {
                 http_req_->headers[SEC_WEBSOCKET_VERSION] = "13";
             }
+            if (compression.enabled &&
+                http_req_->GetHeader(SEC_WEBSOCKET_EXTENSIONS).empty()) {
+                std::string extensions = BuildWebSocketCompressionOffer(compression);
+                if (!extensions.empty()) {
+                    http_req_->headers[SEC_WEBSOCKET_EXTENSIONS] = extensions;
+                }
+            }
             std::string http_msg = http_req_->Dump(true, true);
             // printf("%s", http_msg.c_str());
             // NOTE: not use WebSocketChannel::send
@@ -138,6 +146,26 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                     return;
                 }
                 ws_parser_ = std::make_shared<WebSocketParser>();
+                WebSocketCompressionOptions resolved_compression = compression;
+                resolved_compression.enabled = false;
+                WebSocketCompressionHandshake negotiated;
+                std::string offered_extensions = http_req_->GetHeader(SEC_WEBSOCKET_EXTENSIONS);
+                std::string response_extensions = http_resp_->GetHeader(SEC_WEBSOCKET_EXTENSIONS);
+                if (!response_extensions.empty()) {
+                    if (!compression.enabled ||
+                        !ConfirmWebSocketCompression(response_extensions, offered_extensions, &negotiated)) {
+                        hloge("invalid Sec-WebSocket-Extensions response: %s", response_extensions.c_str());
+                        channel->close();
+                        return;
+                    }
+                    resolved_compression.enabled = true;
+                    resolved_compression.client_no_context_takeover = negotiated.client_no_context_takeover;
+                    resolved_compression.server_no_context_takeover = negotiated.server_no_context_takeover;
+                    resolved_compression.client_max_window_bits = negotiated.client_max_window_bits;
+                    resolved_compression.server_max_window_bits = negotiated.server_max_window_bits;
+                }
+                channel->setCompression(resolved_compression);
+                ws_parser_->setCompression(resolved_compression, resolved_compression.enabled, true);
                 // websocket_onmessage
                 ws_parser_->onMessage = [this, &channel](int opcode, const std::string& msg) {
                     channel->opcode = (enum ws_opcode)opcode;

@@ -5,10 +5,13 @@
 
 #include "Channel.h"
 
+#include "HttpCompression.h"
 #include "wsdef.h"
 #include "hmath.h"
 
 namespace hv {
+
+class WebSocketDeflater;
 
 class HV_EXPORT WebSocketChannel : public SocketChannel {
 public:
@@ -17,7 +20,9 @@ public:
         : SocketChannel(io)
         , type(type)
         , opcode(WS_OPCODE_CLOSE)
-    {}
+    {
+        compression.enabled = false;
+    }
     ~WebSocketChannel() {}
 
     // isConnected, send, close
@@ -38,14 +43,20 @@ public:
         return SocketChannel::close(type == WS_SERVER);
     }
 
+    void setCompression(const WebSocketCompressionOptions& options) {
+        compression = options;
+    }
+
 protected:
-    int sendFrame(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY, bool fin = true);
+    int sendFrame(const char* buf, int len, enum ws_opcode opcode = WS_OPCODE_BINARY, bool fin = true, bool rsv1 = false);
 
 public:
     enum ws_opcode  opcode;
+    WebSocketCompressionOptions compression;
 private:
     Buffer      sendbuf_;
     std::mutex  mutex_;
+    std::shared_ptr<WebSocketDeflater> deflater_;
 };
 
 }
