@@ -18,9 +18,6 @@
 
 #ifdef WITH_ZSTD
 #include <zstd.h>
-#if !defined(ZSTD_VERSION_NUMBER) || ZSTD_VERSION_NUMBER < 10500
-#error "WITH_ZSTD requires libzstd >= 1.5.0"
-#endif
 #endif
 
 static const char* s_identity_encoding = "identity";

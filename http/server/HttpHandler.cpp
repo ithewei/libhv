@@ -552,6 +552,18 @@ int HttpHandler::prepareResponseCompression(bool streaming) {
         hlogw("[%s:%d] response compression failed: %d", ip, port, ret);
         return ret;
     }
+    if (encoding == HTTP_CONTENT_ENCODING_UNKNOWN) {
+        bool had_file_response = (fc != NULL || file != NULL);
+        fc = NULL;
+        closeFile(); // Not necessary, but just in case
+        if (had_file_response) {
+            resp->headers.erase("Accept-Ranges");
+            resp->headers.erase("Content-Type");
+            resp->headers.erase("Last-Modified");
+            resp->headers.erase("Etag");
+        }
+        return 0;
+    }
     if (encoding != HTTP_CONTENT_ENCODING_GZIP && encoding != HTTP_CONTENT_ENCODING_ZSTD) {
         return 0;
     }

@@ -151,7 +151,7 @@ sudo apt install zlib1g-dev # ubuntu
 make clean && make
 ```
 
-### compile WITH_ZSTD (Requires libzstd >= 1.5.0)
+### compile WITH_ZSTD
 ```
 sudo apt install libzstd-dev # ubuntu
 ./configure --with-zstd

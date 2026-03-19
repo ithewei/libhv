@@ -100,6 +100,21 @@ static bool SendAll(int fd, const std::string& data) {
     return true;
 }
 
+static bool RecvAll(int fd, std::string* data) {
+    data->clear();
+    char buffer[4096];
+    while (true) {
+        ssize_t nread = recv(fd, buffer, sizeof(buffer), 0);
+        if (nread < 0) {
+            return false;
+        }
+        if (nread == 0) {
+            return true;
+        }
+        data->append(buffer, (size_t)nread);
+    }
+}
+
 #ifdef WITH_ZLIB
 static bool Gunzip(const std::string& compressed, std::string* decoded) {
     decoded->clear();
@@ -671,8 +686,18 @@ static bool TestSelectContentEncodingLogic() {
                "wildcard should not reduce identity below its implicit acceptability")) return false;
     if (!Check(SelectContentEncoding("gzip;q=0, zstd;q=0, identity;q=0", mask, HTTP_CONTENT_ENCODING_ZSTD) == HTTP_CONTENT_ENCODING_UNKNOWN,
                "explicit identity rejection should not fall back to identity")) return false;
-    if (!Check(SelectContentEncoding("gzip;q=0.4, zstd;q=1.0", mask, HTTP_CONTENT_ENCODING_GZIP) == HTTP_CONTENT_ENCODING_ZSTD,
+    http_content_encoding higher_q_encoding = HasEncoding(HTTP_CONTENT_ENCODING_ZSTD) ?
+            HTTP_CONTENT_ENCODING_ZSTD : HTTP_CONTENT_ENCODING_GZIP;
+    std::string higher_q_header = hv::asprintf("%s;q=1.0, identity;q=0.1",
+            http_content_encoding_str(higher_q_encoding));
+    if (!Check(SelectContentEncoding(higher_q_header, mask, HTTP_CONTENT_ENCODING_IDENTITY) == higher_q_encoding,
                "higher q value should win over preferred encoding")) return false;
+    if (HasEncoding(HTTP_CONTENT_ENCODING_ZSTD) && HasEncoding(HTTP_CONTENT_ENCODING_GZIP)) {
+        if (!Check(SelectContentEncoding("gzip;q=0.4, zstd;q=1.0, identity;q=0",
+                                         mask,
+                                         HTTP_CONTENT_ENCODING_GZIP) == HTTP_CONTENT_ENCODING_ZSTD,
+                   "higher q value should override preferred compressed encoding")) return false;
+    }
     return true;
 }
 
@@ -1242,6 +1267,51 @@ static bool TestLargeFileUnacceptableAcceptEncoding(int port, const std::string&
     return true;
 }
 
+static bool TestStaticFileUnacceptableAcceptEncodingRaw(int port, const std::string& path) {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (!Check(fd >= 0, "failed to create raw static-file test socket")) return false;
+
+    sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons((uint16_t)port);
+    if (!Check(connect(fd, (sockaddr*)&addr, sizeof(addr)) == 0, "failed to connect raw static-file test socket")) {
+        close(fd);
+        return false;
+    }
+
+    std::string filename = hv_basename(path.c_str());
+    std::string request = hv::asprintf(
+            "GET /static/%s HTTP/1.1\r\n"
+            "Host: 127.0.0.1:%d\r\n"
+            "Accept-Encoding: gzip;q=0, zstd;q=0, identity;q=0\r\n"
+            "Connection: close\r\n"
+            "\r\n",
+            filename.c_str(),
+            port);
+    if (!Check(SendAll(fd, request), "failed to send raw static-file request")) {
+        close(fd);
+        return false;
+    }
+
+    std::string response;
+    bool ok = RecvAll(fd, &response);
+    close(fd);
+    if (!Check(ok, "failed to read raw static-file response")) return false;
+
+    size_t header_end = response.find("\r\n\r\n");
+    if (!Check(header_end != std::string::npos, "raw static-file response missing header terminator")) return false;
+
+    std::string headers = response.substr(0, header_end + 4);
+    std::string body = response.substr(header_end + 4);
+    if (!Check(headers.find("406 Not Acceptable") != std::string::npos, "raw static-file response should return 406")) return false;
+    if (!Check(headers.find("Content-Length: 0") != std::string::npos, "raw static-file 406 response should declare zero length")) return false;
+    if (!Check(body.empty(), "raw static-file 406 response should not include cached file payload")) return false;
+    if (!Check(headers.find("Vary: Accept-Encoding") != std::string::npos, "raw static-file 406 response missing Vary header")) return false;
+    return true;
+}
+
 } // namespace
 
 int main() {
@@ -1510,6 +1580,7 @@ int main() {
     ok = ok && TestZeroEnabledEncodingsRejectIdentity(port);
     ok = ok && TestChunkedUnacceptableAcceptEncoding(port);
     ok = ok && TestLargeFileUnacceptableAcceptEncoding(port, large_file_path);
+    ok = ok && TestStaticFileUnacceptableAcceptEncodingRaw(port, static_file_path);
     ok = ok && TestAsyncClientCompression(port);
     if (HasEncoding(HTTP_CONTENT_ENCODING_GZIP)) {
         ok = ok && TestRepeatedCompressedRoundTrips(port, HTTP_CONTENT_ENCODING_GZIP);
