@@ -334,16 +334,26 @@ static ssize_t __nio_sendfile_sys(int out_fd, int in_fd, off_t* offset, size_t c
     }
     return -1;
 #else
-    // Fallback: read + write
+    // Fallback: pread + write (sends one chunk per call to integrate with event loop)
     char buf[65536];
     size_t to_read = count < sizeof(buf) ? count : sizeof(buf);
     ssize_t nread = pread(in_fd, buf, to_read, *offset);
     if (nread <= 0) return nread;
-    ssize_t nwrite = write(out_fd, buf, nread);
-    if (nwrite > 0) {
-        *offset += nwrite;
+    ssize_t total_written = 0;
+    while (total_written < nread) {
+        ssize_t nwrite = write(out_fd, buf + total_written, nread - total_written);
+        if (nwrite < 0) {
+            if (total_written > 0) {
+                *offset += total_written;
+                return total_written;
+            }
+            return -1;
+        }
+        if (nwrite == 0) break;
+        total_written += nwrite;
     }
-    return nwrite;
+    *offset += total_written;
+    return total_written;
 #endif
 }
 
@@ -480,11 +490,12 @@ do_sendfile:
         if (nsent == 0 && (io->io_type & HIO_TYPE_SOCK_STREAM)) {
             goto disconnect;
         }
+        int complete = (io->sendfile_remain == 0);
         hrecursive_mutex_unlock(&io->write_mutex);
         if (nsent > 0) {
             __write_cb(io, NULL, nsent);
         }
-        if (io->sendfile_remain == 0) {
+        if (complete) {
             io->sendfile_fd = -1;
         }
         return;
@@ -679,9 +690,15 @@ int hio_sendfile (hio_t* io, int in_fd, off_t offset, size_t length) {
         hloge("hio_sendfile called but fd[%d] already closed!", io->fd);
         return -1;
     }
+    if (in_fd < 0) {
+        hloge("hio_sendfile invalid file descriptor: %d", in_fd);
+        return -1;
+    }
     if (length == 0) return 0;
 
     // SSL: fall back to read + hio_write (sendfile cannot bypass SSL encryption)
+    // NOTE: hio_write is non-blocking and queues data internally,
+    // so this won't block the event loop even for large files.
     if (io->io_type == HIO_TYPE_SSL) {
         char buf[65536];
         off_t cur_offset = offset;
@@ -689,9 +706,13 @@ int hio_sendfile (hio_t* io, int in_fd, off_t offset, size_t length) {
         while (remaining > 0) {
             size_t to_read = remaining < sizeof(buf) ? remaining : sizeof(buf);
             ssize_t nread = pread(in_fd, buf, to_read, cur_offset);
-            if (nread <= 0) {
-                hloge("hio_sendfile pread error!");
+            if (nread < 0) {
+                hloge("hio_sendfile pread error: %s", strerror(errno));
                 return -1;
+            }
+            if (nread == 0) {
+                hlogw("hio_sendfile: unexpected EOF at offset %lld", (long long)cur_offset);
+                break;
             }
             int nwrite = hio_write(io, buf, nread);
             if (nwrite < 0) return nwrite;
@@ -721,9 +742,10 @@ int hio_sendfile (hio_t* io, int in_fd, off_t offset, size_t length) {
             }
         }
         if (nsent > 0) {
+            int complete = (io->sendfile_remain == 0);
             hrecursive_mutex_unlock(&io->write_mutex);
             __write_cb(io, NULL, nsent);
-            if (io->sendfile_remain == 0) {
+            if (complete) {
                 io->sendfile_fd = -1;
                 return 0;
             }

@@ -659,8 +659,8 @@ int HttpHandler::defaultLargeFileHandler(const std::string &filepath) {
         // forbidden to send large file
         resp->content_length = 0;
         resp->status_code = HTTP_STATUS_FORBIDDEN;
-    } else if (service->limit_rate < 0 && file->fp) {
-        // unlimited: use zero-copy sendfile if possible
+    } else if (service->limit_rate < 0 && file->fp && fileno(file->fp) >= 0) {
+        // unlimited: use zero-copy sendfile
         int filefd = fileno(file->fp);
         size_t length = resp->content_length;
         writer->EndHeaders();
@@ -677,7 +677,7 @@ int HttpHandler::defaultLargeFileHandler(const std::string &filepath) {
         size_t bufsize = 40960; // 40K
         file->buf.resize(bufsize);
         if (service->limit_rate < 0) {
-            // unlimited: sendFile when writable (fallback when fileno unavailable)
+            // unlimited: sendFile when writable
             writer->onwrite = [this](HBuf* buf) {
                 if (writer->isWriteComplete()) {
                     sendFile();

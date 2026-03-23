@@ -389,15 +389,19 @@ int hio_sendto (hio_t* io, const void* buf, size_t len, struct sockaddr* addr) {
 
 int hio_sendfile (hio_t* io, int in_fd, off_t offset, size_t length) {
     if (io->closed) return -1;
+    if (in_fd < 0) return -1;
     if (length == 0) return 0;
-    // Fallback: read + hio_write
+    // NOTE: Windows fallback uses read + hio_write.
+    // hio_write is non-blocking (queues via IOCP), so this won't block.
     char buf[65536];
     off_t cur_offset = offset;
     size_t remaining = length;
     while (remaining > 0) {
         size_t to_read = remaining < sizeof(buf) ? remaining : sizeof(buf);
-        ssize_t nread = _lseeki64(in_fd, cur_offset, SEEK_SET) >= 0 ? _read(in_fd, buf, (unsigned int)to_read) : -1;
-        if (nread <= 0) return -1;
+        if (_lseeki64(in_fd, cur_offset, SEEK_SET) < 0) return -1;
+        ssize_t nread = _read(in_fd, buf, (unsigned int)to_read);
+        if (nread < 0) return -1;
+        if (nread == 0) break; // EOF
         int nwrite = hio_write(io, buf, nread);
         if (nwrite < 0) return nwrite;
         cur_offset += nread;
