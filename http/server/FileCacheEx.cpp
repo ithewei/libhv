@@ -5,11 +5,11 @@
 #include "htime.h"
 #include "hlog.h"
 
-#include "httpdef.h"     // http_content_type_str_by_suffix
-#include "http_page.h"  // make_index_of_page
+#include "httpdef.h"     // import http_content_type_str_by_suffix
+#include "http_page.h"  // import make_index_of_page
 
 #ifdef OS_WIN
-#include "hstring.h"     // hv::utf8_to_wchar
+#include "hstring.h"     // import hv::utf8_to_wchar
 #endif
 
 #define ETAG_FMT    "\"%zx-%zx\""
