@@ -73,6 +73,7 @@ typedef struct file_cache_ex_s {
 
     // NOTE: caller must hold mutex — invalidates filebuf/httpbuf pointers
     void resize_buf(size_t filesize, int reserved) {
+        if (reserved < 0) reserved = 0;
         header_reserve = reserved;
         buf.resize((size_t)reserved + filesize);
         filebuf.base = buf.base + reserved;
