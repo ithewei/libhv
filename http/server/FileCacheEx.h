@@ -21,12 +21,10 @@
 #include <string>
 #include <mutex>
 
+#include "hexport.h"
 #include "hbuf.h"
 #include "hstring.h"
 #include "LRUCache.h"
-
-// Forward declare to avoid header pollution
-struct file_cache_ex_s;
 
 // Default values — may be overridden at runtime via FileCacheEx setters
 #define FILECACHE_EX_DEFAULT_HEADER_LENGTH  4096        // 4K
@@ -59,8 +57,8 @@ typedef struct file_cache_ex_s {
         memset(etag, 0, sizeof(etag));
     }
 
-    // Fixed: avoids shadowing struct stat member with stat() call
-    // NOTE: caller must hold mutex
+    // NOTE: caller must hold mutex.
+    // On Windows, Open() uses _wstat() directly instead of calling this.
     bool is_modified() {
         time_t mtime = st.st_mtime;
         ::stat(filepath.c_str(), &st);
@@ -74,9 +72,9 @@ typedef struct file_cache_ex_s {
     }
 
     // NOTE: caller must hold mutex — invalidates filebuf/httpbuf pointers
-    void resize_buf(int filesize, int reserved) {
+    void resize_buf(size_t filesize, int reserved) {
         header_reserve = reserved;
-        buf.resize(reserved + filesize);
+        buf.resize((size_t)reserved + filesize);
         filebuf.base = buf.base + reserved;
         filebuf.len = filesize;
         // Invalidate httpbuf since buffer may have been reallocated
@@ -85,7 +83,7 @@ typedef struct file_cache_ex_s {
         header_used = 0;
     }
 
-    void resize_buf(int filesize) {
+    void resize_buf(size_t filesize) {
         resize_buf(filesize, header_reserve);
     }
 
@@ -93,9 +91,9 @@ typedef struct file_cache_ex_s {
     // Returns true on success, false if header exceeds reserved space.
     bool prepend_header(const char* header, int len) {
         std::lock_guard<std::mutex> lock(mutex);
-        if (len > header_reserve) return false;
+        if (len <= 0 || len > header_reserve) return false;
         httpbuf.base = filebuf.base - len;
-        httpbuf.len = len + filebuf.len;
+        httpbuf.len = (size_t)len + filebuf.len;
         memcpy(httpbuf.base, header, len);
         header_used = len;
         return true;
@@ -105,12 +103,12 @@ typedef struct file_cache_ex_s {
     int  get_header_reserve()  const { return header_reserve; }
     int  get_header_used()     const { std::lock_guard<std::mutex> lock(mutex); return header_used; }
     int  get_header_remaining() const { std::lock_guard<std::mutex> lock(mutex); return header_reserve - header_used; }
-    bool header_fits(int len)  const { return len <= header_reserve; }
+    bool header_fits(int len)  const { return len > 0 && len <= header_reserve; }
 } file_cache_ex_t;
 
 typedef std::shared_ptr<file_cache_ex_t> file_cache_ex_ptr;
 
-class FileCacheEx : public hv::LRUCache<std::string, file_cache_ex_ptr> {
+class HV_EXPORT FileCacheEx : public hv::LRUCache<std::string, file_cache_ex_ptr> {
 public:
     // --- configurable parameters (were hardcoded macros before) ---
     int stat_interval;      // seconds between stat() checks
