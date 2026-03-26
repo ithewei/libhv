@@ -29,6 +29,7 @@ file_cache_ex_ptr FileCacheEx::Open(const char* filepath, OpenParam* param) {
 #endif
     bool modified = false;
     if (fc) {
+        std::lock_guard<std::mutex> lock(fc->mutex);
         time_t now = time(NULL);
         if (now - fc->stat_time > stat_interval) {
             fc->stat_time = now;
@@ -89,26 +90,36 @@ file_cache_ex_ptr FileCacheEx::Open(const char* filepath, OpenParam* param) {
                 time(&fc->open_time);
                 fc->stat_time = fc->open_time;
                 fc->stat_cnt = 1;
-                put(filepath, fc);
+                // NOTE: do NOT put() into cache yet — defer until fully initialized
             } else {
                 param->error = ERR_MISMATCH;
                 return NULL;
             }
         }
+        // Hold fc->mutex for the remainder of initialization
+        std::lock_guard<std::mutex> lock(fc->mutex);
         if (S_ISREG(fc->st.st_mode)) {
             param->filesize = fc->st.st_size;
             // FILE
             if (param->need_read) {
                 if (fc->st.st_size > param->max_read) {
                     param->error = ERR_OVER_LIMIT;
+                    // Don't cache incomplete entries
                     return NULL;
                 }
                 fc->resize_buf(fc->st.st_size, max_header_length);
-                int nread = read(fd, fc->filebuf.base, fc->filebuf.len);
-                if (nread != (int)fc->filebuf.len) {
-                    hloge("Failed to read file: %s", filepath);
-                    param->error = ERR_READ_FILE;
-                    return NULL;
+                // Loop to handle partial reads (EINTR, etc.)
+                char* dst = fc->filebuf.base;
+                size_t remaining = fc->filebuf.len;
+                while (remaining > 0) {
+                    int nread = read(fd, dst, remaining);
+                    if (nread <= 0) {
+                        hloge("Failed to read file: %s", filepath);
+                        param->error = ERR_READ_FILE;
+                        return NULL;
+                    }
+                    dst += nread;
+                    remaining -= nread;
                 }
             }
             const char* suffix = strrchr(filepath, '.');
@@ -133,6 +144,8 @@ file_cache_ex_ptr FileCacheEx::Open(const char* filepath, OpenParam* param) {
         gmtime_fmt(fc->st.st_mtime, fc->last_modified);
         snprintf(fc->etag, sizeof(fc->etag), ETAG_FMT,
                  (size_t)fc->st.st_mtime, (size_t)fc->st.st_size);
+        // Cache the fully initialized entry
+        put(filepath, fc);
     }
     return fc;
 }

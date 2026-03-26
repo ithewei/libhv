@@ -25,12 +25,16 @@
 #include "hstring.h"
 #include "LRUCache.h"
 
+// Forward declare to avoid header pollution
+struct file_cache_ex_s;
+
 // Default values — may be overridden at runtime via FileCacheEx setters
 #define FILECACHE_EX_DEFAULT_HEADER_LENGTH  4096        // 4K
 #define FILECACHE_EX_DEFAULT_MAX_NUM        100
 #define FILECACHE_EX_DEFAULT_MAX_FILE_SIZE  (1 << 22)   // 4M
 
 typedef struct file_cache_ex_s {
+    mutable std::mutex  mutex;      // protects all mutable state below
     std::string filepath;
     struct stat st;
     time_t      open_time;
@@ -56,30 +60,39 @@ typedef struct file_cache_ex_s {
     }
 
     // Fixed: avoids shadowing struct stat member with stat() call
+    // NOTE: caller must hold mutex
     bool is_modified() {
         time_t mtime = st.st_mtime;
         ::stat(filepath.c_str(), &st);
         return mtime != st.st_mtime;
     }
 
+    // NOTE: caller must hold mutex
     bool is_complete() {
         if (S_ISDIR(st.st_mode)) return filebuf.len > 0;
         return filebuf.len == (size_t)st.st_size;
     }
 
+    // NOTE: caller must hold mutex — invalidates filebuf/httpbuf pointers
     void resize_buf(int filesize, int reserved) {
         header_reserve = reserved;
         buf.resize(reserved + filesize);
         filebuf.base = buf.base + reserved;
         filebuf.len = filesize;
+        // Invalidate httpbuf since buffer may have been reallocated
+        httpbuf.base = NULL;
+        httpbuf.len = 0;
+        header_used = 0;
     }
 
     void resize_buf(int filesize) {
         resize_buf(filesize, header_reserve);
     }
 
-    // Returns true on success, false if header exceeds reserved space
+    // Thread-safe: prepend header into reserved space.
+    // Returns true on success, false if header exceeds reserved space.
     bool prepend_header(const char* header, int len) {
+        std::lock_guard<std::mutex> lock(mutex);
         if (len > header_reserve) return false;
         httpbuf.base = filebuf.base - len;
         httpbuf.len = len + filebuf.len;
@@ -88,10 +101,10 @@ typedef struct file_cache_ex_s {
         return true;
     }
 
-    // --- accessors ---
+    // --- thread-safe accessors ---
     int  get_header_reserve()  const { return header_reserve; }
-    int  get_header_used()     const { return header_used; }
-    int  get_header_remaining() const { return header_reserve - header_used; }
+    int  get_header_used()     const { std::lock_guard<std::mutex> lock(mutex); return header_used; }
+    int  get_header_remaining() const { std::lock_guard<std::mutex> lock(mutex); return header_reserve - header_used; }
     bool header_fits(int len)  const { return len <= header_reserve; }
 } file_cache_ex_t;
 
