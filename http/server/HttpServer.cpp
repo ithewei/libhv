@@ -19,7 +19,7 @@ struct HttpServerPrivdata {
     std::vector<hthread_t>          threads;
     std::mutex                      mutex_;
     std::shared_ptr<HttpService>    service;
-    FileCache                       filecache;
+    FileCacheEx                     filecache;
 };
 
 static void on_recv(hio_t* io, void* buf, int readbytes) {
@@ -86,7 +86,7 @@ static void on_accept(hio_t* io) {
     handler->service = service;
     // websocket service
     handler->ws_service = server->ws;
-    // FileCache
+    // FileCacheEx
     HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
     handler->files = &privdata->filecache;
     hevent_set_userdata(io, handler);
@@ -132,14 +132,14 @@ static void loop_thread(void* userdata) {
             service->Static("/", service->document_root.c_str());
         }
 
-        // FileCache
-        FileCache* filecache = &privdata->filecache;
+        // FileCacheEx
+        FileCacheEx* filecache = &privdata->filecache;
         filecache->stat_interval = service->file_cache_stat_interval;
         filecache->expired_time = service->file_cache_expired_time;
         if (filecache->expired_time > 0) {
             // NOTE: add timer to remove expired file cache
             htimer_t* timer = htimer_add(hloop, [](htimer_t* timer) {
-                FileCache* filecache = (FileCache*)hevent_userdata(timer);
+                FileCacheEx* filecache = (FileCacheEx*)hevent_userdata(timer);
                 filecache->RemoveExpiredFileCache();
             },  filecache->expired_time * 1000);
             hevent_set_userdata(timer, filecache);
