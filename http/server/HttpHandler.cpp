@@ -608,8 +608,8 @@ int HttpHandler::defaultStaticHandler() {
         return status_code;
     }
 
-    // FileCache
-    FileCache::OpenParam param;
+    // FileCacheEx
+    FileCacheEx::OpenParam param;
     param.max_read = service->max_file_cache_size;
     param.need_read = !(req->method == HTTP_HEAD || has_range);
     param.path = req_path;
@@ -689,7 +689,7 @@ int HttpHandler::defaultErrorHandler() {
         std::string filepath = service->document_root + '/' + service->error_page;
         if (files) {
             // cache and load error page
-            FileCache::OpenParam param;
+            FileCacheEx::OpenParam param;
             fc = files->Open(filepath.c_str(), &param);
         }
     }
@@ -798,7 +798,7 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
             }
             // File service
             if (fc) {
-                // FileCache
+                // FileCacheEx
                 // NOTE: no copy filebuf, more efficient
                 header = pResp->Dump(true, false);
                 fc->prepend_header(header.c_str(), header.size());
@@ -842,8 +842,8 @@ return_header:
         }
         case SEND_DONE:
         {
-            // NOTE: remove file cache if > FILE_CACHE_MAX_SIZE
-            if (fc && fc->filebuf.len > FILE_CACHE_MAX_SIZE) {
+            // NOTE: remove file cache if > max_file_size
+            if (fc && fc->filebuf.len > files->GetMaxFileSize()) {
                 files->Close(fc->filepath.c_str());
             }
             fc = NULL;

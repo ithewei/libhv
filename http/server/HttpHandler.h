@@ -3,7 +3,7 @@
 
 #include "HttpService.h"
 #include "HttpParser.h"
-#include "FileCache.h"
+#include "FileCacheEx.h"
 
 #include "WebSocketServer.h"
 #include "WebSocketParser.h"
@@ -71,8 +71,8 @@ public:
     uint64_t                last_recv_pong_time;
 
     // for sendfile
-    FileCache               *files;
-    file_cache_ptr          fc;     // cache small file
+    FileCacheEx             *files;
+    file_cache_ex_ptr       fc;     // cache small file
     struct LargeFile : public HFile {
         HBuf        buf;
         uint64_t    timer;
