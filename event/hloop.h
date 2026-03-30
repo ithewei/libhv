@@ -497,7 +497,7 @@ typedef enum {
 // UNPACK_BY_LENGTH_FIELD
 typedef enum {
     ENCODE_BY_VARINT        = 17,               // 1 MSB + 7 bits
-    ENCODE_BY_LITTEL_ENDIAN = LITTLE_ENDIAN,    // 1234
+    ENCODE_BY_LITTLE_ENDIAN = LITTLE_ENDIAN,    // 1234
     ENCODE_BY_BIG_ENDIAN    = BIG_ENDIAN,       // 4321
     ENCODE_BY_ASN1          = 80,               // asn1 decode int
 } unpack_coding_e;
