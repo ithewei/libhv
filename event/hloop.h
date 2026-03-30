@@ -502,9 +502,6 @@ typedef enum {
     ENCODE_BY_ASN1          = 80,               // asn1 decode int
 } unpack_coding_e;
 
-// backward compatibility
-#define ENCODE_BY_LITTEL_ENDIAN ENCODE_BY_LITTLE_ENDIAN
-
 typedef struct unpack_setting_s {
     unpack_mode_e   mode;
     unsigned int    package_max_length;
