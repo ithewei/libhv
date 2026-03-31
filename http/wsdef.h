@@ -55,6 +55,16 @@ HV_EXPORT int ws_build_frame(
     enum ws_opcode opcode DEFAULT(WS_OPCODE_TEXT),
     bool fin DEFAULT(true));
 
+HV_EXPORT int ws_build_frame_ex(
+    char* out,
+    const char* data,
+    int data_len,
+    const char mask[4],
+    bool has_mask,
+    enum ws_opcode opcode,
+    bool fin,
+    bool rsv1);
+
 HV_INLINE int ws_client_build_frame(
     char* out,
     const char* data,

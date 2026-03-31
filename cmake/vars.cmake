@@ -78,6 +78,7 @@ set(PROTOCOL_HEADERS
 set(HTTP_HEADERS
     http/httpdef.h
     http/wsdef.h
+    http/HttpCompression.h
     http/http_content.h
     http/HttpMessage.h
     http/HttpParser.h

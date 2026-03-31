@@ -6,9 +6,13 @@
 
 namespace hv {
 
+struct HttpService;
+
 class HV_EXPORT HttpResponseWriter : public SocketChannel {
 public:
+    HttpRequestPtr request;
     HttpResponsePtr response;
+    const HttpService* service;
     enum State {
         SEND_BEGIN = 0,
         SEND_HEADER,
@@ -17,9 +21,11 @@ public:
         SEND_CHUNKED_END,
         SEND_END,
     } state: 8, end: 8;
-    HttpResponseWriter(hio_t* io, const HttpResponsePtr& resp)
+    HttpResponseWriter(hio_t* io, const HttpRequestPtr& req, const HttpResponsePtr& resp, const HttpService* service = NULL)
         : SocketChannel(io)
+        , request(req)
         , response(resp)
+        , service(service)
         , state(SEND_BEGIN)
         , end(SEND_BEGIN)
     {}

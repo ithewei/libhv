@@ -144,6 +144,20 @@ bin/httpd -s restart -d
 bin/curl -v http://localhost:8080 --http2
 ```
 
+### compile WITH_ZLIB
+```
+sudo apt install zlib1g-dev # ubuntu
+./configure --with-zlib
+make clean && make
+```
+
+### compile WITH_ZSTD
+```
+sudo apt install libzstd-dev # ubuntu
+./configure --with-zstd
+make clean && make
+```
+
 ### compile WITH_KCP
 ```
 ./configure --with-kcp

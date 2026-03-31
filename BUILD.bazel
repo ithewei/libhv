@@ -1,4 +1,4 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
 
 
 config_setting(
@@ -86,6 +86,16 @@ config_setting(
 )
 
 config_setting(
+    name = "with_http_server_client",
+    define_values = {
+        "WITH_EVPP": "ON",
+        "WITH_HTTP": "ON",
+        "WITH_HTTP_SERVER": "ON",
+        "WITH_HTTP_CLIENT": "ON",
+    },
+)
+
+config_setting(
     name = "with_evpp_nghttp2",
     define_values = {
         "WITH_EVPP": "ON",
@@ -118,6 +128,16 @@ config_setting(
 config_setting(
     name = "with_nghttp2",
     define_values = {"WITH_NGHTTP2": "ON"}
+)
+
+config_setting(
+    name = "with_zlib",
+    define_values = {"WITH_ZLIB": "ON"}
+)
+
+config_setting(
+    name = "with_zstd",
+    define_values = {"WITH_ZSTD": "ON"}
 )
 
 config_setting(
@@ -220,6 +240,12 @@ COPTS = select({
     "with_nghttp2": ["-DWITH_NGHTTP2"],
     "//conditions:default": [],
 }) + select({
+    "with_zlib": ["-DWITH_ZLIB"],
+    "//conditions:default": [],
+}) + select({
+    "with_zstd": ["-DWITH_ZSTD"],
+    "//conditions:default": [],
+}) + select({
     "with_openssl": ["-DWITH_OPENSSL"],
     "//conditions:default": [],
 }) + select({
@@ -252,6 +278,12 @@ LINKOPTS = select({
     "//conditions:default": [],
 }) + select({
     "@bazel_tools//tools/cpp:gcc": ["-lrt"],
+    "//conditions:default": [],
+}) + select({
+    "with_zlib": ["-lz"],
+    "//conditions:default": [],
+}) + select({
+    "with_zstd": ["-lzstd"],
     "//conditions:default": [],
 })
 
@@ -332,6 +364,7 @@ PROTOCOL_HEADERS = [
 HTTP_HEADERS = [
     "http/httpdef.h",
     "http/wsdef.h",
+    "http/HttpCompression.h",
     "http/http_content.h",
     "http/HttpMessage.h",
     "http/HttpParser.h",
@@ -449,6 +482,32 @@ cc_library(
     visibility = ["//visibility:public"]
 )
 
+cc_test(
+    name = "http_compression_test",
+    srcs = ["unittest/http_compression_test.cpp"],
+    copts = COPTS,
+    deps = [":hv"],
+)
+
+cc_test(
+    name = "websocket_compression_test",
+    srcs = ["unittest/websocket_compression_test.cpp"],
+    copts = COPTS,
+    deps = [":hv"],
+)
+
+filegroup(
+    name = "unittests",
+    srcs = select({
+        "with_http_server_client": [
+            ":http_compression_test",
+            ":websocket_compression_test",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//:__pkg__"],
+)
+
 filegroup(
     name = "libhv",
     srcs = select({
@@ -460,7 +519,8 @@ filegroup(
     })  + select({
         "build_examples": ["//examples:examples"],
         "//conditions:default": [],
+    }) + select({
+        "build_unittest": [":unittests"],
+        "//conditions:default": [],
     })
 )
-
-

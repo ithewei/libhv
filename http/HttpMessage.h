@@ -44,6 +44,7 @@
 #include "hpath.h"
 
 #include "httpdef.h"
+#include "HttpCompression.h"
 #include "http_content.h"
 
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie
@@ -106,6 +107,8 @@ public:
     void*               content;    // DATA_NO_COPY
     size_t              content_length;
     http_content_type   content_type;
+    HttpCompressionOptions compression;
+    bool                compression_inherit;
 #ifndef WITHOUT_HTTP_CONTENT
     hv::Json            json;       // APPLICATION_JSON
     hv::MultiPart       form;       // MULTIPART_FORM_DATA
@@ -258,10 +261,20 @@ public:
     bool IsChunked();
     bool IsKeepAlive();
     bool IsUpgrade();
+    http_content_encoding ContentEncoding();
+    void SetContentEncoding(http_content_encoding encoding);
+    bool HasCompressedContent();
+    bool IsCompressibleContentType();
+    bool IsPrecompressedContentType();
+    void SetCompression(const HttpCompressionOptions& options) {
+        compression = options;
+        compression_inherit = false;
+    }
 
     // headers
     void SetHeader(const char* key, const std::string& value);
     std::string GetHeader(const char* key, const std::string& defvalue = hv::empty_string);
+    void SetAcceptEncoding(unsigned mask);
 
     // cookies
     void AddCookie(const HttpCookie& cookie);

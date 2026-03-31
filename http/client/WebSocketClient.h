@@ -21,6 +21,7 @@ public:
     std::function<void()> onopen;
     std::function<void()> onclose;
     std::function<void(const std::string& msg)> onmessage;
+    WebSocketCompressionOptions compression;
     // PATCH: onmessage not given opcode
     enum ws_opcode opcode() { return channel ? channel->opcode : WS_OPCODE_CLOSE; }
 
@@ -37,6 +38,9 @@ public:
     // setConnectTimeout / setPingInterval / setReconnect
     void setPingInterval(int ms) {
         ping_interval = ms;
+    }
+    void setCompression(const WebSocketCompressionOptions& options) {
+        compression = options;
     }
 
     // NOTE: call before open

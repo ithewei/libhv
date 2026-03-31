@@ -1,6 +1,7 @@
 #include "HttpClient.h"
 
 #include <mutex>
+#include <vector>
 
 #ifdef WITH_CURL
 #include "curl/curl.h"
@@ -13,6 +14,7 @@
 #include "hsocket.h"
 #include "hssl.h"
 #include "HttpParser.h"
+#include "http_compress.h"
 
 // for async
 #include "AsyncHttpClient.h"
@@ -33,6 +35,7 @@ struct http_client_s {
     int          https_proxy_port;
     // no_proxy
     StringList   no_proxy_hosts;
+    HttpCompressionOptions compression;
 //private:
 #ifdef WITH_CURL
     CURL* curl;
@@ -55,6 +58,7 @@ struct http_client_s {
         timeout = DEFAULT_HTTP_TIMEOUT;
         http_proxy_port = DEFAULT_HTTP_PORT;
         https_proxy_port = DEFAULT_HTTP_PORT;
+        compression = DefaultClientCompressionOptions();
 #ifdef WITH_CURL
         curl = NULL;
 #endif
@@ -147,6 +151,12 @@ const char* http_client_get_header(http_client_t* cli, const char* key) {
     return NULL;
 }
 
+int http_client_set_compression(http_client_t* cli, const HttpCompressionOptions* options) {
+    if (!cli || !options) return ERR_NULL_POINTER;
+    cli->compression = *options;
+    return 0;
+}
+
 int http_client_set_http_proxy(http_client_t* cli, const char* host, int port) {
     cli->http_proxy_host = host;
     cli->http_proxy_port = port;
@@ -164,7 +174,63 @@ int http_client_add_no_proxy(http_client_t* cli, const char* host) {
     return 0;
 }
 
-static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
+static HttpCompressionOptions http_client_request_options(http_client_t* cli, const HttpRequest* req) {
+    if (req && !req->compression_inherit) {
+        return req->compression;
+    }
+    return cli->compression;
+}
+
+static HttpCompressionOptions http_client_response_options(http_client_t* cli, const HttpRequest* req, const HttpResponse* resp) {
+    if (resp && !resp->compression_inherit) {
+        return resp->compression;
+    }
+    if (req && !req->compression_inherit) {
+        return req->compression;
+    }
+    return cli->compression;
+}
+
+static http_content_encoding http_client_request_encoding(const HttpCompressionOptions& options) {
+    std::vector<http_content_encoding> candidates;
+    if (options.preferred_encoding != HTTP_CONTENT_ENCODING_UNKNOWN &&
+        options.preferred_encoding != HTTP_CONTENT_ENCODING_IDENTITY) {
+        candidates.push_back(options.preferred_encoding);
+    }
+    candidates.push_back(HTTP_CONTENT_ENCODING_ZSTD);
+    candidates.push_back(HTTP_CONTENT_ENCODING_GZIP);
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        if (SupportsEncoding(options, candidates[i])) {
+            return candidates[i];
+        }
+    }
+    return HTTP_CONTENT_ENCODING_IDENTITY;
+}
+
+static int http_client_apply_request_compression(HttpRequest* req, const HttpCompressionOptions& options) {
+    if (!ShouldCompressRequest(req, options)) {
+        return 0;
+    }
+    http_content_encoding encoding = http_client_request_encoding(options);
+    if (encoding == HTTP_CONTENT_ENCODING_IDENTITY) {
+        return 0;
+    }
+    const void* content = req->Content();
+    size_t content_length = req->ContentLength();
+    std::string compressed;
+    int ret = CompressData(encoding, content, content_length, compressed);
+    if (ret != 0) {
+        return ret;
+    }
+    req->body.swap(compressed);
+    req->content = NULL;
+    req->content_length = req->body.size();
+    req->SetContentEncoding(encoding);
+    req->headers["Content-Length"] = hv::to_string(req->content_length);
+    return 0;
+}
+
+static int http_client_make_request(http_client_t* cli, HttpRequest* req, bool auto_transform = true) {
     if (req->url.empty() || *req->url.c_str() == '/') {
         req->scheme = cli->https ? "https" : "http";
         req->host = cli->host;
@@ -199,6 +265,21 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
     for (const auto& pair : cli->headers) {
         if (req->headers.find(pair.first) == req->headers.end()) {
             req->headers.insert(pair);
+        }
+    }
+
+    if (auto_transform) {
+        HttpCompressionOptions options = http_client_request_options(cli, req);
+        if (options.enabled && req->headers.find("Accept-Encoding") == req->headers.end()) {
+            if (options.advertise_accept_encoding) {
+                req->headers["Accept-Encoding"] = BuildClientAcceptEncodingHeader(options);
+            } else if (options.compress_request || options.decompress_response) {
+                req->headers["Accept-Encoding"] = "identity";
+            }
+        }
+        int ret = http_client_apply_request_compression(req, options);
+        if (ret != 0) {
+            return ret;
         }
     }
 
@@ -293,7 +374,8 @@ int http_client_recv_data(http_client_t* cli, char* data, int size) {
     return recv(cli->fd, data, size, 0);
 }
 
-static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
+static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* resp,
+                            const std::shared_ptr<HttpResponseDecoderAdapter>& resp_adapter = NULL) {
     // connect -> send -> recv -> http_parser
     int err = 0;
     int connfd = cli->fd;
@@ -413,6 +495,9 @@ recv:
     } else {
         cli->Close();
     }
+    if (resp_adapter && resp_adapter->error() != 0) {
+        return resp_adapter->error();
+    }
     return 0;
 timeout:
     err = ERR_TASK_TIMEOUT;
@@ -424,7 +509,8 @@ disconnect:
 int http_client_send_header(http_client_t* cli, HttpRequest* req) {
     if (!cli || !req) return ERR_NULL_POINTER;
 
-    http_client_make_request(cli, req);
+    int ret = http_client_make_request(cli, req, false);
+    if (ret != 0) return ret;
 
     return http_client_exec(cli, req, NULL);
 }
@@ -561,6 +647,11 @@ static int http_client_exec_curl(http_client_t* cli, HttpRequest* req, HttpRespo
     }
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
+    HttpCompressionOptions options = http_client_response_options(cli, req, resp);
+    (void)options;
+    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, NULL);
+    curl_easy_setopt(curl, CURLOPT_HTTP_CONTENT_DECODING, 0L);
+
     // body
     //struct curl_httppost* httppost = NULL;
     //struct curl_httppost* lastpost = NULL;
@@ -652,7 +743,7 @@ const char* http_client_strerror(int errcode) {
 
 #endif
 
-static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
+static int http_client_redirect(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     std::string location = resp->headers["Location"];
     if (!location.empty()) {
         hlogi("redirect %s => %s", req->url.c_str(), location.c_str());
@@ -660,7 +751,7 @@ static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
         req->ParseUrl();
         req->headers["Host"] = req->host;
         resp->Reset();
-        return http_client_send(req, resp);
+        return http_client_send(cli, req, resp);
     }
     return 0;
 }
@@ -668,20 +759,28 @@ static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
 int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
     if (!cli || !req || !resp) return ERR_NULL_POINTER;
 
-    http_client_make_request(cli, req);
+    int ret = http_client_make_request(cli, req, true);
+    if (ret != 0) return ret;
 
-    if (req->http_cb) resp->http_cb = std::move(req->http_cb);
+    if (req->http_cb) {
+        resp->http_cb = req->http_cb;
+    }
+    auto resp_adapter = std::make_shared<HttpResponseDecoderAdapter>(http_client_response_options(cli, req, resp), req->method);
+    resp_adapter->Install(resp);
 
 #if WITH_CURL
-    int ret = http_client_exec_curl(cli, req, resp);
+    ret = http_client_exec_curl(cli, req, resp);
 #else
-    int ret = http_client_exec(cli, req, resp);
+    ret = http_client_exec(cli, req, resp, resp_adapter);
 #endif
+    if (ret == 0 && resp_adapter->error() != 0) {
+        ret = resp_adapter->error();
+    }
     if (ret != 0) return ret;
 
     // redirect
     if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
-        return http_client_redirect(req, resp);
+        return http_client_redirect(cli, req, resp);
     }
     return 0;
 }
@@ -708,7 +807,12 @@ static int http_client_exec_async(http_client_t* cli, HttpRequestPtr req, HttpRe
 
 int http_client_send_async(http_client_t* cli, HttpRequestPtr req, HttpResponseCallback resp_cb) {
     if (!cli || !req) return ERR_NULL_POINTER;
-    http_client_make_request(cli, req.get());
+    int ret = http_client_make_request(cli, req.get(), true);
+    if (ret != 0) return ret;
+    if (req->compression_inherit) {
+        req->compression = cli->compression;
+        req->compression_inherit = false;
+    }
     return http_client_exec_async(cli, req, std::move(resp_cb));
 }
 
@@ -742,5 +846,12 @@ int http_client_send_async(HttpRequestPtr req, HttpResponseCallback resp_cb) {
         req->timeout = DEFAULT_HTTP_TIMEOUT;
     }
 
-    return http_client_exec_async(hv_default_async_http_client(), req, std::move(resp_cb));
+    http_client_t* cli = hv_default_async_http_client();
+    int ret = http_client_make_request(cli, req.get(), true);
+    if (ret != 0) return ret;
+    if (req->compression_inherit) {
+        req->compression = cli->compression;
+        req->compression_inherit = false;
+    }
+    return http_client_exec_async(cli, req, std::move(resp_cb));
 }
