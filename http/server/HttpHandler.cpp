@@ -801,11 +801,13 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
                 // FileCache
                 // NOTE: no copy filebuf, more efficient
                 header = pResp->Dump(true, false);
-                fc->prepend_header(header.c_str(), header.size());
-                *data = fc->httpbuf.base;
-                *len = fc->httpbuf.len;
-                state = SEND_DONE;
-                return *len;
+                if (fc->prepend_header(header.c_str(), header.size())) {
+                    *data = fc->httpbuf.base;
+                    *len = fc->httpbuf.len;
+                    state = SEND_DONE;
+                    return *len;
+                }
+                // Header too large for reserved space — fall through to normal path
             }
             // API service
             content_length = pResp->ContentLength();

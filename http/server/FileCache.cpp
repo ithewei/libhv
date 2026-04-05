@@ -102,17 +102,19 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
         // Lock order: LRUCache mutex → fc->mutex (never reverse).
         {
             std::lock_guard<std::mutex> lock(fc->mutex);
-            // Sync local stat result into cached entry
-            fc->st = st;
-            if (S_ISREG(fc->st.st_mode)) {
-                param->filesize = fc->st.st_size;
+            if (S_ISREG(st.st_mode)) {
+                param->filesize = st.st_size;
                 // FILE
                 if (param->need_read) {
-                    if (fc->st.st_size > param->max_read) {
+                    if (st.st_size > param->max_read) {
                         param->error = ERR_OVER_LIMIT;
-                        // Don't cache incomplete entries
+                        // Leave existing cache entry's state untouched
                         return NULL;
                     }
+                }
+                // Validation passed — commit new stat into cached entry
+                fc->st = st;
+                if (param->need_read) {
                     fc->resize_buf(fc->st.st_size, max_header_length);
                     // Loop to handle partial reads (EINTR, etc.)
                     char* dst = fc->filebuf.base;
@@ -145,8 +147,9 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
                         fc->content_type = http_content_type_str_by_suffix(suffix + 1);
                     }
                 }
-            } else if (S_ISDIR(fc->st.st_mode)) {
+            } else if (S_ISDIR(st.st_mode)) {
                 // DIR
+                fc->st = st;
                 std::string page;
                 make_index_of_page(filepath, page, param->path);
                 fc->resize_buf(page.size(), max_header_length);
