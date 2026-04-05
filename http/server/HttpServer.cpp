@@ -136,7 +136,7 @@ static void loop_thread(void* userdata) {
         FileCache* filecache = &privdata->filecache;
         filecache->stat_interval = service->file_cache_stat_interval;
         filecache->expired_time = service->file_cache_expired_time;
-        filecache->max_file_size = service->max_file_cache_size;
+        filecache->SetMaxFileSize(service->max_file_cache_size);
         if (filecache->expired_time > 0) {
             // NOTE: add timer to remove expired file cache
             htimer_t* timer = htimer_add(hloop, [](htimer_t* timer) {

@@ -93,6 +93,7 @@ typedef struct file_cache_s {
         if (len <= 0 || len > header_reserve) {
             // Safe fallback: point httpbuf at filebuf so callers always get valid data
             httpbuf = filebuf;
+            header_used = 0;
             return false;
         }
         httpbuf.base = filebuf.base - len;
