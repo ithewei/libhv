@@ -87,9 +87,14 @@ typedef struct file_cache_s {
 
     // Thread-safe: prepend header into reserved space.
     // Returns true on success, false if header exceeds reserved space.
+    // On failure, httpbuf falls back to filebuf (body only, no header).
     bool prepend_header(const char* header, int len) {
         std::lock_guard<std::mutex> lock(mutex);
-        if (len <= 0 || len > header_reserve) return false;
+        if (len <= 0 || len > header_reserve) {
+            // Safe fallback: point httpbuf at filebuf so callers always get valid data
+            httpbuf = filebuf;
+            return false;
+        }
         httpbuf.base = filebuf.base - len;
         httpbuf.len = (size_t)len + filebuf.len;
         memcpy(httpbuf.base, header, len);
@@ -144,8 +149,8 @@ public:
     int  GetExpiredTime()       const { return expired_time; }
 
     // --- new: setters ---
-    void SetMaxHeaderLength(int len)    { max_header_length = len; }
-    void SetMaxFileSize(int size)       { max_file_size = size; }
+    void SetMaxHeaderLength(int len)    { max_header_length = len < 0 ? 0 : len; }
+    void SetMaxFileSize(int size)       { max_file_size = size < 1 ? 1 : size; }
 
 protected:
     file_cache_ptr Get(const char* filepath);
