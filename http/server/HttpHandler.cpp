@@ -801,11 +801,13 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
                 // FileCache
                 // NOTE: no copy filebuf, more efficient
                 header = pResp->Dump(true, false);
-                fc->prepend_header(header.c_str(), header.size());
-                *data = fc->httpbuf.base;
-                *len = fc->httpbuf.len;
-                state = SEND_DONE;
-                return *len;
+                if (fc->prepend_header(header.c_str(), header.size())) {
+                    *data = fc->httpbuf.base;
+                    *len = fc->httpbuf.len;
+                    state = SEND_DONE;
+                    return *len;
+                }
+                // Header too large for reserved space — fall through to normal path
             }
             // API service
             content_length = pResp->ContentLength();
@@ -842,8 +844,8 @@ return_header:
         }
         case SEND_DONE:
         {
-            // NOTE: remove file cache if > FILE_CACHE_MAX_SIZE
-            if (fc && fc->filebuf.len > FILE_CACHE_MAX_SIZE) {
+            // NOTE: remove file cache if > max_file_size
+            if (fc && fc->filebuf.len > files->GetMaxFileSize()) {
                 files->Close(fc->filepath.c_str());
             }
             fc = NULL;
