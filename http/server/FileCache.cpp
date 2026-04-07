@@ -120,7 +120,7 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
                     char* dst = fc->filebuf.base;
                     size_t remaining = fc->filebuf.len;
                     while (remaining > 0) {
-                        ssize_t nread = read(fd, dst, remaining);
+                        int nread = read(fd, dst, remaining);
                         if (nread < 0) {
                             if (errno == EINTR) continue;
                             hloge("Failed to read file: %s", filepath);

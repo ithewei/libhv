@@ -103,7 +103,6 @@ set(HTTP_SERVER_HEADERS
     http/server/HttpContext.h
     http/server/HttpResponseWriter.h
     http/server/WebSocketServer.h
-    http/server/FileCache.h
 )
 
 set(MQTT_HEADERS
