@@ -4,14 +4,6 @@
 /*
  * FileCache — Enhanced File Cache for libhv HTTP server
  *
- * Features:
- *   1. Configurable max_header_length (default 4096, tunable per-instance)
- *   2. prepend_header() returns bool to report success/failure
- *   3. Exposes header/buffer metrics via accessors
- *   4. Fixes stat() name collision in is_modified()
- *   5. max_cache_num / max_file_size configurable at runtime
- *   6. Reserved header space can be tuned per-instance
- *   7. Source-level API compatible; struct layout differs from original (no ABI/layout compatibility)
  */
 
 #include <memory>
@@ -42,7 +34,6 @@ typedef struct file_cache_s {
     char        etag[64];
     std::string content_type;
 
-    // --- new: expose header metrics ---
     int         header_reserve;     // reserved bytes before file content
     int         header_used;        // actual bytes used by prepend_header
 
@@ -114,7 +105,6 @@ typedef std::shared_ptr<file_cache_t> file_cache_ptr;
 
 class HV_EXPORT FileCache : public hv::LRUCache<std::string, file_cache_ptr> {
 public:
-    // --- configurable parameters (were hardcoded macros before) ---
     int stat_interval;      // seconds between stat() checks
     int expired_time;       // seconds before cache entry expires
     int max_header_length;  // reserved header bytes per entry
@@ -143,13 +133,11 @@ public:
     bool Close(const char* filepath);
     void RemoveExpiredFileCache();
 
-    // --- new: getters ---
     int  GetMaxHeaderLength()   const { return max_header_length; }
     int  GetMaxFileSize()       const { return max_file_size; }
     int  GetStatInterval()      const { return stat_interval; }
     int  GetExpiredTime()       const { return expired_time; }
 
-    // --- new: setters ---
     void SetMaxHeaderLength(int len)    { max_header_length = len < 0 ? 0 : len; }
     void SetMaxFileSize(int size)       { max_file_size = size < 1 ? 1 : size; }
 
