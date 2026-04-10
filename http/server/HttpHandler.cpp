@@ -807,7 +807,9 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
                     state = SEND_DONE;
                     return *len;
                 }
-                // Header too large for reserved space — fall through to normal path
+                // Header too large for reserved space: send header first, then continue with file body.
+                state = SEND_BODY;
+                goto return_header;
             }
             // API service
             content_length = pResp->ContentLength();
