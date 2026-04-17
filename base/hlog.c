@@ -499,10 +499,13 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
 }
 
 static logger_t* s_logger = NULL;
+void default_logger_exit_fsync(void) {
+    if (s_logger) logger_fsync(s_logger);
+}
 logger_t* hv_default_logger() {
     if (s_logger == NULL) {
         s_logger = logger_create();
-        atexit(hv_destroy_default_logger);
+        atexit(default_logger_exit_fsync);
     }
     return s_logger;
 }
