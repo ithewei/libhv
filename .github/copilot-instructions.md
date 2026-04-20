@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-libhv is a cross-platform (Linux, Windows, macOS, Android, iOS) high-performance C/C++ network library, similar to libevent, libev, and libuv, but with a simpler API and richer protocol support. It provides an event-loop with non-blocking IO and timer. The codebase is primarily written in C (C99) with C++ (C++11) wrappers.
+libhv is a cross-platform (Linux, Windows, macOS, Android, iOS) high-performance C/C++ network library, similar to libevent, libev, and libuv, but with a simpler API and richer protocol support. It provides an event loop with non-blocking IO and timer. The codebase is primarily written in C (C99) with C++ (C++11) wrappers.
 
 ## Directory Structure
 
@@ -63,7 +63,7 @@ cmake --build .
 - 4-space indentation, no tabs
 - Column limit: 160
 - C++11 standard, C99 standard
-- Braces: K&R style (same line), with `BeforeCatch` and `BeforeElse` on new line
+- Braces: K&R style (opening brace on same line), but `} catch` and `} else` place the closing brace on its own line
 - Pointer alignment: right (`char *p`, not `char* p`)
 - Short if/loop on single line allowed
 - `using namespace hv;` is common in examples
@@ -205,7 +205,7 @@ Where processor resolves as: `pathHandlers → staticHandler → errorHandler`
 - `http_state_handler`: `int(const HttpContextPtr&, http_parser_state, const char*, size_t)` - Runs on IO thread
 
 **Return values:**
-- `HTTP_STATUS_NEXT` (0) / `HTTP_STATUS_UNFINISHED` (0): Continue to next handler / async processing in progress
+- `HTTP_STATUS_NEXT` (0) aka `HTTP_STATUS_UNFINISHED` (0): Both are aliases for value 0. Used to mean "continue to next handler" in the chain or "async processing in progress" (response not yet sent)
 - `HTTP_STATUS_CLOSE` (-100): Close connection without response
 - Any HTTP status code (e.g., 200, 404): Handle done
 
