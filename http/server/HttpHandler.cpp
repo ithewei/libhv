@@ -482,20 +482,24 @@ processor:
     }
 
 postprocessor:
-    if (status_code >= 100 && status_code < 600) {
-        pResp->status_code = (http_status)status_code;
-        if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
-            if (service->errorHandler) {
-                status_code = customHttpHandler(service->errorHandler);
-            } else {
-                defaultErrorHandler();
-            }
-        }
-    }
     // Handle HTTP_STATUS_CLOSE: close connection without response
     if (status_code == HTTP_STATUS_CLOSE) {
         state = WANT_CLOSE;
         return HTTP_STATUS_CLOSE;
+    }
+    if (status_code >= 100 && status_code < 600) {
+        pResp->status_code = (http_status)status_code;
+        if (pResp->status_code >= 400 && pResp->body.size() == 0 && pReq->method != HTTP_HEAD) {
+            if (service->errorHandler) {
+                int err_status_code = customHttpHandler(service->errorHandler);
+                if (err_status_code == HTTP_STATUS_CLOSE) {
+                    state = WANT_CLOSE;
+                    return HTTP_STATUS_CLOSE;
+                }
+            } else {
+                defaultErrorHandler();
+            }
+        }
     }
     if (fc) {
         pResp->content = fc->filebuf.base;
@@ -505,8 +509,8 @@ postprocessor:
         pResp->headers["Etag"] = fc->etag;
     }
     if (service->postprocessor) {
-        status_code = customHttpHandler(service->postprocessor);
-        if (status_code == HTTP_STATUS_CLOSE) {
+        int post_status_code = customHttpHandler(service->postprocessor);
+        if (post_status_code == HTTP_STATUS_CLOSE) {
             state = WANT_CLOSE;
             return HTTP_STATUS_CLOSE;
         }
