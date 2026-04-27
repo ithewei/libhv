@@ -11,6 +11,7 @@ int mqtt_head_pack(mqtt_head_t* head, unsigned char buf[]) {
 }
 
 int mqtt_head_unpack(mqtt_head_t* head, const unsigned char* buf, int len) {
+    if (len < 2) return 0;
     head->type   = (buf[0] >> 4) & 0x0F;
     head->dup    = (buf[0] >> 3) & 0x01;
     head->qos    = (buf[0] >> 1) & 0x03;
