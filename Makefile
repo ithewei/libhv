@@ -286,6 +286,12 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
+	@if [ "$(WITH_HTTP)" = "yes" ] && [ "$(WITH_HTTP_CLIENT)" = "yes" ] && [ "$(WITH_HTTP_SERVER)" = "yes" ]; then \
+		$(MAKEF) TARGET=http_compression_test SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client http/server" \
+			SRCS="unittest/http_compression_test.cpp"; \
+		$(MAKEF) TARGET=websocket_compression_test SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client http/server" \
+			SRCS="unittest/websocket_compression_test.cpp"; \
+	fi
 
 run-unittest: unittest
 	bash scripts/unittest.sh

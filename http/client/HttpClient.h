@@ -46,6 +46,7 @@ HV_EXPORT int http_client_clear_headers(http_client_t* cli);
 HV_EXPORT int http_client_set_header(http_client_t* cli, const char* key, const char* value);
 HV_EXPORT int http_client_del_header(http_client_t* cli, const char* key);
 HV_EXPORT const char* http_client_get_header(http_client_t* cli, const char* key);
+HV_EXPORT int http_client_set_compression(http_client_t* cli, const HttpCompressionOptions* options);
 
 // http_proxy
 HV_EXPORT int http_client_set_http_proxy(http_client_t* cli, const char* host, int port);
@@ -110,6 +111,9 @@ public:
     }
     const char* getHeader(const char* key) {
         return http_client_get_header(client_.get(), key);
+    }
+    int setCompression(const HttpCompressionOptions& options) {
+        return http_client_set_compression(client_.get(), &options);
     }
 
     // http_proxy

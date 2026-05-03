@@ -23,6 +23,8 @@ option(USE_MULTIMAP "MultiMap" OFF)
 
 option(WITH_CURL "with curl library (deprecated)" OFF)
 option(WITH_NGHTTP2 "with nghttp2 library" OFF)
+option(WITH_ZLIB "with zlib library" OFF)
+option(WITH_ZSTD "with zstd library" OFF)
 
 option(WITH_OPENSSL "with openssl library" OFF)
 option(WITH_GNUTLS  "with gnutls library"  OFF)
@@ -150,6 +152,16 @@ endif()
 if(WITH_NGHTTP2)
     add_definitions(-DWITH_NGHTTP2)
     set(LIBS ${LIBS} nghttp2)
+endif()
+
+if(WITH_ZLIB)
+    add_definitions(-DWITH_ZLIB)
+    set(LIBS ${LIBS} z)
+endif()
+
+if(WITH_ZSTD)
+    add_definitions(-DWITH_ZSTD)
+    set(LIBS ${LIBS} zstd)
 endif()
 
 if(WITH_OPENSSL)

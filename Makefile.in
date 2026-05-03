@@ -182,6 +182,16 @@ ifeq ($(WITH_NGHTTP2), yes)
 	LDFLAGS += -lnghttp2
 endif
 
+ifeq ($(WITH_ZLIB), yes)
+	CPPFLAGS += -DWITH_ZLIB
+	LDFLAGS += -lz
+endif
+
+ifeq ($(WITH_ZSTD), yes)
+	CPPFLAGS += -DWITH_ZSTD
+	LDFLAGS += -lzstd
+endif
+
 ifeq ($(WITH_OPENSSL), yes)
 	CPPFLAGS += -DWITH_OPENSSL
 	LDFLAGS += -lssl -lcrypto

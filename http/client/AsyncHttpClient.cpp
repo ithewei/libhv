@@ -1,10 +1,84 @@
 #include "AsyncHttpClient.h"
 
+#include <vector>
+
+#include "herr.h"
+#include "http_compress.h"
+
 namespace hv {
+
+static HttpCompressionOptions async_client_response_options(const HttpRequestPtr& req, const HttpResponse* resp) {
+    if (resp && !resp->compression_inherit) {
+        return resp->compression;
+    }
+    if (req && !req->compression_inherit) {
+        return req->compression;
+    }
+    return DefaultClientCompressionOptions();
+}
+
+static HttpCompressionOptions async_client_request_options(const HttpRequestPtr& req) {
+    if (req && !req->compression_inherit) {
+        return req->compression;
+    }
+    return DefaultClientCompressionOptions();
+}
+
+static http_content_encoding async_client_request_encoding(const HttpCompressionOptions& options) {
+    std::vector<http_content_encoding> candidates;
+    if (options.preferred_encoding != HTTP_CONTENT_ENCODING_UNKNOWN &&
+        options.preferred_encoding != HTTP_CONTENT_ENCODING_IDENTITY) {
+        candidates.push_back(options.preferred_encoding);
+    }
+    candidates.push_back(HTTP_CONTENT_ENCODING_ZSTD);
+    candidates.push_back(HTTP_CONTENT_ENCODING_GZIP);
+    for (size_t i = 0; i < candidates.size(); ++i) {
+        if (SupportsEncoding(options, candidates[i])) {
+            return candidates[i];
+        }
+    }
+    return HTTP_CONTENT_ENCODING_IDENTITY;
+}
+
+static int async_client_prepare_request(const HttpRequestPtr& req) {
+    if (!req) return ERR_NULL_POINTER;
+    HttpCompressionOptions options = async_client_request_options(req);
+    if (options.enabled && req->headers.find("Accept-Encoding") == req->headers.end()) {
+        if (options.advertise_accept_encoding) {
+            req->headers["Accept-Encoding"] = BuildClientAcceptEncodingHeader(options);
+        } else if (options.compress_request || options.decompress_response) {
+            req->headers["Accept-Encoding"] = "identity";
+        }
+    }
+    if (!ShouldCompressRequest(req.get(), options)) {
+        return 0;
+    }
+    http_content_encoding encoding = async_client_request_encoding(options);
+    if (encoding == HTTP_CONTENT_ENCODING_IDENTITY) {
+        return 0;
+    }
+    const void* content = req->Content();
+    size_t content_length = req->ContentLength();
+    std::string compressed;
+    int ret = CompressData(encoding, content, content_length, compressed);
+    if (ret != 0) {
+        return ret;
+    }
+    req->body.swap(compressed);
+    req->content = NULL;
+    req->content_length = req->body.size();
+    req->SetContentEncoding(encoding);
+    req->headers["Content-Length"] = hv::to_string(req->content_length);
+    return 0;
+}
 
 int AsyncHttpClient::send(const HttpRequestPtr& req, HttpResponseCallback resp_cb) {
     hloop_t* loop = EventLoopThread::hloop();
     if (loop == NULL) return -1;
+    int prepare_ret = async_client_prepare_request(req);
+    if (prepare_ret != 0) {
+        return prepare_ret;
+    }
     auto task = std::make_shared<HttpClientTask>();
     task->req = req;
     task->cb = std::move(resp_cb);
@@ -98,6 +172,11 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         if (ctx->parser->IsComplete()) {
             auto& req = ctx->task->req;
             auto& resp = ctx->resp;
+            if (ctx->resp_adapter && ctx->resp_adapter->error() != 0) {
+                channel->close();
+                ctx->errorCallback();
+                return;
+            }
             bool keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
             if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
                 std::string location = resp->headers["Location"];
@@ -196,11 +275,13 @@ int AsyncHttpClient::sendRequest(const SocketChannelPtr& channel) {
     HttpRequest* req = ctx->task->req.get();
     HttpResponse* resp = ctx->resp.get();
     assert(req != NULL && resp != NULL);
-    if (req->http_cb) resp->http_cb = std::move(req->http_cb);
+    if (req->http_cb) resp->http_cb = req->http_cb;
 
     if (ctx->parser == NULL) {
         ctx->parser.reset(HttpParser::New(HTTP_CLIENT, (http_version)req->http_major));
     }
+    ctx->resp_adapter = std::make_shared<HttpResponseDecoderAdapter>(async_client_response_options(ctx->task->req, resp), req->method);
+    ctx->resp_adapter->Install(resp);
     ctx->parser->InitResponse(resp);
     ctx->parser->SubmitRequest(req);
 

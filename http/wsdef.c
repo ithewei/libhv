@@ -39,8 +39,19 @@ int ws_build_frame(
     const char mask[4], bool has_mask,
     enum ws_opcode opcode,
     bool fin) {
+    return ws_build_frame_ex(out, data, data_len, mask, has_mask, opcode, fin, false);
+}
+
+int ws_build_frame_ex(
+    char* out,
+    const char* data, int data_len,
+    const char mask[4], bool has_mask,
+    enum ws_opcode opcode,
+    bool fin,
+    bool rsv1) {
     int flags = opcode;
     if (fin) flags |= WS_FIN;
+    if (rsv1) flags |= WS_RSV1;
     if (has_mask) flags |=  WS_HAS_MASK;
     return (int)websocket_build_frame(out, (websocket_flags)flags, mask, data, data_len);
 }
