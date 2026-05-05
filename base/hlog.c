@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <time.h>
-
+#include <hthread.h>
 //#include "hmutex.h"
 #ifdef _WIN32
 #pragma warning (disable: 4244) // conversion loss of data
@@ -445,6 +445,12 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
                     for (int i = 0; i < 5; ++i) {
                         buf[len++] = plevel[i];
                     }
+                    break;
+                case 'p':
+                    len += snprintf(buf + len, bufsize - len, "%d", (int)hv_getpid());
+                    break;
+                case 't':
+                    len += snprintf(buf + len, bufsize - len, "%d", (int)hv_gettid());
                     break;
                 case 's':
                 {
