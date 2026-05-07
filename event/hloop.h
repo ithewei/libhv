@@ -380,6 +380,15 @@ HV_EXPORT int hio_read_remain(hio_t* io);
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
 HV_EXPORT int hio_sendto (hio_t* io, const void* buf, size_t len, struct sockaddr* addr);
 
+// NOTE: hio_sendfile uses zero-copy sendfile(2) on Linux, sendfile(2) on macOS/FreeBSD.
+// Falls back to read+write for SSL connections and unsupported platforms.
+// @param in_fd: file descriptor of the file to send from
+// @param offset: starting offset in the file
+// @param length: number of bytes to send
+// @return 0 on success (async operation started), -1 on error
+// hwrite_cb is called as data is sent. When complete, write_queue is empty.
+HV_EXPORT int hio_sendfile(hio_t* io, int in_fd, off_t offset, size_t length);
+
 // NOTE: hio_close is thread-safe, hio_close_async will be called actually in other thread.
 // hio_del(io, HV_RDWR) => close => hclose_cb
 HV_EXPORT int hio_close  (hio_t* io);
