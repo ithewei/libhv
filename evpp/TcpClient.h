@@ -114,6 +114,7 @@ public:
             }
             if (connfd < 0) {
                 hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, connfd);
+                startReconnect();
                 return connfd;
             }
         }
