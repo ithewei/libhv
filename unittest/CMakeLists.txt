@@ -72,6 +72,10 @@ add_executable(objectpool_test objectpool_test.cpp)
 target_include_directories(objectpool_test PRIVATE .. ../base ../cpputil)
 target_link_libraries(objectpool_test -lpthread)
 
+add_executable(http_service_route_test http_service_route_test.cpp)
+target_include_directories(http_service_route_test PRIVATE ..)
+target_link_libraries(http_service_route_test hv_static)
+
 # ------protocol------
 add_executable(nslookup nslookup_test.c ../protocol/dns.c ../base/hsocket.c ../base/htime.c)
 target_include_directories(nslookup PRIVATE .. ../base ../protocol)
@@ -111,6 +115,7 @@ add_custom_target(unittest DEPENDS
     synchronized_test
     threadpool_test
     objectpool_test
+    http_service_route_test
     nslookup
     ping
     ftp

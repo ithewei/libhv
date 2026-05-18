@@ -2,8 +2,49 @@
 #include "HttpMiddleware.h"
 
 #include "hbase.h" // import hv_strendswith
+#include <algorithm>
+#include <vector>
 
 namespace hv {
+
+static bool is_restful_route(const std::string& path) {
+    return path.find("/:") != std::string::npos ||
+           path.find("/{") != std::string::npos;
+}
+
+static bool match_route_path(const std::string& key_path, const std::string& path, std::map<std::string, std::string>& params) {
+    const char *kp = key_path.c_str(), *ks, *vp = path.c_str(), *vs;
+    bool match = false;
+    while (*kp && *vp) {
+        if (kp[0] == '*') {
+            // wildcard *
+            match = hv_strendswith(vp, kp+1);
+            break;
+        } else if (*kp != *vp) {
+            match = false;
+            break;
+        } else if (kp[0] == '/' && (kp[1] == ':' || kp[1] == '{')) {
+            // RESTful /:field/
+            // RESTful /{field}/
+            kp += 2;
+            ks = kp;
+            while (*kp && *kp != '/') {++kp;}
+            vp += 1;
+            vs = vp;
+            while (*vp && *vp != '/') {++vp;}
+            int klen = kp - ks;
+            if (*(ks-1) == '{' && *(kp-1) == '}') {
+                --klen;
+            }
+            params[std::string(ks, klen)] = std::string(vs, vp-vs);
+            continue;
+        } else {
+            ++kp;
+            ++vp;
+        }
+    }
+    return match ? match : (*kp == '\0' && *vp == '\0');
+}
 
 void HttpService::AddRoute(const char* path, http_method method, const http_handler& handler) {
     std::shared_ptr<http_method_handlers> method_handlers = NULL;
@@ -67,64 +108,73 @@ int HttpService::GetRoute(HttpRequest* req, http_handler** handler) {
     while (*e && *e != '?') ++e;
 
     std::string path = std::string(s, e);
-    const char *kp, *ks, *vp, *vs;
-    bool match;
-    for (auto iter = pathHandlers.begin(); iter != pathHandlers.end(); ++iter) {
-        kp = iter->first.c_str();
-        vp = path.c_str();
-        match = false;
-        std::map<std::string, std::string> params;
-
-        while (*kp && *vp) {
-            if (kp[0] == '*') {
-                // wildcard *
-                match = hv_strendswith(vp, kp+1);
-                break;
-            } else if (*kp != *vp) {
-                match = false;
-                break;
-            } else if (kp[0] == '/' && (kp[1] == ':' || kp[1] == '{')) {
-                    // RESTful /:field/
-                    // RESTful /{field}/
-                    kp += 2;
-                    ks = kp;
-                    while (*kp && *kp != '/') {++kp;}
-                    vp += 1;
-                    vs = vp;
-                    while (*vp && *vp != '/') {++vp;}
-                    int klen = kp - ks;
-                    if (*(ks-1) == '{' && *(kp-1) == '}') {
-                        --klen;
-                    }
-                    params[std::string(ks, klen)] = std::string(vs, vp-vs);
-                    continue;
-            } else {
-                ++kp;
-                ++vp;
+    auto iter = pathHandlers.find(path);
+    if (iter != pathHandlers.end()) {
+        auto method_handlers = iter->second;
+        for (auto mh = method_handlers->begin(); mh != method_handlers->end(); ++mh) {
+            if (mh->method == req->method) {
+                if (handler) *handler = &mh->handler;
+                return 0;
             }
         }
+        if (handler) *handler = NULL;
+        return HTTP_STATUS_METHOD_NOT_ALLOWED;
+    }
 
-        match = match ? match : (*kp == '\0' && *vp == '\0');
+    std::vector<http_path_handlers::const_iterator> restful_iters;
+    std::vector<http_path_handlers::const_iterator> wildcard_iters;
+    restful_iters.reserve(pathHandlers.size());
+    wildcard_iters.reserve(pathHandlers.size());
+    for (auto it = pathHandlers.begin(); it != pathHandlers.end(); ++it) {
+        if (it->first == path) continue;
+        if (it->first.find('*') != std::string::npos) {
+            wildcard_iters.push_back(it);
+        } else if (is_restful_route(it->first)) {
+            restful_iters.push_back(it);
+        }
+    }
+    auto route_compare = [](const http_path_handlers::const_iterator& lhs, const http_path_handlers::const_iterator& rhs) {
+        if (lhs->first.size() != rhs->first.size()) {
+            return lhs->first.size() > rhs->first.size();
+        }
+        return lhs->first < rhs->first;
+    };
+    std::sort(restful_iters.begin(), restful_iters.end(), route_compare);
+    std::sort(wildcard_iters.begin(), wildcard_iters.end(), route_compare);
 
+    for (auto route_iter : restful_iters) {
+        std::map<std::string, std::string> params;
+        bool match = match_route_path(route_iter->first, path, params);
         if (match) {
-            auto method_handlers = iter->second;
-            for (auto iter = method_handlers->begin(); iter != method_handlers->end(); ++iter) {
-                if (iter->method == req->method) {
+            auto method_handlers = route_iter->second;
+            for (auto mh = method_handlers->begin(); mh != method_handlers->end(); ++mh) {
+                if (mh->method == req->method) {
                     for (auto& param : params) {
                         // RESTful /:field/ => req->query_params[field]
                         req->query_params[param.first] = param.second;
                     }
-                    if (handler) *handler = &iter->handler;
+                    if (handler) *handler = &mh->handler;
                     return 0;
                 }
             }
-
-            if (params.size() == 0) {
-                if (handler) *handler = NULL;
-                return HTTP_STATUS_METHOD_NOT_ALLOWED;
-            }
         }
     }
+
+    for (auto route_iter : wildcard_iters) {
+        std::map<std::string, std::string> params;
+        bool match = match_route_path(route_iter->first, path, params);
+        if (!match) continue;
+        auto method_handlers = route_iter->second;
+        for (auto mh = method_handlers->begin(); mh != method_handlers->end(); ++mh) {
+            if (mh->method == req->method) {
+                if (handler) *handler = &mh->handler;
+                return 0;
+            }
+        }
+        if (handler) *handler = NULL;
+        return HTTP_STATUS_METHOD_NOT_ALLOWED;
+    }
+
     if (handler) *handler = NULL;
     return HTTP_STATUS_NOT_FOUND;
 }
