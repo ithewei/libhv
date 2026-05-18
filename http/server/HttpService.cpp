@@ -123,10 +123,7 @@ int HttpService::GetRoute(HttpRequest* req, http_handler** handler) {
 
     std::vector<http_path_handlers::const_iterator> restful_iters;
     std::vector<http_path_handlers::const_iterator> wildcard_iters;
-    restful_iters.reserve(pathHandlers.size());
-    wildcard_iters.reserve(pathHandlers.size());
     for (auto it = pathHandlers.begin(); it != pathHandlers.end(); ++it) {
-        if (it->first == path) continue;
         if (it->first.find('*') != std::string::npos) {
             wildcard_iters.push_back(it);
         } else if (is_restful_route(it->first)) {
