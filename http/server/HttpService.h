@@ -106,6 +106,15 @@ typedef std::list<http_method_handler>                                          
 // path   => http_method_handlers
 typedef std::unordered_map<std::string, std::shared_ptr<http_method_handlers>>  http_path_handlers;
 
+struct route_trie_node {
+    std::unordered_map<std::string, std::shared_ptr<route_trie_node>> children;
+    std::shared_ptr<route_trie_node> param_child;
+    std::string param_name;
+    std::shared_ptr<http_method_handlers> method_handlers;
+};
+
+typedef std::vector<std::pair<std::string, std::shared_ptr<http_method_handlers>>> http_wildcard_handlers;
+
 namespace hv {
 
 struct HV_EXPORT HttpService {
@@ -121,6 +130,8 @@ struct HV_EXPORT HttpService {
     /* API handlers */
     std::string         base_url;
     http_path_handlers  pathHandlers;
+    std::shared_ptr<route_trie_node> routeTrie;
+    http_wildcard_handlers wildcardHandlers;
 
     /* Static file service */
     http_handler    staticHandler;
@@ -181,6 +192,8 @@ struct HV_EXPORT HttpService {
 
         enable_access_log = 1;
         enable_forward_proxy = 0;
+
+        routeTrie = std::make_shared<route_trie_node>();
     }
 
     void AddRoute(const char* path, http_method method, const http_handler& handler);
