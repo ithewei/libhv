@@ -5,13 +5,105 @@
 
 namespace hv {
 
+static bool has_wildcard(const char* path) {
+    return path && strchr(path, '*');
+}
+
+static void split_path(const std::string& path, std::vector<std::string>& segments) {
+    if (path.empty()) return;
+    size_t i = 0;
+    while (i < path.size() && path[i] == '/') ++i;
+    for (;;) {
+        size_t j = i;
+        while (j < path.size() && path[j] != '/') ++j;
+        if (i < path.size() || (j == path.size() && !segments.empty())) {
+            segments.emplace_back(path.substr(i, j - i));
+        }
+        if (j == path.size()) break;
+        i = j + 1;
+        if (i == path.size()) {
+            segments.emplace_back("");
+            break;
+        }
+    }
+}
+
+static std::string parse_param_name(const std::string& segment) {
+    if (segment.empty()) return "";
+    if (segment[0] == ':') {
+        return segment.substr(1);
+    }
+    if (segment[0] == '{') {
+        if (segment.size() >= 2 && segment.back() == '}') {
+            return segment.substr(1, segment.size() - 2);
+        }
+        return segment.substr(1);
+    }
+    return "";
+}
+
+static std::shared_ptr<route_trie_node> match_route_trie(
+        const std::shared_ptr<route_trie_node>& node,
+        const std::vector<std::string>& segments,
+        size_t index,
+        std::map<std::string, std::string>& params) {
+    if (!node) return NULL;
+    if (index == segments.size()) {
+        return node->method_handlers ? node : NULL;
+    }
+
+    auto iter = node->children.find(segments[index]);
+    if (iter != node->children.end()) {
+        auto found = match_route_trie(iter->second, segments, index + 1, params);
+        if (found) return found;
+    }
+
+    if (node->param_child) {
+        params[node->param_child->param_name] = segments[index];
+        auto found = match_route_trie(node->param_child, segments, index + 1, params);
+        if (found) return found;
+        params.erase(node->param_child->param_name);
+    }
+
+    return NULL;
+}
+
+static int get_method_handler(std::shared_ptr<http_method_handlers> method_handlers, http_method method, http_handler** handler) {
+    for (auto iter = method_handlers->begin(); iter != method_handlers->end(); ++iter) {
+        if (iter->method == method) {
+            if (handler) *handler = &iter->handler;
+            return 0;
+        }
+    }
+    if (handler) *handler = NULL;
+    return HTTP_STATUS_METHOD_NOT_ALLOWED;
+}
+
+static bool match_wildcard_route(const std::string& pattern, const std::string& path) {
+    const char* kp = pattern.c_str();
+    const char* vp = path.c_str();
+    while (*kp && *vp) {
+        if (kp[0] == '*') {
+            return hv_strendswith(vp, kp + 1);
+        }
+        if (*kp != *vp) {
+            return false;
+        }
+        ++kp;
+        ++vp;
+    }
+    return *kp == '\0' && *vp == '\0';
+}
+
 void HttpService::AddRoute(const char* path, http_method method, const http_handler& handler) {
     std::shared_ptr<http_method_handlers> method_handlers = NULL;
+    bool is_new_path = false;
     auto iter = pathHandlers.find(path);
     if (iter == pathHandlers.end()) {
         // add path
         method_handlers = std::make_shared<http_method_handlers>();
         pathHandlers[path] = method_handlers;
+        is_new_path = true;
     }
     else {
         method_handlers = iter->second;
@@ -25,6 +117,36 @@ void HttpService::AddRoute(const char* path, http_method method, const http_hand
     }
     // add
     method_handlers->push_back(http_method_handler(method, handler));
+
+    if (!is_new_path) return;
+
+    std::string str_path(path);
+    if (has_wildcard(path)) {
+        wildcardHandlers.emplace_back(str_path, method_handlers);
+        return;
+    }
+
+    std::vector<std::string> segments;
+    split_path(str_path, segments);
+    auto node = routeTrie;
+    for (size_t i = 0; i < segments.size(); ++i) {
+        const auto& segment = segments[i];
+        std::string param_name = parse_param_name(segment);
+        if (!param_name.empty()) {
+            if (!node->param_child) {
+                node->param_child = std::make_shared<route_trie_node>();
+            }
+            node = node->param_child;
+            node->param_name = param_name;
+        } else {
+            auto child_iter = node->children.find(segment);
+            if (child_iter == node->children.end()) {
+                node->children[segment] = std::make_shared<route_trie_node>();
+            }
+            node = node->children[segment];
+        }
+    }
+    node->method_handlers = method_handlers;
 }
 
 int HttpService::GetRoute(const char* url, http_method method, http_handler** handler) {
@@ -67,63 +189,31 @@ int HttpService::GetRoute(HttpRequest* req, http_handler** handler) {
     while (*e && *e != '?') ++e;
 
     std::string path = std::string(s, e);
-    const char *kp, *ks, *vp, *vs;
-    bool match;
-    for (auto iter = pathHandlers.begin(); iter != pathHandlers.end(); ++iter) {
-        kp = iter->first.c_str();
-        vp = path.c_str();
-        match = false;
-        std::map<std::string, std::string> params;
-
-        while (*kp && *vp) {
-            if (kp[0] == '*') {
-                // wildcard *
-                match = hv_strendswith(vp, kp+1);
-                break;
-            } else if (*kp != *vp) {
-                match = false;
-                break;
-            } else if (kp[0] == '/' && (kp[1] == ':' || kp[1] == '{')) {
-                    // RESTful /:field/
-                    // RESTful /{field}/
-                    kp += 2;
-                    ks = kp;
-                    while (*kp && *kp != '/') {++kp;}
-                    vp += 1;
-                    vs = vp;
-                    while (*vp && *vp != '/') {++vp;}
-                    int klen = kp - ks;
-                    if (*(ks-1) == '{' && *(kp-1) == '}') {
-                        --klen;
-                    }
-                    params[std::string(ks, klen)] = std::string(vs, vp-vs);
-                    continue;
-            } else {
-                ++kp;
-                ++vp;
+    std::vector<std::string> segments;
+    split_path(path, segments);
+    std::map<std::string, std::string> params;
+    auto route_node = match_route_trie(routeTrie, segments, 0, params);
+    if (route_node) {
+        int ret = get_method_handler(route_node->method_handlers, req->method, handler);
+        if (ret == 0) {
+            for (auto& param : params) {
+                req->query_params[param.first] = param.second;
             }
         }
+        return ret;
+    }
 
-        match = match ? match : (*kp == '\0' && *vp == '\0');
+    bool method_not_allowed = false;
+    for (const auto& route : wildcardHandlers) {
+        if (!match_wildcard_route(route.first, path)) continue;
+        int ret = get_method_handler(route.second, req->method, handler);
+        if (ret == 0) return 0;
+        method_not_allowed = true;
+    }
 
-        if (match) {
-            auto method_handlers = iter->second;
-            for (auto iter = method_handlers->begin(); iter != method_handlers->end(); ++iter) {
-                if (iter->method == req->method) {
-                    for (auto& param : params) {
-                        // RESTful /:field/ => req->query_params[field]
-                        req->query_params[param.first] = param.second;
-                    }
-                    if (handler) *handler = &iter->handler;
-                    return 0;
-                }
-            }
-
-            if (params.size() == 0) {
-                if (handler) *handler = NULL;
-                return HTTP_STATUS_METHOD_NOT_ALLOWED;
-            }
-        }
+    if (method_not_allowed) {
+        if (handler) *handler = NULL;
+        return HTTP_STATUS_METHOD_NOT_ALLOWED;
     }
     if (handler) *handler = NULL;
     return HTTP_STATUS_NOT_FOUND;
