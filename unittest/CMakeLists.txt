@@ -86,6 +86,10 @@ target_include_directories(ftp PRIVATE .. ../base ../protocol)
 add_executable(sendmail sendmail_test.c ../protocol/smtp.c ../base/hsocket.c ../base/htime.c ../util/base64.c)
 target_include_directories(sendmail PRIVATE .. ../base ../protocol ../util)
 
+# ------http------
+add_executable(http_router_test http_router_test.cpp)
+target_include_directories(http_router_test PRIVATE ../http/server)
+
 if(UNIX)
 add_executable(webbench webbench.c)
 endif()
@@ -115,4 +119,5 @@ add_custom_target(unittest DEPENDS
     ping
     ftp
     sendmail
+    http_router_test
 )

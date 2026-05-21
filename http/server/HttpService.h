@@ -102,11 +102,17 @@ struct http_method_handler {
 };
 
 // method => http_method_handler
-typedef std::list<http_method_handler>                                          http_method_handlers;
+typedef std::list<http_method_handler>                              http_method_handlers;
+typedef std::shared_ptr<http_method_handlers>                       http_method_handlers_ptr;
 // path   => http_method_handlers
-typedef std::unordered_map<std::string, std::shared_ptr<http_method_handlers>>  http_path_handlers;
+typedef std::unordered_map<std::string, http_method_handlers_ptr>   http_path_handlers;
 
 namespace hv {
+
+template<typename Handler>
+class HttpRouter;
+
+typedef HttpRouter<http_method_handlers_ptr> http_router;
 
 struct HV_EXPORT HttpService {
     /* handler chain */
@@ -114,13 +120,13 @@ struct HV_EXPORT HttpService {
     http_handler        headerHandler;
     http_handler        preprocessor;
     http_handlers       middleware;
-    // processor: pathHandlers -> staticHandler -> errorHandler
+    // processor: router -> staticHandler -> errorHandler
     http_handler        processor;
     http_handler        postprocessor;
 
     /* API handlers */
-    std::string         base_url;
-    http_path_handlers  pathHandlers;
+    std::string                     base_url;
+    std::shared_ptr<http_router>    router;
 
     /* Static file service */
     http_handler    staticHandler;
@@ -183,11 +189,16 @@ struct HV_EXPORT HttpService {
         enable_forward_proxy = 0;
     }
 
+    // router interface
     void AddRoute(const char* path, http_method method, const http_handler& handler);
+    // @param[in] full_path: {base_url}/path?query
+    // @param[out] params: RESTful API /:field/ => params["field"]
     // @retval 0 OK, else HTTP_STATUS_NOT_FOUND, HTTP_STATUS_METHOD_NOT_ALLOWED
-    int  GetRoute(const char* url,  http_method method, http_handler** handler);
-    // RESTful API /:field/ => req->query_params["field"]
+    int  GetRoute(const char* full_path, http_method method, http_handler** handler, std::map<std::string, std::string>& params);
+    // @override GetRoute(req->path.c_str(), req->method, handler, req->query_params());
     int  GetRoute(HttpRequest* req, http_handler** handler);
+    bool HasRoutes() const;
+    hv::StringList Paths() const;
 
     // Static("/", "/var/www/html")
     void Static(const char* path, const char* dir);
@@ -208,14 +219,6 @@ struct HV_EXPORT HttpService {
     void Proxy(const char* path, const char* url);
     // @retval /api/v1/test => http://www.httpbin.org/test
     std::string GetProxyUrl(const char* path);
-
-    hv::StringList Paths() {
-        hv::StringList paths;
-        for (auto& pair : pathHandlers) {
-            paths.emplace_back(pair.first);
-        }
-        return paths;
-    }
 
     // Handler = [ http_sync_handler, http_ctx_handler ]
     template<typename Handler>
