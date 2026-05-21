@@ -195,7 +195,7 @@ struct HV_EXPORT HttpService {
     // @param[out] params: RESTful API /:field/ => params["field"]
     // @retval 0 OK, else HTTP_STATUS_NOT_FOUND, HTTP_STATUS_METHOD_NOT_ALLOWED
     int  GetRoute(const char* full_path, http_method method, http_handler** handler, std::map<std::string, std::string>& params);
-    // @override GetRoute(req->path.c_str(), req->method, handler, req->query_params());
+    // @override GetRoute(req->path.c_str(), req->method, handler, req->query_params);
     int  GetRoute(HttpRequest* req, http_handler** handler);
     bool HasRoutes() const;
     hv::StringList Paths() const;

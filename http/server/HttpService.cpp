@@ -2,8 +2,6 @@
 #include "HttpMiddleware.h"
 #include "HttpRouter.h"
 
-#include "hbase.h" // import hv_strendswith
-
 namespace hv {
 
 void HttpService::AddRoute(const char* path, http_method method, const http_handler& handler) {
