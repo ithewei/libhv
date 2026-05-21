@@ -1,21 +1,23 @@
 #include "HttpService.h"
 #include "HttpMiddleware.h"
-
-#include "hbase.h" // import hv_strendswith
+#include "HttpRouter.h"
 
 namespace hv {
 
 void HttpService::AddRoute(const char* path, http_method method, const http_handler& handler) {
-    std::shared_ptr<http_method_handlers> method_handlers = NULL;
-    auto iter = pathHandlers.find(path);
-    if (iter == pathHandlers.end()) {
-        // add path
+    if (!router) {
+        router = std::make_shared<http_router>();
+    }
+
+    std::string route_path(path);
+    http_method_handlers_ptr method_handlers;
+    if (!router->Find(route_path, method_handlers)) {
+        // new http_method_handlers
         method_handlers = std::make_shared<http_method_handlers>();
-        pathHandlers[path] = method_handlers;
+        router->Insert(route_path, method_handlers);
     }
-    else {
-        method_handlers = iter->second;
-    }
+
+    // insert handler into http_method_handlers
     for (auto iter = method_handlers->begin(); iter != method_handlers->end(); ++iter) {
         if (iter->method == method) {
             // update
@@ -27,9 +29,25 @@ void HttpService::AddRoute(const char* path, http_method method, const http_hand
     method_handlers->push_back(http_method_handler(method, handler));
 }
 
-int HttpService::GetRoute(const char* url, http_method method, http_handler** handler) {
+bool HttpService::HasRoutes() const {
+    return router && !router->Empty();
+}
+
+hv::StringList HttpService::Paths() const {
+    if (!HasRoutes()) {
+        return hv::StringList();
+    }
+    return router->Paths();
+}
+
+int HttpService::GetRoute(const char* full_path, http_method method, http_handler** handler, std::map<std::string, std::string>& params) {
+    if (handler) *handler = NULL;
+    if (!HasRoutes()) {
+        return HTTP_STATUS_NOT_FOUND;
+    }
+
     // {base_url}/path?query
-    const char* s = url;
+    const char* s = full_path;
     const char* b = base_url.c_str();
     while (*s && *b && *s == *b) {++s;++b;}
     if (*b != '\0') {
@@ -39,94 +57,28 @@ int HttpService::GetRoute(const char* url, http_method method, http_handler** ha
     while (*e && *e != '?') ++e;
 
     std::string path = std::string(s, e);
-    auto iter = pathHandlers.find(path);
-    if (iter == pathHandlers.end()) {
-        if (handler) *handler = NULL;
+    if (path.empty()) {
         return HTTP_STATUS_NOT_FOUND;
     }
-    auto method_handlers = iter->second;
+
+    http_method_handlers_ptr method_handlers;
+    if (!router->Match(path, method_handlers, params)) {
+        return HTTP_STATUS_NOT_FOUND;
+    }
     for (auto iter = method_handlers->begin(); iter != method_handlers->end(); ++iter) {
         if (iter->method == method) {
             if (handler) *handler = &iter->handler;
             return 0;
         }
     }
-    if (handler) *handler = NULL;
     return HTTP_STATUS_METHOD_NOT_ALLOWED;
 }
 
 int HttpService::GetRoute(HttpRequest* req, http_handler** handler) {
-    // {base_url}/path?query
-    const char* s = req->path.c_str();
-    const char* b = base_url.c_str();
-    while (*s && *b && *s == *b) {++s;++b;}
-    if (*b != '\0') {
+    if (!req) {
         return HTTP_STATUS_NOT_FOUND;
     }
-    const char* e = s;
-    while (*e && *e != '?') ++e;
-
-    std::string path = std::string(s, e);
-    const char *kp, *ks, *vp, *vs;
-    bool match;
-    for (auto iter = pathHandlers.begin(); iter != pathHandlers.end(); ++iter) {
-        kp = iter->first.c_str();
-        vp = path.c_str();
-        match = false;
-        std::map<std::string, std::string> params;
-
-        while (*kp && *vp) {
-            if (kp[0] == '*') {
-                // wildcard *
-                match = hv_strendswith(vp, kp+1);
-                break;
-            } else if (*kp != *vp) {
-                match = false;
-                break;
-            } else if (kp[0] == '/' && (kp[1] == ':' || kp[1] == '{')) {
-                    // RESTful /:field/
-                    // RESTful /{field}/
-                    kp += 2;
-                    ks = kp;
-                    while (*kp && *kp != '/') {++kp;}
-                    vp += 1;
-                    vs = vp;
-                    while (*vp && *vp != '/') {++vp;}
-                    int klen = kp - ks;
-                    if (*(ks-1) == '{' && *(kp-1) == '}') {
-                        --klen;
-                    }
-                    params[std::string(ks, klen)] = std::string(vs, vp-vs);
-                    continue;
-            } else {
-                ++kp;
-                ++vp;
-            }
-        }
-
-        match = match ? match : (*kp == '\0' && *vp == '\0');
-
-        if (match) {
-            auto method_handlers = iter->second;
-            for (auto iter = method_handlers->begin(); iter != method_handlers->end(); ++iter) {
-                if (iter->method == req->method) {
-                    for (auto& param : params) {
-                        // RESTful /:field/ => req->query_params[field]
-                        req->query_params[param.first] = param.second;
-                    }
-                    if (handler) *handler = &iter->handler;
-                    return 0;
-                }
-            }
-
-            if (params.size() == 0) {
-                if (handler) *handler = NULL;
-                return HTTP_STATUS_METHOD_NOT_ALLOWED;
-            }
-        }
-    }
-    if (handler) *handler = NULL;
-    return HTTP_STATUS_NOT_FOUND;
+    return GetRoute(req->path.c_str(), req->method, handler, req->query_params);
 }
 
 void HttpService::Static(const char* path, const char* dir) {

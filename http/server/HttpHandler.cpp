@@ -284,7 +284,7 @@ void HttpHandler::onHeadersComplete() {
         ++p;
     }
 
-    if (service && service->pathHandlers.size() != 0) {
+    if (service && service->HasRoutes()) {
         service->GetRoute(pReq, &api_handler);
     }
 

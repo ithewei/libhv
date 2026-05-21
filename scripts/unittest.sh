@@ -29,3 +29,4 @@ bin/socketpair_test
 # bin/threadpool_test
 # bin/objectpool_test
 bin/sizeof_test
+bin/http_router_test
