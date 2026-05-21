@@ -378,7 +378,8 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     struct tm* tm = NULL;
     gettimeofday(&tv, NULL);
     time_t tt = tv.tv_sec;
-    tm = localtime(&tt);
+    struct tm tm_buf;
+    tm = localtime_r(&tt, &tm_buf);
     year     = tm->tm_year + 1900;
     month    = tm->tm_mon  + 1;
     day      = tm->tm_mday;
