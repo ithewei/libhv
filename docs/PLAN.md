@@ -9,10 +9,6 @@
 - websocket client/server
 - mqtt client
 
-## Improving
-
-- Path router: optimized matching via trie?
-
 ## Plan
 
 - redis client
@@ -21,7 +17,6 @@
 - js binding
 - hrpc = libhv + protobuf
 - rudp: FEC, ARQ, UDT, QUIC
-- kcptun
 - coroutine
 - cppsocket.io
 - IM-libhv
