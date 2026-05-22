@@ -5,6 +5,7 @@
 #include "hdef.h"
 #include "hevent.h"
 #include "hlog.h"
+#include "hsocket.h"
 
 #ifdef OS_WIN
 #include "wepoll/wepoll.h"
