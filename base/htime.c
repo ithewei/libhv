@@ -73,14 +73,17 @@ datetime_t datetime_now() {
 }
 
 datetime_t datetime_localtime(time_t seconds) {
-    struct tm* tm = localtime(&seconds);
+    struct tm tm;
+    memset(&tm, 0, sizeof(tm));
+    hv_localtime_r(seconds, &tm);
     datetime_t dt;
-    dt.year  = tm->tm_year + 1900;
-    dt.month = tm->tm_mon  + 1;
-    dt.day   = tm->tm_mday;
-    dt.hour  = tm->tm_hour;
-    dt.min   = tm->tm_min;
-    dt.sec   = tm->tm_sec;
+    dt.year  = tm.tm_year + 1900;
+    dt.month = tm.tm_mon  + 1;
+    dt.day   = tm.tm_mday;
+    dt.hour  = tm.tm_hour;
+    dt.min   = tm.tm_min;
+    dt.sec   = tm.tm_sec;
+    dt.ms    = 0;
     return dt;
 }
 
@@ -88,8 +91,8 @@ time_t datetime_mktime(datetime_t* dt) {
     struct tm tm;
     time_t ts;
     time(&ts);
-    struct tm* ptm = localtime(&ts);
-    memcpy(&tm, ptm, sizeof(struct tm));
+    memset(&tm, 0, sizeof(tm));
+    hv_localtime_r(ts, &tm);
     tm.tm_year = dt->year  - 1900;
     tm.tm_mon  = dt->month - 1;
     tm.tm_mday = dt->day;
@@ -171,12 +174,14 @@ char* datetime_fmt_iso(datetime_t* dt, char* buf) {
 }
 
 char* gmtime_fmt(time_t time, char* buf) {
-    struct tm* tm = gmtime(&time);
-    //strftime(buf, GMTIME_FMT_BUFLEN, "%a, %d %b %Y %H:%M:%S GMT", tm);
+    struct tm tm;
+    memset(&tm, 0, sizeof(tm));
+    hv_gmtime_r(time, &tm);
+    //strftime(buf, GMTIME_FMT_BUFLEN, "%a, %d %b %Y %H:%M:%S GMT", &tm);
     sprintf(buf, GMTIME_FMT,
-        s_weekdays[tm->tm_wday],
-        tm->tm_mday, s_months[tm->tm_mon], tm->tm_year + 1900,
-        tm->tm_hour, tm->tm_min, tm->tm_sec);
+        s_weekdays[tm.tm_wday],
+        tm.tm_mday, s_months[tm.tm_mon], tm.tm_year + 1900,
+        tm.tm_hour, tm.tm_min, tm.tm_sec);
     return buf;
 }
 
@@ -228,7 +233,8 @@ time_t cron_next_timeout(int minute, int hour, int day, int week, int month) {
     struct tm tm;
     time_t tt;
     time(&tt);
-    tm = *localtime(&tt);
+    memset(&tm, 0, sizeof(tm));
+    hv_localtime_r(tt, &tm);
     time_t tt_round = 0;
 
     tm.tm_sec = 0;

@@ -92,7 +92,7 @@ static inline int asn1_encode(long long value, unsigned char* buf) {
         *p = (unsigned char)value;
         return 3;
     }
-    else if (value < 16777126)
+    else if (value < 16777216)
     {
         *p = 0x83;
         p++;

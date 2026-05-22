@@ -501,9 +501,17 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
         stURL->fields[HV_URL_PORT].off = port + 1 - begin;
         stURL->fields[HV_URL_PORT].len = ep - port - 1;
         // atoi
+        unsigned int parsed_port = 0;
         for (unsigned short i = 1; i <= stURL->fields[HV_URL_PORT].len; ++i) {
-            stURL->port = stURL->port * 10 + (port[i] - '0');
+            if (port[i] < '0' || port[i] > '9') {
+                return -2;
+            }
+            parsed_port = parsed_port * 10 + (port[i] - '0');
+            if (parsed_port > 65535) {
+                return -3;
+            }
         }
+        stURL->port = (unsigned short)parsed_port;
     } else {
         port = ep;
         // set default port

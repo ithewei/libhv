@@ -32,6 +32,20 @@
 #define SECONDS_PER_WEEK    604800  // 7*24*3600;
 
 static int s_gmtoff = 28800; // 8*3600
+static void init_gmtoff() {
+    time_t ts = time(NULL);
+    struct tm* local_tm = localtime(&ts);
+    struct tm* gmt_tm = gmtime(&ts);
+    s_gmtoff =  (local_tm->tm_hour - gmt_tm->tm_hour) * 3600 +
+                (local_tm->tm_min - gmt_tm->tm_min) * 60 +
+                (local_tm->tm_sec - gmt_tm->tm_sec);
+
+    if (local_tm->tm_yday > gmt_tm->tm_yday) {
+        s_gmtoff += SECONDS_PER_DAY;
+    } else if (local_tm->tm_yday < gmt_tm->tm_yday) {
+        s_gmtoff -= SECONDS_PER_DAY;
+    }
+}
 
 struct logger_s {
     logger_handler  handler;
@@ -79,13 +93,7 @@ static void logger_init(logger_t* logger) {
 }
 
 logger_t* logger_create() {
-    // init gmtoff here
-    time_t ts = time(NULL);
-    struct tm* local_tm = localtime(&ts);
-    int local_hour = local_tm->tm_hour;
-    struct tm* gmt_tm = gmtime(&ts);
-    int gmt_hour = gmt_tm->tm_hour;
-    s_gmtoff = (local_hour - gmt_hour) * SECONDS_PER_HOUR;
+    init_gmtoff();
 
     logger_t* logger = (logger_t*)malloc(sizeof(logger_t));
     logger_init(logger);
@@ -375,17 +383,17 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
     us       = tm.wMilliseconds * 1000;
 #else
     struct timeval tv;
-    struct tm* tm = NULL;
     gettimeofday(&tv, NULL);
-    time_t tt = tv.tv_sec;
-    struct tm tm_buf;
-    tm = localtime_r(&tt, &tm_buf);
-    year     = tm->tm_year + 1900;
-    month    = tm->tm_mon  + 1;
-    day      = tm->tm_mday;
-    hour     = tm->tm_hour;
-    min      = tm->tm_min;
-    sec      = tm->tm_sec;
+    time_t ts = tv.tv_sec;
+    struct tm tm;
+    memset(&tm, 0, sizeof(tm));
+    localtime_r(&ts, &tm);
+    year     = tm.tm_year + 1900;
+    month    = tm.tm_mon  + 1;
+    day      = tm.tm_mday;
+    hour     = tm.tm_hour;
+    min      = tm.tm_min;
+    sec      = tm.tm_sec;
     us       = tv.tv_usec;
 #endif
 

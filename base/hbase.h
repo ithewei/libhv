@@ -70,7 +70,7 @@ HV_EXPORT bool hv_wildcard_match(const char* str, const char* pattern);
 HV_EXPORT char* hv_strncpy(char* dest, const char* src, size_t n);
 
 // strncat n = sizeof(dest_buf)-1-strlen(dest)
-// hv_strncpy n = sizeof(dest_buf)
+// hv_strncat n = sizeof(dest_buf)
 HV_EXPORT char* hv_strncat(char* dest, const char* src, size_t n);
 
 #if !HAVE_STRLCPY
