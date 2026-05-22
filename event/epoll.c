@@ -4,6 +4,7 @@
 #include "hplatform.h"
 #include "hdef.h"
 #include "hevent.h"
+#include "hlog.h"
 
 #ifdef OS_WIN
 #include "wepoll/wepoll.h"
@@ -25,9 +26,14 @@ typedef struct epoll_ctx_s {
 
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
+    epoll_handle_t epfd = epoll_create(EVENTS_INIT_SIZE);
+    if (epfd < 0) {
+        hloge("epoll_create failed: %d", socket_errno());
+        return -1;
+    }
     epoll_ctx_t* epoll_ctx;
     HV_ALLOC_SIZEOF(epoll_ctx);
-    epoll_ctx->epfd = epoll_create(EVENTS_INIT_SIZE);
+    epoll_ctx->epfd = epfd;
     events_init(&epoll_ctx->events, EVENTS_INIT_SIZE);
     loop->iowatcher = epoll_ctx;
     return 0;
@@ -44,7 +50,9 @@ int iowatcher_cleanup(hloop_t* loop) {
 
 int iowatcher_add_event(hloop_t* loop, int fd, int events) {
     if (loop->iowatcher == NULL) {
-        iowatcher_init(loop);
+        if (iowatcher_init(loop) != 0) {
+            return -1;
+        }
     }
     epoll_ctx_t* epoll_ctx = (epoll_ctx_t*)loop->iowatcher;
     hio_t* io = loop->ios.ptr[fd];
@@ -67,7 +75,9 @@ int iowatcher_add_event(hloop_t* loop, int fd, int events) {
         ee.events |= EPOLLOUT;
     }
     int op = io->events == 0 ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
-    epoll_ctl(epoll_ctx->epfd, op, fd, &ee);
+    if (epoll_ctl(epoll_ctx->epfd, op, fd, &ee) != 0) {
+        return -1;
+    }
     if (op == EPOLL_CTL_ADD) {
         if (epoll_ctx->events.size == epoll_ctx->events.maxsize) {
             events_double_resize(&epoll_ctx->events);
@@ -100,7 +110,9 @@ int iowatcher_del_event(hloop_t* loop, int fd, int events) {
         ee.events &= ~EPOLLOUT;
     }
     int op = ee.events == 0 ? EPOLL_CTL_DEL : EPOLL_CTL_MOD;
-    epoll_ctl(epoll_ctx->epfd, op, fd, &ee);
+    if (epoll_ctl(epoll_ctx->epfd, op, fd, &ee) != 0) {
+        return -1;
+    }
     if (op == EPOLL_CTL_DEL) {
         epoll_ctx->events.size--;
     }

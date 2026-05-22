@@ -4,6 +4,7 @@
 #include "hplatform.h"
 #include "hdef.h"
 #include "hevent.h"
+#include "hlog.h"
 
 #include <liburing.h>
 #include <poll.h>
@@ -22,6 +23,7 @@ int iowatcher_init(hloop_t* loop) {
     HV_ALLOC_SIZEOF(ctx);
     int ret = io_uring_queue_init(IO_URING_ENTRIES, &ctx->ring, 0);
     if (ret < 0) {
+        hloge("io_uring_queue_init failed: %d", -ret);
         HV_FREE(ctx);
         return ret;
     }

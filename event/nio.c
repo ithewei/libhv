@@ -70,13 +70,24 @@ static void ssl_server_handshake(hio_t* io) {
     int ret = hssl_accept(io->ssl);
     if (ret == 0) {
         // handshake finish
-        hio_del(io, HV_READ);
+        hio_del(io, HV_RDWR);
         printd("ssl handshake finished.\n");
         __accept_cb(io);
     }
     else if (ret == HSSL_WANT_READ) {
+        if (io->events & HV_WRITE) {
+            hio_del(io, HV_WRITE);
+        }
         if ((io->events & HV_READ) == 0) {
             hio_add(io, ssl_server_handshake, HV_READ);
+        }
+    }
+    else if (ret == HSSL_WANT_WRITE) {
+        if (io->events & HV_READ) {
+            hio_del(io, HV_READ);
+        }
+        if ((io->events & HV_WRITE) == 0) {
+            hio_add(io, ssl_server_handshake, HV_WRITE);
         }
     }
     else {
@@ -91,13 +102,24 @@ static void ssl_client_handshake(hio_t* io) {
     int ret = hssl_connect(io->ssl);
     if (ret == 0) {
         // handshake finish
-        hio_del(io, HV_READ);
+        hio_del(io, HV_RDWR);
         printd("ssl handshake finished.\n");
         __connect_cb(io);
     }
     else if (ret == HSSL_WANT_READ) {
+        if (io->events & HV_WRITE) {
+            hio_del(io, HV_WRITE);
+        }
         if ((io->events & HV_READ) == 0) {
             hio_add(io, ssl_client_handshake, HV_READ);
+        }
+    }
+    else if (ret == HSSL_WANT_WRITE) {
+        if (io->events & HV_READ) {
+            hio_del(io, HV_READ);
+        }
+        if ((io->events & HV_WRITE) == 0) {
+            hio_add(io, ssl_client_handshake, HV_WRITE);
         }
     }
     else {

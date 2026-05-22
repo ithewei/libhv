@@ -148,14 +148,13 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
     for (int fd = 0; fd <= max_fd; ++fd) {
         revents = 0;
         if (FD_ISSET(fd, &readfds)) {
-            ++nevents;
             revents |= HV_READ;
         }
         if (FD_ISSET(fd, &writefds)) {
-            ++nevents;
             revents |= HV_WRITE;
         }
         if (revents) {
+            ++nevents;
             hio_t* io = loop->ios.ptr[fd];
             if (io) {
                 io->revents = revents;

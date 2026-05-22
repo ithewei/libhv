@@ -3,6 +3,7 @@
 #ifdef EVENT_IOCP
 #include "hplatform.h"
 #include "hdef.h"
+#include "hlog.h"
 
 #include "hevent.h"
 #include "overlapio.h"
@@ -13,9 +14,14 @@ typedef struct iocp_ctx_s {
 
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher)    return 0;
+    HANDLE iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+    if (iocp == NULL) {
+        hloge("CreateIoCompletionPort failed: %d", GetLastError());
+        return -1;
+    }
     iocp_ctx_t* iocp_ctx;
     HV_ALLOC_SIZEOF(iocp_ctx);
-    iocp_ctx->iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+    iocp_ctx->iocp = iocp;
     loop->iowatcher = iocp_ctx;
     return 0;
 }
