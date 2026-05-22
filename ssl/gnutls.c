@@ -101,10 +101,23 @@ static int hssl_init(hssl_t ssl, int endpoint) {
     if (ssl == NULL) return HSSL_ERROR;
     gnutls_t* gnutls = (gnutls_t*)ssl;
     if (gnutls->session == NULL) {
-        gnutls_init(&gnutls->session, endpoint);
-        gnutls_priority_set_direct(gnutls->session, "NORMAL", NULL);
-        gnutls_credentials_set(gnutls->session, GNUTLS_CRD_CERTIFICATE, gnutls->ctx);
-        gnutls_transport_set_ptr(gnutls->session, (gnutls_transport_ptr_t)(ptrdiff_t)gnutls->fd);
+        gnutls_session_t session = NULL;
+        int ret = gnutls_init(&session, endpoint);
+        if (ret != GNUTLS_E_SUCCESS) {
+            return HSSL_ERROR;
+        }
+        ret = gnutls_priority_set_direct(session, "NORMAL", NULL);
+        if (ret != GNUTLS_E_SUCCESS) {
+            gnutls_deinit(session);
+            return HSSL_ERROR;
+        }
+        ret = gnutls_credentials_set(session, GNUTLS_CRD_CERTIFICATE, gnutls->ctx);
+        if (ret != GNUTLS_E_SUCCESS) {
+            gnutls_deinit(session);
+            return HSSL_ERROR;
+        }
+        gnutls_transport_set_ptr(session, (gnutls_transport_ptr_t)(ptrdiff_t)gnutls->fd);
+        gnutls->session = session;
     }
     return HSSL_OK;
 }
@@ -144,7 +157,9 @@ int hssl_accept(hssl_t ssl) {
     if (ssl == NULL) return HSSL_ERROR;
     gnutls_t* gnutls = (gnutls_t*)ssl;
     if (gnutls->session == NULL) {
-        hssl_init(ssl, GNUTLS_SERVER);
+        if (hssl_init(ssl, GNUTLS_SERVER) != HSSL_OK) {
+            return HSSL_ERROR;
+        }
     }
     return hssl_handshake(ssl);
 }
@@ -153,7 +168,9 @@ int hssl_connect(hssl_t ssl) {
     if (ssl == NULL) return HSSL_ERROR;
     gnutls_t* gnutls = (gnutls_t*)ssl;
     if (gnutls->session == NULL) {
-        hssl_init(ssl, GNUTLS_CLIENT);
+        if (hssl_init(ssl, GNUTLS_CLIENT) != HSSL_OK) {
+            return HSSL_ERROR;
+        }
     }
     return hssl_handshake(ssl);
 }
@@ -185,13 +202,17 @@ int hssl_close(hssl_t ssl) {
 }
 
 int hssl_set_sni_hostname(hssl_t ssl, const char* hostname) {
-    if (ssl == NULL) return HSSL_ERROR;
+    if (ssl == NULL || hostname == NULL) return HSSL_ERROR;
     gnutls_t* gnutls = (gnutls_t*)ssl;
     if (gnutls->session == NULL) {
-        hssl_init(ssl, GNUTLS_CLIENT);
+        if (hssl_init(ssl, GNUTLS_CLIENT) != HSSL_OK) {
+            return HSSL_ERROR;
+        }
     }
-    gnutls_server_name_set(gnutls->session, GNUTLS_NAME_DNS, hostname, strlen(hostname));
-    return 0;
+    if (gnutls_server_name_set(gnutls->session, GNUTLS_NAME_DNS, hostname, strlen(hostname)) != GNUTLS_E_SUCCESS) {
+        return HSSL_ERROR;
+    }
+    return HSSL_OK;
 }
 
 #endif // WITH_GNUTLS
