@@ -124,6 +124,10 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
     }
     unsigned nevents = 1;
     if (port_getn(evport_ctx->port, evport_ctx->events, evport_ctx->capacity, &nevents, tp) != 0) {
+        if (errno == EINTR) {
+            return 0;
+        }
+        perror("port_getn");
         return -1;
     }
     for (int i = 0; i < nevents; ++i) {
