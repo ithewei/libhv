@@ -36,6 +36,7 @@ std::string& tolower(std::string& str) {
 
 std::string& reverse(std::string& str) {
     // std::reverse(str.begin(), str.end());
+    if (str.length() < 2) return str;
     char* b = (char*)str.c_str();
     char* e = b + str.length() - 1;
     char tmp;
@@ -162,10 +163,12 @@ std::string ltrim(const std::string& str, const char* chars) {
 
 std::string rtrim(const std::string& str, const char* chars) {
     std::string::size_type pos = str.find_last_not_of(chars);
+    if (pos == std::string::npos)    return "";
     return str.substr(0, pos+1);
 }
 
 std::string trim_pairs(const std::string& str, const char* pairs) {
+    if (str.size() < 2) return str;
     const char* s = str.c_str();
     const char* e = str.c_str() + str.size() - 1;
     const char* p = pairs;

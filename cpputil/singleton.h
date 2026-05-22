@@ -14,22 +14,23 @@
     private: \
         DISABLE_COPY(Class) \
         static Class* s_pInstance; \
-        static std::once_flag s_initFlag; \
         static std::mutex s_mutex;
 
 #define SINGLETON_IMPL(Class) \
     Class* Class::s_pInstance = NULL; \
-    std::once_flag Class::s_initFlag; \
     std::mutex Class::s_mutex; \
     Class* Class::instance() { \
-        std::call_once(s_initFlag, []() {s_pInstance = new Class;}); \
-	    return s_pInstance; \
+        std::lock_guard<std::mutex> lock(s_mutex); \
+        if (s_pInstance == NULL) { \
+            s_pInstance = new Class; \
+        } \
+        return s_pInstance; \
     } \
     void Class::exitInstance() { \
         std::lock_guard<std::mutex> lock(s_mutex); \
         if (s_pInstance) { \
             delete s_pInstance; \
-            s_pInstance = nullptr; \
+            s_pInstance = NULL; \
         } \
     }
 

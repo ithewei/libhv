@@ -2,6 +2,7 @@
 #define HV_SCOPE_H_
 
 #include <functional>
+#include <exception>
 typedef std::function<void()> Function;
 
 #include "hdef.h"
@@ -23,8 +24,12 @@ public:
         _cleanup = std::bind(std::forward<Fn>(fn), std::forward<Args>(args)...);
     }
 
-    ~ScopeCleanup() {
-        _cleanup();
+    ~ScopeCleanup() noexcept {
+        if (!_cleanup) return;
+        try {
+            _cleanup();
+        } catch (...) {
+        }
     }
 
 private:

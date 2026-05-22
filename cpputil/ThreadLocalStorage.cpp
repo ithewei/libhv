@@ -4,13 +4,19 @@
 
 namespace hv {
 
+static inline bool tls_index_valid(int idx) {
+    return idx >= 0 && idx < ThreadLocalStorage::MAX_NUM;
+}
+
 ThreadLocalStorage ThreadLocalStorage::tls[ThreadLocalStorage::MAX_NUM];
 
 void ThreadLocalStorage::set(int idx, void* val) {
-    return tls[idx].set(val);
+    if (!tls_index_valid(idx)) return;
+    tls[idx].set(val);
 }
 
 void* ThreadLocalStorage::get(int idx) {
+    if (!tls_index_valid(idx)) return NULL;
     return tls[idx].get();
 }
 
@@ -24,8 +30,8 @@ const char* ThreadLocalStorage::threadName() {
         return (char*)value;
     }
 
-    static char unnamed[32] = {0};
-    snprintf(unnamed, sizeof(unnamed)-1, "thread-%ld", hv_gettid());
+    thread_local char unnamed[32] = {0};
+    snprintf(unnamed, sizeof(unnamed) - 1, "thread-%ld", hv_gettid());
     return unnamed;
 }
 

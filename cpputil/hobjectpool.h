@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <condition_variable>
+#include <chrono>
 
 #define DEFAULT_OBJECT_POOL_INIT_NUM    0
 #define DEFAULT_OBJECT_POOL_MAX_NUM     4
@@ -66,27 +67,20 @@ public:
         std::unique_lock<std::mutex> locker(mutex_);
         if (_object_num < _max_num) {
             ++_object_num;
-            // NOTE: unlock to avoid TFactory::create block
-            mutex_.unlock();
+            locker.unlock();
             T* p = TFactory::create();
-            mutex_.lock();
-            if (!p) --_object_num;
+            locker.lock();
+            if (!p) {
+                --_object_num;
+            }
             return std::shared_ptr<T>(p);
         }
 
-        if (_timeout > 0) {
-            std::cv_status status = cond_.wait_for(locker, std::chrono::milliseconds(_timeout));
-            if (status == std::cv_status::timeout) {
-                return NULL;
-            }
-            if (!objects_.empty()) {
-                pObj = objects_.front();
-                objects_.pop_front();
-                return pObj;
-            }
-            else {
-                // WARN: No idle object
-            }
+        if (_timeout > 0 && cond_.wait_for(locker, std::chrono::milliseconds(_timeout), [this]() {
+                return !objects_.empty();
+            })) {
+            pObj = objects_.front();
+            objects_.pop_front();
         }
         return pObj;
     }

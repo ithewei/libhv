@@ -26,11 +26,9 @@ bool HPath::islink(const char* path) {
 #ifdef OS_WIN
     return HPath::isdir(path) && (GetFileAttributesA(path) & FILE_ATTRIBUTE_REPARSE_POINT);
 #else
-    if (access(path, 0) != 0) return false;
     struct stat st;
     memset(&st, 0, sizeof(st));
-    lstat(path, &st);
-    return S_ISLNK(st.st_mode);
+    return (lstat(path, &st) == 0) && S_ISLNK(st.st_mode);
 #endif
 }
 
@@ -97,6 +95,7 @@ std::string HPath::suffixname(const std::string& filepath) {
 }
 
 std::string HPath::join(const std::string& dir, const std::string& filename) {
+    if (dir.empty()) return filename;
     char separator = '/';
 #ifdef OS_WIN
     if (dir.find_first_of("\\") != std::string::npos) {

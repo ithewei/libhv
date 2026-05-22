@@ -42,7 +42,12 @@ public:
 
     int rename(const char* newpath) {
         close();
-        return ::rename(filepath, newpath);
+        int ret = ::rename(filepath, newpath);
+        if (ret == 0) {
+            strncpy(filepath, newpath, MAX_PATH - 1);
+            filepath[MAX_PATH - 1] = '\0';
+        }
+        return ret;
     }
 
     size_t read(void* ptr, size_t len) {
@@ -119,7 +124,15 @@ public:
     int readrange(std::string& str, size_t from = 0, size_t to = 0) {
         size_t filesize = size();
         if (filesize == 0) return 0;
+        if (from >= filesize) {
+            str.clear();
+            return 0;
+        }
         if (to == 0 || to >= filesize) to = filesize - 1;
+        if (from > to) {
+            str.clear();
+            return 0;
+        }
         size_t readbytes = to - from + 1;
         str.resize(readbytes);
         fseek(fp, from, SEEK_SET);
