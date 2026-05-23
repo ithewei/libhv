@@ -25,36 +25,36 @@ int main(int argc, char* argv[]) {
         remote_host = argv[2];
     }
 
-    UdpClient cli;
-    int sockfd = cli.createsocket(remote_port, remote_host);
+    auto cli = std::make_shared<UdpClient>();
+    int sockfd = cli->createsocket(remote_port, remote_host);
     if (sockfd < 0) {
         return -20;
     }
     printf("client sendto port %d, sockfd=%d ...\n", remote_port, sockfd);
-    cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
+    cli->onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
         printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
     };
-    cli.start();
+    cli->start();
 
     // sendto(time) every 3s
-    cli.loop()->setInterval(3000, [&cli](TimerID timerID) {
+    cli->loop()->setInterval(3000, [cli](TimerID timerID) {
         char str[DATETIME_FMT_BUFLEN] = {0};
         datetime_t dt = datetime_now();
         datetime_fmt(&dt, str);
-        cli.sendto(str);
+        cli->sendto(str);
     });
 
     std::string str;
     while (std::getline(std::cin, str)) {
         if (str == "close") {
-            cli.closesocket();
+            cli->closesocket();
         } else if (str == "start") {
-            cli.start();
+            cli->start();
         } else if (str == "stop") {
-            cli.stop();
+            cli->stop(true);
             break;
         } else {
-            cli.sendto(str);
+            cli->sendto(str);
         }
     }
 

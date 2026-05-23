@@ -13,6 +13,8 @@
 
 namespace hv {
 
+// Channel is a loop-bound wrapper around hio_t.
+// The Channel address is stored in hio_context(io), so the object lifetime must cover all pending hio callbacks.
 class Channel {
 public:
     Channel(hio_t* io = NULL) {

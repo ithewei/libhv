@@ -9,6 +9,7 @@
 
 namespace hv {
 
+// EventLoopThread owns a background thread running one EventLoop.
 class EventLoopThread : public Status {
 public:
     // Return 0 means OK, other failed.
