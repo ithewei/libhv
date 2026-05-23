@@ -219,7 +219,9 @@ public:
         if (file.open(filepath.c_str(), "wb") != 0) {
             return HTTP_STATUS_INTERNAL_SERVER_ERROR;
         }
-        file.write(formdata.content.data(), formdata.content.size());
+        if (file.write(formdata.content.data(), formdata.content.size()) != formdata.content.size()) {
+            return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        }
         return 200;
     }
 
