@@ -35,6 +35,7 @@ public:
         , status(STOP)
         , cur_thread_num(0)
         , idle_thread_num(0)
+        , active_task_num(0)
     {}
 
     virtual ~HThreadPool() {
@@ -82,6 +83,7 @@ public:
         if (status == STOP) return -1;
         status = STOP;
         task_cond.notify_all();
+        wait_cond.notify_all();
         for (auto& i : threads) {
             if (i.thread->joinable()) {
                 i.thread->join();
@@ -90,6 +92,7 @@ public:
         threads.clear();
         cur_thread_num = 0;
         idle_thread_num = 0;
+        active_task_num = 0;
         return 0;
     }
 
@@ -108,12 +111,10 @@ public:
     }
 
     int wait() {
-        while (status != STOP) {
-            if (tasks.empty() && idle_thread_num == cur_thread_num) {
-                break;
-            }
-            std::this_thread::yield();
-        }
+        std::unique_lock<std::mutex> locker(task_mutex);
+        wait_cond.wait(locker, [this]() {
+            return status == STOP || (tasks.empty() && active_task_num == 0);
+        });
         return 0;
     }
 
@@ -127,7 +128,7 @@ public:
     template<class Fn, class... Args>
     auto commit(Fn&& fn, Args&&... args) -> std::future<decltype(fn(args...))> {
         if (status == STOP) start();
-        if (idle_thread_num <= tasks.size() && cur_thread_num < max_thread_num) {
+        if (idle_thread_num <= taskNum() && cur_thread_num < max_thread_num) {
             createThread();
         }
         using RetType = decltype(fn(args...));
@@ -169,12 +170,18 @@ protected:
                         continue;
                     }
                     --idle_thread_num;
+                    ++active_task_num;
                     task = std::move(tasks.front());
                     tasks.pop();
                 }
                 if (task) {
                     task();
+                    std::lock_guard<std::mutex> locker(task_mutex);
+                    --active_task_num;
                     ++idle_thread_num;
+                    if (tasks.empty() && active_task_num == 0) {
+                        wait_cond.notify_all();
+                    }
                 }
             }
         });
@@ -244,6 +251,8 @@ protected:
     std::queue<Task>        tasks;
     std::mutex              task_mutex;
     std::condition_variable task_cond;
+    std::condition_variable wait_cond;
+    std::atomic<int>        active_task_num;
 };
 
 #endif // HV_THREAD_POOL_H_

@@ -1,5 +1,7 @@
 #include "hplatform.h"
 
+#include <stdio.h>
+
 #ifdef OS_WIN
 #ifdef ENABLE_WINDUMP
 #include <dbghelp.h>
@@ -18,12 +20,23 @@ static LONG UnhandledException(EXCEPTION_POINTERS *pException) {
         modulefilename,
         st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
     HANDLE hDumpFile = CreateFile(filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hDumpFile == INVALID_HANDLE_VALUE) {
+        DWORD err = GetLastError();
+        fprintf(stderr, "CreateFile(%s) failed, error=%lu\n", filename, (unsigned long)err);
+        return EXCEPTION_EXECUTE_HANDLER;
+    }
     MINIDUMP_EXCEPTION_INFORMATION dumpInfo;
     dumpInfo.ExceptionPointers = pException;
     dumpInfo.ThreadId = GetCurrentThreadId();
     dumpInfo.ClientPointers = TRUE;
-    MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hDumpFile, MiniDumpNormal, &dumpInfo, NULL, NULL);
-    CloseHandle(hDumpFile);
+    if (!MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hDumpFile, MiniDumpNormal, &dumpInfo, NULL, NULL)) {
+        DWORD err = GetLastError();
+        fprintf(stderr, "MiniDumpWriteDump(%s) failed, error=%lu\n", filename, (unsigned long)err);
+    }
+    if (!CloseHandle(hDumpFile)) {
+        DWORD err = GetLastError();
+        fprintf(stderr, "CloseHandle(%s) failed, error=%lu\n", filename, (unsigned long)err);
+    }
     return EXCEPTION_EXECUTE_HANDLER;
 }
 #endif

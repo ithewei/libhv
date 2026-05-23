@@ -69,8 +69,10 @@ std::string HUrl::escape(const std::string& str, const char* unescaped_chars) {
 std::string HUrl::unescape(const std::string& str) {
     std::string ostr;
     const char* p = str.c_str();
-    while (*p != '\0') {
+    const char* end = p + str.size();
+    while (p < end) {
         if (*p == '%' &&
+            end - p >= 3 &&
             IS_HEX(p[1]) &&
             IS_HEX(p[2])) {
             ostr += ((hex2i(p[1]) << 4) | hex2i(p[2]));

@@ -53,6 +53,24 @@ HV_INLINE int gettimeofday(struct timeval *tv, struct timezone *tz) {
 }
 #endif
 
+HV_INLINE struct tm* hv_localtime_r(time_t ts, struct tm* tm) {
+#ifdef OS_WIN
+    localtime_s(tm, &ts);
+#else
+    tm = localtime_r(&ts, tm);
+#endif
+    return tm;
+}
+
+HV_INLINE struct tm* hv_gmtime_r(time_t ts, struct tm* tm) {
+#ifdef OS_WIN
+    gmtime_s(tm, &ts);
+#else
+    tm = gmtime_r(&ts, tm);
+#endif
+    return tm;
+}
+
 HV_EXPORT unsigned int gettick_ms();
 HV_INLINE unsigned long long gettimeofday_ms() {
     struct timeval tv;

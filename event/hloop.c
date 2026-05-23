@@ -101,7 +101,7 @@ static int hloop_process_ios(hloop_t* loop, int timeout) {
     // That is to call IO multiplexing function such as select, poll, epoll, etc.
     int nevents = iowatcher_poll_events(loop, timeout);
     if (nevents < 0) {
-        hlogd("poll_events error=%d", -nevents);
+        hlogd("iowatcher_poll_events failed err=%d", -nevents);
     }
     return nevents < 0 ? 0 : nevents;
 }
@@ -814,6 +814,7 @@ void hio_detach(hio_t* io) {
 
 void hio_attach(hloop_t* loop, hio_t* io) {
     int fd = io->fd;
+    bool use_loop_readbuf = io->loop == NULL || hio_is_loop_readbuf(io);
     // NOTE: hio was not freed for reused when closed, but attached hio can't be reused,
     // so we need to free it if fd exists to avoid memory leak.
     hio_t* preio = __hio_get(loop, fd);
@@ -822,8 +823,9 @@ void hio_attach(hloop_t* loop, hio_t* io) {
     }
 
     io->loop = loop;
-    // NOTE: use new_loop readbuf
-    hio_use_loop_readbuf(io);
+    if (use_loop_readbuf) {
+        hio_use_loop_readbuf(io);
+    }
     loop->ios.ptr[fd] = io;
 }
 
@@ -841,11 +843,6 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
     if (io->fd < 3) return -1;
 #endif
     hloop_t* loop = io->loop;
-    if (!io->active) {
-        EVENT_ADD(loop, io, cb);
-        loop->nios++;
-    }
-
     if (!io->ready) {
         hio_ready(io);
     }
@@ -854,9 +851,17 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
         io->cb = (hevent_cb)cb;
     }
 
-    if (!(io->events & events)) {
-        iowatcher_add_event(loop, io->fd, events);
-        io->events |= events;
+    int add_events = events & ~io->events;
+    if (add_events && iowatcher_add_event(loop, io->fd, add_events) != 0) {
+        hlogd("iowatcher_add_event failed fd=%d add_events=%d io->events=%d err=%d",
+              io->fd, add_events, io->events, socket_errno());
+        return -1;
+    }
+    io->events |= add_events;
+
+    if (!io->active) {
+        EVENT_ADD(loop, io, cb);
+        loop->nios++;
     }
     return 0;
 }
@@ -869,10 +874,14 @@ int hio_del(hio_t* io, int events) {
 #endif
     if (!io->active) return -1;
 
-    if (io->events & events) {
-        iowatcher_del_event(io->loop, io->fd, events);
-        io->events &= ~events;
+    int del_events = io->events & events;
+    if (del_events && iowatcher_del_event(io->loop, io->fd, del_events) != 0) {
+        hlogd("iowatcher_del_event failed fd=%d del_events=%d io->events=%d err=%d",
+              io->fd, del_events, io->events, socket_errno());
+        return -1;
     }
+    io->events &= ~del_events;
+
     if (io->events == 0) {
         io->loop->nios--;
         // NOTE: not EVENT_DEL, avoid free

@@ -70,6 +70,16 @@ static inline void qtype##_cleanup(qtype* p) {\
     p->_offset = p->size = p->maxsize = 0;\
 }\
 \
+static inline void qtype##_realign(qtype* p) {\
+    if (p->size == 0) {\
+        p->_offset = 0;\
+    }\
+    else if (p->_offset > 0) {\
+        memmove(p->ptr, p->ptr + p->_offset, sizeof(type) * p->size);\
+        p->_offset = 0;\
+    }\
+}\
+\
 static inline void qtype##_resize(qtype* p, int maxsize) {\
     if (maxsize == 0) maxsize = QUEUE_INIT_SIZE;\
     p->ptr = (type*)hv_realloc(p->ptr, sizeof(type) * maxsize, sizeof(type) * p->maxsize);\
@@ -85,8 +95,7 @@ static inline void qtype##_push_back(qtype* p, type* elem) {\
         qtype##_double_resize(p);\
     }\
     else if (p->_offset + p->size == p->maxsize) {\
-        memmove(p->ptr, p->ptr + p->_offset, sizeof(type) * p->size);\
-        p->_offset = 0;\
+        qtype##_realign(p);\
     }\
     p->ptr[p->_offset + p->size] = *elem;\
     p->size++;\

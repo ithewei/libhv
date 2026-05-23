@@ -25,7 +25,12 @@ int hio_unpack_by_fixed_length(hio_t* io, void* buf, int readbytes) {
     unpack_setting_t* setting = io->unpack_setting;
 
     int fixed_length = setting->fixed_length;
-    assert(io->readbuf.len >= fixed_length);
+    if (fixed_length <= 0 || io->readbuf.len < fixed_length) {
+        hloge("invalid fixed_length: %d", fixed_length);
+        io->error = ERR_INVALID_PARAM;
+        hio_close(io);
+        return -1;
+    }
 
     const unsigned char* p = sp;
     int remain = ep - p;
@@ -158,6 +163,18 @@ int hio_unpack_by_length_field(hio_t* io, void* buf, int readbytes) {
             return -1;
         }
         package_len = head_len + body_len + setting->length_adjustment;
+        if (package_len < head_len || package_len == 0) {
+            hloge("invalid package length: %u", package_len);
+            io->error = ERR_INVALID_PARAM;
+            hio_close(io);
+            return -1;
+        }
+        if (package_len > setting->package_max_length) {
+            hloge("package length over %d bytes!", (int)setting->package_max_length);
+            io->error = ERR_OVER_LIMIT;
+            hio_close(io);
+            return -1;
+        }
         if (remain >= package_len) {
             hio_read_cb(io, (void*)p, package_len);
             handled += package_len;

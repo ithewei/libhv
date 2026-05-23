@@ -160,10 +160,13 @@ int hssl_close(hssl_t ssl) {
 }
 
 int hssl_set_sni_hostname(hssl_t ssl, const char* hostname) {
+    if (ssl == NULL || hostname == NULL) return HSSL_ERROR;
 #ifdef SSL_CTRL_SET_TLSEXT_HOSTNAME
-    SSL_set_tlsext_host_name((SSL*)ssl, hostname);
+    if (SSL_set_tlsext_host_name((SSL*)ssl, hostname) != 1) {
+        return HSSL_ERROR;
+    }
 #endif
-    return 0;
+    return HSSL_OK;
 }
 
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation

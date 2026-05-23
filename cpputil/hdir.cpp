@@ -20,7 +20,7 @@ static bool less(const hdir_t& lhs, const hdir_t& rhs) {
 
 int listdir(const char* dir, std::list<hdir_t>& dirs) {
     int dirlen = strlen(dir);
-    if (dirlen > 256) {
+    if (dirlen == 0 || dirlen > 256) {
         return -1;
     }
     char path[512];
@@ -64,7 +64,7 @@ int listdir(const char* dir, std::list<hdir_t>& dirs) {
     strcat(path, "*");
     WIN32_FIND_DATAW data;
     HANDLE h = FindFirstFileW(hv::utf8_to_wchar(path).c_str(), &data);
-    if (h == NULL) {
+    if (h == INVALID_HANDLE_VALUE) {
         return -1;
     }
     hdir_t tmp;

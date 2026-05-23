@@ -78,7 +78,10 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
             endpoint = MBEDTLS_SSL_IS_SERVER;
         }
     }
-    mbedtls_ctr_drbg_seed(&ctx->ctr_drbg, mbedtls_entropy_func, &ctx->entropy, NULL, 0);
+    if (mbedtls_ctr_drbg_seed(&ctx->ctr_drbg, mbedtls_entropy_func, &ctx->entropy, NULL, 0) != 0) {
+        fprintf(stderr, "ssl ctr_drbg_seed failed!\n");
+        goto error;
+    }
     if (mbedtls_ssl_config_defaults(&ctx->conf, endpoint,
         MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT) != 0) {
         fprintf(stderr, "ssl config error!\n");
@@ -100,7 +103,7 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
     }
     return ctx;
 error:
-    free(ctx);
+    hssl_ctx_free(ctx);
     return NULL;
 }
 
@@ -136,10 +139,15 @@ static int __mbedtls_net_recv(void *ctx, unsigned char *buf, size_t len) {
 
 hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd) {
     struct mbedtls_ctx* mctx = (struct mbedtls_ctx*)ssl_ctx;
+    if (mctx == NULL) return NULL;
     mbedtls_ssl_context* ssl = (mbedtls_ssl_context*)malloc(sizeof(mbedtls_ssl_context));
     if (ssl == NULL) return NULL;
     mbedtls_ssl_init(ssl);
-    mbedtls_ssl_setup(ssl, &mctx->conf);
+    if (mbedtls_ssl_setup(ssl, &mctx->conf) != 0) {
+        mbedtls_ssl_free(ssl);
+        free(ssl);
+        return NULL;
+    }
     mbedtls_ssl_set_bio(ssl, (void*)(intptr_t)fd, __mbedtls_net_send, __mbedtls_net_recv, NULL);
     return ssl;
 }
@@ -147,6 +155,7 @@ hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd) {
 void hssl_free(hssl_t ssl) {
     if (ssl) {
         mbedtls_ssl_free(ssl);
+        free(ssl);
         ssl = NULL;
     }
 }
@@ -185,10 +194,13 @@ int hssl_close(hssl_t ssl) {
 }
 
 int hssl_set_sni_hostname(hssl_t ssl, const char* hostname) {
+    if (ssl == NULL || hostname == NULL) return HSSL_ERROR;
 #ifdef MBEDTLS_X509_CRT_PARSE_C
-    mbedtls_ssl_set_hostname(ssl, hostname);
+    if (mbedtls_ssl_set_hostname(ssl, hostname) != 0) {
+        return HSSL_ERROR;
+    }
 #endif
-    return 0;
+    return HSSL_OK;
 }
 
 #endif // WITH_MBEDTLS
