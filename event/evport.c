@@ -5,6 +5,7 @@
 #include "hplatform.h"
 #include "hdef.h"
 #include "hevent.h"
+#include "hlog.h"
 
 #include <port.h>
 
@@ -26,9 +27,14 @@ static void evport_ctx_resize(evport_ctx_t* evport_ctx, int size) {
 
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
+    int port = port_create();
+    if (port < 0) {
+        hloge("port_create failed: %d", errno);
+        return -1;
+    }
     evport_ctx_t* evport_ctx;
     HV_ALLOC_SIZEOF(evport_ctx);
-    evport_ctx->port = port_create();
+    evport_ctx->port = port;
     evport_ctx->capacity = EVENTS_INIT_SIZE;
     evport_ctx->nevents = 0;
     int bytes = sizeof(port_event_t) * evport_ctx->capacity;
@@ -48,7 +54,9 @@ int iowatcher_cleanup(hloop_t* loop) {
 
 int iowatcher_add_event(hloop_t* loop, int fd, int events) {
     if (loop->iowatcher == NULL) {
-        iowatcher_init(loop);
+        if (iowatcher_init(loop) != 0) {
+            return -1;
+        }
     }
     evport_ctx_t* evport_ctx = (evport_ctx_t*)loop->iowatcher;
     hio_t* io = loop->ios.ptr[fd];
@@ -115,20 +123,27 @@ int iowatcher_poll_events(hloop_t* loop, int timeout) {
         tp = &ts;
     }
     unsigned nevents = 1;
-    port_getn(evport_ctx->port, evport_ctx->events, evport_ctx->capacity, &nevents, tp);
+    if (port_getn(evport_ctx->port, evport_ctx->events, evport_ctx->capacity, &nevents, tp) != 0) {
+        if (errno == EINTR) {
+            return 0;
+        }
+        perror("port_getn");
+        return -1;
+    }
     for (int i = 0; i < nevents; ++i) {
         int fd = evport_ctx->events[i].portev_object;
         int revents = evport_ctx->events[i].portev_events;
         hio_t* io = loop->ios.ptr[fd];
-        if (io) {
-            if (revents & POLLIN) {
-                io->revents |= HV_READ;
-            }
-            if (revents & POLLOUT) {
-                io->revents |= HV_WRITE;
-            }
-            EVENT_PENDING(io);
+        if (io == NULL) {
+            continue;
         }
+        if (revents & POLLIN) {
+            io->revents |= HV_READ;
+        }
+        if (revents & POLLOUT) {
+            io->revents |= HV_WRITE;
+        }
+        EVENT_PENDING(io);
         // Upon retrieval, the event object is no longer associated with the port.
         iowatcher_add_event(loop, fd, io->events);
     }

@@ -450,6 +450,7 @@ time_t hv_parse_time(const char* str) {
 }
 
 int hv_parse_url(hurl_t* stURL, const char* strURL) {
+    int ret = 0;
     if (stURL == NULL || strURL == NULL) return -1;
     memset(stURL, 0, sizeof(hurl_t));
     const char* begin = strURL;
@@ -501,8 +502,20 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
         stURL->fields[HV_URL_PORT].off = port + 1 - begin;
         stURL->fields[HV_URL_PORT].len = ep - port - 1;
         // atoi
+        unsigned int parsed_port = 0;
         for (unsigned short i = 1; i <= stURL->fields[HV_URL_PORT].len; ++i) {
-            stURL->port = stURL->port * 10 + (port[i] - '0');
+            if (port[i] < '0' || port[i] > '9') {
+                ret = -2;
+                break;
+            }
+            parsed_port = parsed_port * 10 + (port[i] - '0');
+            if (parsed_port > 65535) {
+                ret = -3;
+                break;
+            }
+        }
+        if (ret == 0) {
+            stURL->port = (unsigned short)parsed_port;
         }
     } else {
         port = ep;
@@ -518,25 +531,25 @@ int hv_parse_url(hurl_t* stURL, const char* strURL) {
         stURL->fields[HV_URL_HOST].off = host - begin;
         stURL->fields[HV_URL_HOST].len = port - host;
     }
-    if (ep == end) return 0;
+    if (ep == end) return ret;
     // /path
     sp = ep;
     ep = strchr(sp, '?');
     if (ep == NULL) ep = end;
     stURL->fields[HV_URL_PATH].off = sp - begin;
     stURL->fields[HV_URL_PATH].len = ep - sp;
-    if (ep == end) return 0;
+    if (ep == end) return ret;
     // ?query
     sp = ep + 1;
     ep = strchr(sp, '#');
     if (ep == NULL) ep = end;
     stURL->fields[HV_URL_QUERY].off = sp - begin;
     stURL->fields[HV_URL_QUERY].len = ep - sp;
-    if (ep == end) return 0;
+    if (ep == end) return ret;
     // #fragment
     sp = ep + 1;
     ep = end;
     stURL->fields[HV_URL_FRAGMENT].off = sp - begin;
     stURL->fields[HV_URL_FRAGMENT].len = ep - sp;
-    return 0;
+    return ret;
 }

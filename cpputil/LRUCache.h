@@ -6,6 +6,7 @@
 #include <mutex>
 #include <memory>
 #include <functional>
+#include <vector>
 
 namespace hv {
 
@@ -93,46 +94,35 @@ public:
     }
 
     /**
-     * @brief Get value by key (alternative interface)
-     * @param key The key to search for
-     * @return Pointer to value if exists, nullptr otherwise
-     */
-    Value* get(const Key& key) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = hash_map_.find(key);
-        if (it == hash_map_.end()) {
-            return nullptr;
-        }
-        
-        // Move to front (most recently used)
-        move_to_front(it->second);
-        return &(it->second->value);
-    }
-
-    /**
      * @brief Put key-value pair into cache
      * @param key The key
      * @param value The value
      * @return true if new item was added, false if existing item was updated
      */
     bool put(const Key& key, const Value& value) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = hash_map_.find(key);
-        
-        if (it != hash_map_.end()) {
-            // Update existing item
-            it->second->value = value;
-            move_to_front(it->second);
-            return false;
+        std::vector<Node> evicted_nodes;
+        eviction_callback_t callback;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto it = hash_map_.find(key);
+
+            if (it != hash_map_.end()) {
+                // Update existing item
+                it->second->value = value;
+                move_to_front(it->second);
+                return false;
+            }
+
+            // Add new item
+            if (node_list_.size() >= capacity_) {
+                evict_lru(evicted_nodes);
+                callback = eviction_callback_;
+            }
+
+            node_list_.emplace_front(key, value);
+            hash_map_[key] = node_list_.begin();
         }
-        
-        // Add new item
-        if (node_list_.size() >= capacity_) {
-            evict_lru();
-        }
-        
-        node_list_.emplace_front(key, value);
-        hash_map_[key] = node_list_.begin();
+        run_eviction_callbacks(callback, evicted_nodes);
         return true;
     }
 
@@ -142,20 +132,24 @@ public:
      * @return true if item was removed, false if key not found
      */
     bool remove(const Key& key) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = hash_map_.find(key);
-        if (it == hash_map_.end()) {
-            return false;
+        std::vector<Node> evicted_nodes;
+        eviction_callback_t callback;
+        bool removed = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto it = hash_map_.find(key);
+            if (it == hash_map_.end()) {
+                return false;
+            }
+
+            evicted_nodes.push_back(*(it->second));
+            callback = eviction_callback_;
+            node_list_.erase(it->second);
+            hash_map_.erase(it);
+            removed = true;
         }
-        
-        // Call eviction callback if set
-        if (eviction_callback_) {
-            eviction_callback_(it->second->key, it->second->value);
-        }
-        
-        node_list_.erase(it->second);
-        hash_map_.erase(it);
-        return true;
+        run_eviction_callbacks(callback, evicted_nodes);
+        return removed;
     }
 
     /**
@@ -172,14 +166,16 @@ public:
      * @brief Clear all items from cache
      */
     void clear() {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (eviction_callback_) {
-            for (const auto& node : node_list_) {
-                eviction_callback_(node.key, node.value);
-            }
+        std::vector<Node> evicted_nodes;
+        eviction_callback_t callback;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            evicted_nodes.assign(node_list_.begin(), node_list_.end());
+            callback = eviction_callback_;
+            node_list_.clear();
+            hash_map_.clear();
         }
-        node_list_.clear();
-        hash_map_.clear();
+        run_eviction_callbacks(callback, evicted_nodes);
     }
 
     /**
@@ -216,14 +212,20 @@ public:
         if (new_capacity == 0) {
             new_capacity = 1; // Minimum capacity of 1
         }
-        
-        std::lock_guard<std::mutex> lock(mutex_);
-        capacity_ = new_capacity;
-        
-        // Evict excess items if necessary
-        while (node_list_.size() > capacity_) {
-            evict_lru();
+
+        std::vector<Node> evicted_nodes;
+        eviction_callback_t callback;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            capacity_ = new_capacity;
+
+            // Evict excess items if necessary
+            while (node_list_.size() > capacity_) {
+                evict_lru(evicted_nodes);
+            }
+            callback = eviction_callback_;
         }
+        run_eviction_callbacks(callback, evicted_nodes);
     }
 
     /**
@@ -247,25 +249,26 @@ public:
      */
     template<typename Predicate>
     size_t remove_if(Predicate predicate) {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::vector<Node> evicted_nodes;
+        eviction_callback_t callback;
         size_t removed_count = 0;
-        
-        auto it = node_list_.begin();
-        while (it != node_list_.end()) {
-            if (predicate(it->key, it->value)) {
-                // Call eviction callback if set
-                if (eviction_callback_) {
-                    eviction_callback_(it->key, it->value);
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+
+            auto it = node_list_.begin();
+            while (it != node_list_.end()) {
+                if (predicate(it->key, it->value)) {
+                    evicted_nodes.push_back(*it);
+                    hash_map_.erase(it->key);
+                    it = node_list_.erase(it);
+                    removed_count++;
+                } else {
+                    ++it;
                 }
-                
-                hash_map_.erase(it->key);
-                it = node_list_.erase(it);
-                removed_count++;
-            } else {
-                ++it;
             }
+            callback = eviction_callback_;
         }
-        
+        run_eviction_callbacks(callback, evicted_nodes);
         return removed_count;
     }
 
@@ -280,21 +283,25 @@ protected:
         }
     }
 
+    void run_eviction_callbacks(const eviction_callback_t& callback, const std::vector<Node>& evicted_nodes) {
+        if (!callback) {
+            return;
+        }
+        for (const auto& node : evicted_nodes) {
+            callback(node.key, node.value);
+        }
+    }
+
     /**
      * @brief Evict least recently used item
      */
-    void evict_lru() {
+    void evict_lru(std::vector<Node>& evicted_nodes) {
         if (node_list_.empty()) {
             return;
         }
-        
+
         auto last = std::prev(node_list_.end());
-        
-        // Call eviction callback if set
-        if (eviction_callback_) {
-            eviction_callback_(last->key, last->value);
-        }
-        
+        evicted_nodes.push_back(*last);
         hash_map_.erase(last->key);
         node_list_.erase(last);
     }

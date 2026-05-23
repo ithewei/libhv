@@ -167,7 +167,7 @@ ASCII:
 
 #ifndef MAKE_FOURCC
 #define MAKE_FOURCC(a, b, c, d) \
-( ((uint32)d) | ( ((uint32)c) << 8 ) | ( ((uint32)b) << 16 ) | ( ((uint32)a) << 24 ) )
+( ((uint32_t)d) | ( ((uint32_t)c) << 8 ) | ( ((uint32_t)b) << 16 ) | ( ((uint32_t)a) << 24 ) )
 #endif
 
 #ifndef MAX
