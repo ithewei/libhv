@@ -586,6 +586,11 @@ int HttpHandler::defaultStaticHandler() {
         }
         long total = file->size();
         if (to == 0 || to >= total) to = total - 1;
+        if (from < 0 || from >= total || to < from) {
+            closeFile();
+            resp->SetHeader("Content-Range", hv::asprintf("bytes */%ld", total));
+            return HTTP_STATUS_RANGE_NOT_SATISFIABLE;
+        }
         file->seek(from);
         status_code = HTTP_STATUS_PARTIAL_CONTENT;
         resp->status_code = HTTP_STATUS_PARTIAL_CONTENT;
@@ -1046,9 +1051,8 @@ int HttpHandler::handleForwardProxy() {
         return connectProxy(req->url);
     } else {
         hlogw("[%s:%d] Forbidden to forward proxy %s", ip, port, req->url.c_str());
-        SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
+        return SendHttpStatusResponse(HTTP_STATUS_FORBIDDEN);
     }
-    return 0;
 }
 
 int HttpHandler::handleReverseProxy() {
@@ -1079,8 +1083,7 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
 
     if (forward_proxy && !service->IsTrustProxy(url.host.c_str())) {
         hlogw("[%s:%d] Forbidden to proxy %s", ip, port, url.host.c_str());
-        SetError(HTTP_STATUS_FORBIDDEN, HTTP_STATUS_FORBIDDEN);
-        return 0;
+        return SendHttpStatusResponse(HTTP_STATUS_FORBIDDEN);
     }
 
     hloop_t* loop = hevent_loop(io);
@@ -1102,10 +1105,10 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
         hio_set_connect_timeout(upstream_io, service->proxy_connect_timeout);
     }
     if (service->proxy_read_timeout > 0) {
-        hio_set_read_timeout(io, service->proxy_read_timeout);
+        hio_set_read_timeout(upstream_io, service->proxy_read_timeout);
     }
     if (service->proxy_write_timeout > 0) {
-        hio_set_write_timeout(io, service->proxy_write_timeout);
+        hio_set_write_timeout(upstream_io, service->proxy_write_timeout);
     }
     hio_connect(upstream_io);
     // NOTE: wait upstream_io connected then start read
