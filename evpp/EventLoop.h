@@ -15,6 +15,8 @@
 
 namespace hv {
 
+// EventLoop is a loop-bound wrapper around hloop_t.
+// When constructed with an external hloop_t, the caller remains responsible for that loop's lifetime.
 class EventLoop : public Status {
 public:
 
@@ -104,6 +106,7 @@ public:
 
     // setTimerInLoop thread-safe
     TimerID setTimerInLoop(int timeout_ms, TimerCallback cb, uint32_t repeat = INFINITE, TimerID timerID = INVALID_TIMER_ID) {
+        if (loop_ == NULL) return INVALID_TIMER_ID;
         if (timerID == INVALID_TIMER_ID) {
             timerID = generateTimerID();
         }
