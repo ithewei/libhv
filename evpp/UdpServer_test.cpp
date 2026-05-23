@@ -20,30 +20,30 @@ int main(int argc, char* argv[]) {
     }
     int port = atoi(argv[1]);
 
-    UdpServer srv;
-    int bindfd = srv.createsocket(port);
+    auto srv = std::make_shared<UdpServer>();
+    int bindfd = srv->createsocket(port);
     if (bindfd < 0) {
         return -20;
     }
     printf("server bind on port %d, bindfd=%d ...\n", port, bindfd);
-    srv.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
+    srv->onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
         // echo
         printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
         channel->write(buf);
     };
-    srv.start();
+    srv->start();
 
     std::string str;
     while (std::getline(std::cin, str)) {
         if (str == "close") {
-            srv.closesocket();
+            srv->closesocket();
         } else if (str == "start") {
-            srv.start();
+            srv->start();
         } else if (str == "stop") {
-            srv.stop();
+            srv->stop(true);
             break;
         } else {
-            srv.sendto(str);
+            srv->sendto(str);
         }
     }
 

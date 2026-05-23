@@ -28,13 +28,13 @@ int main(int argc, char* argv[]) {
         remote_host = argv[2];
     }
 
-    TcpClient cli;
-    int connfd = cli.createsocket(remote_port, remote_host);
+    auto cli = std::make_shared<TcpClient>();
+    int connfd = cli->createsocket(remote_port, remote_host);
     if (connfd < 0) {
         return -20;
     }
     printf("client connect to port %d, connfd=%d ...\n", remote_port, connfd);
-    cli.onConnection = [&cli](const SocketChannelPtr& channel) {
+    cli->onConnection = [cli](const SocketChannelPtr& channel) {
         std::string peeraddr = channel->peeraddr();
         if (channel->isConnected()) {
             printf("connected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
@@ -54,11 +54,11 @@ int main(int argc, char* argv[]) {
         } else {
             printf("disconnected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
         }
-        if (cli.isReconnect()) {
-            printf("reconnect cnt=%d, delay=%d\n", cli.reconn_setting->cur_retry_cnt, cli.reconn_setting->cur_delay);
+        if (cli->isReconnect()) {
+            printf("reconnect cnt=%d, delay=%d\n", cli->reconn_setting->cur_retry_cnt, cli->reconn_setting->cur_delay);
         }
     };
-    cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
+    cli->onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
         printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
     };
 
@@ -69,27 +69,27 @@ int main(int argc, char* argv[]) {
     reconn.min_delay = 1000;
     reconn.max_delay = 10000;
     reconn.delay_policy = 2;
-    cli.setReconnect(&reconn);
+    cli->setReconnect(&reconn);
 #endif
 
 #if TEST_TLS
-    cli.withTLS();
+    cli->withTLS();
 #endif
 
-    cli.start();
+    cli->start();
 
     std::string str;
     while (std::getline(std::cin, str)) {
         if (str == "close") {
-            cli.closesocket();
+            cli->closesocket();
         } else if (str == "start") {
-            cli.start();
+            cli->start();
         } else if (str == "stop") {
-            cli.stop();
+            cli->stop(true);
             break;
         } else {
-            if (!cli.isConnected()) break;
-            cli.send(str);
+            if (!cli->isConnected()) break;
+            cli->send(str);
         }
     }
 

@@ -11,6 +11,9 @@
 namespace hv {
 
 template<class TSocketChannel = SocketChannel>
+// TcpClientEventLoopTmpl is a loop-bound wrapper around one outbound connection.
+// When bound to an external EventLoopPtr, the caller must ensure the object is stopped and destroyed on the owner loop.
+// For long-lived async usage, prefer heap allocation and use stop()/closesocket()/deleteInLoop() as the controlled teardown path.
 class TcpClientEventLoopTmpl {
 public:
     typedef std::shared_ptr<TSocketChannel> TSocketChannelPtr;
@@ -23,9 +26,11 @@ public:
         tls_setting = NULL;
         reconn_setting = NULL;
         unpack_setting = NULL;
+        reconn_timer_id = INVALID_TIMER_ID;
     }
 
     virtual ~TcpClientEventLoopTmpl() {
+        cancelReconnectTimer();
         HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
@@ -36,6 +41,7 @@ public:
     }
 
     // delete thread-safe
+    // NOTE: This is intended for heap objects that need to be destroyed on the owner loop.
     void deleteInLoop() {
         loop_->runInLoop([this](){
             delete this;
@@ -104,6 +110,7 @@ public:
     }
 
     int startConnect() {
+        loop_->assertInLoopThread();
         if (channel == NULL || channel->isClosed()) {
             int connfd = -1;
             if (reconn_setting && reconn_setting->cur_retry_cnt > 1) {
@@ -172,12 +179,15 @@ public:
     }
 
     int startReconnect() {
+        loop_->assertInLoopThread();
         if (!reconn_setting) return -1;
         if (!reconn_setting_can_retry(reconn_setting)) return -2;
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
         hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
-        loop_->setTimeout(delay, [this](TimerID timerID){
-            (void)(timerID);
+        reconn_timer_id = loop_->setTimeout(delay, [this](TimerID timerID){
+            if (reconn_timer_id == timerID) {
+                reconn_timer_id = INVALID_TIMER_ID;
+            }
             startConnect();
         });
         return 0;
@@ -223,6 +233,7 @@ public:
 
     void setReconnect(reconn_setting_t* setting) {
         if (setting == NULL) {
+            cancelReconnectTimer();
             HV_FREE(reconn_setting);
             return;
         }
@@ -265,7 +276,16 @@ public:
     std::function<void(const TSocketChannelPtr&, Buffer*)>  onWriteComplete;
 
 private:
-    EventLoopPtr            loop_;
+    void cancelReconnectTimer() {
+        if (reconn_timer_id != INVALID_TIMER_ID) {
+            loop_->killTimer(reconn_timer_id);
+            reconn_timer_id = INVALID_TIMER_ID;
+        }
+    }
+
+private:
+    EventLoopPtr    loop_;
+    TimerID         reconn_timer_id;
 };
 
 template<class TSocketChannel = SocketChannel>
@@ -297,6 +317,7 @@ public:
     }
 
     // stop thread-safe
+    // NOTE: When constructed with an external loop, this only closes the socket and does not stop that loop.
     void stop(bool wait_threads_stopped = true) {
         TcpClientEventLoopTmpl<TSocketChannel>::closesocket();
         if (is_loop_owner) {
