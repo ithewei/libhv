@@ -21,190 +21,81 @@ English | [中文](README-CN.md)
 [![awesome-c](https://badgen.net/badge/icon/awesome-c/pink?icon=awesome&label&color)](https://github.com/oz123/awesome-c)
 [![awesome-cpp](https://badgen.net/badge/icon/awesome-cpp/pink?icon=awesome&label&color)](https://github.com/fffaraz/awesome-cpp)
 
-Like `libevent, libev, and libuv`,
-`libhv` provides event-loop with non-blocking IO and timer,
-but simpler api and richer protocols.
+A cross-platform C/C++ network library for TCP, UDP, SSL/TLS, HTTP, WebSocket and MQTT client/server development, with event loop, simple APIs, and practical examples.
 
-## ✨ Features
+Like `libevent`, `libev`, and `libuv`, `libhv` provides non-blocking IO and timers. Compared with lower-level event libraries, `libhv` also includes higher-level protocol support and ready-to-run examples for common networking tasks.
 
-- Cross-platform (Linux, Windows, macOS, Android, iOS, BSD, Solaris)
-- High-performance EventLoop (IO, timer, idle, custom, signal)
-- TCP/UDP client/server/proxy
-- TCP supports heartbeat, reconnect, upstream, MultiThread-safe write and close, etc.
-- Built-in common unpacking modes (FixedLength, Delimiter, LengthField)
-- RUDP support: WITH_KCP
-- SSL/TLS support: (via WITH_OPENSSL or WITH_GNUTLS or WITH_MBEDTLS)
-- HTTP client/server (support https http1/x http2 grpc)
-- HTTP supports static service, indexof service, forward/reverse proxy service, sync/async API handler
-- HTTP supports RESTful, router, middleware, keep-alive, chunked, SSE, etc.
+## Why libhv
+
+Choose `libhv` if you want:
+
+- a cross-platform C/C++ network library with both low-level and high-level APIs
+- a simpler API for common networking tasks
+- built-in support for HTTP, WebSocket, MQTT, SSL/TLS, and event loop programming
+- practical client/server examples instead of assembling multiple libraries first
+- one library that can cover TCP, UDP, HTTP, WebSocket, and MQTT use cases
+
+`libhv` is a good fit for developers who need:
+
+- TCP/UDP client, server, and proxy development
+- HTTP client/server, including HTTPS, HTTP/1.x, HTTP/2, and gRPC support
+- WebSocket client/server support
+- MQTT client support
+- both C APIs and C++ wrappers in one project
+
+## Feature overview
+
+### Core networking
+- Cross-platform: Linux, Windows, macOS, Android, iOS, BSD, Solaris
+- High-performance EventLoop: IO, timer, idle, custom events, signals
+- TCP/UDP client, server, proxy
+- TCP heartbeat, reconnect, upstream, multi-thread-safe write and close
+- Built-in unpacking modes: FixedLength, Delimiter, LengthField
+- RUDP support via `WITH_KCP`
+
+### Protocols
+- SSL/TLS via `WITH_OPENSSL`, `WITH_GNUTLS`, or `WITH_MBEDTLS`
+- HTTP client/server: HTTPS, HTTP/1.x, HTTP/2, gRPC
+- HTTP static service, index service, forward/reverse proxy, sync/async handlers
+- HTTP router, middleware, keep-alive, chunked, SSE
 - WebSocket client/server
 - MQTT client
 
-## ⌛️ Build
+### Tooling and ecosystem
+- Makefile, CMake, Bazel, vcpkg, xmake
+- Runnable examples under `examples/`, `evpp/`, and `examples/mqtt`
+- Benchmark workflow on GitHub Actions
+- C API entry via `hv.h`, C++ APIs via module headers such as `HttpServer.h`, `TcpServer.h`, `WebSocketServer.h`
 
-see [BUILD.md](BUILD.md)
+## 30-second quick start
 
-Makefile:
+Build with Makefile:
+
 ```shell
 ./configure
 make
-sudo make install
 ```
 
-or cmake:
-```shell
-mkdir build
-cd build
-cmake ..
-cmake --build .
-```
-
-or bazel:
-```shell
-bazel build libhv
-```
-
-or vcpkg:
-```shell
-vcpkg install libhv
-```
-
-or xmake:
-```shell
-xrepo install libhv
-```
-
-## ⚡️ Getting Started
-
-run `./getting_started.sh`:
+Run the built-in HTTP server:
 
 ```shell
-git clone https://github.com/ithewei/libhv.git
-cd libhv
-./configure
-make
-
-bin/httpd -h
 bin/httpd -d
-#bin/httpd -c etc/httpd.conf -s restart -d
-ps aux | grep httpd
-
-# http file service
-bin/curl -v localhost:8080
-
-# http indexof service
-bin/curl -v localhost:8080/downloads/
-
-# http api service
-bin/curl -v localhost:8080/ping
-bin/curl -v localhost:8080/echo -d "hello,world!"
-bin/curl -v localhost:8080/query?page_no=1\&page_size=10
-bin/curl -v localhost:8080/kv   -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
-bin/curl -v localhost:8080/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
-bin/curl -v localhost:8080/form -F 'user=admin' -F 'pswd=123456'
-bin/curl -v localhost:8080/upload -d "@LICENSE"
-bin/curl -v localhost:8080/upload -F "file=@LICENSE"
-
-bin/curl -v localhost:8080/test -H "Content-Type:application/x-www-form-urlencoded" -d 'bool=1&int=123&float=3.14&string=hello'
-bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
-bin/curl -v localhost:8080/test -F 'bool=1' -F 'int=123' -F 'float=3.14' -F 'string=hello'
-# RESTful API: /group/:group_name/user/:user_id
-bin/curl -v -X DELETE localhost:8080/group/test/user/123
-
-# benchmark
-bin/wrk -c 1000 -d 10 -t 4 http://127.0.0.1:8080/
+bin/curl -v http://127.0.0.1:8080/ping
 ```
 
-### TCP
-#### tcp server
-**c version**: [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
+Or try the full walkthrough:
 
-**c++ version**: [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
-```c++
-#include "TcpServer.h"
-using namespace hv;
-
-int main() {
-    int port = 1234;
-    TcpServer srv;
-    int listenfd = srv.createsocket(port);
-    if (listenfd < 0) {
-        return -1;
-    }
-    printf("server listen on port %d, listenfd=%d ...\n", port, listenfd);
-    srv.onConnection = [](const SocketChannelPtr& channel) {
-        std::string peeraddr = channel->peeraddr();
-        if (channel->isConnected()) {
-            printf("%s connected! connfd=%d\n", peeraddr.c_str(), channel->fd());
-        } else {
-            printf("%s disconnected! connfd=%d\n", peeraddr.c_str(), channel->fd());
-        }
-    };
-    srv.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
-        // echo
-        channel->write(buf);
-    };
-    srv.setThreadNum(4);
-    srv.start();
-
-    // press Enter to stop
-    while (getchar() != '\n');
-    return 0;
-}
+```shell
+./getting_started.sh
 ```
 
-#### tcp client
-**c version**: [examples/tcp_client_test.c](examples/tcp_client_test.c)
+For more build methods and options, see [BUILD.md](BUILD.md).
 
-**c++ version**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
-```c++
-#include <iostream>
-#include "TcpClient.h"
-using namespace hv;
+## Minimal example entry points
 
-int main() {
-    int port = 1234;
-    TcpClient cli;
-    int connfd = cli.createsocket(port);
-    if (connfd < 0) {
-        return -1;
-    }
-    cli.onConnection = [](const SocketChannelPtr& channel) {
-        std::string peeraddr = channel->peeraddr();
-        if (channel->isConnected()) {
-            printf("connected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
-        } else {
-            printf("disconnected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
-        }
-    };
-    cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
-        printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
-    };
-    cli.start();
+### HTTP server
+See [examples/http_server_test.cpp](examples/http_server_test.cpp).
 
-    std::string str;
-    while (std::getline(std::cin, str)) {
-        if (str == "close") {
-            cli.closesocket();
-        } else if (str == "start") {
-            cli.start();
-        } else if (str == "stop") {
-            cli.stop();
-            break;
-        } else {
-            if (!cli.isConnected()) break;
-            cli.send(str);
-        }
-    }
-    return 0;
-}
-```
-
-### HTTP
-#### http server
-see [examples/http_server_test.cpp](examples/http_server_test.cpp)
-
-**golang gin style**
 ```c++
 #include "HttpServer.h"
 using namespace hv;
@@ -215,27 +106,6 @@ int main() {
         return resp->String("pong");
     });
 
-    router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
-        static char data[] = "0123456789";
-        return resp->Data(data, 10);
-    });
-
-    router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
-        return resp->Json(router.Paths());
-    });
-
-    router.GET("/get", [](HttpRequest* req, HttpResponse* resp) {
-        resp->json["origin"] = req->client_addr.ip;
-        resp->json["url"] = req->url;
-        resp->json["args"] = req->query_params;
-        resp->json["headers"] = req->headers;
-        return 200;
-    });
-
-    router.POST("/echo", [](const HttpContextPtr& ctx) {
-        return ctx->send(ctx->body(), ctx->type());
-    });
-
     HttpServer server(&router);
     server.setPort(8080);
     server.setThreadNum(4);
@@ -243,227 +113,90 @@ int main() {
     return 0;
 }
 ```
-#### http client
-see [examples/http_client_test.cpp](examples/http_client_test.cpp)
 
-**python requests style**
+### HTTP client
+See [examples/http_client_test.cpp](examples/http_client_test.cpp).
+
 ```c++
 #include "requests.h"
 
 int main() {
     auto resp = requests::get("http://www.example.com");
-    if (resp == NULL) {
-        printf("request failed!\n");
-    } else {
+    if (resp) {
         printf("%s\n", resp->body.c_str());
     }
-
-    resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
-    if (resp == NULL) {
-        printf("request failed!\n");
-    } else {
-        printf("%s\n", resp->body.c_str());
-    }
-
     return 0;
 }
 ```
+
+### TCP server
+See [examples/tcp_echo_server.c](examples/tcp_echo_server.c) and [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp).
 
 ### WebSocket
-#### WebSocket server
-see [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
-```c++
-#include "WebSocketServer.h"
-using namespace hv;
+See [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp) and [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp).
 
-int main(int argc, char** argv) {
-    WebSocketService ws;
-    ws.onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
-        printf("onopen: GET %s\n", req->Path().c_str());
-    };
-    ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
-        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
-    };
-    ws.onclose = [](const WebSocketChannelPtr& channel) {
-        printf("onclose\n");
-    };
+### MQTT
+See [examples/mqtt](examples/mqtt).
 
-    WebSocketServer server(&ws);
-    server.setPort(9999);
-    server.setThreadNum(4);
-    server.run();
-    return 0;
-}
-```
+## Docs and examples
 
-#### WebSocket client
-see [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
-```c++
-#include "WebSocketClient.h"
-using namespace hv;
+- Build and install: [BUILD.md](BUILD.md)
+- API manual: [docs/API.md](docs/API.md)
+- Example index: [examples/README.md](examples/README.md)
+- HTTP server example: [examples/http_server_test.cpp](examples/http_server_test.cpp)
+- HTTP client example: [examples/http_client_test.cpp](examples/http_client_test.cpp)
+- WebSocket server example: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
+- WebSocket client example: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+- TCP C++ examples: [evpp](evpp)
+- MQTT examples: [examples/mqtt](examples/mqtt)
 
-int main(int argc, char** argv) {
-    WebSocketClient ws;
-    ws.onopen = []() {
-        printf("onopen\n");
-    };
-    ws.onmessage = [](const std::string& msg) {
-        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
-    };
-    ws.onclose = []() {
-        printf("onclose\n");
-    };
+## Build and optional features
 
-    // reconnect: 1,2,4,8,10,10,10...
-    reconn_setting_t reconn;
-    reconn_setting_init(&reconn);
-    reconn.min_delay = 1000;
-    reconn.max_delay = 10000;
-    reconn.delay_policy = 2;
-    ws.setReconnect(&reconn);
+Supported build methods:
 
-    ws.open("ws://127.0.0.1:9999/test");
+- Makefile
+- CMake
+- Bazel
+- vcpkg
+- xmake
 
-    std::string str;
-    while (std::getline(std::cin, str)) {
-        if (!ws.isConnected()) break;
-        if (str == "quit") {
-            ws.close();
-            break;
-        }
-        ws.send(str);
-    }
+Common optional features:
 
-    return 0;
-}
-```
+- `WITH_OPENSSL` for SSL/TLS
+- `WITH_GNUTLS` for SSL/TLS
+- `WITH_MBEDTLS` for SSL/TLS
+- `WITH_NGHTTP2` for HTTP/2
+- `WITH_KCP` for reliable UDP
+- `WITH_MQTT` for MQTT
+- `WITH_CURL` for curl-related support
 
-## 🍭 More examples
-### c version
-- [examples/hloop_test.c](examples/hloop_test.c)
-- [examples/htimer_test.c](examples/htimer_test.c)
-- [examples/pipe_test.c](examples/pipe_test.c)
-- [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
-- [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
-- [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
-- [examples/udp_echo_server.c](examples/udp_echo_server.c)
-- [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
-- [examples/socks5_proxy_server.c](examples/socks5_proxy_server.c)
-- [examples/tinyhttpd.c](examples/tinyhttpd.c)
-- [examples/tinyproxyd.c](examples/tinyproxyd.c)
-- [examples/jsonrpc](examples/jsonrpc)
-- [examples/mqtt](examples/mqtt)
-- [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
-- [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
-- [examples/multi-thread/one-acceptor-multi-workers.c](examples/multi-thread/one-acceptor-multi-workers.c)
+Examples:
 
-### c++ version
-- [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
-- [evpp/EventLoopThread_test.cpp](evpp/EventLoopThread_test.cpp)
-- [evpp/EventLoopThreadPool_test.cpp](evpp/EventLoopThreadPool_test.cpp)
-- [evpp/TimerThread_test.cpp](evpp/TimerThread_test.cpp)
-- [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
-- [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
-- [evpp/UdpServer_test.cpp](evpp/UdpServer_test.cpp)
-- [evpp/UdpClient_test.cpp](evpp/UdpClient_test.cpp)
-- [examples/http_server_test.cpp](examples/http_server_test.cpp)
-- [examples/http_client_test.cpp](examples/http_client_test.cpp)
-- [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
-- [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
-- [examples/protorpc](examples/protorpc)
-- [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
-
-### simulate well-known command line tools
-- [examples/nc](examples/nc.c)
-- [examples/nmap](examples/nmap)
-- [examples/httpd](examples/httpd)
-- [examples/wrk](examples/wrk.cpp)
-- [examples/curl](examples/curl.cpp)
-- [examples/wget](examples/wget.cpp)
-- [examples/consul](examples/consul)
-- [examples/kcptun](examples/kcptun)
-
-## 🥇 Benchmark
-### `pingpong echo-servers`
 ```shell
-cd echo-servers
-./build.sh
-./benchmark.sh
+./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt
+make
 ```
 
-**throughput**:
 ```shell
-libevent running on port 2001
-libev running on port 2002
-libuv running on port 2003
-libhv running on port 2004
-asio running on port 2005
-poco running on port 2006
-
-==============2001=====================================
-[127.0.0.1:2001] 4 threads 1000 connections run 10s
-total readcount=1616761 readbytes=1655563264
-throughput = 157 MB/s
-
-==============2002=====================================
-[127.0.0.1:2002] 4 threads 1000 connections run 10s
-total readcount=2153171 readbytes=2204847104
-throughput = 210 MB/s
-
-==============2003=====================================
-[127.0.0.1:2003] 4 threads 1000 connections run 10s
-total readcount=1599727 readbytes=1638120448
-throughput = 156 MB/s
-
-==============2004=====================================
-[127.0.0.1:2004] 4 threads 1000 connections run 10s
-total readcount=2202271 readbytes=2255125504
-throughput = 215 MB/s
-
-==============2005=====================================
-[127.0.0.1:2005] 4 threads 1000 connections run 10s
-total readcount=1354230 readbytes=1386731520
-throughput = 132 MB/s
-
-==============2006=====================================
-[127.0.0.1:2006] 4 threads 1000 connections run 10s
-total readcount=1699652 readbytes=1740443648
-throughput = 165 MB/s
+mkdir build && cd build
+cmake .. -DWITH_OPENSSL=ON -DWITH_NGHTTP2=ON -DWITH_KCP=ON
+cmake --build .
 ```
 
-### `iperf tcp_proxy_server`
-```shell
-# sudo apt install iperf
-iperf -s -p 5001 > /dev/null &
-bin/tcp_proxy_server 1212 127.0.0.1:5001 &
-iperf -c 127.0.0.1 -p 5001 -l 8K
-iperf -c 127.0.0.1 -p 1212 -l 8K
-```
+See [BUILD.md](BUILD.md) for platform-specific instructions, cross-compilation, and more options.
 
-**Bandwidth**:
-```shell
-------------------------------------------------------------
-[  3] local 127.0.0.1 port 52560 connected with 127.0.0.1 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec  20.8 GBytes  17.9 Gbits/sec
+## Benchmark
 
-------------------------------------------------------------
-[  3] local 127.0.0.1 port 48142 connected with 127.0.0.1 port 1212
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec  11.9 GBytes  10.2 Gbits/sec
-```
+`libhv` includes benchmark scripts and GitHub Actions benchmark runs. For detailed results and raw output, see:
 
-### `webbench`
-```shell
-# sudo apt install wrk
-wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
+- [benchmark workflow](https://github.com/ithewei/libhv/actions/workflows/benchmark.yml)
+- [echo-servers](echo-servers)
+- benchmark section in this repository's history and documentation
 
-# sudo apt install apache2-utils
-ab -c 100 -n 100000 http://127.0.0.1:8080/
-```
+## Community and mirrors
 
-**libhv(port:8080) vs nginx(port:80)**
+- GitHub: <https://github.com/ithewei/libhv>
+- Gitee mirror: <https://gitee.com/libhv/libhv>
+- English / Chinese README: this page and [README-CN.md](README-CN.md)
 
-![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
-
-Above test results can be found on [Github Actions](https://github.com/ithewei/libhv/actions/workflows/benchmark.yml).
+For Chinese tutorials, community links, and user cases, see [README-CN.md](README-CN.md).

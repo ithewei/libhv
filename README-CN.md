@@ -21,235 +21,81 @@
 [![awesome-c](https://badgen.net/badge/icon/awesome-c/pink?icon=awesome&label&color)](https://github.com/oz123/awesome-c)
 [![awesome-cpp](https://badgen.net/badge/icon/awesome-cpp/pink?icon=awesome&label&color)](https://github.com/fffaraz/awesome-cpp)
 
-`libhv`是一个类似于`libevent、libev、libuv`的跨平台网络库，提供了更易用的接口和更丰富的协议。
+`libhv` 是一个跨平台的 C/C++ 网络库，支持 TCP、UDP、SSL/TLS、HTTP、WebSocket、MQTT 的客户端与服务端开发，提供 event loop、简洁 API 和可直接运行的示例。
 
-## 📚 中文资料
+它和 `libevent`、`libev`、`libuv` 一样提供非阻塞 IO 与定时器能力，但在常见网络开发场景里，`libhv` 还提供了更高层的协议支持和更完整的示例入口，适合希望快速落地网络程序的开发者。
 
-- **libhv QQ群**: `739352073`，欢迎加群交流
-- **libhv 源码剖析**: <https://hewei.blog.csdn.net/article/details/123295998>
-- **libhv 接口手册**: <https://hewei.blog.csdn.net/article/details/103976875>
-- **libhv 教程目录**: <https://hewei.blog.csdn.net/article/details/113733758>
-- [libhv教程01--介绍与体验](https://hewei.blog.csdn.net/article/details/113702536)
-- [libhv教程02--编译与安装](https://hewei.blog.csdn.net/article/details/113704737)
-- [libhv教程03--链库与使用](https://hewei.blog.csdn.net/article/details/113706378)
-- [libhv教程04--编写一个完整的命令行程序](https://hewei.blog.csdn.net/article/details/113719503)
-- [libhv教程05--事件循环以及定时器的简单使用](https://hewei.blog.csdn.net/article/details/113724474)
-- [libhv教程06--创建一个简单的TCP服务端](https://hewei.blog.csdn.net/article/details/113737580)
-- [libhv教程07--创建一个简单的TCP客户端](https://hewei.blog.csdn.net/article/details/113738900)
-- [libhv教程08--创建一个简单的UDP服务端](https://hewei.blog.csdn.net/article/details/113871498)
-- [libhv教程09--创建一个简单的UDP客户端](https://hewei.blog.csdn.net/article/details/113871724)
-- [libhv教程10--创建一个简单的HTTP服务端](https://hewei.blog.csdn.net/article/details/113982999)
-- [libhv教程11--创建一个简单的HTTP客户端](https://hewei.blog.csdn.net/article/details/113984302)
-- [libhv教程12--创建一个简单的WebSocket服务端](https://hewei.blog.csdn.net/article/details/113985321)
-- [libhv教程13--创建一个简单的WebSocket客户端](https://hewei.blog.csdn.net/article/details/113985895)
-- [libhv教程14--200行实现一个纯C版jsonrpc框架](https://hewei.blog.csdn.net/article/details/119920540)
-- [libhv教程15--200行实现一个C++版protorpc框架](https://hewei.blog.csdn.net/article/details/119966701)
-- [libhv教程16--多线程/多进程服务端编程](https://hewei.blog.csdn.net/article/details/120366024)
-- [libhv教程17--Qt中使用libhv](https://hewei.blog.csdn.net/article/details/120699890)
-- [libhv教程18--动手写一个tinyhttpd](https://hewei.blog.csdn.net/article/details/121706604)
-- [libhv教程19--MQTT的实现与使用](https://hewei.blog.csdn.net/article/details/122753665)
+## 为什么选择 libhv
 
-## ✨ 特性
+如果你希望获得这些能力，`libhv` 会比较合适：
 
-- 跨平台（Linux, Windows, macOS, Android, iOS, BSD, Solaris）
-- 高性能事件循环（网络IO事件、定时器事件、空闲事件、自定义事件、信号）
-- TCP/UDP服务端/客户端/代理
-- TCP支持心跳、重连、转发、多线程安全write和close等特性
-- 内置常见的拆包模式（固定包长、分界符、头部长度字段）
-- 可靠UDP支持: WITH_KCP
-- SSL/TLS加密通信（可选WITH_OPENSSL、WITH_GNUTLS、WITH_MBEDTLS）
-- HTTP服务端/客户端（支持https http1/x http2 grpc）
-- HTTP支持静态文件服务、目录服务、正向/反向代理服务、同步/异步API处理器
-- HTTP支持RESTful风格、路由、中间件、keep-alive长连接、chunked分块、SSE等特性
-- WebSocket服务端/客户端
-- MQTT客户端
+- 一个同时提供 C API 和 C++ API 的跨平台网络库
+- 比底层事件库更接近业务开发的 API
+- 内置 HTTP、WebSocket、MQTT、SSL/TLS、EventLoop 等常用能力
+- 不想先拼装多套库，而是直接从示例开始搭 client/server
+- 用一套库覆盖 TCP、UDP、HTTP、WebSocket、MQTT 等常见场景
 
-## ⌛️ 构建
+`libhv` 特别适合这些使用需求：
 
-见[BUILD.md](BUILD.md)
+- TCP/UDP 客户端、服务端、代理开发
+- HTTP 客户端/服务端，包括 HTTPS、HTTP/1.x、HTTP/2、gRPC
+- WebSocket 客户端/服务端
+- MQTT 客户端
+- 既需要 C 接口，也需要 C++ 封装
 
-libhv提供了以下构建方式:
+## 功能概览
 
-1、通过Makefile:
+### 网络基础能力
+- 跨平台：Linux、Windows、macOS、Android、iOS、BSD、Solaris
+- 高性能 EventLoop：IO、timer、idle、自定义事件、signal
+- TCP/UDP 客户端、服务端、代理
+- TCP 支持心跳、重连、转发、多线程安全 write/close
+- 内置常见拆包模式：固定包长、分隔符、头部长度字段
+- 通过 `WITH_KCP` 支持可靠 UDP
+
+### 协议能力
+- 通过 `WITH_OPENSSL`、`WITH_GNUTLS`、`WITH_MBEDTLS` 支持 SSL/TLS
+- HTTP 客户端/服务端：HTTPS、HTTP/1.x、HTTP/2、gRPC
+- HTTP 静态文件服务、目录服务、正向/反向代理、同步/异步 handler
+- HTTP 路由、中间件、keep-alive、chunked、SSE
+- WebSocket 客户端/服务端
+- MQTT 客户端
+
+### 构建与生态
+- 支持 Makefile、CMake、Bazel、vcpkg、xmake
+- 仓库内提供可直接运行的 `examples/`、`evpp/`、`examples/mqtt`
+- GitHub Actions 中提供 benchmark workflow
+- C 接口可从 `hv.h` 进入，C++ 接口可从 `HttpServer.h`、`TcpServer.h`、`WebSocketServer.h` 等模块头文件进入
+
+## 30 秒快速体验
+
+使用 Makefile 编译：
+
 ```shell
 ./configure
 make
-sudo make install
 ```
 
-2、通过cmake:
-```shell
-mkdir build
-cd build
-cmake ..
-cmake --build .
-```
-
-3、通过bazel:
-```shell
-bazel build libhv
-```
-
-4、通过vcpkg:
-```shell
-vcpkg install libhv
-```
-
-5、通过xmake:
-```shell
-xrepo install libhv
-```
-
-## ⚡️ 快速入门
-
-### 体验
-运行脚本`./getting_started.sh`:
+启动内置 HTTP 服务：
 
 ```shell
-# 下载编译
-git clone https://github.com/ithewei/libhv.git
-cd libhv
-./configure
-make
-
-# 运行httpd服务
-bin/httpd -h
 bin/httpd -d
-#bin/httpd -c etc/httpd.conf -s restart -d
-ps aux | grep httpd
-
-# 文件服务
-bin/curl -v localhost:8080
-
-# 目录服务
-bin/curl -v localhost:8080/downloads/
-
-# API服务
-bin/curl -v localhost:8080/ping
-bin/curl -v localhost:8080/echo -d "hello,world!"
-bin/curl -v localhost:8080/query?page_no=1\&page_size=10
-bin/curl -v localhost:8080/kv   -H "Content-Type:application/x-www-form-urlencoded" -d 'user=admin&pswd=123456'
-bin/curl -v localhost:8080/json -H "Content-Type:application/json" -d '{"user":"admin","pswd":"123456"}'
-bin/curl -v localhost:8080/form -F 'user=admin' -F 'pswd=123456'
-bin/curl -v localhost:8080/upload -d "@LICENSE"
-bin/curl -v localhost:8080/upload -F "file=@LICENSE"
-
-bin/curl -v localhost:8080/test -H "Content-Type:application/x-www-form-urlencoded" -d 'bool=1&int=123&float=3.14&string=hello'
-bin/curl -v localhost:8080/test -H "Content-Type:application/json" -d '{"bool":true,"int":123,"float":3.14,"string":"hello"}'
-bin/curl -v localhost:8080/test -F 'bool=1' -F 'int=123' -F 'float=3.14' -F 'string=hello'
-# RESTful API: /group/:group_name/user/:user_id
-bin/curl -v -X DELETE localhost:8080/group/test/user/123
-
-# 压力测试
-bin/wrk -c 1000 -d 10 -t 4 http://127.0.0.1:8080/
+bin/curl -v http://127.0.0.1:8080/ping
 ```
 
-### TCP
-#### TCP服务端
-**c版本**: [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
+也可以直接运行完整体验脚本：
 
-**c++版本**: [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
-```c++
-#include "TcpServer.h"
-using namespace hv;
-
-int main() {
-    int port = 1234;
-    TcpServer srv;
-    int listenfd = srv.createsocket(port);
-    if (listenfd < 0) {
-        return -1;
-    }
-    printf("server listen on port %d, listenfd=%d ...\n", port, listenfd);
-    srv.onConnection = [](const SocketChannelPtr& channel) {
-        std::string peeraddr = channel->peeraddr();
-        if (channel->isConnected()) {
-            printf("%s connected! connfd=%d\n", peeraddr.c_str(), channel->fd());
-        } else {
-            printf("%s disconnected! connfd=%d\n", peeraddr.c_str(), channel->fd());
-        }
-    };
-    srv.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
-        // echo
-        channel->write(buf);
-    };
-    srv.setThreadNum(4);
-    srv.start();
-
-    // press Enter to stop
-    while (getchar() != '\n');
-    return 0;
-}
+```shell
+./getting_started.sh
 ```
 
-**注意**:
+更多构建方式和选项见 [BUILD.md](BUILD.md)。
 
-以上示例只是简单的`echo`服务，TCP是流式协议，实际应用中请务必添加边界进行拆包。<br>
-文本协议建议加上`\0`或者`\r\n`分隔符，可参考 [examples/jsonrpc](examples/jsonrpc);<br>
-二进制协议建议加上自定义协议头，通过头部长度字段表明负载长度，可参考 [examples/protorpc](examples/protorpc);<br>
-通过`setUnpack`（c接口即`hio_set_unpack`）设置拆包规则，支持固定包长、分隔符、头部长度字段三种常见的拆包方式，<br>
-内部根据拆包规则处理粘包与分包，保证`onMessage`回调上来的是完整的一包数据，大大节省了上层处理粘包与分包的成本。<br>
-不想自定义协议和拆包组包的可直接使用现成的`HTTP/WebSocket`协议。<br>
-<br>
-`channel->write`（c接口即`hio_write`）是非阻塞的（事件循环异步编程里所有的一切都要求是非阻塞的），且多线程安全的。<br>
-发送大数据时应该做流控，通过`onWriteComplete`监听写完成事件，在可写时再发送下一帧数据。<br>
-具体示例代码可参考 [examples/tinyhttpd.c](examples/tinyhttpd.c) 中的 `http_serve_file`。<br>
-<br>
-`channel->close`（c接口即`hio_close`) 也是多线程安全的，这可以让网络IO事件循环线程里接收数据、拆包组包、反序列化后放入队列，<br>
-消费者线程/线程池从队列里取出数据、处理后发送响应和关闭连接，变得更加简单。<br>
+## 最小示例入口
 
-#### TCP客户端
-**c版本**: [examples/tcp_client_test.c](examples/tcp_client_test.c)
+### HTTP 服务端
+见 [examples/http_server_test.cpp](examples/http_server_test.cpp)。
 
-**c++版本**: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
-```c++
-#include <iostream>
-#include "TcpClient.h"
-using namespace hv;
-
-int main() {
-    int port = 1234;
-    TcpClient cli;
-    int connfd = cli.createsocket(port);
-    if (connfd < 0) {
-        return -1;
-    }
-    cli.onConnection = [](const SocketChannelPtr& channel) {
-        std::string peeraddr = channel->peeraddr();
-        if (channel->isConnected()) {
-            printf("connected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
-        } else {
-            printf("disconnected to %s! connfd=%d\n", peeraddr.c_str(), channel->fd());
-        }
-    };
-    cli.onMessage = [](const SocketChannelPtr& channel, Buffer* buf) {
-        printf("< %.*s\n", (int)buf->size(), (char*)buf->data());
-    };
-    cli.start();
-
-    std::string str;
-    while (std::getline(std::cin, str)) {
-        if (str == "close") {
-            cli.closesocket();
-        } else if (str == "start") {
-            cli.start();
-        } else if (str == "stop") {
-            cli.stop();
-            break;
-        } else {
-            if (!cli.isConnected()) break;
-            cli.send(str);
-        }
-    }
-    return 0;
-}
-```
-
-### HTTP
-#### HTTP服务端
-见[examples/http_server_test.cpp](examples/http_server_test.cpp)
-
-**golang gin 风格**
 ```c++
 #include "HttpServer.h"
 using namespace hv;
@@ -260,27 +106,6 @@ int main() {
         return resp->String("pong");
     });
 
-    router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
-        static char data[] = "0123456789";
-        return resp->Data(data, 10);
-    });
-
-    router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
-        return resp->Json(router.Paths());
-    });
-
-    router.GET("/get", [](HttpRequest* req, HttpResponse* resp) {
-        resp->json["origin"] = req->client_addr.ip;
-        resp->json["url"] = req->url;
-        resp->json["args"] = req->query_params;
-        resp->json["headers"] = req->headers;
-        return 200;
-    });
-
-    router.POST("/echo", [](const HttpContextPtr& ctx) {
-        return ctx->send(ctx->body(), ctx->type());
-    });
-
     HttpServer server(&router);
     server.setPort(8080);
     server.setThreadNum(4);
@@ -289,256 +114,118 @@ int main() {
 }
 ```
 
-**注意**:
+### HTTP 客户端
+见 [examples/http_client_test.cpp](examples/http_client_test.cpp)。
 
-上面示例直接运行在`main`主线程，`server.run()`会阻塞当前线程运行，所以`router`和`server`对象不会被析构，<br>
-如使用`server.start()`内部会另起线程运行，不会阻塞当前线程，但需要注意`router`和`server`的生命周期，<br>
-不要定义为局部变量被析构了，可定义为类成员变量或者全局变量，下面的`WebSocket`服务同理。<br>
-
-#### HTTP客户端
-见[examples/http_client_test.cpp](examples/http_client_test.cpp)
-
-**python requests 风格**
 ```c++
 #include "requests.h"
 
 int main() {
     auto resp = requests::get("http://www.example.com");
-    if (resp == NULL) {
-        printf("request failed!\n");
-    } else {
+    if (resp) {
         printf("%s\n", resp->body.c_str());
     }
-
-    resp = requests::post("127.0.0.1:8080/echo", "hello,world!");
-    if (resp == NULL) {
-        printf("request failed!\n");
-    } else {
-        printf("%s\n", resp->body.c_str());
-    }
-
     return 0;
 }
 ```
 
-附HTTP相关接口文档:
-
-- [class HttpMessage](docs/cn/HttpMessage.md)
-- [class HttpClient](docs/cn/HttpClient.md)
-- [class HttpServer](docs/cn/HttpServer.md)
-- [class HttpContext](docs/cn/HttpContext.md)
+### TCP 服务端
+见 [examples/tcp_echo_server.c](examples/tcp_echo_server.c) 和 [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)。
 
 ### WebSocket
-#### WebSocket服务端
-见[examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
-```c++
-#include "WebSocketServer.h"
-using namespace hv;
+见 [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp) 和 [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)。
 
-int main(int argc, char** argv) {
-    WebSocketService ws;
-    ws.onopen = [](const WebSocketChannelPtr& channel, const HttpRequestPtr& req) {
-        printf("onopen: GET %s\n", req->Path().c_str());
-    };
-    ws.onmessage = [](const WebSocketChannelPtr& channel, const std::string& msg) {
-        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
-    };
-    ws.onclose = [](const WebSocketChannelPtr& channel) {
-        printf("onclose\n");
-    };
+### MQTT
+见 [examples/mqtt](examples/mqtt)。
 
-    WebSocketServer server(&ws);
-    server.setPort(9999);
-    server.setThreadNum(4);
-    server.run();
-    return 0;
-}
-```
+## 文档与示例入口
 
-#### WebSocket客户端
-见[examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
-```c++
-#include "WebSocketClient.h"
-using namespace hv;
+- 构建与安装： [BUILD.md](BUILD.md)
+- API 手册： [docs/API.md](docs/API.md)
+- 示例索引： [examples/README.md](examples/README.md)
+- HTTP 服务端示例： [examples/http_server_test.cpp](examples/http_server_test.cpp)
+- HTTP 客户端示例： [examples/http_client_test.cpp](examples/http_client_test.cpp)
+- WebSocket 服务端示例： [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
+- WebSocket 客户端示例： [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+- TCP C++ 示例： [evpp](evpp)
+- MQTT 示例： [examples/mqtt](examples/mqtt)
 
-int main(int argc, char** argv) {
-    WebSocketClient ws;
-    ws.onopen = []() {
-        printf("onopen\n");
-    };
-    ws.onmessage = [](const std::string& msg) {
-        printf("onmessage: %.*s\n", (int)msg.size(), msg.data());
-    };
-    ws.onclose = []() {
-        printf("onclose\n");
-    };
+## 构建方式与可选特性
 
-    // reconnect: 1,2,4,8,10,10,10...
-    reconn_setting_t reconn;
-    reconn_setting_init(&reconn);
-    reconn.min_delay = 1000;
-    reconn.max_delay = 10000;
-    reconn.delay_policy = 2;
-    ws.setReconnect(&reconn);
+支持的构建方式：
 
-    ws.open("ws://127.0.0.1:9999/test");
+- Makefile
+- CMake
+- Bazel
+- vcpkg
+- xmake
 
-    std::string str;
-    while (std::getline(std::cin, str)) {
-        if (!ws.isConnected()) break;
-        if (str == "quit") {
-            ws.close();
-            break;
-        }
-        ws.send(str);
-    }
+常见可选特性：
 
-    return 0;
-}
-```
+- `WITH_OPENSSL`：SSL/TLS
+- `WITH_GNUTLS`：SSL/TLS
+- `WITH_MBEDTLS`：SSL/TLS
+- `WITH_NGHTTP2`：HTTP/2
+- `WITH_KCP`：可靠 UDP
+- `WITH_MQTT`：MQTT
+- `WITH_CURL`：curl 相关支持
 
-## 🍭 更多示例
-
-### c版本
-- 事件循环:     [examples/hloop_test.c](examples/hloop_test.c)
-- 定时器:       [examples/htimer_test.c](examples/htimer_test.c)
-- pipe示例:     [examples/pipe_test.c](examples/pipe_test.c)
-- TCP回显服务:  [examples/tcp_echo_server.c](examples/tcp_echo_server.c)
-- TCP聊天服务:  [examples/tcp_chat_server.c](examples/tcp_chat_server.c)
-- TCP代理服务:  [examples/tcp_proxy_server.c](examples/tcp_proxy_server.c)
-- UDP回显服务:  [examples/udp_echo_server.c](examples/udp_echo_server.c)
-- UDP代理服务:  [examples/udp_proxy_server.c](examples/udp_proxy_server.c)
-- SOCKS5代理服务: [examples/socks5_proxy_server.c](examples/socks5_proxy_server.c)
-- HTTP服务:     [examples/tinyhttpd.c](examples/tinyhttpd.c)
-- HTTP代理服务: [examples/tinyproxyd.c](examples/tinyproxyd.c)
-- jsonRPC示例:  [examples/jsonrpc](examples/jsonrpc)
-- MQTT示例:     [examples/mqtt](examples/mqtt)
-- 多accept进程模式: [examples/multi-thread/multi-acceptor-processes.c](examples/multi-thread/multi-acceptor-processes.c)
-- 多accept线程模式: [examples/multi-thread/multi-acceptor-threads.c](examples/multi-thread/multi-acceptor-threads.c)
-- 一个accept线程+多worker线程: [examples/multi-thread/one-acceptor-multi-workers.c](examples/multi-thread/one-acceptor-multi-workers.c)
-
-### c++版本
-- 事件循环: [evpp/EventLoop_test.cpp](evpp/EventLoop_test.cpp)
-- 事件循环线程: [evpp/EventLoopThread_test.cpp](evpp/EventLoopThread_test.cpp)
-- 事件循环线程池: [evpp/EventLoopThreadPool_test.cpp](evpp/EventLoopThreadPool_test.cpp)
-- 定时器:    [evpp/TimerThread_test.cpp](evpp/TimerThread_test.cpp)
-- TCP服务端: [evpp/TcpServer_test.cpp](evpp/TcpServer_test.cpp)
-- TCP客户端: [evpp/TcpClient_test.cpp](evpp/TcpClient_test.cpp)
-- UDP服务端: [evpp/UdpServer_test.cpp](evpp/UdpServer_test.cpp)
-- UDP客户端: [evpp/UdpClient_test.cpp](evpp/UdpClient_test.cpp)
-- HTTP服务端: [examples/http_server_test.cpp](examples/http_server_test.cpp)
-- HTTP客户端: [examples/http_client_test.cpp](examples/http_client_test.cpp)
-- WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
-- WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
-- protobufRPC示例: [examples/protorpc](examples/protorpc)
-- Qt中使用libhv示例: [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
-
-### 模拟实现著名的命令行工具
-- 网络连接工具: [examples/nc](examples/nc.c)
-- 网络扫描工具: [examples/nmap](examples/nmap)
-- HTTP服务程序: [examples/httpd](examples/httpd)
-- HTTP压测工具: [examples/wrk](examples/wrk.cpp)
-- URL请求工具:  [examples/curl](examples/curl.cpp)
-- 文件下载工具: [examples/wget](examples/wget.cpp)
-- 服务注册与发现: [examples/consul](examples/consul)
-- kcptun隧道: [examples/kcptun](examples/kcptun)
-
-## 🥇 性能测试
-
-### TCP回显服务pingpong测试
-```shell
-cd echo-servers
-./build.sh
-./benchmark.sh
-```
-
-**吞吐量**:
-```shell
-libevent running on port 2001
-libev running on port 2002
-libuv running on port 2003
-libhv running on port 2004
-asio running on port 2005
-poco running on port 2006
-
-==============2001=====================================
-[127.0.0.1:2001] 4 threads 1000 connections run 10s
-total readcount=1616761 readbytes=1655563264
-throughput = 157 MB/s
-
-==============2002=====================================
-[127.0.0.1:2002] 4 threads 1000 connections run 10s
-total readcount=2153171 readbytes=2204847104
-throughput = 210 MB/s
-
-==============2003=====================================
-[127.0.0.1:2003] 4 threads 1000 connections run 10s
-total readcount=1599727 readbytes=1638120448
-throughput = 156 MB/s
-
-==============2004=====================================
-[127.0.0.1:2004] 4 threads 1000 connections run 10s
-total readcount=2202271 readbytes=2255125504
-throughput = 215 MB/s
-
-==============2005=====================================
-[127.0.0.1:2005] 4 threads 1000 connections run 10s
-total readcount=1354230 readbytes=1386731520
-throughput = 132 MB/s
-
-==============2006=====================================
-[127.0.0.1:2006] 4 threads 1000 connections run 10s
-total readcount=1699652 readbytes=1740443648
-throughput = 165 MB/s
-```
-
-### TCP代理服务压测
+示例：
 
 ```shell
-# sudo apt install iperf
-iperf -s -p 5001 > /dev/null &
-bin/tcp_proxy_server 1212 127.0.0.1:5001 &
-iperf -c 127.0.0.1 -p 5001 -l 8K
-iperf -c 127.0.0.1 -p 1212 -l 8K
+./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt
+make
 ```
 
-**带宽**:
 ```shell
-------------------------------------------------------------
-[  3] local 127.0.0.1 port 52560 connected with 127.0.0.1 port 5001
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec  20.8 GBytes  17.9 Gbits/sec
-
-------------------------------------------------------------
-[  3] local 127.0.0.1 port 48142 connected with 127.0.0.1 port 1212
-[ ID] Interval       Transfer     Bandwidth
-[  3]  0.0-10.0 sec  11.9 GBytes  10.2 Gbits/sec
+mkdir build && cd build
+cmake .. -DWITH_OPENSSL=ON -DWITH_NGHTTP2=ON -DWITH_KCP=ON
+cmake --build .
 ```
 
-### HTTP压测
-```shell
-# sudo apt install wrk
-wrk -c 100 -t 4 -d 10s http://127.0.0.1:8080/
+更多平台说明、交叉编译和其他选项见 [BUILD.md](BUILD.md)。
 
-# sudo apt install apache2-utils
-ab -c 100 -n 100000 http://127.0.0.1:8080/
-```
+## 性能测试
 
-**libhv(port:8080) vs nginx(port:80)**
+`libhv` 仓库中提供 benchmark 脚本和 GitHub Actions benchmark 结果。详细数据与原始输出可见：
 
-![libhv-vs-nginx.png](html/downloads/libhv-vs-nginx.png)
+- [benchmark workflow](https://github.com/ithewei/libhv/actions/workflows/benchmark.yml)
+- [echo-servers](echo-servers)
 
-以上测试结果可以在 [Github Actions](https://github.com/ithewei/libhv/actions/workflows/benchmark.yml) 中查看。
+## 中文资料与社区
 
-## 💎 用户案例
+- **libhv QQ 群**：`739352073`
+- **libhv 源码剖析**：<https://hewei.blog.csdn.net/article/details/123295998>
+- **libhv 接口手册**：<https://hewei.blog.csdn.net/article/details/103976875>
+- **libhv 教程目录**：<https://hewei.blog.csdn.net/article/details/113733758>
+- [libhv 教程 01 - 介绍与体验](https://hewei.blog.csdn.net/article/details/113702536)
+- [libhv 教程 02 - 编译与安装](https://hewei.blog.csdn.net/article/details/113704737)
+- [libhv 教程 03 - 链库与使用](https://hewei.blog.csdn.net/article/details/113706378)
+- [libhv 教程 04 - 编写一个完整的命令行程序](https://hewei.blog.csdn.net/article/details/113719503)
+- [libhv 教程 05 - 事件循环以及定时器的简单使用](https://hewei.blog.csdn.net/article/details/113724474)
+- [libhv 教程 06 - 创建一个简单的 TCP 服务端](https://hewei.blog.csdn.net/article/details/113737580)
+- [libhv 教程 07 - 创建一个简单的 TCP 客户端](https://hewei.blog.csdn.net/article/details/113738900)
+- [libhv 教程 08 - 创建一个简单的 UDP 服务端](https://hewei.blog.csdn.net/article/details/113871498)
+- [libhv 教程 09 - 创建一个简单的 UDP 客户端](https://hewei.blog.csdn.net/article/details/113871724)
+- [libhv 教程 10 - 创建一个简单的 HTTP 服务端](https://hewei.blog.csdn.net/article/details/113982999)
+- [libhv 教程 11 - 创建一个简单的 HTTP 客户端](https://hewei.blog.csdn.net/article/details/113984302)
+- [libhv 教程 12 - 创建一个简单的 WebSocket 服务端](https://hewei.blog.csdn.net/article/details/113985321)
+- [libhv 教程 13 - 创建一个简单的 WebSocket 客户端](https://hewei.blog.csdn.net/article/details/113985895)
+- [libhv 教程 14 - 200 行实现一个纯 C 版 jsonrpc 框架](https://hewei.blog.csdn.net/article/details/119920540)
+- [libhv 教程 15 - 200 行实现一个 C++ 版 protorpc 框架](https://hewei.blog.csdn.net/article/details/119966701)
+- [libhv 教程 16 - 多线程/多进程服务端编程](https://hewei.blog.csdn.net/article/details/120366024)
+- [libhv 教程 17 - Qt 中使用 libhv](https://hewei.blog.csdn.net/article/details/120699890)
+- [libhv 教程 18 - 动手写一个 tinyhttpd](https://hewei.blog.csdn.net/article/details/121706604)
+- [libhv 教程 19 - MQTT 的实现与使用](https://hewei.blog.csdn.net/article/details/122753665)
 
-如果您在使用`libhv`，欢迎通过PR将信息提交至此列表，让更多的用户了解`libhv`的实际使用场景，以建立更好的网络生态。
+## 用户案例
+
+如果您在使用 `libhv`，欢迎通过 PR 将信息提交到这个列表，让更多用户了解 `libhv` 的实际使用场景。
 
 | 用户 (公司名/项目名/个人联系方式) | 案例 (项目简介/业务场景) |
 | :--- | :--- |
-| [阅面科技](https://www.readsense.cn) | [猎户AIoT平台](https://orionweb.readsense.cn)设备管理、人脸检测HTTP服务、人脸搜索HTTP服务 |
-| [socks5-libhv](https://gitee.com/billykang/socks5-libhv) | socks5代理 |
-| [hvloop](https://github.com/xiispace/hvloop) | 类似[uvloop](https://github.com/MagicStack/uvloop)的python异步IO事件循环 |
-| [tsproxyd-android](https://github.com/Haiwen-GitHub/tsproxyd-android) | 一个基于libhv实现的android端web代理服务 |
-| [玄舟智维](https://zjzwxw.com) | C100K设备连接网关服务 |
-
+| [阅面科技](https://www.readsense.cn) | [猎户AIoT平台](https://orionweb.readsense.cn) 设备管理、人脸检测 HTTP 服务、人脸搜索 HTTP 服务 |
+| [socks5-libhv](https://gitee.com/billykang/socks5-libhv) | socks5 代理 |
+| [hvloop](https://github.com/xiispace/hvloop) | 类似 [uvloop](https://github.com/MagicStack/uvloop) 的 Python 异步 IO 事件循环 |
+| [tsproxyd-android](https://github.com/Haiwen-GitHub/tsproxyd-android) | 一个基于 libhv 实现的 Android 端 web 代理服务 |
+| [玄舟智维](https://zjzwxw.com) | C100K 设备连接网关服务 |
