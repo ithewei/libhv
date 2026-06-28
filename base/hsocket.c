@@ -48,12 +48,28 @@ const char* socket_strerror(int err) {
 
 bool is_ipv4(const char* host) {
     struct sockaddr_in sin;
-    return inet_pton(AF_INET, host, &sin) == 1;
+    return inet_pton(AF_INET, host, &sin.sin_addr) == 1;
 }
 
 bool is_ipv6(const char* host) {
     struct sockaddr_in6 sin6;
-    return inet_pton(AF_INET6, host, &sin6) == 1;
+    return inet_pton(AF_INET6, host, &sin6.sin6_addr) == 1;
+}
+
+bool is_multicast_ipv4(const char* host) {
+    struct sockaddr_in addr={0};
+    if(inet_pton(AF_INET, host, &addr.sin_addr)){
+		return addr.sin_addr.s_net >> 4 == 0xE;
+	}
+	return 0;
+}
+
+bool is_multicast_ipv6(const char* host) {
+    struct sockaddr_in6 addr={0};
+    if(inet_pton(AF_INET6, host, &addr.sin6_addr)){
+		return addr.sin6_addr.s6_addr[0] == 0xFF;
+	}
+	return 0;
 }
 
 int ResolveAddr(const char* host, sockaddr_u* addr) {
@@ -67,6 +83,7 @@ int ResolveAddr(const char* host, sockaddr_u* addr) {
 
     if (inet_pton(AF_INET6, host, &addr->sin6.sin6_addr) == 1) {
         addr->sa.sa_family = AF_INET6; // host is ipv6
+        return 0;
     }
 
     struct addrinfo* ais = NULL;

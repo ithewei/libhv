@@ -110,6 +110,12 @@ HV_INLINE bool is_ipaddr(const char* host) {
     return is_ipv4(host) || is_ipv6(host);
 }
 
+HV_EXPORT bool is_multicast_ipv4(const char* host);
+HV_EXPORT bool is_multicast_ipv6(const char* host);
+HV_INLINE bool is_multicast_ip(const char* host) {
+    return is_multicast_ipv4(host) || is_multicast_ipv6(host);
+}
+
 // @param host: domain or ip
 // @retval 0:succeed
 HV_EXPORT int ResolveAddr(const char* host, sockaddr_u* addr);
