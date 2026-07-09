@@ -83,13 +83,39 @@ int main_ctx_init(int argc, char** argv) {
     }
 #endif
     //printf("program_name=%s\n", g_main_ctx.program_name);
-    char logdir[MAX_PATH] = {0};
-    snprintf(logdir, sizeof(logdir), "%s/logs", g_main_ctx.run_dir);
-    hv_mkdir(logdir);
-    snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_dir, g_main_ctx.program_name);
+    // confile: run_dir/etc/${program}.conf -> run_dir/${program}.conf -> /usr/local/etc/${program}.conf -> /etc/${program}.conf
+    {
+        char confile[MAX_PATH] = {0};
+        const char* confdirs[] = {
+            "%s/etc/%s.conf",
+            "%s/%s.conf",
+#ifdef OS_UNIX
+            "/usr/local/etc/%s.conf",
+            "/etc/%s.conf",
+#endif
+        };
+        int nconfdir = sizeof(confdirs) / sizeof(confdirs[0]);
+        int i;
+        int found = 0;
+        for (i = 0; i < nconfdir; ++i) {
+            if (i < 2) {
+                snprintf(confile, sizeof(confile), confdirs[i], g_main_ctx.run_dir, g_main_ctx.program_name);
+            } else {
+                snprintf(confile, sizeof(confile), confdirs[i], g_main_ctx.program_name);
+            }
+            if (hv_exists(confile)) {
+                snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s", confile);
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            // default
+            snprintf(g_main_ctx.confile, sizeof(g_main_ctx.confile), "%s/etc/%s.conf", g_main_ctx.run_dir, g_main_ctx.program_name);
+        }
+    }
     snprintf(g_main_ctx.pidfile, sizeof(g_main_ctx.pidfile), "%s/logs/%s.pid", g_main_ctx.run_dir, g_main_ctx.program_name);
     snprintf(g_main_ctx.logfile, sizeof(g_main_ctx.logfile), "%s/logs/%s.log", g_main_ctx.run_dir, g_main_ctx.program_name);
-    hlog_set_file(g_main_ctx.logfile);
 
     g_main_ctx.pid = getpid();
     g_main_ctx.oldpid = getpid_from_pidfile();
