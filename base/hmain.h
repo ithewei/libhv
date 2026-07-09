@@ -47,6 +47,7 @@ typedef struct main_ctx_s {
     procedure_t     reload_fn;
     void*           reload_userdata;
     // master workers model
+    bool            master_wait;
     int             worker_processes;
     int             worker_threads;
     procedure_t     worker_fn;
@@ -98,9 +99,10 @@ HV_EXPORT int  signal_init(procedure_t reload_fn DEFAULT(NULL), void* reload_use
 HV_EXPORT void signal_handle(const char* signal);
 HV_EXPORT bool signal_handle_noexit(const char* signal);
 #ifdef OS_UNIX
-// we use SIGTERM to quit process, SIGUSR1 to reload confile
+// we use SIGTERM to quit all process, SIGUSR1 to reload confile, SIGUSR2 to quit worker process
 #define SIGNAL_TERMINATE    SIGTERM
 #define SIGNAL_RELOAD       SIGUSR1
+#define SIGNAL_KILLWORKER   SIGUSR2
 void signal_handler(int signo);
 #endif
 
