@@ -140,6 +140,8 @@ typedef struct hurl_s {
 
 HV_EXPORT int hv_parse_url(hurl_t* stURL, const char* strURL);
 
+HV_EXPORT int hv_normalize_path(char *path);
+
 END_EXTERN_C
 
 #endif // HV_BASE_H_
