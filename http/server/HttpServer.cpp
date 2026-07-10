@@ -188,6 +188,8 @@ int http_server_run(http_server_t* server, int wait) {
             socklen_t addrlen = sizeof(localaddr);
             if (getsockname(server->listenfd[0], &localaddr.sa, &addrlen) == 0) {
                 server->port = sockaddr_port(&localaddr);
+            } else {
+                hloge("getsockname failed: %s", strerror(errno));
             }
         }
         hlogi("http server listening on %s:%d", server->host, server->port);
@@ -202,6 +204,8 @@ int http_server_run(http_server_t* server, int wait) {
             socklen_t addrlen = sizeof(localaddr);
             if (getsockname(server->listenfd[1], &localaddr.sa, &addrlen) == 0) {
                 server->https_port = sockaddr_port(&localaddr);
+            } else {
+                hloge("getsockname failed: %s", strerror(errno));
             }
         }
         hlogi("https server listening on %s:%d", server->host, server->https_port);
