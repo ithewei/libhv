@@ -149,6 +149,10 @@ public:
         return http_server_run(this, wait);
     }
 
+    // start(":8080")
+    // start("0.0.0.0:8080")
+    // start("[::]:8080")
+    // @return actual http port on success (OS-assigned when port=0), negative on error
     int start(const char* ip_port = NULL) {
         int ret = run(ip_port, false);
         if (ret != 0) return ret;
