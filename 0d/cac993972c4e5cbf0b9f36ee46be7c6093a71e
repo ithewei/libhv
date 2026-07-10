@@ -1,0 +1,164 @@
+README-CN.md
+  s_8fe21bba9cd1db::t_efcb2033ced452 66
+README.md
+  s_6638acc9d9c611::t_cdfa1359272543 42
+BUILD.md
+  h_261959b831162c 159-164
+docs/PLAN.md
+  s_c63f964f526b25::t_4d16068c7dd648 11
+BUILD.bazel
+  s_e3e1370e3e7774::t_562e6f5e895924 103-111,201-203,320,338-346,397-399,440-442
+CMakeLists.txt
+  s_acc1b5f86c03ec::t_5273a1e2701024 20,207,229-232
+Makefile
+  s_e3e1370e3e7774::t_3ac5bb47759708 5,27-31,79-81,196-205,308-321
+Makefile.vars
+  s_fb9a48068852b3::t_ffad7a2fea30b4 67-73
+cmake/vars.cmake
+  s_fb9a48068852b3::t_648c8c6aaf23a5 71-79
+config.ini
+  s_e3e1370e3e7774::t_d77a4c8faa9e4c 20
+configure
+  s_e3e1370e3e7774::t_5a6d000dbaac01 33
+examples/BUILD.bazel
+  s_e3e1370e3e7774::t_14a077aefdd035 103-122,228-230
+examples/CMakeLists.txt
+  s_e3e1370e3e7774::t_5d94e4a30eb890 110-121
+examples/redis_client_test.cpp
+  s_fb9a48068852b3::t_a868b185a6ccfe 1-56
+examples/redis_subscriber_test.cpp
+  s_fb9a48068852b3::t_ff867656d3ef3d 1-53
+redis/AsyncRedisClient.cpp
+  s_952b1df500cd73::t_4283899821c55d 1-581
+redis/AsyncRedisClient.h
+  s_952b1df500cd73::t_4642e79e87d8fb 1-53
+redis/RedisClient.cpp
+  s_2d21145473b79a::t_b6e35ef7b5cd5f 1-296
+redis/RedisClient.h
+  s_af9f4cf3fea6c0::t_f4060eca2e4505 1-101
+redis/RedisMessage.cpp
+  s_50264efb8c8fdc::t_8fac0ae8613c75 1-296
+redis/RedisMessage.h
+  s_50264efb8c8fdc::t_ed203e489a5a01 1-85
+redis/RedisPipeline.cpp
+  s_af9f4cf3fea6c0::t_b2a74e67434773 1-70
+redis/RedisPipeline.h
+  s_2d21145473b79a::t_bb837a2af35bc0 1-27
+redis/RedisSubscriber.cpp
+  s_fb9a48068852b3::t_aa2b97d18ce920 1-588
+redis/RedisSubscriber.h
+  s_fb9a48068852b3::t_933a4fde81d5ea 1-45
+redis/RedisTransaction.cpp
+  s_af9f4cf3fea6c0::t_0db6feafb763f4 1-80
+redis/RedisTransaction.h
+  s_2d21145473b79a::t_3e7fcc96dbb5cd 1-28
+scripts/unittest.sh
+  s_e3e1370e3e7774::t_b26aea05645ae8 5-6,35-42
+unittest/CMakeLists.txt
+  s_e3e1370e3e7774::t_ed718574382d4b 93-110,141
+unittest/redis_batch_test.cpp
+  s_af9f4cf3fea6c0::t_cc2a2c28804d78 1-356
+unittest/redis_protocol_test.cpp
+  s_50264efb8c8fdc::t_97ed5027d372ab 1-167
+unittest/redis_subscriber_test.cpp
+  s_fb9a48068852b3::t_26ad6eef0cc24c 1-128
+unittest/redis_test_server.cpp
+  s_fb9a48068852b3::t_86aaae0a8d1838 1-227
+unittest/redis_test_server.h
+  s_fb9a48068852b3::t_58e4a512c621cc 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0dcac993972c4e5cbf0b9f36ee46be7c6093a71e",
+  "prompts": {},
+  "humans": {
+    "h_261959b831162c": {
+      "author": "ithewei <ithewei@163.com>"
+    }
+  },
+  "sessions": {
+    "s_2d21145473b79a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a98315bc593cda8b0",
+        "model": "unknown"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_50264efb8c8fdc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3a1327b1-ac8d-4172-96c3-e9ed9673ded3",
+        "model": "unknown"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_6638acc9d9c611": {
+      "agent_id": {
+        "tool": "trae-cue",
+        "id": "ai_tab-icr-a5cf7042-daac-46ee-899a-9bd86d448810",
+        "model": "default"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_8fe21bba9cd1db": {
+      "agent_id": {
+        "tool": "trae-cue",
+        "id": "ai_tab-icr-07db1c2f-8880-44bf-b986-c828f526f9fa",
+        "model": "default"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_952b1df500cd73": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a7a9600a480beae8f",
+        "model": "unknown"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_acc1b5f86c03ec": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aa106bda20ea2b104",
+        "model": "unknown"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_af9f4cf3fea6c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ab1f07f261fcf7594",
+        "model": "unknown"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_c63f964f526b25": {
+      "agent_id": {
+        "tool": "trae-cue",
+        "id": "ai_tab-icr-9576475c-4f12-4263-b637-73e8ee330222",
+        "model": "default"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_e3e1370e3e7774": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a60827ab89a3c2b55",
+        "model": "unknown"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    },
+    "s_fb9a48068852b3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "482093ff-6e34-4843-9149-34e74be6d97d",
+        "model": "unknown"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
