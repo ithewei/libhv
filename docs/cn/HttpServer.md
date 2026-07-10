@@ -10,8 +10,8 @@ class HttpServer {
 
     // 设置监听主机
     void setHost(const char* host = "0.0.0.0");
-    // 设置监听端口
-    void setPort(int port = 0, int ssl_port = 0);
+    // 设置监听端口，port=0 表示自动分配空闲端口
+    void setPort(int port = 0, int ssl_port = -1);
     // 设置监听文件描述符
     void setListenFD(int fd = -1, int ssl_fd = -1);
 
@@ -34,7 +34,7 @@ class HttpServer {
     // 占用当前线程运行
     int run(bool wait = true);
 
-    // 不占用当前线程运行
+    // 不占用当前线程运行，返回实际监听的HTTP端口号（port=0时为OS分配的端口）
     int start();
 
     // 停止服务
