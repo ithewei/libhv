@@ -63,6 +63,7 @@
 - HTTP支持RESTful风格、路由、中间件、keep-alive长连接、chunked分块、SSE等特性
 - WebSocket服务端/客户端
 - MQTT客户端
+- Redis客户端
 
 ## ⌛️ 构建
 
@@ -397,6 +398,18 @@ int main(int argc, char** argv) {
 }
 ```
 
+### Redis
+见 [examples/redis_client_test.cpp](examples/redis_client_test.cpp) 和 [examples/redis_subscriber_test.cpp](examples/redis_subscriber_test.cpp)
+
+Redis C++ 模块位于仓库根目录 `redis/`，并采用 `.h + .cpp` 分离结构。Redis 默认不编译，需要显式使用 `./configure --with-redis` 或 `cmake -DWITH_REDIS=ON` 打开。
+
+```shell
+./configure --with-redis
+make unittest
+cmake -S . -B build -DWITH_EVPP=ON -DWITH_REDIS=ON -DBUILD_UNITTEST=ON
+cmake --build build --target redis_protocol_test redis_async_client_test redis_client_test redis_batch_test redis_subscriber_test
+```
+
 ## 🍭 更多示例
 
 ### c版本
@@ -430,6 +443,8 @@ int main(int argc, char** argv) {
 - HTTP客户端: [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - WebSocket服务端: [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - WebSocket客户端: [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+- Redis客户端示例: [examples/redis_client_test.cpp](examples/redis_client_test.cpp)
+- Redis订阅示例: [examples/redis_subscriber_test.cpp](examples/redis_subscriber_test.cpp)
 - protobufRPC示例: [examples/protorpc](examples/protorpc)
 - Qt中使用libhv示例: [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
 
