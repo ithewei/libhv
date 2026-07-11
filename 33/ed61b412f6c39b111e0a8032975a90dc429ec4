@@ -1,0 +1,21 @@
+.github/workflows/CI.yml
+  s_c3213c51727fcc::t_40d4aa93939ec1 23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "33ed61b412f6c39b111e0a8032975a90dc429ec4",
+  "prompts": {},
+  "sessions": {
+    "s_c3213c51727fcc": {
+      "agent_id": {
+        "tool": "trae-cue",
+        "id": "ai_tab-icr-a74b5619-0359-4212-89ac-d990be49187a",
+        "model": "default"
+      },
+      "human_author": "ithewei <ithewei@163.com>"
+    }
+  },
+  "attestation_metadata": {},
+  "remote_transcripts": {}
+}
