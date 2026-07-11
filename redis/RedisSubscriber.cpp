@@ -361,6 +361,7 @@ struct RedisSubscriber::Impl {
 
     void handleHandshakeReply(const RedisReply& reply) {
         if (reply.isError()) {
+            tcp_client.setReconnect(NULL);
             handleClientError(ERR_RESPONSE);
             return;
         }

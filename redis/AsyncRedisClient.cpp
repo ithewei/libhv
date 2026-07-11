@@ -552,6 +552,9 @@ bool AsyncRedisClient::isInLoopThread() {
 
 int AsyncRedisClient::command(const RedisCommand& command, RedisCallback cb) {
     if (command.empty()) {
+        if (cb) {
+            cb(RedisResult(ERR_INVALID_PARAM));
+        }
         return ERR_INVALID_PARAM;
     }
     auto request = std::make_shared<Impl::PendingRequest>();
@@ -566,6 +569,9 @@ int AsyncRedisClient::command(const RedisCommand& command, RedisCallback cb) {
 
 int AsyncRedisClient::commandBatch(const std::vector<RedisCommand>& commands, RedisRepliesCallback cb) {
     if (commands.empty()) {
+        if (cb) {
+            cb(ERR_INVALID_PARAM, std::vector<RedisReply>());
+        }
         return ERR_INVALID_PARAM;
     }
     auto request = std::make_shared<Impl::PendingRequest>();
@@ -573,6 +579,9 @@ int AsyncRedisClient::commandBatch(const std::vector<RedisCommand>& commands, Re
     request->batch_callback = std::move(cb);
     for (size_t i = 0; i < commands.size(); ++i) {
         if (commands[i].empty()) {
+            if (request->batch_callback) {
+                request->batch_callback(ERR_INVALID_PARAM, std::vector<RedisReply>());
+            }
             return ERR_INVALID_PARAM;
         }
         request->payload += RedisEncodeCommand(commands[i]);

@@ -317,14 +317,27 @@ RedisCommand RedisClient::tokenize(const std::string& line) {
             else if (ch == '\'') {
                 // single-quoted: literal, '' inside means a single quote char
                 ++i;
-                while (i < n && line[i] != '\'') {
-                    token.push_back(line[i]);
-                    ++i;
+                bool closed = false;
+                while (i < n) {
+                    if (line[i] == '\'') {
+                        ++i;
+                        if (i < n && line[i] == '\'') {
+                            token.push_back('\'');
+                            ++i;
+                        }
+                        else {
+                            closed = true;
+                            break;
+                        }
+                    }
+                    else {
+                        token.push_back(line[i]);
+                        ++i;
+                    }
                 }
-                if (i >= n) {
+                if (!closed) {
                     return RedisCommand(); // unterminated quote
                 }
-                ++i; // consume closing quote
             }
             else if (std::isspace((unsigned char)ch)) {
                 in_token = false;
