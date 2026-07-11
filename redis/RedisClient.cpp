@@ -119,7 +119,9 @@ RedisResult RedisClient::command(const RedisCommand& command) {
 }
 
 int RedisClient::commandAsync(const RedisCommand& command, RedisCallback cb) {
-    async_.start();
+    if (!async_.isStarted()) {
+        async_.start();
+    }
     return async_.command(command, std::move(cb));
 }
 
@@ -269,25 +271,69 @@ RedisResult RedisClient::commandBatch(const std::vector<RedisCommand>& commands,
 }
 
 int RedisClient::commandBatchAsync(const std::vector<RedisCommand>& commands, RedisRepliesCallback cb) {
-    async_.start();
+    if (!async_.isStarted()) {
+        async_.start();
+    }
     return async_.commandBatch(commands, std::move(cb));
 }
 
 RedisCommand RedisClient::tokenize(const std::string& line) {
+    // Quote-aware splitting (same spirit as redis-cli's sdssplitargs) so that
+    // arguments containing whitespace can be passed via commandf, e.g.
+    //   commandf("SET %s %s", "key", "\"hello world\"")
+    // Without this, a value with spaces would be split into multiple tokens and
+    // a wrong command would be sent silently. On an unterminated quote we return
+    // an empty command; the caller maps that to ERR_INVALID_PARAM.
     RedisCommand command;
-    std::string token;
-    for (size_t i = 0; i < line.size(); ++i) {
-        unsigned char ch = (unsigned char)line[i];
-        if (std::isspace(ch)) {
-            if (!token.empty()) {
-                command.push_back(token);
-                token.clear();
-            }
-            continue;
+    size_t i = 0;
+    size_t n = line.size();
+    while (i < n) {
+        // skip leading whitespace between tokens
+        while (i < n && std::isspace((unsigned char)line[i])) {
+            ++i;
         }
-        token.push_back((char)ch);
-    }
-    if (!token.empty()) {
+        if (i >= n) {
+            break;
+        }
+        std::string token;
+        bool in_token = true;
+        while (in_token && i < n) {
+            char ch = line[i];
+            if (ch == '"') {
+                // double-quoted: honor backslash escapes, must be closed
+                ++i;
+                while (i < n && line[i] != '"') {
+                    if (line[i] == '\\' && i + 1 < n) {
+                        ++i;
+                    }
+                    token.push_back(line[i]);
+                    ++i;
+                }
+                if (i >= n) {
+                    return RedisCommand(); // unterminated quote
+                }
+                ++i; // consume closing quote
+            }
+            else if (ch == '\'') {
+                // single-quoted: literal, '' inside means a single quote char
+                ++i;
+                while (i < n && line[i] != '\'') {
+                    token.push_back(line[i]);
+                    ++i;
+                }
+                if (i >= n) {
+                    return RedisCommand(); // unterminated quote
+                }
+                ++i; // consume closing quote
+            }
+            else if (std::isspace((unsigned char)ch)) {
+                in_token = false;
+            }
+            else {
+                token.push_back(ch);
+                ++i;
+            }
+        }
         command.push_back(token);
     }
     return command;

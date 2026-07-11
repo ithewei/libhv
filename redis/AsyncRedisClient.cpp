@@ -382,6 +382,12 @@ struct AsyncRedisClient::Impl {
 
     void handleHandshakeReply(const RedisReply& reply) {
         if (reply.isError()) {
+            // Authentication / SELECT rejection is fatal: the password or db is
+            // wrong and reconnecting with the same settings only produces an
+            // endless reconnect + re-auth storm (TcpClient resets its retry
+            // counter on every successful TCP connect). Disable reconnect before
+            // closing so the failure is reported once and the client stays down.
+            tcp_client.setReconnect(NULL);
             handleClientError(ERR_RESPONSE);
             return;
         }

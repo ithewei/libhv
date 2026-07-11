@@ -195,7 +195,14 @@ struct RedisParser::Impl {
             }
             size_t cursor = next;
             std::vector<RedisReply> elements;
-            elements.reserve((size_t)number);
+            // Do not reserve based on the untrusted element count: a huge value
+            // (e.g. "*9999999999999\r\n") would trigger std::length_error /
+            // std::bad_alloc before any element data arrives. Reserve a bounded
+            // hint and let push_back grow as real elements are parsed; every
+            // element must already exist in the buffer, so memory stays bounded
+            // by the actually-received bytes.
+            const int64_t kReserveHint = 1024;
+            elements.reserve((size_t)(number < kReserveHint ? number : kReserveHint));
             for (int64_t i = 0; i < number; ++i) {
                 RedisReply element;
                 ParseStatus status = ParseOne(cursor, element);
