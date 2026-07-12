@@ -28,12 +28,6 @@ jobs:
           make check
           make run-unittest
 
-      - name: file cache unit test
-        run: |
-          cmake -S . -B cmake-build-filecache -DBUILD_EXAMPLES=OFF -DBUILD_UNITTEST=ON -DCMAKE_BUILD_TYPE=Release
-          cmake --build cmake-build-filecache --target file_cache_test --config Release
-          ctest --test-dir cmake-build-filecache -C Release --output-on-failure -R "^file_cache_test$"
-
   build-windows:
     name: build-windows
     runs-on: windows-latest
@@ -56,12 +50,6 @@ jobs:
           bin/Release/curl -v -X HEAD https://example.com/
           bin/Release/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/ping
 
-      - name: file cache unit test
-        run: |
-          cmake -S . -B cmake-build-filecache -A x64 -DBUILD_EXAMPLES=OFF -DBUILD_UNITTEST=ON -DCMAKE_BUILD_TYPE=Release
-          cmake --build cmake-build-filecache --target file_cache_test --config Release
-          ctest --test-dir cmake-build-filecache -C Release --output-on-failure -R "^file_cache_test$"
-
   build-mac:
     name: build-mac
     runs-on: macos-latest
@@ -77,12 +65,6 @@ jobs:
           bin/curl -v -X HEAD http://example.com/
           bin/curl -v -X HEAD https://example.com/
 
-      - name: file cache unit test
-        run: |
-          cmake -S . -B cmake-build-filecache -DBUILD_EXAMPLES=OFF -DBUILD_UNITTEST=ON -DCMAKE_BUILD_TYPE=Release
-          cmake --build cmake-build-filecache --target file_cache_test --config Release
-          ctest --test-dir cmake-build-filecache -C Release --output-on-failure -R "^file_cache_test$"
-
   build-android:
     name: build-android
     runs-on: ubuntu-latest
@@ -92,8 +74,8 @@ jobs:
         run: |
           mkdir cmake-build-arm64
           cd cmake-build-arm64
-          cmake .. -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" -DANDROID_ABI="arm64-v8a" -DANDROID_PLATFORM=android-21 -DBUILD_EXAMPLES=OFF -DBUILD_UNITTEST=ON
-          cmake --build . --target file_cache_test --config Release
+          cmake .. -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake" -DANDROID_ABI="arm64-v8a" -DANDROID_PLATFORM=android-21
+          cmake --build . --target hv --config Release
 
   build-ios:
     name: build-ios
@@ -104,6 +86,5 @@ jobs:
         run: |
           mkdir cmake-build-ios
           cd cmake-build-ios
-          cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS64 -DARCHS="arm64" -DDEPLOYMENT_TARGET=9.0 -DBUILD_EXAMPLES=OFF -DBUILD_UNITTEST=ON -DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=NO
+          cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=../cmake/ios.toolchain.cmake -DPLATFORM=OS64 -DARCHS="arm64" -DDEPLOYMENT_TARGET=9.0
           cmake --build . --target hv_static --config Release
-          cmake --build . --target file_cache_test --config Release

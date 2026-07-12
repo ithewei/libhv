@@ -305,6 +305,16 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
+ifeq ($(WITH_HTTP), yes)
+ifeq ($(WITH_HTTP_SERVER), yes)
+	$(MAKE) libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Ihttp -Ihttp/server -o bin/file_cache_test unittest/file_cache_test.cpp -Llib -lhv -pthread
+else
+	$(RM) bin/file_cache_test
+endif
+else
+	$(RM) bin/file_cache_test
+endif
 ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv
