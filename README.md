@@ -39,6 +39,7 @@ but simpler api and richer protocols.
 - HTTP supports RESTful, router, middleware, keep-alive, chunked, SSE, etc.
 - WebSocket client/server
 - MQTT client
+- Redis client
 
 ## ⌛️ Build
 
@@ -338,6 +339,18 @@ int main(int argc, char** argv) {
 }
 ```
 
+### Redis
+see [examples/redis_client_test.cpp](examples/redis_client_test.cpp) and [examples/redis_subscriber_test.cpp](examples/redis_subscriber_test.cpp)
+
+The Redis C++ module lives in the repository root `redis/` and follows the same `.h + .cpp` split used by other libhv modules. Redis is disabled by default; enable it explicitly with `./configure --with-redis` or `cmake -DWITH_REDIS=ON`.
+
+```shell
+./configure --with-redis
+make unittest
+cmake -S . -B build -DWITH_EVPP=ON -DWITH_REDIS=ON -DBUILD_UNITTEST=ON
+cmake --build build --target redis_protocol_test redis_async_client_test redis_client_test redis_batch_test redis_subscriber_test
+```
+
 ## 🍭 More examples
 ### c version
 - [examples/hloop_test.c](examples/hloop_test.c)
@@ -370,6 +383,8 @@ int main(int argc, char** argv) {
 - [examples/http_client_test.cpp](examples/http_client_test.cpp)
 - [examples/websocket_server_test.cpp](examples/websocket_server_test.cpp)
 - [examples/websocket_client_test.cpp](examples/websocket_client_test.cpp)
+- [examples/redis_client_test.cpp](examples/redis_client_test.cpp)
+- [examples/redis_subscriber_test.cpp](examples/redis_subscriber_test.cpp)
 - [examples/protorpc](examples/protorpc)
 - [hv-projects/QtDemo](https://github.com/hv-projects/QtDemo)
 
