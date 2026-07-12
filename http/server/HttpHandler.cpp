@@ -403,14 +403,12 @@ void HttpHandler::handleRequestHeaders() {
         auto iter = pReq->headers.find("Proxy-Connection");
         if (iter != pReq->headers.end()) {
             const char* keepalive_value = iter->second.c_str();
-            if (stricmp(keepalive_value, "keep-alive") == 0) {
+            if (stricmp(keepalive_value, "keep-alive") == 0 ||
+                stricmp(keepalive_value, "upgrade") == 0) {
                 keepalive = true;
             }
             else if (stricmp(keepalive_value, "close") == 0) {
                 keepalive = false;
-            }
-            else if (stricmp(keepalive_value, "upgrade") == 0) {
-                keepalive = true;
             }
         }
     }
@@ -577,10 +575,8 @@ int HttpHandler::defaultStaticHandler() {
 
     int status_code = HTTP_STATUS_OK;
     // Range:
-    bool has_range = false;
     long from, to = 0;
     if (req->GetRange(from, to)) {
-        has_range = true;
         if (openFile(filepath.c_str()) != 0) {
             return HTTP_STATUS_NOT_FOUND;
         }
@@ -620,7 +616,7 @@ int HttpHandler::defaultStaticHandler() {
     // FileCache
     FileCache::OpenParam param;
     param.max_read = service->max_file_cache_size;
-    param.need_read = !(req->method == HTTP_HEAD || has_range);
+    param.need_read = req->method != HTTP_HEAD;
     param.path = req_path;
     if (files) {
         fc = files->Open(filepath.c_str(), &param);
@@ -878,6 +874,12 @@ int HttpHandler::SendHttpResponse(bool submit) {
     if (!io || !parser) return -1;
     char* data = NULL;
     size_t len = 0, total_len = 0;
+    // FileCache is shared by all worker loops. Keep its mutex held until each
+    // returned buffer has been synchronously sent or copied into hio's queue.
+    std::unique_lock<std::mutex> file_cache_lock;
+    if (fc) {
+        file_cache_lock = std::unique_lock<std::mutex>(fc->mutex);
+    }
     if (submit) parser->SubmitResponse(resp.get());
     while (GetSendData(&data, &len)) {
         // printf("GetSendData %d\n", (int)len);

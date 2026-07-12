@@ -46,11 +46,17 @@ typedef struct file_cache_s {
     }
 
     // NOTE: caller must hold mutex.
+    // Keep published cache metadata immutable so in-flight responses can safely
+    // retain a shared_ptr while a refreshed entry is prepared.
     // On Windows, Open() uses _wstat() directly instead of calling this.
-    bool is_modified() {
-        time_t mtime = st.st_mtime;
-        ::stat(filepath.c_str(), &st);
-        return mtime != st.st_mtime;
+    bool is_modified() const {
+        struct stat latest_st;
+        if (::stat(filepath.c_str(), &latest_st) != 0) {
+            return true;
+        }
+        return st.st_mtime != latest_st.st_mtime ||
+               st.st_size != latest_st.st_size ||
+               st.st_mode != latest_st.st_mode;
     }
 
     // NOTE: caller must hold mutex
@@ -76,11 +82,9 @@ typedef struct file_cache_s {
         resize_buf(filesize, header_reserve);
     }
 
-    // Thread-safe: prepend header into reserved space.
-    // Returns true on success, false if header exceeds reserved space.
-    // On failure, httpbuf falls back to filebuf (body only, no header).
+    // Caller must hold mutex. HttpHandler keeps the lock until hio_write has
+    // either sent or copied the returned buffer.
     bool prepend_header(const char* header, int len) {
-        std::lock_guard<std::mutex> lock(mutex);
         if (len <= 0 || len > header_reserve) {
             // Safe fallback: point httpbuf at filebuf so callers always get valid data
             httpbuf = filebuf;

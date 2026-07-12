@@ -36,9 +36,14 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
             fc->stat_cnt++;
 #ifdef OS_WIN
             wfilepath = hv::utf8_to_wchar(filepath);
-            now = fc->st.st_mtime;
-            _wstat(wfilepath.c_str(), (struct _stat*)&fc->st);
-            modified = now != fc->st.st_mtime;
+            struct _stat latest_st;
+            if (_wstat(wfilepath.c_str(), &latest_st) != 0) {
+                modified = true;
+            } else {
+                modified = fc->st.st_mtime != latest_st.st_mtime ||
+                           fc->st.st_size != latest_st.st_size ||
+                           fc->st.st_mode != latest_st.st_mode;
+            }
 #else
             modified = fc->is_modified();
 #endif
@@ -50,6 +55,13 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
         }
     }
     if (fc == NULL || modified || param->need_read) {
+        auto fail_open = [this, filepath, param, &fc](int error) -> file_cache_ptr {
+            param->error = error;
+            if (fc) {
+                remove(filepath);
+            }
+            return NULL;
+        };
         struct stat st;
         int flags = O_RDONLY;
 #ifdef O_BINARY
@@ -60,8 +72,7 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
 #ifdef OS_WIN
         if (wfilepath.empty()) wfilepath = hv::utf8_to_wchar(filepath);
         if (_wstat(wfilepath.c_str(), (struct _stat*)&st) != 0) {
-            param->error = ERR_OPEN_FILE;
-            return NULL;
+            return fail_open(ERR_OPEN_FILE);
         }
         if (S_ISREG(st.st_mode)) {
             fd = _wopen(wfilepath.c_str(), flags);
@@ -70,97 +81,84 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
         }
 #else
         if (::stat(filepath, &st) != 0) {
-            param->error = ERR_OPEN_FILE;
-            return NULL;
+            return fail_open(ERR_OPEN_FILE);
         }
         fd = open(filepath, flags);
 #endif
         if (fd < 0 && !is_dir) {
-            param->error = ERR_OPEN_FILE;
-            return NULL;
+            return fail_open(ERR_OPEN_FILE);
         }
         defer(if (fd >= 0) { close(fd); })
-        if (fc == NULL) {
-            if (S_ISREG(st.st_mode) ||
-                (S_ISDIR(st.st_mode) &&
-                 filepath[strlen(filepath) - 1] == '/')) {
-                fc = std::make_shared<file_cache_t>();
-                fc->filepath = filepath;
-                fc->st = st;
-                fc->header_reserve = max_header_length;
-                time(&fc->open_time);
-                fc->stat_time = fc->open_time;
-                fc->stat_cnt = 1;
-                // NOTE: do NOT put() into cache yet — defer until fully initialized
-            } else {
-                param->error = ERR_MISMATCH;
-                return NULL;
-            }
+        size_t filepath_len = strlen(filepath);
+        if (!S_ISREG(st.st_mode) &&
+            !(S_ISDIR(st.st_mode) && filepath_len > 0 && filepath[filepath_len - 1] == '/')) {
+            return fail_open(ERR_MISMATCH);
         }
-        // Hold fc->mutex for initialization, but release before put()
-        // to avoid lock-order inversion with RemoveExpiredFileCache().
-        // Lock order: LRUCache mutex → fc->mutex (never reverse).
-        {
-            std::lock_guard<std::mutex> lock(fc->mutex);
-            if (S_ISREG(st.st_mode)) {
-                param->filesize = st.st_size;
-                // FILE
-                if (param->need_read) {
-                    if (st.st_size > param->max_read) {
-                        param->error = ERR_OVER_LIMIT;
-                        // Leave existing cache entry's state untouched
-                        return NULL;
-                    }
-                }
-                // Validation passed — commit new stat into cached entry
-                fc->st = st;
-                if (param->need_read) {
-                    fc->resize_buf(fc->st.st_size, max_header_length);
-                    // Loop to handle partial reads (EINTR, etc.)
-                    char* dst = fc->filebuf.base;
-                    size_t remaining = fc->filebuf.len;
-                    while (remaining > 0) {
-                        int nread = read(fd, dst, remaining);
-                        if (nread < 0) {
-                            if (errno == EINTR) continue;
-                            hloge("Failed to read file: %s", filepath);
-                            param->error = ERR_READ_FILE;
-                            return NULL;
-                        }
-                        if (nread == 0) {
-                            hloge("Unexpected EOF reading file: %s", filepath);
-                            param->error = ERR_READ_FILE;
-                            return NULL;
-                        }
-                        dst += nread;
-                        remaining -= nread;
-                    }
-                }
-                const char* suffix = strrchr(filepath, '.');
-                if (suffix) {
-                    http_content_type content_type = http_content_type_enum_by_suffix(suffix + 1);
-                    if (content_type == TEXT_HTML) {
-                        fc->content_type = "text/html; charset=utf-8";
-                    } else if (content_type == TEXT_PLAIN) {
-                        fc->content_type = "text/plain; charset=utf-8";
-                    } else {
-                        fc->content_type = http_content_type_str_by_suffix(suffix + 1);
-                    }
-                }
-            } else if (S_ISDIR(st.st_mode)) {
-                // DIR
-                fc->st = st;
-                std::string page;
-                make_index_of_page(filepath, page, param->path);
-                fc->resize_buf(page.size(), max_header_length);
-                memcpy(fc->filebuf.base, page.c_str(), page.size());
-                fc->content_type = "text/html; charset=utf-8";
+
+        // Build a replacement off-cache. Published entries stay immutable so
+        // in-flight responses never observe a realloc or partially refreshed metadata.
+        file_cache_ptr refreshed = std::make_shared<file_cache_t>();
+        refreshed->filepath = filepath;
+        refreshed->st = st;
+        refreshed->header_reserve = max_header_length;
+        time(&refreshed->open_time);
+        refreshed->stat_time = refreshed->open_time;
+        refreshed->stat_cnt = 1;
+
+        if (S_ISREG(st.st_mode)) {
+            param->filesize = st.st_size;
+            // FILE
+            if (param->need_read && st.st_size > param->max_read) {
+                return fail_open(ERR_OVER_LIMIT);
             }
-            gmtime_fmt(fc->st.st_mtime, fc->last_modified);
-            snprintf(fc->etag, sizeof(fc->etag), ETAG_FMT,
-                     (size_t)fc->st.st_mtime, (size_t)fc->st.st_size);
-        } // release fc->mutex before put() to maintain lock ordering
+            if (param->need_read) {
+                refreshed->resize_buf(st.st_size, max_header_length);
+                // Loop to handle partial reads (EINTR, etc.). The entry is not
+                // published yet, so no cache mutex is needed around blocking IO.
+                char* dst = refreshed->filebuf.base;
+                size_t remaining = refreshed->filebuf.len;
+                while (remaining > 0) {
+                    int nread = read(fd, dst, remaining);
+                    if (nread < 0) {
+                        if (errno == EINTR) {
+                            continue;
+                        }
+                        hloge("Failed to read file: %s", filepath);
+                        return fail_open(ERR_READ_FILE);
+                    }
+                    if (nread == 0) {
+                        hloge("Unexpected EOF reading file: %s", filepath);
+                        return fail_open(ERR_READ_FILE);
+                    }
+                    dst += nread;
+                    remaining -= nread;
+                }
+            }
+            const char* suffix = strrchr(filepath, '.');
+            if (suffix) {
+                http_content_type content_type = http_content_type_enum_by_suffix(suffix + 1);
+                if (content_type == TEXT_HTML) {
+                    refreshed->content_type = "text/html; charset=utf-8";
+                } else if (content_type == TEXT_PLAIN) {
+                    refreshed->content_type = "text/plain; charset=utf-8";
+                } else {
+                    refreshed->content_type = http_content_type_str_by_suffix(suffix + 1);
+                }
+            }
+        } else if (S_ISDIR(st.st_mode)) {
+            // DIR
+            std::string page;
+            make_index_of_page(filepath, page, param->path);
+            refreshed->resize_buf(page.size(), max_header_length);
+            memcpy(refreshed->filebuf.base, page.c_str(), page.size());
+            refreshed->content_type = "text/html; charset=utf-8";
+        }
+        gmtime_fmt(refreshed->st.st_mtime, refreshed->last_modified);
+        snprintf(refreshed->etag, sizeof(refreshed->etag), ETAG_FMT,
+                 (size_t)refreshed->st.st_mtime, (size_t)refreshed->st.st_size);
+
         // Cache the fully initialized entry (acquires LRUCache mutex only)
+        fc = refreshed;
         put(filepath, fc);
     }
     return fc;

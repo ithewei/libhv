@@ -90,6 +90,31 @@ target_include_directories(sendmail PRIVATE .. ../base ../protocol ../util)
 add_executable(http_router_test http_router_test.cpp)
 target_include_directories(http_router_test PRIVATE ../http/server)
 
+if(WITH_HTTP AND WITH_HTTP_SERVER)
+add_executable(file_cache_test file_cache_test.cpp)
+target_include_directories(file_cache_test PRIVATE .. ../base ../cpputil ../event ../http ../http/server)
+target_link_libraries(file_cache_test ${HV_LIBRARIES})
+set(HTTP_UNITTEST_TARGETS file_cache_test)
+endif()
+
+# ------redis------
+if(WITH_EVPP AND WITH_REDIS)
+add_executable(redis_protocol_test redis_protocol_test.cpp ../redis/RedisMessage.cpp)
+target_include_directories(redis_protocol_test PRIVATE .. ../base ../event ../cpputil ../redis)
+
+set(REDIS_UNITTEST_TARGETS redis_protocol_test)
+set(REDIS_TEST_INCLUDE_DIRS .. ../base ../ssl ../event ../cpputil ../redis ../evpp)
+set(REDIS_LINKED_UNITTEST_TARGETS redis_async_client_test redis_client_test redis_batch_test redis_subscriber_test)
+
+foreach(redis_target ${REDIS_LINKED_UNITTEST_TARGETS})
+    add_executable(${redis_target} ${redis_target}.cpp redis_test_server.cpp)
+    target_include_directories(${redis_target} PRIVATE ${REDIS_TEST_INCLUDE_DIRS})
+    target_link_libraries(${redis_target} ${HV_LIBRARIES})
+endforeach()
+
+list(APPEND REDIS_UNITTEST_TARGETS ${REDIS_LINKED_UNITTEST_TARGETS})
+endif()
+
 if(UNIX)
 add_executable(webbench webbench.c)
 endif()
@@ -120,4 +145,6 @@ add_custom_target(unittest DEPENDS
     ftp
     sendmail
     http_router_test
+    ${HTTP_UNITTEST_TARGETS}
+    ${REDIS_UNITTEST_TARGETS}
 )

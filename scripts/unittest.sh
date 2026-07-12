@@ -2,6 +2,8 @@
 
 SCRIPT_DIR=$(cd `dirname $0`; pwd)
 ROOT_DIR=${SCRIPT_DIR}/..
+export DYLD_LIBRARY_PATH=${ROOT_DIR}/lib:${DYLD_LIBRARY_PATH}
+export LD_LIBRARY_PATH=${ROOT_DIR}/lib:${LD_LIBRARY_PATH}
 cd ${ROOT_DIR}
 
 bin/rbtree_test
@@ -30,3 +32,14 @@ bin/socketpair_test
 # bin/objectpool_test
 bin/sizeof_test
 bin/http_router_test
+if [ -x bin/file_cache_test ]; then
+    bin/file_cache_test
+fi
+for redis_test in redis_async_client_test redis_client_test redis_batch_test redis_subscriber_test; do
+    if [ -x bin/${redis_test} ]; then
+        bin/${redis_test}
+    fi
+done
+if [ -x bin/redis_protocol_test ]; then
+    bin/redis_protocol_test
+fi

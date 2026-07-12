@@ -8,10 +8,10 @@
 - http client/server: include https http1/x http2
 - websocket client/server
 - mqtt client
+- redis client
 
 ## Plan
 
-- redis client
 - async DNS
 - lua binding
 - js binding
