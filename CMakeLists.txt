@@ -320,6 +320,7 @@ if(BUILD_EXAMPLES)
 endif()
 
 if(BUILD_UNITTEST)
+    enable_testing()
     add_subdirectory(unittest)
 endif()
 

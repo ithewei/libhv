@@ -94,6 +94,7 @@ if(WITH_HTTP AND WITH_HTTP_SERVER)
 add_executable(file_cache_test file_cache_test.cpp)
 target_include_directories(file_cache_test PRIVATE .. ../base ../cpputil ../event ../http ../http/server)
 target_link_libraries(file_cache_test ${HV_LIBRARIES})
+add_test(NAME file_cache_test COMMAND file_cache_test)
 set(HTTP_UNITTEST_TARGETS file_cache_test)
 endif()
 

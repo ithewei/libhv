@@ -23,6 +23,11 @@ FileCache::FileCache(size_t capacity)
 }
 
 file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
+    // Serialize cache inspection and loading per path. Different files still
+    // load concurrently, while same-path cold misses reuse one published entry.
+    BeginPathAccess(filepath);
+    defer(EndPathAccess(filepath);)
+
     file_cache_ptr fc = Get(filepath);
 #ifdef OS_WIN
     std::wstring wfilepath;
@@ -108,7 +113,8 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
         if (S_ISREG(st.st_mode)) {
             param->filesize = st.st_size;
             // FILE
-            if (param->need_read && st.st_size > param->max_read) {
+            int max_read = param->max_read > 0 ? param->max_read : max_file_size;
+            if (param->need_read && st.st_size > max_read) {
                 return fail_open(ERR_OVER_LIMIT);
             }
             if (param->need_read) {
@@ -178,6 +184,22 @@ file_cache_ptr FileCache::Get(const char* filepath) {
         return fc;
     }
     return NULL;
+}
+
+void FileCache::BeginPathAccess(const std::string& filepath) {
+    std::unique_lock<std::mutex> lock(loading_mutex_);
+    loading_cv_.wait(lock, [this, &filepath]() {
+        return loading_files_.find(filepath) == loading_files_.end();
+    });
+    loading_files_.insert(filepath);
+}
+
+void FileCache::EndPathAccess(const std::string& filepath) {
+    {
+        std::lock_guard<std::mutex> lock(loading_mutex_);
+        loading_files_.erase(filepath);
+    }
+    loading_cv_.notify_all();
 }
 
 void FileCache::RemoveExpiredFileCache() {

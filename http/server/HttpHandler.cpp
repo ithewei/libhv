@@ -874,11 +874,15 @@ int HttpHandler::SendHttpResponse(bool submit) {
     if (!io || !parser) return -1;
     char* data = NULL;
     size_t len = 0, total_len = 0;
+    // GetSendData may remove both the LRU and handler references while the
+    // entry mutex is locked. Keep the entry alive until after the lock is
+    // destroyed and has released that mutex.
+    file_cache_ptr fc_keepalive = fc;
     // FileCache is shared by all worker loops. Keep its mutex held until each
     // returned buffer has been synchronously sent or copied into hio's queue.
     std::unique_lock<std::mutex> file_cache_lock;
-    if (fc) {
-        file_cache_lock = std::unique_lock<std::mutex>(fc->mutex);
+    if (fc_keepalive) {
+        file_cache_lock = std::unique_lock<std::mutex>(fc_keepalive->mutex);
     }
     if (submit) parser->SubmitResponse(resp.get());
     while (GetSendData(&data, &len)) {

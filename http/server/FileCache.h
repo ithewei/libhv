@@ -9,6 +9,8 @@
 #include <memory>
 #include <string>
 #include <mutex>
+#include <condition_variable>
+#include <set>
 
 #include "hexport.h"
 #include "hbuf.h"
@@ -118,14 +120,14 @@ public:
 
     struct OpenParam {
         bool    need_read;
-        int     max_read;       // per-request override for max file size
+        int     max_read;       // per-request override; <= 0 uses FileCache::max_file_size
         const char* path;       // URL path (for directory listing)
         size_t  filesize;       // [out] actual file size
         int     error;          // [out] error code if Open returns NULL
 
         OpenParam() {
             need_read = true;
-            max_read = FILE_CACHE_DEFAULT_MAX_FILE_SIZE;
+            max_read = 0;
             path = "/";
             filesize = 0;
             error = 0;
@@ -147,6 +149,14 @@ public:
 
 protected:
     file_cache_ptr Get(const char* filepath);
+
+private:
+    void BeginPathAccess(const std::string& filepath);
+    void EndPathAccess(const std::string& filepath);
+
+    std::mutex loading_mutex_;
+    std::condition_variable loading_cv_;
+    std::set<std::string> loading_files_;
 };
 
 #endif // HV_FILE_CACHE_H_
