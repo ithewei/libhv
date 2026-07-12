@@ -90,6 +90,13 @@ target_include_directories(sendmail PRIVATE .. ../base ../protocol ../util)
 add_executable(http_router_test http_router_test.cpp)
 target_include_directories(http_router_test PRIVATE ../http/server)
 
+if(WITH_HTTP AND WITH_HTTP_SERVER)
+add_executable(file_cache_test file_cache_test.cpp)
+target_include_directories(file_cache_test PRIVATE .. ../base ../cpputil ../event ../http ../http/server)
+target_link_libraries(file_cache_test ${HV_LIBRARIES})
+set(HTTP_UNITTEST_TARGETS file_cache_test)
+endif()
+
 # ------redis------
 if(WITH_EVPP AND WITH_REDIS)
 add_executable(redis_protocol_test redis_protocol_test.cpp ../redis/RedisMessage.cpp)
@@ -138,5 +145,6 @@ add_custom_target(unittest DEPENDS
     ftp
     sendmail
     http_router_test
+    ${HTTP_UNITTEST_TARGETS}
     ${REDIS_UNITTEST_TARGETS}
 )

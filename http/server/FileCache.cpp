@@ -14,27 +14,41 @@
 
 #define ETAG_FMT    "\"%zx-%zx\""
 
-FileCache::FileCache(size_t capacity) : hv::LRUCache<std::string, file_cache_ptr>(capacity) {
-    stat_interval = 10; // s
-    expired_time  = 60; // s
+FileCache::FileCache(size_t capacity)
+    : hv::LRUCache<std::string, file_cache_ptr>(capacity) {
+    stat_interval    = 10;  // s
+    expired_time     = 60;  // s
+    max_header_length = FILE_CACHE_DEFAULT_HEADER_LENGTH;
+    max_file_size    = FILE_CACHE_DEFAULT_MAX_FILE_SIZE;
 }
 
 file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
+    // Serialize cache inspection and loading per path. Different files still
+    // load concurrently, while same-path cold misses reuse one published entry.
+    BeginPathAccess(filepath);
+    defer(EndPathAccess(filepath);)
+
     file_cache_ptr fc = Get(filepath);
 #ifdef OS_WIN
     std::wstring wfilepath;
 #endif
     bool modified = false;
     if (fc) {
+        std::lock_guard<std::mutex> lock(fc->mutex);
         time_t now = time(NULL);
         if (now - fc->stat_time > stat_interval) {
             fc->stat_time = now;
             fc->stat_cnt++;
 #ifdef OS_WIN
             wfilepath = hv::utf8_to_wchar(filepath);
-            now = fc->st.st_mtime;
-            _wstat(wfilepath.c_str(), (struct _stat*)&fc->st);
-            modified = now != fc->st.st_mtime;
+            struct _stat latest_st;
+            if (_wstat(wfilepath.c_str(), &latest_st) != 0) {
+                modified = true;
+            } else {
+                modified = fc->st.st_mtime != latest_st.st_mtime ||
+                           fc->st.st_size != latest_st.st_size ||
+                           fc->st.st_mode != latest_st.st_mode;
+            }
 #else
             modified = fc->is_modified();
 #endif
@@ -46,91 +60,112 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
         }
     }
     if (fc == NULL || modified || param->need_read) {
+        auto fail_open = [this, filepath, param, &fc](int error) -> file_cache_ptr {
+            param->error = error;
+            if (fc) {
+                remove(filepath);
+            }
+            return NULL;
+        };
         struct stat st;
         int flags = O_RDONLY;
 #ifdef O_BINARY
         flags |= O_BINARY;
 #endif
         int fd = -1;
+        bool is_dir = false;
 #ifdef OS_WIN
-        if(wfilepath.empty()) wfilepath = hv::utf8_to_wchar(filepath);
-        if(_wstat(wfilepath.c_str(), (struct _stat*)&st) != 0) {
-            param->error = ERR_OPEN_FILE;
-            return NULL;
+        if (wfilepath.empty()) wfilepath = hv::utf8_to_wchar(filepath);
+        if (_wstat(wfilepath.c_str(), (struct _stat*)&st) != 0) {
+            return fail_open(ERR_OPEN_FILE);
         }
-        if(S_ISREG(st.st_mode)) {
+        if (S_ISREG(st.st_mode)) {
             fd = _wopen(wfilepath.c_str(), flags);
-        }else if (S_ISDIR(st.st_mode)) {
-            // NOTE: open(dir) return -1 on windows
-            fd = 0;
+        } else if (S_ISDIR(st.st_mode)) {
+            is_dir = true;
         }
 #else
-        if(stat(filepath, &st) != 0) {
-            param->error = ERR_OPEN_FILE;
-            return NULL;
+        if (::stat(filepath, &st) != 0) {
+            return fail_open(ERR_OPEN_FILE);
         }
         fd = open(filepath, flags);
 #endif
-        if (fd < 0) {
-            param->error = ERR_OPEN_FILE;
-            return NULL;
+        if (fd < 0 && !is_dir) {
+            return fail_open(ERR_OPEN_FILE);
         }
-        defer(if (fd > 0) { close(fd); })
-        if (fc == NULL) {
-            if (S_ISREG(st.st_mode) ||
-                (S_ISDIR(st.st_mode) &&
-                 filepath[strlen(filepath)-1] == '/')) {
-                fc = std::make_shared<file_cache_t>();
-                fc->filepath = filepath;
-                fc->st = st;
-                time(&fc->open_time);
-                fc->stat_time = fc->open_time;
-                fc->stat_cnt = 1;
-                put(filepath, fc);
-            }
-            else {
-                param->error = ERR_MISMATCH;
-                return NULL;
-            }
+        defer(if (fd >= 0) { close(fd); })
+        size_t filepath_len = strlen(filepath);
+        if (!S_ISREG(st.st_mode) &&
+            !(S_ISDIR(st.st_mode) && filepath_len > 0 && filepath[filepath_len - 1] == '/')) {
+            return fail_open(ERR_MISMATCH);
         }
-        if (S_ISREG(fc->st.st_mode)) {
-            param->filesize = fc->st.st_size;
+
+        // Build a replacement off-cache. Published entries stay immutable so
+        // in-flight responses never observe a realloc or partially refreshed metadata.
+        file_cache_ptr refreshed = std::make_shared<file_cache_t>();
+        refreshed->filepath = filepath;
+        refreshed->st = st;
+        refreshed->header_reserve = max_header_length;
+        time(&refreshed->open_time);
+        refreshed->stat_time = refreshed->open_time;
+        refreshed->stat_cnt = 1;
+
+        if (S_ISREG(st.st_mode)) {
+            param->filesize = st.st_size;
             // FILE
+            int max_read = param->max_read > 0 ? param->max_read : max_file_size;
+            if (param->need_read && st.st_size > max_read) {
+                return fail_open(ERR_OVER_LIMIT);
+            }
             if (param->need_read) {
-                if (fc->st.st_size > param->max_read) {
-                    param->error = ERR_OVER_LIMIT;
-                    return NULL;
-                }
-                fc->resize_buf(fc->st.st_size);
-                int nread = read(fd, fc->filebuf.base, fc->filebuf.len);
-                if (nread != fc->filebuf.len) {
-                    hloge("Failed to read file: %s", filepath);
-                    param->error = ERR_READ_FILE;
-                    return NULL;
+                refreshed->resize_buf(st.st_size, max_header_length);
+                // Loop to handle partial reads (EINTR, etc.). The entry is not
+                // published yet, so no cache mutex is needed around blocking IO.
+                char* dst = refreshed->filebuf.base;
+                size_t remaining = refreshed->filebuf.len;
+                while (remaining > 0) {
+                    int nread = read(fd, dst, remaining);
+                    if (nread < 0) {
+                        if (errno == EINTR) {
+                            continue;
+                        }
+                        hloge("Failed to read file: %s", filepath);
+                        return fail_open(ERR_READ_FILE);
+                    }
+                    if (nread == 0) {
+                        hloge("Unexpected EOF reading file: %s", filepath);
+                        return fail_open(ERR_READ_FILE);
+                    }
+                    dst += nread;
+                    remaining -= nread;
                 }
             }
             const char* suffix = strrchr(filepath, '.');
             if (suffix) {
-                http_content_type content_type = http_content_type_enum_by_suffix(suffix+1);
+                http_content_type content_type = http_content_type_enum_by_suffix(suffix + 1);
                 if (content_type == TEXT_HTML) {
-                    fc->content_type = "text/html; charset=utf-8";
+                    refreshed->content_type = "text/html; charset=utf-8";
                 } else if (content_type == TEXT_PLAIN) {
-                    fc->content_type = "text/plain; charset=utf-8";
+                    refreshed->content_type = "text/plain; charset=utf-8";
                 } else {
-                    fc->content_type = http_content_type_str_by_suffix(suffix+1);
+                    refreshed->content_type = http_content_type_str_by_suffix(suffix + 1);
                 }
             }
-        }
-        else if (S_ISDIR(fc->st.st_mode)) {
+        } else if (S_ISDIR(st.st_mode)) {
             // DIR
             std::string page;
             make_index_of_page(filepath, page, param->path);
-            fc->resize_buf(page.size());
-            memcpy(fc->filebuf.base, page.c_str(), page.size());
-            fc->content_type = "text/html; charset=utf-8";
+            refreshed->resize_buf(page.size(), max_header_length);
+            memcpy(refreshed->filebuf.base, page.c_str(), page.size());
+            refreshed->content_type = "text/html; charset=utf-8";
         }
-        gmtime_fmt(fc->st.st_mtime, fc->last_modified);
-        snprintf(fc->etag, sizeof(fc->etag), ETAG_FMT, (size_t)fc->st.st_mtime, (size_t)fc->st.st_size);
+        gmtime_fmt(refreshed->st.st_mtime, refreshed->last_modified);
+        snprintf(refreshed->etag, sizeof(refreshed->etag), ETAG_FMT,
+                 (size_t)refreshed->st.st_mtime, (size_t)refreshed->st.st_size);
+
+        // Cache the fully initialized entry (acquires LRUCache mutex only)
+        fc = refreshed;
+        put(filepath, fc);
     }
     return fc;
 }
@@ -151,9 +186,31 @@ file_cache_ptr FileCache::Get(const char* filepath) {
     return NULL;
 }
 
+void FileCache::BeginPathAccess(const std::string& filepath) {
+    std::unique_lock<std::mutex> lock(loading_mutex_);
+    loading_cv_.wait(lock, [this, &filepath]() {
+        return loading_files_.find(filepath) == loading_files_.end();
+    });
+    loading_files_.insert(filepath);
+}
+
+void FileCache::EndPathAccess(const std::string& filepath) {
+    {
+        std::lock_guard<std::mutex> lock(loading_mutex_);
+        loading_files_.erase(filepath);
+    }
+    loading_cv_.notify_all();
+}
+
 void FileCache::RemoveExpiredFileCache() {
     time_t now = time(NULL);
     remove_if([this, now](const std::string& filepath, const file_cache_ptr& fc) {
+        // Use try_to_lock to avoid lock-order inversion with Open().
+        // If the entry is busy, skip it — it will be checked next cycle.
+        std::unique_lock<std::mutex> lock(fc->mutex, std::try_to_lock);
+        if (!lock.owns_lock()) {
+            return false;
+        }
         return (now - fc->stat_time > expired_time);
     });
 }
