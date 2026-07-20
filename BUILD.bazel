@@ -101,6 +101,15 @@ config_setting(
 )
 
 config_setting(
+    name = "with_redis",
+    define_values = {
+        "WITH_EVPP": "ON",
+        "WITH_REDIS": "ON",
+    },
+    visibility = [":__subpackages__"],
+)
+
+config_setting(
     name = "enable_uds",
     define_values = {"ENABLE_UDS": "ON"}
 )
@@ -188,6 +197,9 @@ HEADERS_DIRS = ["base", "ssl", "event"] + select({
     "//conditions:default": [],
 }) + select({
     "with_evpp": ["cpputil", "evpp"],
+    "//conditions:default": [],
+}) + select({
+    "with_redis": ["redis"],
     "//conditions:default": [],
 }) + select({
     "with_http": ["http"],
@@ -305,6 +317,7 @@ CPPUTIL_HEADERS = [
     "cpputil/iniparser.h",
     "cpputil/json.hpp",
     "cpputil/singleton.h",
+    "cpputil/LRUCache.h",
     "cpputil/ThreadLocalStorage.h",
 ]
 
@@ -320,6 +333,15 @@ EVPP_HEADERS = [
     "evpp/TcpServer.h",
     "evpp/UdpClient.h",
     "evpp/UdpServer.h",
+]
+
+REDIS_HEADERS = [
+    "redis/RedisMessage.h",
+    "redis/AsyncRedisClient.h",
+    "redis/RedisClient.h",
+    "redis/RedisPipeline.h",
+    "redis/RedisTransaction.h",
+    "redis/RedisSubscriber.h",
 ]
 
 PROTOCOL_HEADERS = [
@@ -373,6 +395,9 @@ HEADERS = ["hv.h", ":config", "hexport.h"] + BASE_HEADERS + SSL_HEADERS + EVENT_
     "with_evpp": CPPUTIL_HEADERS + EVPP_HEADERS,
     "//conditions:default": [],
 }) + select({
+    "with_redis": REDIS_HEADERS,
+    "//conditions:default": [],
+}) + select({
     "with_http": HTTP_HEADERS,
     "//conditions:default": [],
 }) + select({
@@ -411,6 +436,9 @@ SRCS = CORE_SRCS + glob(["util/*.h", "util/*.c", "util/*.cpp"], exclude = ["util
     "//conditions:default": [],
 }) + select({
     "with_evpp": glob(["cpputil/*.h", "cpputil/*.c", "cpputil/*.cpp", "evpp/*.h", "evpp/*.c", "evpp/*.cpp"], exclude = ["cpputil/*_test.c", "evpp/*_test.c", "evpp/*_test.cpp"]),
+    "//conditions:default": [],
+}) + select({
+    "with_redis": glob(["redis/*.h", "redis/*.c", "redis/*.cpp"], exclude = ["redis/*_test.c", "redis/*_test.cpp"]),
     "//conditions:default": [],
 }) + select({
     "with_http": glob(["http/*.h", "http/*.c", "http/*.cpp"], exclude = ["http/*_test.c"]),

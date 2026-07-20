@@ -101,6 +101,26 @@ cc_binary(
 )
 
 cc_binary(
+    name = "redis_client_example",
+    srcs = ["redis_client_test.cpp"],
+    deps = ["//:hv"],
+    target_compatible_with = select({
+        "//:with_redis": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+cc_binary(
+    name = "redis_subscriber_example",
+    srcs = ["redis_subscriber_test.cpp"],
+    deps = ["//:hv"],
+    target_compatible_with = select({
+        "//:with_redis": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+cc_binary(
     name = "wrk",
     srcs = ["wrk.cpp"],
     deps = ["//:hv"]
@@ -204,6 +224,9 @@ filegroup(
         ":jsonrpc_server",
     ] + select({
         "//:with_evpp": [":hmain_test", ":nmap"],
+        "//conditions:default": [],
+    }) + select({
+        "//:with_redis": [":redis_client_example", ":redis_subscriber_example"],
         "//conditions:default": [],
     }) + select({
         "//:with_http": [":wrk"],

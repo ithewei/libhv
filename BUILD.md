@@ -156,6 +156,12 @@ make clean && make
 make clean && make
 ```
 
+### compile WITH_REDIS
+```
+./configure --with-redis
+make clean && make
+```
+
 ### More
 ```
 ./configure --help
