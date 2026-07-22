@@ -112,11 +112,16 @@ public:
         }
     }
     ~AsyncHttpClient() {
+        // Stop (and, for an owned loop, free) the event loop first. An owned
+        // loop uses HLOOP_FLAG_AUTO_FREE, so joining the loop thread runs
+        // hloop_free() -> hdns_resolver_free(), which cancels and frees every
+        // in-flight hdns_query_t. After stop() the loop thread is joined, so no
+        // resolve callback can race with teardown.
         EventLoopThread::stop(true);
-        // cancel any in-flight async DNS queries and free their contexts.
-        // Safe here: the loop thread has stopped, so no callback can race.
+        // The resolver already freed the hdns_query_t objects during loop
+        // teardown, so DO NOT call hdns_cancel() here (that would be a
+        // use-after-free). Just free our own per-request context shells.
         for (auto* dctx : dns_queries) {
-            if (dctx->query) hdns_cancel(dctx->query);
             delete dctx;
         }
         dns_queries.clear();

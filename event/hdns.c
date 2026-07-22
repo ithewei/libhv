@@ -163,6 +163,8 @@ static int hdns__parse_response(const uint8_t* buf, int buflen, uint16_t expect_
     if (buflen < HDNS_HDR_SIZE) return HDNS_STATUS_SERVFAIL;
     uint16_t txid = (buf[0] << 8) | buf[1];
     if (txid != expect_txid) return HDNS_STATUS_SERVFAIL;
+    // must be a response (QR bit set), not a stray query echo
+    if (!(buf[2] & 0x80)) return HDNS_STATUS_SERVFAIL;
     uint8_t flags2 = buf[3];
     int rcode = flags2 & 0x0F;
     if (rcode == 3) return HDNS_STATUS_NXDOMAIN;   // NXDOMAIN
@@ -482,10 +484,12 @@ struct hdns_query_s {
 
 typedef struct hdns_resolver_s {
     hloop_t*        loop;
-    hio_t*          io;             // shared UDP socket
+    hio_t*          io4;            // UDP socket for IPv4 nameservers (lazy)
+    hio_t*          io6;            // UDP socket for IPv6 nameservers (lazy)
     struct list_head queries;       // in-flight hdns_query_t
     struct list_head cache;         // hdns_cache_entry_t (LRU-ish by insertion)
     int             ncache;
+    uint16_t        next_txid;      // monotonic base for sub-query txids
     uint8_t         sndbuf[HDNS_UDP_BUFSIZE];
 } hdns_resolver_t;
 
@@ -495,6 +499,27 @@ static void hdns__on_timeout(htimer_t* timer);
 static void hdns__on_defer(htimer_t* timer);
 static void hdns__send_queries(hdns_query_t* q);
 static void hdns__finish(hdns_query_t* q, int status);
+
+// Lazily create the UDP send/recv socket matching the nameserver's family.
+// A socket's family must match sendto()'s destination, so IPv4 and IPv6
+// nameservers need separate sockets. Returns NULL on failure.
+static hio_t* hdns__resolver_io(hdns_resolver_t* r, int family) {
+    hio_t** pio = (family == AF_INET6) ? &r->io6 : &r->io4;
+    if (*pio) return *pio;
+    int fd = socket(family, SOCK_DGRAM, 0);
+    if (fd < 0) return NULL;
+    hio_t* io = hio_get(r->loop, fd);
+    if (!io) {
+        closesocket(fd);
+        return NULL;
+    }
+    hio_set_type(io, HIO_TYPE_UDP);
+    hio_setcb_read(io, hdns__on_udp_read);
+    hio_set_context(io, r);
+    hio_read(io);
+    *pio = io;
+    return io;
+}
 
 static hdns_resolver_t* hdns__resolver_get(hloop_t* loop) {
     hdns_resolver_t* r = (hdns_resolver_t*)loop->dns_resolver;
@@ -506,24 +531,9 @@ static hdns_resolver_t* hdns__resolver_get(hloop_t* loop) {
     list_init(&r->queries);
     list_init(&r->cache);
     r->ncache = 0;
-
-    // create a non-blocking UDP socket bound to nothing (ephemeral).
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) {
-        HV_FREE(r);
-        return NULL;
-    }
-    hio_t* io = hio_get(loop, fd);
-    if (!io) {
-        closesocket(fd);
-        HV_FREE(r);
-        return NULL;
-    }
-    hio_set_type(io, HIO_TYPE_UDP);
-    hio_setcb_read(io, hdns__on_udp_read);
-    hio_set_context(io, r);
-    hio_read(io);
-    r->io = io;
+    // seed the txid counter randomly to reduce off-path spoofing predictability.
+    r->next_txid = (uint16_t)hv_rand(1, 0xFFFF);
+    // sockets are created lazily per nameserver family in hdns__resolver_io().
 
     loop->dns_resolver = r;
     return r;
@@ -549,7 +559,7 @@ void hdns_resolver_free(hloop_t* loop) {
         list_del(&e->node);
         HV_FREE(e);
     }
-    // NOTE: r->io is owned by the loop and freed by hloop_cleanup's io sweep.
+    // NOTE: r->io4/io6 are owned by the loop and freed by hloop_cleanup's io sweep.
     HV_FREE(r);
 }
 
@@ -719,6 +729,13 @@ static void hdns__send_queries(hdns_query_t* q) {
     }
     hmutex_unlock(&s_config_mutex);
 
+    // pick the UDP socket matching the nameserver's address family.
+    hio_t* io = hdns__resolver_io(r, ns.sa.sa_family);
+    if (io == NULL) {
+        hdns__finish(q, HDNS_STATUS_NONAMESERVER);
+        return;
+    }
+
     for (int i = 0; i < 2; ++i) {
         if (!q->sub[i].qtype || q->sub[i].done) continue;
         int len = hdns__build_query(q->sub[i].txid, q->host, q->sub[i].qtype,
@@ -729,7 +746,7 @@ static void hdns__send_queries(hdns_query_t* q) {
             continue;
         }
         q->sub[i].active = 1;
-        hio_sendto(r->io, r->sndbuf, len, &ns.sa);
+        hio_sendto(io, r->sndbuf, len, &ns.sa);
     }
 
     if (hdns__all_done(q)) {
@@ -923,7 +940,10 @@ hdns_query_t* hdns_resolve_ex(hloop_t* loop, const char* host,
 
     // 3) network query: assign sub-queries + txids, and start on the next loop
     //    tick so this function returns the handle before any send/callback.
-    uint16_t base = (uint16_t)(hv_rand(1, 0xFFFF));
+    //    Use a per-resolver monotonic counter (not random) so concurrent
+    //    queries never share a txid and responses demux unambiguously.
+    uint16_t base = r->next_txid;
+    r->next_txid += 2; // A uses base, AAAA uses base+1
     if (q->opt.family & HDNS_QUERY_A) {
         q->sub[0].qtype = HDNS_TYPE_A;
         q->sub[0].txid = base;
