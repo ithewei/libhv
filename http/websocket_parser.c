@@ -107,6 +107,12 @@ size_t websocket_parser_execute(websocket_parser *parser, const websocket_parser
                 }
                 p--;
                 if(!parser->require) {
+                    /* RFC 6455 §5.2: the most significant bit of the 64-bit payload
+                     * length MUST be 0.  Reject frames that violate this to prevent
+                     * integer-wrap exploits on the pointer check below. */
+                    if (parser->length & ~((size_t)~(size_t)0 >> 1)) {
+                        return GET_NPARSED();
+                    }
                     if (parser->flags & WS_HAS_MASK) {
                         SET_STATE(s_mask);
                         parser->require = 4;
@@ -142,7 +148,7 @@ size_t websocket_parser_execute(websocket_parser *parser, const websocket_parser
                 break;
             case s_body:
                 if(parser->require) {
-                    if(p + parser->require <= end) {
+                    if(parser->require <= (size_t)(end - p)) {
                         EMIT_DATA_CB(frame_body, p, parser->require);
                         p += parser->require;
                         parser->require = 0;
