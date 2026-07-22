@@ -52,17 +52,29 @@ public:
     }
 
     // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
-    // @retval >=0 connfd, <0 error
-    // NOTE: If remote_host is a hostname (not a numeric IP), resolution is
-    // deferred and done asynchronously in startConnect() so the event loop is
-    // never blocked by getaddrinfo. In that case no socket/connfd exists yet
-    // and this returns 0; the socket is created once the address is resolved.
+    //
+    // @retval >0  connfd: the socket was created immediately (remote_host is a
+    //             numeric IP, or a Unix Domain Socket when remote_port < 0).
+    // @retval =0  pending: remote_host is a hostname, so socket creation is
+    //             deferred until the address is resolved asynchronously in
+    //             startConnect() (avoids blocking the event loop on getaddrinfo).
+    //             This is NOT an error; the real fd is available later via
+    //             channel->fd(). This matches the >0/=0/<0 convention used by
+    //             other evpp clients (see examples/protorpc).
+    // @retval <0  error.
+    //
+    // Rationale for the =0 case: a socket's address family (AF_INET vs AF_INET6)
+    // must be known before socket() is called, but for a hostname the family is
+    // only known after DNS returns an A (IPv4) or AAAA (IPv6) record. So the
+    // socket cannot be created up front and is created once resolution completes
+    // in startConnectWithAddr() -- the same order as the standard getaddrinfo
+    // connect loop.
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
         this->remote_host = remote_host;
         this->remote_port = remote_port;
         memset(&remote_addr, 0, sizeof(remote_addr));
         // numeric IP (or UDS: port < 0) -> resolve now (non-blocking) and
-        // create the socket immediately, preserving the connfd contract.
+        // create the socket immediately, returning the connfd (>0).
         if (remote_port < 0 || is_ipaddr(remote_host)) {
             int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
             if (ret != 0) {
@@ -70,7 +82,8 @@ public:
             }
             return createsocket(&remote_addr.sa);
         }
-        // hostname -> defer to async resolution in startConnect()
+        // hostname -> defer socket creation to async resolution in
+        // startConnect(); return 0 (pending), not an error.
         return 0;
     }
 
