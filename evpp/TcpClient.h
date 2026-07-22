@@ -53,15 +53,25 @@ public:
 
     // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
     // @retval >=0 connfd, <0 error
+    // NOTE: If remote_host is a hostname (not a numeric IP), resolution is
+    // deferred and done asynchronously in startConnect() so the event loop is
+    // never blocked by getaddrinfo. In that case no socket/connfd exists yet
+    // and this returns 0; the socket is created once the address is resolved.
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
-        memset(&remote_addr, 0, sizeof(remote_addr));
-        int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
-        if (ret != 0) {
-            return NABS(ret);
-        }
         this->remote_host = remote_host;
         this->remote_port = remote_port;
-        return createsocket(&remote_addr.sa);
+        memset(&remote_addr, 0, sizeof(remote_addr));
+        // numeric IP (or UDS: port < 0) -> resolve now (non-blocking) and
+        // create the socket immediately, preserving the connfd contract.
+        if (remote_port < 0 || is_ipaddr(remote_host)) {
+            int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
+            if (ret != 0) {
+                return NABS(ret);
+            }
+            return createsocket(&remote_addr.sa);
+        }
+        // hostname -> defer to async resolution in startConnect()
+        return 0;
     }
 
     int createsocket(struct sockaddr* remote_addr) {
@@ -115,11 +125,13 @@ public:
 
     int startConnect() {
         loop_->assertInLoopThread();
-        // On reconnect, re-resolve the hostname to pick up DNS changes.
-        // Resolution runs asynchronously so the event loop is never blocked.
-        // Numeric IPs and the initial connect keep using the cached remote_addr.
-        if (reconn_setting && reconn_setting->cur_retry_cnt > 1 &&
-            !remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
+        // If the target is a hostname, resolve it asynchronously through hdns
+        // so the event loop is never blocked by getaddrinfo. This covers both
+        // the first connect and every reconnect (to pick up DNS changes).
+        // Numeric-IP targets skip resolution and connect directly.
+        // NOTE: any TcpClientTmpl subclass (WebSocketClient, ...) gets this for
+        // free; no per-client DNS glue is needed.
+        if (!remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
             return startResolveThenConnect();
         }
         return startConnectWithAddr();
@@ -148,10 +160,27 @@ public:
             // adopt the first resolved address, keep the target port
             self->remote_addr = result->addrs[0];
             sockaddr_set_port(&self->remote_addr, self->remote_port);
+        } else if (self->remote_addr.sa.sa_family == 0) {
+            // resolve failed and we have no previously-resolved address to fall
+            // back to. Report failure and drive reconnect (if enabled).
+            hloge("resolve %s failed, status=%d", self->remote_host.c_str(), result->status);
+            self->onResolveFailed();
+            return;
         }
-        // if resolve failed, fall through with the previous remote_addr; the
-        // connect attempt will fail and drive the normal reconnect path.
+        // else: resolve failed but keep the previous remote_addr; the connect
+        // attempt will fail and drive the normal reconnect path.
         self->startConnectWithAddr();
+    }
+
+    // @internal: DNS resolution failed with no usable address.
+    void onResolveFailed() {
+        if (onConnection && channel) {
+            // channel is not connected; notify disconnect-style callback.
+            onConnection(channel);
+        }
+        if (reconn_setting) {
+            startReconnect();
+        }
     }
 
     int startConnectWithAddr() {

@@ -41,6 +41,9 @@ fi
 if [ -x bin/asynchttp_dns_test ]; then
     bin/asynchttp_dns_test
 fi
+if [ -x bin/websocket_dns_test ]; then
+    bin/websocket_dns_test
+fi
 for redis_test in redis_async_client_test redis_client_test redis_batch_test redis_subscriber_test; do
     if [ -x bin/${redis_test} ]; then
         bin/${redis_test}

@@ -322,6 +322,7 @@ ifeq ($(WITH_HTTP), yes)
 ifeq ($(WITH_HTTP_CLIENT), yes)
 ifeq ($(WITH_HTTP_SERVER), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/client -Ihttp/server -o bin/asynchttp_dns_test unittest/asynchttp_dns_test.cpp -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Iutil -Icpputil -Ievpp -Ihttp -Ihttp/client -Ihttp/server -o bin/websocket_dns_test unittest/websocket_dns_test.cpp -Llib -lhv -pthread
 endif
 endif
 endif
@@ -336,7 +337,7 @@ else
 	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 else
-	$(RM) bin/tcpclient_dns_test bin/asynchttp_dns_test
+	$(RM) bin/tcpclient_dns_test bin/asynchttp_dns_test bin/websocket_dns_test
 	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 

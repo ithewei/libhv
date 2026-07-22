@@ -139,15 +139,21 @@ int main() {
 
 ## 与 connect 路径的集成
 
-`hdns` 已接入 C++ 的 `TcpClient`（`evpp/TcpClient.h`）与异步 HTTP 客户端 `AsyncHttpClient`（`http/client/AsyncHttpClient.cpp`）：
+`hdns` 已接入 C++ 客户端的 connect 路径。**异步解析逻辑统一沉淀在基类 `TcpClientEventLoopTmpl`（`evpp/TcpClient.h`）里**，因此所有继承自 `TcpClientTmpl` 的客户端（`TcpClient`、`WebSocketClient`，以及未来任何 `XXXClient`）都**自动获得**异步 DNS,无需各自编写胶水代码。
 
-### TcpClient
+### TcpClientTmpl 派生类（TcpClient / WebSocketClient / ...）
 
-- 目标是**数字 IP** 时，走原有同步快速路径，行为不变；
-- 目标是**域名**且触发**重连**时，`TcpClient` 会先用 `hdns_resolve` 异步解析（拿到最新 IP，应对 DNS 变化），解析完成后再建立连接——这一步**不再阻塞事件循环**。旧实现在重连时于 loop 线程内调用阻塞的 `getaddrinfo`，会卡住整个 loop。
+- 目标是**数字 IP**（或 Unix Domain Socket）时，`createsocket` 走原有同步快速路径立即建 socket，行为不变；
+- 目标是**域名**时，`createsocket` 只记录 host/port 并**延迟解析**（不阻塞）；`startConnect()`（首次连接与每次重连都会调用）先用 `hdns_resolve` 异步解析，拿到地址后再在 `startConnectWithAddr()` 建 socket、connect。整个过程**不阻塞事件循环**。旧实现在 loop 线程里调用阻塞的 `getaddrinfo`，会卡住整个 loop。
+- 每次连接/重连都会重新解析，自动应对 DNS 变化；
 - 对象析构或主动 `closesocket()` 时，会自动取消在途的解析查询，避免悬垂回调。
+- 若解析失败且无可用历史地址，会走正常的失败/重连回调。
+
+> 新增客户端零成本:只要继承 `TcpClientTmpl` 并用 `createsocket(port, host)` + `start()`，就自动拥有异步 DNS，不需要实现任何 `onDnsResolved` 之类的回调。
 
 ### AsyncHttpClient
+
+`AsyncHttpClient` 不继承 `TcpClientTmpl`（自带连接池等逻辑），单独接入：
 
 - 请求 URL 里是**数字 IP**（或 Unix Domain Socket）时，走原有同步快速路径；
 - 请求 URL 里是**域名**时，`doTask` 会先用 `hdns_resolve` 异步解析，回调里再建立连接、发送请求——同样**不阻塞 loop**。旧实现直接在 loop 线程里对域名做阻塞 `getaddrinfo`。

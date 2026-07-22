@@ -127,6 +127,12 @@ add_executable(asynchttp_dns_test asynchttp_dns_test.cpp)
 target_include_directories(asynchttp_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/client ../http/server)
 target_link_libraries(asynchttp_dns_test ${HV_LIBRARIES})
 list(APPEND EVPP_DNS_UNITTEST_TARGETS asynchttp_dns_test)
+
+# WebSocketClient inherits async DNS from the TcpClient base (no WS-specific glue)
+add_executable(websocket_dns_test websocket_dns_test.cpp)
+target_include_directories(websocket_dns_test PRIVATE .. ../base ../ssl ../event ../util ../cpputil ../evpp ../http ../http/client ../http/server)
+target_link_libraries(websocket_dns_test ${HV_LIBRARIES})
+list(APPEND EVPP_DNS_UNITTEST_TARGETS websocket_dns_test)
 endif()
 
 if(UNIX)
