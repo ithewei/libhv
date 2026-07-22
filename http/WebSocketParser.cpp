@@ -12,8 +12,11 @@ static int on_frame_header(websocket_parser* parser) {
     if (opcode != WS_OP_CONTINUE) {
         wp->opcode = opcode;
     }
-    int length = parser->length;
-    int reserve_length = MIN(length + 1, MAX_PAYLOAD_LENGTH);
+    size_t length = parser->length;
+    if (length > (size_t)MAX_PAYLOAD_LENGTH) {
+        return 1; // reject oversized frames; stops parsing before s_body is entered
+    }
+    size_t reserve_length = length + 1; // safe: length <= MAX_PAYLOAD_LENGTH (16M) so no overflow
     if (reserve_length > wp->message.capacity()) {
         wp->message.reserve(reserve_length);
     }
