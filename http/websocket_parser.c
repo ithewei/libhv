@@ -110,7 +110,7 @@ size_t websocket_parser_execute(websocket_parser *parser, const websocket_parser
                     /* RFC 6455 §5.2: the most significant bit of the 64-bit payload
                      * length MUST be 0.  Reject frames that violate this to prevent
                      * integer-wrap exploits on the pointer check below. */
-                    if (parser->length & ~((size_t)~(size_t)0 >> 1)) {
+                    if (parser->length > ((size_t)~(size_t)0 >> 1)) {
                         return GET_NPARSED();
                     }
                     if (parser->flags & WS_HAS_MASK) {
