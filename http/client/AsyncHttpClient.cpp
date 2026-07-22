@@ -34,14 +34,84 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     }
 
     req->ParseUrl();
-    sockaddr_u peeraddr;
-    memset(&peeraddr, 0, sizeof(peeraddr));
     const char* host = req->host.c_str();
-    int ret = sockaddr_set_ipport(&peeraddr, host, req->port);
-    if (ret != 0) {
-        hloge("unknown host %s", host);
+
+    // If host is a numeric IP (or UDS), resolve synchronously (fast path).
+    // Otherwise resolve the hostname asynchronously via hdns so the event loop
+    // is never blocked by getaddrinfo.
+    if (req->port < 0 || is_ipaddr(host)) {
+        sockaddr_u peeraddr;
+        memset(&peeraddr, 0, sizeof(peeraddr));
+        int ret = sockaddr_set_ipport(&peeraddr, host, req->port);
+        if (ret != 0) {
+            hloge("unknown host %s", host);
+            return -20;
+        }
+        return doTaskWithAddr(task, &peeraddr);
+    }
+
+    // async resolve hostname, then continue in onDnsResolved
+    DnsContext* dctx = new DnsContext();
+    dctx->client = this;
+    dctx->task = task;
+    dctx->query = NULL;
+    dns_queries.insert(dctx);
+
+    hdns_options_t opt;
+    if (req->connect_timeout > 0) opt.timeout_ms = req->connect_timeout * 1000;
+    dctx->query = hdns_resolve_ex(EventLoopThread::hloop(), host, &opt,
+                                  &AsyncHttpClient::onDnsResolved, dctx);
+    if (dctx->query == NULL) {
+        dns_queries.erase(dctx);
+        delete dctx;
+        hloge("hdns_resolve failed for host %s", host);
         return -20;
     }
+    return 0;
+}
+
+// hdns callback (runs in loop thread).
+void AsyncHttpClient::onDnsResolved(const hdns_result_t* result, void* userdata) {
+    DnsContext* dctx = (DnsContext*)userdata;
+    AsyncHttpClient* self = dctx->client;
+    HttpClientTaskPtr task = dctx->task;
+    // handle is invalid after this callback; drop the tracking context.
+    self->dns_queries.erase(dctx);
+    delete dctx;
+
+    if (result->status != HDNS_STATUS_OK || result->naddrs <= 0) {
+        hloge("resolve host %s failed, status=%d", result->host, result->status);
+        if (task->cb) task->cb(NULL);
+        return;
+    }
+
+    // adopt the first resolved address and set the target port.
+    sockaddr_u peeraddr = result->addrs[0];
+    sockaddr_set_port(&peeraddr, task->req->port);
+
+    int err = self->doTaskWithAddr(task, &peeraddr);
+    if (err != 0 && task->cb) {
+        task->cb(NULL);
+    }
+}
+
+// Continue the request once the peer address is known.
+int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockaddr_u* paddr) {
+    const HttpRequestPtr& req = task->req;
+    if (req->cancel) {
+        return -1;
+    }
+
+    uint64_t now_hrtime = hloop_now_hrtime(EventLoopThread::hloop());
+    int elapsed_ms = (now_hrtime - task->start_time) / 1000;
+    int timeout_ms = req->timeout * 1000;
+    if (timeout_ms > 0 && elapsed_ms >= timeout_ms) {
+        hlogw("%s queueInLoop timeout!", req->url.c_str());
+        return -10;
+    }
+
+    const char* host = req->host.c_str();
+    sockaddr_u peeraddr = *paddr;
 
     int connfd = -1;
     // first get from conn_pools

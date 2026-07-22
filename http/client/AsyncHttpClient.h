@@ -3,9 +3,11 @@
 
 #include <map>
 #include <list>
+#include <set>
 
 #include "EventLoopThread.h"
 #include "Channel.h"
+#include "hdns.h"
 
 #include "HttpMessage.h"
 #include "HttpParser.h"
@@ -111,6 +113,13 @@ public:
     }
     ~AsyncHttpClient() {
         EventLoopThread::stop(true);
+        // cancel any in-flight async DNS queries and free their contexts.
+        // Safe here: the loop thread has stopped, so no callback can race.
+        for (auto* dctx : dns_queries) {
+            if (dctx->query) hdns_cancel(dctx->query);
+            delete dctx;
+        }
+        dns_queries.clear();
     }
 
     // thread-safe
@@ -128,6 +137,17 @@ protected:
         }
     }
     int doTask(const HttpClientTaskPtr& task);
+
+    // async DNS resolve context for one task (heap-allocated, tracked so it can
+    // be cancelled/freed on teardown).
+    struct DnsContext {
+        AsyncHttpClient*    client;
+        HttpClientTaskPtr   task;
+        hdns_query_t*       query;
+    };
+    // @internal: continue doTask after the peer address is known.
+    int doTaskWithAddr(const HttpClientTaskPtr& task, const sockaddr_u* peeraddr);
+    static void onDnsResolved(const hdns_result_t* result, void* userdata);
 
     static int sendRequest(const SocketChannelPtr& channel);
 
@@ -157,6 +177,8 @@ private:
     std::map<int, SocketChannelPtr>         channels;
     // peeraddr => ConnPool
     std::map<std::string, ConnPool<int>>    conn_pools;
+    // in-flight async DNS resolve contexts (for cancel/free on teardown)
+    std::set<DnsContext*>                   dns_queries;
 };
 
 }

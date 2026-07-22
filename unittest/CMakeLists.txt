@@ -121,6 +121,14 @@ target_link_libraries(tcpclient_dns_test ${HV_LIBRARIES})
 set(EVPP_DNS_UNITTEST_TARGETS tcpclient_dns_test)
 endif()
 
+# ------http: async dns in AsyncHttpClient------
+if(WITH_EVPP AND WITH_HTTP AND WITH_HTTP_CLIENT AND WITH_HTTP_SERVER)
+add_executable(asynchttp_dns_test asynchttp_dns_test.cpp)
+target_include_directories(asynchttp_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/client ../http/server)
+target_link_libraries(asynchttp_dns_test ${HV_LIBRARIES})
+list(APPEND EVPP_DNS_UNITTEST_TARGETS asynchttp_dns_test)
+endif()
+
 if(UNIX)
 add_executable(webbench webbench.c)
 endif()

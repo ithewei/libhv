@@ -139,11 +139,19 @@ int main() {
 
 ## 与 connect 路径的集成
 
-`hdns` 已接入 C++ 的 `TcpClient`（`evpp/TcpClient.h`）：
+`hdns` 已接入 C++ 的 `TcpClient`（`evpp/TcpClient.h`）与异步 HTTP 客户端 `AsyncHttpClient`（`http/client/AsyncHttpClient.cpp`）：
+
+### TcpClient
 
 - 目标是**数字 IP** 时，走原有同步快速路径，行为不变；
 - 目标是**域名**且触发**重连**时，`TcpClient` 会先用 `hdns_resolve` 异步解析（拿到最新 IP，应对 DNS 变化），解析完成后再建立连接——这一步**不再阻塞事件循环**。旧实现在重连时于 loop 线程内调用阻塞的 `getaddrinfo`，会卡住整个 loop。
 - 对象析构或主动 `closesocket()` 时，会自动取消在途的解析查询，避免悬垂回调。
+
+### AsyncHttpClient
+
+- 请求 URL 里是**数字 IP**（或 Unix Domain Socket）时，走原有同步快速路径；
+- 请求 URL 里是**域名**时，`doTask` 会先用 `hdns_resolve` 异步解析，回调里再建立连接、发送请求——同样**不阻塞 loop**。旧实现直接在 loop 线程里对域名做阻塞 `getaddrinfo`。
+- 客户端析构时会取消所有在途解析并释放其上下文，避免泄漏与悬垂回调。
 
 > 说明：同步的 `HttpClient` / `requests` 请求路径运行在调用方线程（并非在 loop 内），阻塞解析可接受，故该路径维持不变。
 
