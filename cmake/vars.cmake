@@ -27,6 +27,7 @@ set(SSL_HEADERS
 set(EVENT_HEADERS
     event/hloop.h
     event/nlog.h
+    event/hdns.h
 )
 
 set(UTIL_HEADERS

@@ -1,6 +1,7 @@
 ## c接口
 
 - [hloop: 事件循环](hloop.md)
+- [hdns: 异步DNS解析](hdns.md)
 - [hbase: 基础函数](hbase.md)
 - [hlog:  日志](hlog.md)
 

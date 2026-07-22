@@ -4,6 +4,7 @@
 #include "hsocket.h"
 #include "hssl.h"
 #include "hlog.h"
+#include "hdns.h"
 
 #include "EventLoopThread.h"
 #include "Channel.h"
@@ -27,10 +28,12 @@ public:
         reconn_setting = NULL;
         unpack_setting = NULL;
         reconn_timer_id = INVALID_TIMER_ID;
+        dns_query = NULL;
     }
 
     virtual ~TcpClientEventLoopTmpl() {
         cancelReconnectTimer();
+        cancelDnsQuery();
         HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
@@ -101,6 +104,7 @@ public:
     void closesocket() {
         if (channel && channel->status != SocketChannel::CLOSED) {
             loop_->runInLoop([this](){
+                cancelDnsQuery();
                 if (channel) {
                     setReconnect(NULL);
                     channel->close();
@@ -111,14 +115,49 @@ public:
 
     int startConnect() {
         loop_->assertInLoopThread();
+        // On reconnect, re-resolve the hostname to pick up DNS changes.
+        // Resolution runs asynchronously so the event loop is never blocked.
+        // Numeric IPs and the initial connect keep using the cached remote_addr.
+        if (reconn_setting && reconn_setting->cur_retry_cnt > 1 &&
+            !remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
+            return startResolveThenConnect();
+        }
+        return startConnectWithAddr();
+    }
+
+    // @internal: resolve remote_host asynchronously, then connect.
+    int startResolveThenConnect() {
+        cancelDnsQuery();
+        hdns_options_t opt;
+        opt.family = HDNS_QUERY_BOTH;
+        if (connect_timeout > 0) opt.timeout_ms = connect_timeout;
+        dns_query = hdns_resolve_ex(loop_->loop(), remote_host.c_str(), &opt,
+                                    &TcpClientEventLoopTmpl::onDnsResolved, this);
+        if (dns_query == NULL) {
+            // could not start async resolve; fall back to synchronous path
+            return startConnectWithAddr();
+        }
+        return 0;
+    }
+
+    // @internal: hdns callback (runs in loop thread).
+    static void onDnsResolved(const hdns_result_t* result, void* userdata) {
+        TcpClientEventLoopTmpl* self = (TcpClientEventLoopTmpl*)userdata;
+        self->dns_query = NULL; // handle is invalid after the callback
+        if (result->status == HDNS_STATUS_OK && result->naddrs > 0) {
+            // adopt the first resolved address, keep the target port
+            self->remote_addr = result->addrs[0];
+            sockaddr_set_port(&self->remote_addr, self->remote_port);
+        }
+        // if resolve failed, fall through with the previous remote_addr; the
+        // connect attempt will fail and drive the normal reconnect path.
+        self->startConnectWithAddr();
+    }
+
+    int startConnectWithAddr() {
+        loop_->assertInLoopThread();
         if (channel == NULL || channel->isClosed()) {
-            int connfd = -1;
-            if (reconn_setting && reconn_setting->cur_retry_cnt > 1) {
-                // Resolve DNS to get the latest IP address
-                connfd = createsocket(remote_port, remote_host.c_str());
-            } else {
-                connfd = createsocket(&remote_addr.sa);
-            }
+            int connfd = createsocket(&remote_addr.sa);
             if (connfd < 0) {
                 hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, connfd);
                 return connfd;
@@ -283,9 +322,18 @@ private:
         }
     }
 
+    // Cancel any in-flight async DNS query (loop thread only).
+    void cancelDnsQuery() {
+        if (dns_query != NULL) {
+            hdns_cancel(dns_query);
+            dns_query = NULL;
+        }
+    }
+
 private:
     EventLoopPtr    loop_;
     TimerID         reconn_timer_id;
+    hdns_query_t*   dns_query;
 };
 
 template<class TSocketChannel = SocketChannel>

@@ -12,6 +12,8 @@ list(APPEND EXAMPLES
     udp_echo_server
     udp_proxy_server
     socks5_proxy_server
+    hdns_example
+    hdns_benchmark
     multi-acceptor-processes
     multi-acceptor-threads
     one-acceptor-multi-workers
@@ -59,6 +61,12 @@ target_link_libraries(udp_proxy_server ${HV_LIBRARIES})
 
 add_executable(socks5_proxy_server socks5_proxy_server.c)
 target_link_libraries(socks5_proxy_server ${HV_LIBRARIES})
+
+add_executable(hdns_example hdns_example.c)
+target_link_libraries(hdns_example ${HV_LIBRARIES})
+
+add_executable(hdns_benchmark hdns_benchmark.c)
+target_link_libraries(hdns_benchmark ${HV_LIBRARIES})
 
 add_executable(multi-acceptor-processes multi-thread/multi-acceptor-processes.c)
 target_link_libraries(multi-acceptor-processes ${HV_LIBRARIES})

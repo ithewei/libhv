@@ -69,6 +69,8 @@ EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
 	udp_echo_server \
 	udp_proxy_server \
 	socks5_proxy_server \
+	hdns_example \
+	hdns_benchmark \
 	multi-acceptor-processes \
 	multi-acceptor-threads \
 	one-acceptor-multi-workers \
@@ -171,6 +173,12 @@ udp_proxy_server: prepare
 
 socks5_proxy_server: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/socks5_proxy_server.c"
+
+hdns_example: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/hdns_example.c"
+
+hdns_benchmark: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/hdns_benchmark.c"
 
 multi-acceptor-processes: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/multi-thread/multi-acceptor-processes.c"
@@ -305,7 +313,11 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
+	$(MAKE) libhv
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_test     unittest/hdns_test.c          -Llib -lhv -pthread
 ifeq ($(WITH_EVPP), yes)
+	$(MAKE) libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Iredis -o bin/redis_protocol_test unittest/redis_protocol_test.cpp redis/RedisMessage.cpp
@@ -317,6 +329,7 @@ else
 	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 else
+	$(RM) bin/tcpclient_dns_test
 	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 
