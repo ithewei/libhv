@@ -110,6 +110,9 @@ public:
         }
     }
     ~AsyncHttpClient() {
+        // Stop (and, for an owned loop, free) the event loop. Any in-flight
+        // async DNS queries are owned by EventLoop::resolveDns and the C
+        // resolver, which are torn down with the loop; nothing to clean here.
         EventLoopThread::stop(true);
     }
 
@@ -128,6 +131,9 @@ protected:
         }
     }
     int doTask(const HttpClientTaskPtr& task);
+
+    // @internal: continue doTask after the peer address is known.
+    int doTaskWithAddr(const HttpClientTaskPtr& task, const sockaddr_u* peeraddr);
 
     static int sendRequest(const SocketChannelPtr& channel);
 

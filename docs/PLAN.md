@@ -9,10 +9,10 @@
 - websocket client/server
 - mqtt client
 - redis client
+- async DNS
 
 ## Plan
 
-- async DNS
 - lua binding
 - js binding
 - hrpc = libhv + protobuf

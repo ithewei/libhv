@@ -4,6 +4,8 @@
 #include "hsocket.h"
 #include "hssl.h"
 #include "hlog.h"
+#include "herr.h"
+#include "hdns.h"
 
 #include "EventLoopThread.h"
 #include "Channel.h"
@@ -27,10 +29,12 @@ public:
         reconn_setting = NULL;
         unpack_setting = NULL;
         reconn_timer_id = INVALID_TIMER_ID;
+        dns_id = INVALID_DNS_ID;
     }
 
     virtual ~TcpClientEventLoopTmpl() {
         cancelReconnectTimer();
+        cancelDnsQuery();
         HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
@@ -49,16 +53,39 @@ public:
     }
 
     // NOTE: By default, not bind local port. If necessary, you can call bind() after createsocket().
-    // @retval >=0 connfd, <0 error
+    //
+    // @retval >0  connfd: the socket was created immediately (remote_host is a
+    //             numeric IP, or a Unix Domain Socket when remote_port < 0).
+    // @retval =0  pending: remote_host is a hostname, so socket creation is
+    //             deferred until the address is resolved asynchronously in
+    //             startConnect() (avoids blocking the event loop on getaddrinfo).
+    //             This is NOT an error; the real fd is available later via
+    //             channel->fd(). Callers should treat >=0 as success and only
+    //             <0 as failure.
+    // @retval <0  error.
+    //
+    // Rationale for the =0 case: a socket's address family (AF_INET vs AF_INET6)
+    // must be known before socket() is called, but for a hostname the family is
+    // only known after DNS returns an A (IPv4) or AAAA (IPv6) record. So the
+    // socket cannot be created up front and is created once resolution completes
+    // in startConnectWithAddr() -- the same order as the standard getaddrinfo
+    // connect loop.
     int createsocket(int remote_port, const char* remote_host = "127.0.0.1") {
-        memset(&remote_addr, 0, sizeof(remote_addr));
-        int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
-        if (ret != 0) {
-            return NABS(ret);
-        }
         this->remote_host = remote_host;
         this->remote_port = remote_port;
-        return createsocket(&remote_addr.sa);
+        memset(&remote_addr, 0, sizeof(remote_addr));
+        // numeric IP (or UDS: port < 0) -> resolve now (non-blocking) and
+        // create the socket immediately, returning the connfd (>0).
+        if (remote_port < 0 || is_ipaddr(remote_host)) {
+            int ret = sockaddr_set_ipport(&remote_addr, remote_host, remote_port);
+            if (ret != 0) {
+                return NABS(ret);
+            }
+            return createsocket(&remote_addr.sa);
+        }
+        // hostname -> defer socket creation to async resolution in
+        // startConnect(); return 0 (pending), not an error.
+        return 0;
     }
 
     int createsocket(struct sockaddr* remote_addr) {
@@ -101,6 +128,7 @@ public:
     void closesocket() {
         if (channel && channel->status != SocketChannel::CLOSED) {
             loop_->runInLoop([this](){
+                cancelDnsQuery();
                 if (channel) {
                     setReconnect(NULL);
                     channel->close();
@@ -111,14 +139,100 @@ public:
 
     int startConnect() {
         loop_->assertInLoopThread();
-        if (channel == NULL || channel->isClosed()) {
-            int connfd = -1;
-            if (reconn_setting && reconn_setting->cur_retry_cnt > 1) {
-                // Resolve DNS to get the latest IP address
-                connfd = createsocket(remote_port, remote_host.c_str());
-            } else {
-                connfd = createsocket(&remote_addr.sa);
+        // If the target is a hostname, resolve it asynchronously through hdns
+        // so the event loop is never blocked by getaddrinfo. This covers both
+        // the first connect and every reconnect (to pick up DNS changes).
+        // Numeric-IP targets skip resolution and connect directly.
+        // NOTE: any TcpClientTmpl subclass (WebSocketClient, ...) gets this for
+        // free; no per-client DNS glue is needed.
+        // NOTE: Unix Domain Socket targets (remote_port < 0) carry a filesystem
+        // path in remote_host, not a hostname; remote_addr is already set by
+        // createsocket(), so never run DNS on them.
+        if (remote_port >= 0 && !remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
+            return startResolveThenConnect();
+        }
+        return startConnectWithAddr();
+    }
+
+    // @internal: resolve remote_host asynchronously, then connect.
+    // Uses EventLoop::resolveDns which returns a use-after-free-proof DnsID and
+    // manages the underlying hdns_t lifetime, so this class only holds an id.
+    int startResolveThenConnect() {
+        cancelDnsQuery();
+        hdns_setting_t opt;
+        opt.family = HDNS_QUERY_BOTH;
+        if (connect_timeout > 0) opt.timeout_ms = connect_timeout;
+        dns_id = loop_->resolveDns(remote_host.c_str(),
+            [this](int status, int naddrs, const sockaddr_u* addrs) {
+                dns_id = INVALID_DNS_ID; // this query is done
+                if (status == HDNS_STATUS_OK && naddrs > 0) {
+                    // adopt the first resolved address, keep the target port
+                    remote_addr = addrs[0];
+                    sockaddr_set_port(&remote_addr, remote_port);
+                } else if (remote_addr.sa.sa_family == 0) {
+                    // resolve failed and no previously-resolved address to fall
+                    // back to. Report failure and drive reconnect (if enabled).
+                    hloge("resolve %s failed, status=%d", remote_host.c_str(), status);
+                    onDnsResolveFailed();
+                    return;
+                }
+                // else: resolve failed but keep the previous remote_addr; the
+                // connect attempt will fail and drive the normal reconnect path.
+                startConnectWithAddr();
+            }, &opt);
+        if (dns_id == INVALID_DNS_ID) {
+            // Could not start async resolve. If we already have a usable address
+            // (a previous resolve), fall back to a direct connect; otherwise
+            // (hostname first attempt, remote_addr unset) report a DNS failure
+            // rather than calling socket(0, ...) with an unset family.
+            if (remote_addr.sa.sa_family == 0) {
+                onDnsResolveFailed();
+                return 0;
             }
+            return startConnectWithAddr();
+        }
+        return 0;
+    }
+
+    // @internal: DNS resolution failed with no usable address.
+    // Ensure the user is always notified (even on the very first attempt, when
+    // no channel exists yet). onConnection users expect a valid (non-null)
+    // channel, so create a NULL-io channel: it reports isConnected()==false and
+    // all its methods guard against a null io, matching the connect-failure
+    // contract without fabricating a real socket.
+    void onDnsResolveFailed() {
+        if (channel == NULL) {
+            channel = std::make_shared<TSocketChannel>((hio_t*)NULL);
+        }
+        // record the reason so the user can distinguish it via channel->error()
+        // (there is no io_ to carry the error on the first-attempt path).
+        channel->setError(ERR_DNS_RESOLVE);
+        notifyDisconnectThenReconnect();
+    }
+
+    // @internal: notify a disconnect via onConnection, then reconnect if set.
+    // Snapshots the reconnect flag before the callback so a user that disables
+    // reconnect (setReconnect(NULL)) inside onConnection still won't reconnect.
+    // CONTRACT: when reconnect is enabled, the user must NOT destroy this client
+    // from within onConnection -- startReconnect() runs after the callback and
+    // is a member call, so destroying here would be a use-after-free. To tear
+    // down from onConnection, call setReconnect(NULL) first (or defer the
+    // destroy, e.g. via deleteInLoop()). This matches the long-standing evpp
+    // onclose behavior; shared by the onclose path and the DNS-failure path.
+    void notifyDisconnectThenReconnect() {
+        bool reconnect = reconn_setting != NULL;
+        if (onConnection) {
+            onConnection(channel);
+        }
+        if (reconnect) {
+            startReconnect();
+        }
+    }
+
+    int startConnectWithAddr() {
+        loop_->assertInLoopThread();
+        if (channel == NULL || channel->isClosed()) {
+            int connfd = createsocket(&remote_addr.sa);
             if (connfd < 0) {
                 hloge("createsocket %s:%d return %d!\n", remote_host.c_str(), remote_port, connfd);
                 return connfd;
@@ -167,13 +281,7 @@ public:
             }
         };
         channel->onclose = [this]() {
-            bool reconnect = reconn_setting != NULL;
-            if (onConnection) {
-                onConnection(channel);
-            }
-            if (reconnect) {
-                startReconnect();
-            }
+            notifyDisconnectThenReconnect();
         };
         return channel->startConnect();
     }
@@ -283,9 +391,18 @@ private:
         }
     }
 
+    // Cancel any in-flight async DNS query (loop thread only).
+    void cancelDnsQuery() {
+        if (dns_id != INVALID_DNS_ID) {
+            loop_->cancelDns(dns_id);
+            dns_id = INVALID_DNS_ID;
+        }
+    }
+
 private:
     EventLoopPtr    loop_;
     TimerID         reconn_timer_id;
+    DnsID           dns_id;
 };
 
 template<class TSocketChannel = SocketChannel>

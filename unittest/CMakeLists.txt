@@ -90,6 +90,15 @@ target_include_directories(sendmail PRIVATE .. ../base ../protocol ../util)
 add_executable(http_router_test http_router_test.cpp)
 target_include_directories(http_router_test PRIVATE ../http/server)
 
+# ------event: async dns------
+add_executable(hdns_test hdns_test.c)
+target_include_directories(hdns_test PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(hdns_test ${HV_LIBRARIES})
+
+add_executable(hdns_benchmark hdns_benchmark.c)
+target_include_directories(hdns_benchmark PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(hdns_benchmark ${HV_LIBRARIES})
+
 # ------redis------
 if(WITH_EVPP AND WITH_REDIS)
 add_executable(redis_protocol_test redis_protocol_test.cpp ../redis/RedisMessage.cpp)
@@ -106,6 +115,14 @@ foreach(redis_target ${REDIS_LINKED_UNITTEST_TARGETS})
 endforeach()
 
 list(APPEND REDIS_UNITTEST_TARGETS ${REDIS_LINKED_UNITTEST_TARGETS})
+endif()
+
+# ------evpp: async dns in connect path (connect/reconnect, lifetime, resolve-fail)------
+if(WITH_EVPP)
+add_executable(tcpclient_dns_test tcpclient_dns_test.cpp)
+target_include_directories(tcpclient_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
+target_link_libraries(tcpclient_dns_test ${HV_LIBRARIES})
+set(EVPP_DNS_UNITTEST_TARGETS tcpclient_dns_test)
 endif()
 
 if(UNIX)
@@ -138,5 +155,8 @@ add_custom_target(unittest DEPENDS
     ftp
     sendmail
     http_router_test
+    hdns_test
+    hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}
+    ${EVPP_DNS_UNITTEST_TARGETS}
 )

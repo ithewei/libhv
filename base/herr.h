@@ -76,6 +76,7 @@
     F(-1019,    SENDTO,     "sendto() error")   \
     F(-1020,    SETSOCKOPT, "setsockopt() error")   \
     F(-1021,    GETSOCKOPT, "getsockopt() error")   \
+    F(-1022,    DNS_RESOLVE,"DNS resolve failed")   \
 
 // grpc [4xxx]
 #define FOREACH_ERR_GRPC(F)     \
