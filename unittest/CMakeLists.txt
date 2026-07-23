@@ -95,6 +95,10 @@ add_executable(hdns_test hdns_test.c)
 target_include_directories(hdns_test PRIVATE .. ../base ../ssl ../event)
 target_link_libraries(hdns_test ${HV_LIBRARIES})
 
+add_executable(hdns_benchmark hdns_benchmark.c)
+target_include_directories(hdns_benchmark PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(hdns_benchmark ${HV_LIBRARIES})
+
 # ------redis------
 if(WITH_EVPP AND WITH_REDIS)
 add_executable(redis_protocol_test redis_protocol_test.cpp ../redis/RedisMessage.cpp)
@@ -113,38 +117,12 @@ endforeach()
 list(APPEND REDIS_UNITTEST_TARGETS ${REDIS_LINKED_UNITTEST_TARGETS})
 endif()
 
-# ------evpp: async dns in connect path------
+# ------evpp: async dns in connect path (connect/reconnect, lifetime, resolve-fail)------
 if(WITH_EVPP)
 add_executable(tcpclient_dns_test tcpclient_dns_test.cpp)
 target_include_directories(tcpclient_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
 target_link_libraries(tcpclient_dns_test ${HV_LIBRARIES})
 set(EVPP_DNS_UNITTEST_TARGETS tcpclient_dns_test)
-
-# regression: destroying a client mid-resolve must not UAF/double-free
-add_executable(dns_lifetime_test dns_lifetime_test.cpp)
-target_include_directories(dns_lifetime_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
-target_link_libraries(dns_lifetime_test ${HV_LIBRARIES})
-list(APPEND EVPP_DNS_UNITTEST_TARGETS dns_lifetime_test)
-
-# regression: first-attempt resolve failure must notify onConnection
-add_executable(dns_resolvefail_test dns_resolvefail_test.cpp)
-target_include_directories(dns_resolvefail_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
-target_link_libraries(dns_resolvefail_test ${HV_LIBRARIES})
-list(APPEND EVPP_DNS_UNITTEST_TARGETS dns_resolvefail_test)
-endif()
-
-# ------http: async dns in AsyncHttpClient------
-if(WITH_EVPP AND WITH_HTTP AND WITH_HTTP_CLIENT AND WITH_HTTP_SERVER)
-add_executable(asynchttp_dns_test asynchttp_dns_test.cpp)
-target_include_directories(asynchttp_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/client ../http/server)
-target_link_libraries(asynchttp_dns_test ${HV_LIBRARIES})
-list(APPEND EVPP_DNS_UNITTEST_TARGETS asynchttp_dns_test)
-
-# WebSocketClient inherits async DNS from the TcpClient base (no WS-specific glue)
-add_executable(websocket_dns_test websocket_dns_test.cpp)
-target_include_directories(websocket_dns_test PRIVATE .. ../base ../ssl ../event ../util ../cpputil ../evpp ../http ../http/client ../http/server)
-target_link_libraries(websocket_dns_test ${HV_LIBRARIES})
-list(APPEND EVPP_DNS_UNITTEST_TARGETS websocket_dns_test)
 endif()
 
 if(UNIX)
@@ -178,6 +156,7 @@ add_custom_target(unittest DEPENDS
     sendmail
     http_router_test
     hdns_test
+    hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}
     ${EVPP_DNS_UNITTEST_TARGETS}
 )

@@ -17,7 +17,7 @@ static void test_http_async_client(HttpClient* cli, int* resp_cnt) {
     printf("test_http_async_client request thread tid=%ld\n", hv_gettid());
     auto req = std::make_shared<HttpRequest>();
     req->method = HTTP_POST;
-    req->url = "http://127.0.0.1:8080/echo";
+    req->url = "http://localhost:8080/echo";
     req->headers["Connection"] = "keep-alive";
     req->body = "This is an async request.";
     req->timeout = 10;

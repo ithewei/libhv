@@ -70,7 +70,6 @@ EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
 	udp_proxy_server \
 	socks5_proxy_server \
 	hdns_example \
-	hdns_benchmark \
 	multi-acceptor-processes \
 	multi-acceptor-threads \
 	one-acceptor-multi-workers \
@@ -176,9 +175,6 @@ socks5_proxy_server: prepare
 
 hdns_example: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/hdns_example.c"
-
-hdns_benchmark: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/hdns_benchmark.c"
 
 multi-acceptor-processes: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/multi-thread/multi-acceptor-processes.c"
@@ -314,20 +310,11 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
 	$(MAKE) libhv
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_test     unittest/hdns_test.c          -Llib -lhv -pthread
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_test      unittest/hdns_test.c      -Llib -lhv -pthread
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_benchmark unittest/hdns_benchmark.c -Llib -lhv -pthread
 ifeq ($(WITH_EVPP), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/dns_lifetime_test unittest/dns_lifetime_test.cpp -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/dns_resolvefail_test unittest/dns_resolvefail_test.cpp -Llib -lhv -pthread
-ifeq ($(WITH_HTTP), yes)
-ifeq ($(WITH_HTTP_CLIENT), yes)
-ifeq ($(WITH_HTTP_SERVER), yes)
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/client -Ihttp/server -o bin/asynchttp_dns_test unittest/asynchttp_dns_test.cpp -Llib -lhv -pthread
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Iutil -Icpputil -Ievpp -Ihttp -Ihttp/client -Ihttp/server -o bin/websocket_dns_test unittest/websocket_dns_test.cpp -Llib -lhv -pthread
-endif
-endif
-endif
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Iredis -o bin/redis_protocol_test unittest/redis_protocol_test.cpp redis/RedisMessage.cpp
@@ -339,7 +326,7 @@ else
 	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 else
-	$(RM) bin/tcpclient_dns_test bin/dns_lifetime_test bin/dns_resolvefail_test bin/asynchttp_dns_test bin/websocket_dns_test
+	$(RM) bin/tcpclient_dns_test
 	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 

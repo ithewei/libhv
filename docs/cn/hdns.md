@@ -142,7 +142,7 @@ int main() {
 }
 ```
 
-完整示例见 `examples/hdns_example.c`，性能对比见 `examples/hdns_benchmark.c`。
+完整示例见 `examples/hdns_example.c`，性能对比见 `unittest/hdns_benchmark.c`。
 
 ## C++ 层:EventLoop::resolveDns
 
@@ -166,8 +166,8 @@ void  cancelDns(DnsID id);   // 线程安全;失效 id 自动 no-op
 - 目标是**数字 IP**（或 Unix Domain Socket）时，`createsocket` 走原有同步快速路径立即建 socket，行为不变；
 - 目标是**域名**时，`createsocket` 只记录 host/port 并**延迟解析**（不阻塞）；`startConnect()`（首次连接与每次重连都会调用）先用 `EventLoop::resolveDns` 异步解析，拿到地址后再在 `startConnectWithAddr()` 建 socket、connect。整个过程**不阻塞事件循环**。旧实现在 loop 线程里调用阻塞的 `getaddrinfo`，会卡住整个 loop。
 - 每次连接/重连都会重新解析，自动应对 DNS 变化；
-- 对象只持有 `DnsID`；析构或主动 `closesocket()` 时 `cancelDns` 即可，**无悬垂指针风险**（销毁客户端时查询仍在途也安全,由 `unittest/dns_lifetime_test` 覆盖）。
-- 解析失败(含首次连接就失败、此时还没有 channel)时,会用一个 NULL-io 的 channel(`isConnected()` 为 false、各方法对空 io 已做防护)走 `onConnection(断开)` 通知,**保证用户总能收到失败回调**(而不是静默丢失);若配置了重连,则继续按重连策略重试。由 `unittest/dns_resolvefail_test` 覆盖。
+- 对象只持有 `DnsID`；析构或主动 `closesocket()` 时 `cancelDns` 即可，**无悬垂指针风险**（销毁客户端时查询仍在途也安全,由 `unittest/tcpclient_dns_test` 覆盖）。
+- 解析失败(含首次连接就失败、此时还没有 channel)时,会用一个 NULL-io 的 channel(`isConnected()` 为 false、各方法对空 io 已做防护)走 `onConnection(断开)` 通知,**保证用户总能收到失败回调**(而不是静默丢失);若配置了重连,则继续按重连策略重试。由 `unittest/tcpclient_dns_test` 覆盖。
 - 用户可在 `onConnection` 里用 `channel->error()` 区分失败原因:DNS 解析失败返回 `ERR_DNS_RESOLVE`(见 `herr.h`),连接失败则返回底层 IO 错误(如 `ETIMEDOUT`、连接被拒等)。`Channel` 新增了 `setError()`/`error()`——`error()` 优先返回上层显式设置的错误码,否则回退到 `hio_error(io)`,且对空 io 安全。
 
 > 新增客户端零成本:只要继承 `TcpClientTmpl` 并用 `createsocket(port, host)` + `start()`，就自动拥有异步 DNS，不需要实现任何 `onDnsResolved` 之类的回调。
@@ -184,6 +184,6 @@ void  cancelDns(DnsID id);   // 线程安全;失效 id 自动 no-op
 
 ## 性能说明
 
-`examples/hdns_benchmark.c` 对比“顺序阻塞 `getaddrinfo`” 与 “单 loop 并发 `hdns`” 解析同一批域名：由于异步解析把所有查询一次性发出、由事件循环并发多路复用，总耗时约等于**一次最慢的解析**，而不是所有解析之和；更关键的是解析期间**事件循环始终不被阻塞**，其它 IO / 定时器可以继续运行。
+`unittest/hdns_benchmark.c` 对比“顺序阻塞 `getaddrinfo`” 与 “单 loop 并发 `hdns`” 解析同一批域名：由于异步解析把所有查询一次性发出、由事件循环并发多路复用，总耗时约等于**一次最慢的解析**，而不是所有解析之和；更关键的是解析期间**事件循环始终不被阻塞**，其它 IO / 定时器可以继续运行。
 
 > 注意：单次“命中缓存”的孤立解析，系统 `getaddrinfo`（下游有 `systemd-resolved` 等本地缓存）可能更快；`hdns` 通过尊重 TTL 的进程内缓存来弥补——命中缓存时是进程内查表（微秒级），且同样不阻塞 loop。
