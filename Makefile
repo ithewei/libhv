@@ -69,7 +69,7 @@ EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
 	udp_echo_server \
 	udp_proxy_server \
 	socks5_proxy_server \
-	hdns_example \
+	host \
 	multi-acceptor-processes \
 	multi-acceptor-threads \
 	one-acceptor-multi-workers \
@@ -173,8 +173,8 @@ udp_proxy_server: prepare
 socks5_proxy_server: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/socks5_proxy_server.c"
 
-hdns_example: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/hdns_example.c"
+host: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/host.c"
 
 multi-acceptor-processes: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/multi-thread/multi-acceptor-processes.c"

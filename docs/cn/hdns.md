@@ -142,7 +142,7 @@ int main() {
 }
 ```
 
-完整示例见 `examples/hdns_example.c`，性能对比见 `unittest/hdns_benchmark.c`。
+完整示例见 `examples/host.c`，性能对比见 `unittest/hdns_benchmark.c`。
 
 ## C++ 层:EventLoop::resolveDns
 
