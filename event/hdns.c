@@ -833,9 +833,11 @@ static void hdns__on_udp_read(hio_t* io, void* buf, int readbytes) {
 
             // Only accept a response coming from the nameserver we queried.
             // This drops off-path injected packets that happen to guess the
-            // txid but not the source address/port.
+            // txid but not the source address/port. Skip this match and keep
+            // scanning (don't abort the whole sweep) so a legitimate response
+            // for another query in the same datagram batch is still handled.
             if (src && sockaddr_compare((sockaddr_u*)src, &q->last_ns) != 0) {
-                return;
+                continue;
             }
 
             // parse this sub-query's answer
@@ -880,14 +882,15 @@ static void hdns__on_start(htimer_t* timer) {
 }
 
 static void hdns__defer_complete(hdns_t* q) {
-    // schedule completion on the next loop tick (1ms) so cb never runs
-    // re-entrantly inside hdns_resolve().
+    // Schedule completion on the next loop tick so cb never runs re-entrantly
+    // inside hdns_resolve() (see the "NEVER invoked re-entrantly" guarantee in
+    // hdns.h). htimer_add() with timeout_ms=1 does not return NULL, so this is
+    // always deferred; on the (unreachable) alloc-failure path we leave the
+    // query registered to be cleaned up at loop teardown rather than completing
+    // synchronously and breaking the invariant.
     q->defer_timer = htimer_add(q->loop, hdns__on_defer, 1, 1);
     if (q->defer_timer) {
         hevent_set_userdata(q->defer_timer, q);
-    } else {
-        // extremely unlikely; deliver synchronously as a last resort
-        hdns__complete(q);
     }
 }
 
@@ -992,12 +995,13 @@ hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
         q->sub[1].qtype = HDNS_TYPE_AAAA;
         q->sub[1].txid = (uint16_t)(base + 1);
     }
+    // Start the network query on the next loop tick so this function returns
+    // the handle before anything is sent (see the re-entrancy guarantee).
+    // htimer_add(timeout_ms=1) does not return NULL; on the unreachable
+    // alloc-failure path the query stays registered and is cleaned at teardown.
     q->defer_timer = htimer_add(loop, hdns__on_start, 1, 1);
     if (q->defer_timer) {
         hevent_set_userdata(q->defer_timer, q);
-    } else {
-        // extremely unlikely; start synchronously as a last resort
-        hdns__send_queries(q);
     }
     return q;
 }
