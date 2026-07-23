@@ -125,6 +125,12 @@ add_executable(dns_lifetime_test dns_lifetime_test.cpp)
 target_include_directories(dns_lifetime_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
 target_link_libraries(dns_lifetime_test ${HV_LIBRARIES})
 list(APPEND EVPP_DNS_UNITTEST_TARGETS dns_lifetime_test)
+
+# regression: first-attempt resolve failure must notify onConnection
+add_executable(dns_resolvefail_test dns_resolvefail_test.cpp)
+target_include_directories(dns_resolvefail_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
+target_link_libraries(dns_resolvefail_test ${HV_LIBRARIES})
+list(APPEND EVPP_DNS_UNITTEST_TARGETS dns_resolvefail_test)
 endif()
 
 # ------http: async dns in AsyncHttpClient------

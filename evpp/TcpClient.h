@@ -169,7 +169,7 @@ public:
                     // resolve failed and no previously-resolved address to fall
                     // back to. Report failure and drive reconnect (if enabled).
                     hloge("resolve %s failed, status=%d", remote_host.c_str(), status);
-                    onResolveFailed();
+                    onDnsResolveFailed();
                     return;
                 }
                 // else: resolve failed but keep the previous remote_addr; the
@@ -184,12 +184,29 @@ public:
     }
 
     // @internal: DNS resolution failed with no usable address.
-    void onResolveFailed() {
-        if (onConnection && channel) {
-            // channel is not connected; notify disconnect-style callback.
+    // Ensure the user is always notified (even on the very first attempt, when
+    // no channel exists yet). onConnection users expect a valid (non-null)
+    // channel, so create a NULL-io channel: it reports isConnected()==false and
+    // all its methods guard against a null io, matching the connect-failure
+    // contract without fabricating a real socket.
+    void onDnsResolveFailed() {
+        if (channel == NULL) {
+            channel = std::make_shared<TSocketChannel>((hio_t*)NULL);
+        }
+        notifyDisconnectThenReconnect();
+    }
+
+    // @internal: notify a disconnect via onConnection, then reconnect if set.
+    // NOTE: onConnection is a user callback that may delete this object, so we
+    // snapshot whether to reconnect into a local BEFORE the callback and touch
+    // no members afterwards (a user destroying the object must first call
+    // setReconnect(NULL)). Shared by the onclose path and DNS-failure path.
+    void notifyDisconnectThenReconnect() {
+        bool reconnect = reconn_setting != NULL;
+        if (onConnection) {
             onConnection(channel);
         }
-        if (reconn_setting) {
+        if (reconnect) {
             startReconnect();
         }
     }
@@ -246,13 +263,7 @@ public:
             }
         };
         channel->onclose = [this]() {
-            bool reconnect = reconn_setting != NULL;
-            if (onConnection) {
-                onConnection(channel);
-            }
-            if (reconnect) {
-                startReconnect();
-            }
+            notifyDisconnectThenReconnect();
         };
         return channel->startConnect();
     }

@@ -167,7 +167,7 @@ void  cancelDns(DnsID id);   // 线程安全;失效 id 自动 no-op
 - 目标是**域名**时，`createsocket` 只记录 host/port 并**延迟解析**（不阻塞）；`startConnect()`（首次连接与每次重连都会调用）先用 `EventLoop::resolveDns` 异步解析，拿到地址后再在 `startConnectWithAddr()` 建 socket、connect。整个过程**不阻塞事件循环**。旧实现在 loop 线程里调用阻塞的 `getaddrinfo`，会卡住整个 loop。
 - 每次连接/重连都会重新解析，自动应对 DNS 变化；
 - 对象只持有 `DnsID`；析构或主动 `closesocket()` 时 `cancelDns` 即可，**无悬垂指针风险**（销毁客户端时查询仍在途也安全,由 `unittest/dns_lifetime_test` 覆盖）。
-- 若解析失败且无可用历史地址，会走正常的失败/重连回调。
+- 解析失败(含首次连接就失败、此时还没有 channel)时,会用一个 NULL-io 的 channel(`isConnected()` 为 false、各方法对空 io 已做防护)走 `onConnection(断开)` 通知,**保证用户总能收到失败回调**(而不是静默丢失);若配置了重连,则继续按重连策略重试。由 `unittest/dns_resolvefail_test` 覆盖。
 
 > 新增客户端零成本:只要继承 `TcpClientTmpl` 并用 `createsocket(port, host)` + `start()`，就自动拥有异步 DNS，不需要实现任何 `onDnsResolved` 之类的回调。
 

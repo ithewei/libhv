@@ -41,6 +41,9 @@ fi
 if [ -x bin/dns_lifetime_test ]; then
     bin/dns_lifetime_test
 fi
+if [ -x bin/dns_resolvefail_test ]; then
+    bin/dns_resolvefail_test
+fi
 if [ -x bin/asynchttp_dns_test ]; then
     bin/asynchttp_dns_test
 fi
