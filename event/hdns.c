@@ -460,9 +460,11 @@ typedef struct hdns_cache_entry_s {
 // layout and a built-in id slot.
 struct hdns_s {
     HEVENT_FIELDS   // loop, event_type, event_id, cb, userdata, priority, flags...
+    // extra 1-bit flags packed right after HEVENT_FLAGS (destroy/active/pending)
+    // to share the same storage unit and save space.
+    unsigned        detached   : 1; // cancelled: run to completion, drop result
+    unsigned        delivering : 1; // inside hdns__deliver's callback (cancel guard)
     struct hdns_resolver_s* resolver;
-    int             detached;       // 1 = cancelled: run to completion, drop result
-    int             delivering;     // 1 = inside hdns__deliver's callback (cancel guard)
     char            host[HDNS_NAME_MAXLEN];
     hdns_setting_t  opt;
     hdns_cb         dns_cb;         // user callback (hevent_t::cb has a different type)
