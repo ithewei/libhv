@@ -145,7 +145,10 @@ public:
         // Numeric-IP targets skip resolution and connect directly.
         // NOTE: any TcpClientTmpl subclass (WebSocketClient, ...) gets this for
         // free; no per-client DNS glue is needed.
-        if (!remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
+        // NOTE: Unix Domain Socket targets (remote_port < 0) carry a filesystem
+        // path in remote_host, not a hostname; remote_addr is already set by
+        // createsocket(), so never run DNS on them.
+        if (remote_port >= 0 && !remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
             return startResolveThenConnect();
         }
         return startConnectWithAddr();
