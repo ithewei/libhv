@@ -19,7 +19,10 @@
  *   - Loads /etc/hosts and answers from it before querying the network.
  *   - Numeric-IP fast path (no query for literal IPv4/IPv6).
  *   - Per-query timeout, retry and multi-nameserver rotation.
- *   - DNS name compression parsing and CNAME chain following.
+ *   - DNS name compression parsing. Collects the A/AAAA address records from
+ *     the answer section; CNAMEs are not chased client-side, relying on the
+ *     recursive nameserver to include the final A/AAAA records (as recursive
+ *     resolvers do). Non-recursive / CNAME-only responses are not followed.
  *   - TTL-respecting per-loop cache (positive + negative).
  *   - Cancelable query handle.
  *

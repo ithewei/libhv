@@ -1,12 +1,12 @@
 /*
- * hdns_example — asynchronous DNS resolve demo.
+ * host — asynchronous DNS resolve tool (like the system `host` command).
  *
- * Usage: hdns_example [domain] [domain2 ...]
- *   e.g. hdns_example www.example.com github.com localhost 1.1.1.1
+ * Usage: host [domain] [domain2 ...]
+ *   e.g. host www.example.com github.com localhost 1.1.1.1
  *
  * Resolves each domain asynchronously through the event loop (no blocking
- * getaddrinfo) and prints the resulting addresses. Quits when all queries
- * have completed.
+ * getaddrinfo) via hdns_resolve() and prints the resulting addresses. Quits
+ * when all queries have completed.
  */
 
 #include "hloop.h"
