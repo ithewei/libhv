@@ -879,6 +879,38 @@ static void hdns__defer_complete(hdns_t* q) {
     }
 }
 
+// Is @txid currently used by any in-flight (not-yet-done) sub-query?
+static int hdns__txid_in_use(hdns_resolver_t* r, uint16_t txid) {
+    struct list_node* node;
+    list_for_each(node, &r->queries) {
+        hdns_t* q = list_entry(node, hdns_t, node);
+        for (int i = 0; i < 2; ++i) {
+            if (q->sub[i].qtype && !q->sub[i].done && q->sub[i].txid == txid) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+// Allocate a (base, base+1) txid pair not currently in flight. Starts from a
+// per-resolver monotonic counter and probes forward on collision. Bounded to
+// avoid an infinite loop in the pathological case of >32K live sub-queries.
+static uint16_t hdns__alloc_txid_pair(hdns_resolver_t* r) {
+    for (int tries = 0; tries < 0x8000; ++tries) {
+        uint16_t base = r->next_txid;
+        r->next_txid += 2;
+        if (!hdns__txid_in_use(r, base) &&
+            !hdns__txid_in_use(r, (uint16_t)(base + 1))) {
+            return base;
+        }
+    }
+    // extremely unlikely fallback: return the current counter as-is.
+    uint16_t base = r->next_txid;
+    r->next_txid += 2;
+    return base;
+}
+
 hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
                         const hdns_setting_t* opt,
                         hdns_cb cb, void* userdata) {
@@ -965,10 +997,10 @@ hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
 
     // 3) network query: assign sub-queries + txids, and start on the next loop
     //    tick so this function returns the handle before any send/callback.
-    //    Use a per-resolver monotonic counter (not random) so concurrent
-    //    queries never share a txid and responses demux unambiguously.
-    uint16_t base = r->next_txid;
-    r->next_txid += 2; // A uses base, AAAA uses base+1
+    //    Allocate a (base, base+1) txid pair that is NOT currently used by any
+    //    in-flight sub-query, so 16-bit wrap can never mis-deliver a response to
+    //    a live query. The in-flight set is tiny, so a bounded probe is cheap.
+    uint16_t base = hdns__alloc_txid_pair(r);
     if (q->opt.family & HDNS_QUERY_A) {
         q->sub[0].qtype = HDNS_TYPE_A;
         q->sub[0].txid = base;

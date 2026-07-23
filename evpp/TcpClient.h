@@ -208,10 +208,14 @@ public:
     }
 
     // @internal: notify a disconnect via onConnection, then reconnect if set.
-    // NOTE: onConnection is a user callback that may delete this object, so we
-    // snapshot whether to reconnect into a local BEFORE the callback and touch
-    // no members afterwards (a user destroying the object must first call
-    // setReconnect(NULL)). Shared by the onclose path and DNS-failure path.
+    // Snapshots the reconnect flag before the callback so a user that disables
+    // reconnect (setReconnect(NULL)) inside onConnection still won't reconnect.
+    // CONTRACT: when reconnect is enabled, the user must NOT destroy this client
+    // from within onConnection -- startReconnect() runs after the callback and
+    // is a member call, so destroying here would be a use-after-free. To tear
+    // down from onConnection, call setReconnect(NULL) first (or defer the
+    // destroy, e.g. via deleteInLoop()). This matches the long-standing evpp
+    // onclose behavior; shared by the onclose path and the DNS-failure path.
     void notifyDisconnectThenReconnect() {
         bool reconnect = reconn_setting != NULL;
         if (onConnection) {
