@@ -110,6 +110,12 @@ HV_INLINE bool is_ipaddr(const char* host) {
     return is_ipv4(host) || is_ipv6(host);
 }
 
+HV_EXPORT bool is_multicast_ipv4(const char* host);
+HV_EXPORT bool is_multicast_ipv6(const char* host);
+HV_INLINE bool is_multicast_ip(const char* host) {
+    return is_multicast_ipv4(host) || is_multicast_ipv6(host);
+}
+
 // @param host: domain or ip
 // @retval 0:succeed
 HV_EXPORT int ResolveAddr(const char* host, sockaddr_u* addr);
@@ -282,6 +288,58 @@ HV_INLINE int so_linger(int sockfd, int timeout DEFAULT(1)) {
     return 0;
 #endif
 }
+
+HV_INLINE int udp_multicast_loop(int sockfd, int value DEFAULT(1))
+{
+    return setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, (const char*)&value, sizeof(int));
+}
+HV_INLINE int udp_multicast_loop6(int sockfd, int value DEFAULT(1))
+{
+    return setsockopt(sockfd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, (const char*)&value, sizeof(int));
+}
+
+HV_INLINE int udp_multicast_ttl(int sockfd, int value)
+{
+    return setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_TTL, (const char*)&value, sizeof(int));
+}
+HV_INLINE int udp_multicast_ttl6(int sockfd, int value)
+{
+    return setsockopt(sockfd, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (const char*)&value, sizeof(int));
+}
+
+HV_INLINE int udp_joingroup(int sockfd, const char* group_ip, const char* intf_ip DEFAULT(ANYADDR))
+{
+    struct ip_mreq mreq;
+    inet_pton(AF_INET, group_ip, &mreq.imr_multiaddr);
+    inet_pton(AF_INET, intf_ip,  &mreq.imr_interface);
+    return setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+}
+
+HV_INLINE int udp_leavegroup(int sockfd, const char* group_ip, const char* intf_ip DEFAULT(ANYADDR))
+{
+    struct ip_mreq mreq;
+    inet_pton(AF_INET, group_ip, &mreq.imr_multiaddr);
+    inet_pton(AF_INET, intf_ip,  &mreq.imr_interface);
+    return setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+}
+
+// intf_idx 填写字符串整数 为了和ipv4保持一致
+HV_INLINE int udp_joingroup6(int sockfd, const char* group_ip, const char* intf_idx DEFAULT("0"))
+{
+    struct ipv6_mreq mreq;
+    inet_pton(AF_INET6, group_ip, &mreq.ipv6mr_multiaddr);
+    mreq.ipv6mr_interface = atoi(intf_idx);
+    return setsockopt(sockfd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+}
+
+HV_INLINE int udp_leavegroup6(int sockfd, const char* group_ip, const char* intf_idx DEFAULT("0"))
+{
+    struct ipv6_mreq mreq;
+    inet_pton(AF_INET6, group_ip, &mreq.ipv6mr_multiaddr);
+    mreq.ipv6mr_interface = atoi(intf_idx);
+    return setsockopt(sockfd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+}
+
 
 END_EXTERN_C
 
