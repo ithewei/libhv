@@ -462,6 +462,7 @@ struct hdns_s {
     HEVENT_FIELDS   // loop, event_type, event_id, cb, userdata, priority, flags...
     struct hdns_resolver_s* resolver;
     int             detached;       // 1 = cancelled: run to completion, drop result
+    int             delivering;     // 1 = inside hdns__deliver's callback (cancel guard)
     char            host[HDNS_NAME_MAXLEN];
     hdns_setting_t  opt;
     hdns_cb         dns_cb;         // user callback (hevent_t::cb has a different type)
@@ -666,12 +667,15 @@ static void hdns__deliver(hdns_t* q, int status) {
 
     // Detach from the resolver and stop timers, then invoke the callback while
     // the handle is still alive (the cb receives it, e.g. to read hevent_id),
-    // and finally free it. The query is already removed from the in-flight list
-    // so a re-entrant hdns_cancel(q) from the callback cannot double-free.
+    // and finally free it.
+    // NOTE: the public API forbids calling hdns_cancel(q) from within q's own
+    // callback. hdns_cancel() has a re-entrancy guard (see below) so such misuse
+    // fails safe rather than double-freeing, but callers must not rely on it.
     if (q->node.next) { list_del(&q->node); q->node.next = q->node.prev = NULL; }
     if (q->timer) { htimer_del(q->timer); q->timer = NULL; }
     if (q->defer_timer) { htimer_del(q->defer_timer); q->defer_timer = NULL; }
 
+    q->delivering = 1;
     if (cb) cb(q, &result, ud);
 
     HV_FREE(q);
@@ -988,6 +992,11 @@ hdns_t* hdns_resolve(hloop_t* loop, const char* host,
 
 void hdns_cancel(hdns_t* q) {
     if (!q) return;
+    // Fail-safe against the forbidden re-entrant case: if q is currently being
+    // delivered (cancel called from within its own callback), hdns__deliver
+    // will free it right after the callback returns, so do nothing here to
+    // avoid a double-free.
+    if (q->delivering) return;
     if (q->node.next) list_del(&q->node);
     if (q->timer) { htimer_del(q->timer); q->timer = NULL; }
     if (q->defer_timer) { htimer_del(q->defer_timer); q->defer_timer = NULL; }

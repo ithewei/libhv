@@ -60,8 +60,8 @@ public:
     //             deferred until the address is resolved asynchronously in
     //             startConnect() (avoids blocking the event loop on getaddrinfo).
     //             This is NOT an error; the real fd is available later via
-    //             channel->fd(). This matches the >0/=0/<0 convention used by
-    //             other evpp clients (see examples/protorpc).
+    //             channel->fd(). Callers should treat >=0 as success and only
+    //             <0 as failure.
     // @retval <0  error.
     //
     // Rationale for the =0 case: a socket's address family (AF_INET vs AF_INET6)
@@ -178,7 +178,14 @@ public:
                 startConnectWithAddr();
             }, &opt);
         if (dns_id == INVALID_DNS_ID) {
-            // could not start async resolve; fall back to synchronous path
+            // Could not start async resolve. If we already have a usable address
+            // (a previous resolve), fall back to a direct connect; otherwise
+            // (hostname first attempt, remote_addr unset) report a DNS failure
+            // rather than calling socket(0, ...) with an unset family.
+            if (remote_addr.sa.sa_family == 0) {
+                onDnsResolveFailed();
+                return 0;
+            }
             return startConnectWithAddr();
         }
         return 0;

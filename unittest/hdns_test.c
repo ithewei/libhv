@@ -164,7 +164,7 @@ static void stop_after(htimer_t* timer) {
 }
 
 int main() {
-    hloop_t* loop = hloop_new(HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS == 0 ? 0 : 0);
+    hloop_t* loop = hloop_new(0);
 
     hio_t* mock = start_mock_nameserver(loop);
     char ns[32];

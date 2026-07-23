@@ -23,7 +23,7 @@
  *   - TTL-respecting per-loop cache (positive + negative).
  *   - Cancelable query handle.
  *
- * @see examples/hdns_example.c
+ * @see examples/host.c
  */
 
 #include "hexport.h"
