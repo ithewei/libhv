@@ -4,6 +4,7 @@
 #include "hsocket.h"
 #include "hssl.h"
 #include "hlog.h"
+#include "herr.h"
 #include "hdns.h"
 
 #include "EventLoopThread.h"
@@ -193,6 +194,9 @@ public:
         if (channel == NULL) {
             channel = std::make_shared<TSocketChannel>((hio_t*)NULL);
         }
+        // record the reason so the user can distinguish it via channel->error()
+        // (there is no io_ to carry the error on the first-attempt path).
+        channel->setError(ERR_DNS_RESOLVE);
         notifyDisconnectThenReconnect();
     }
 

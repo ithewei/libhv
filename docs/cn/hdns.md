@@ -168,6 +168,7 @@ void  cancelDns(DnsID id);   // 线程安全;失效 id 自动 no-op
 - 每次连接/重连都会重新解析，自动应对 DNS 变化；
 - 对象只持有 `DnsID`；析构或主动 `closesocket()` 时 `cancelDns` 即可，**无悬垂指针风险**（销毁客户端时查询仍在途也安全,由 `unittest/dns_lifetime_test` 覆盖）。
 - 解析失败(含首次连接就失败、此时还没有 channel)时,会用一个 NULL-io 的 channel(`isConnected()` 为 false、各方法对空 io 已做防护)走 `onConnection(断开)` 通知,**保证用户总能收到失败回调**(而不是静默丢失);若配置了重连,则继续按重连策略重试。由 `unittest/dns_resolvefail_test` 覆盖。
+- 用户可在 `onConnection` 里用 `channel->error()` 区分失败原因:DNS 解析失败返回 `ERR_DNS_RESOLVE`(见 `herr.h`),连接失败则返回底层 IO 错误(如 `ETIMEDOUT`、连接被拒等)。`Channel` 新增了 `setError()`/`error()`——`error()` 优先返回上层显式设置的错误码,否则回退到 `hio_error(io)`,且对空 io 安全。
 
 > 新增客户端零成本:只要继承 `TcpClientTmpl` 并用 `createsocket(port, host)` + `start()`，就自动拥有异步 DNS，不需要实现任何 `onDnsResolved` 之类的回调。
 

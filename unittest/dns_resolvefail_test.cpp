@@ -9,6 +9,7 @@
 #include <cstdio>
 
 #include "TcpClient.h"
+#include "herr.h"
 #include "htime.h"
 
 using namespace hv;
@@ -16,6 +17,7 @@ using namespace hv;
 int main() {
     std::atomic<bool> got_disconnected_cb{false};
     std::atomic<bool> saw_connected{false};
+    std::atomic<int> reported_error{0};
 
     auto cli = std::make_shared<TcpClient>();
     // hostname that cannot resolve (RFC 6761 .invalid), NO reconnect configured.
@@ -28,6 +30,7 @@ int main() {
         } else {
             // exercise the channel API to ensure a NULL-io channel is safe
             (void)channel->peeraddr();
+            reported_error = channel->error();  // should be ERR_DNS_RESOLVE
             got_disconnected_cb = true;
         }
     };
@@ -42,11 +45,13 @@ int main() {
     cli->stop();
     hv_msleep(100);
 
-    if (got_disconnected_cb && !saw_connected) {
-        printf("\nPASS: first-attempt resolve failure notifies onConnection(disconnected)\n");
+    if (got_disconnected_cb && !saw_connected && reported_error == ERR_DNS_RESOLVE) {
+        printf("\nPASS: first-attempt resolve failure notifies onConnection "
+               "(error=%d %s)\n", reported_error.load(), hv_strerror(reported_error));
         return 0;
     }
-    printf("\nFAIL: got_disconnected_cb=%d saw_connected=%d\n",
-           (int)got_disconnected_cb, (int)saw_connected);
+    printf("\nFAIL: got_disconnected_cb=%d saw_connected=%d error=%d (want %d)\n",
+           (int)got_disconnected_cb, (int)saw_connected,
+           reported_error.load(), ERR_DNS_RESOLVE);
     return 1;
 }
