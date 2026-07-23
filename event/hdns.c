@@ -463,7 +463,7 @@ struct hdns_s {
     struct hdns_resolver_s* resolver;
     int             detached;       // 1 = cancelled: run to completion, drop result
     char            host[HDNS_NAME_MAXLEN];
-    hdns_options_t  opt;
+    hdns_setting_t  opt;
     hdns_cb         dns_cb;         // user callback (hevent_t::cb has a different type)
 
     // sub-queries: index 0 = A, index 1 = AAAA (per opt.family)
@@ -874,7 +874,7 @@ static void hdns__defer_complete(hdns_t* q) {
 }
 
 hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
-                        const hdns_options_t* opt,
+                        const hdns_setting_t* opt,
                         hdns_cb cb, void* userdata) {
     if (!loop || !host || !cb) return NULL;
     size_t hlen = strlen(host);

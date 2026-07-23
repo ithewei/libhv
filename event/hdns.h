@@ -55,7 +55,7 @@ typedef enum {
     HDNS_QUERY_BOTH = 0x03,     // A + AAAA (default)
 } hdns_family_e;
 
-typedef struct hdns_options_s {
+typedef struct hdns_setting_s {
     hdns_family_e   family;     // default HDNS_QUERY_BOTH
     int             timeout_ms; // per-attempt timeout, default HDNS_DEFAULT_TIMEOUT_MS
     int             retries;    // default HDNS_DEFAULT_RETRIES
@@ -63,7 +63,7 @@ typedef struct hdns_options_s {
     const char*     nameserver; // optional override "ip" or "ip:port", NULL = auto
 
 #ifdef __cplusplus
-    hdns_options_s() {
+    hdns_setting_s() {
         family = HDNS_QUERY_BOTH;
         timeout_ms = HDNS_DEFAULT_TIMEOUT_MS;
         retries = HDNS_DEFAULT_RETRIES;
@@ -71,7 +71,7 @@ typedef struct hdns_options_s {
         nameserver = NULL;
     }
 #endif
-} hdns_options_t;
+} hdns_setting_t;
 
 typedef struct hdns_result_s {
     int         status;                     // 0:ok  <0:herr code
@@ -117,7 +117,7 @@ HV_EXPORT hdns_t* hdns_resolve(hloop_t* loop, const char* host,
                                hdns_cb cb, void* userdata);
 
 HV_EXPORT hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
-                                  const hdns_options_t* opt,
+                                  const hdns_setting_t* opt,
                                   hdns_cb cb, void* userdata);
 
 /*

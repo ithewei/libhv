@@ -156,7 +156,7 @@ public:
     // manages the underlying hdns_t lifetime, so this class only holds an id.
     int startResolveThenConnect() {
         cancelDnsQuery();
-        hdns_options_t opt;
+        hdns_setting_t opt;
         opt.family = HDNS_QUERY_BOTH;
         if (connect_timeout > 0) opt.timeout_ms = connect_timeout;
         dns_id = loop_->resolveDns(remote_host.c_str(),

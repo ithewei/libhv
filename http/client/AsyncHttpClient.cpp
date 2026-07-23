@@ -51,7 +51,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         return doTaskWithAddr(task, &peeraddr);
     }
 
-    hdns_options_t opt;
+    hdns_setting_t opt;
     if (req->connect_timeout > 0) opt.timeout_ms = req->connect_timeout * 1000;
     int port = req->port;
     DnsID id = EventLoopThread::loop()->resolveDns(host,

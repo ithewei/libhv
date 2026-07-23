@@ -159,7 +159,7 @@ public:
     // DnsID -> DnsQuery map, and a stale id (completed/cancelled) makes
     // cancelDns() a safe no-op. @cb runs in the loop thread.
     // NOTE: must be called from the loop thread.
-    DnsID resolveDns(const char* host, DnsCallback cb, const hdns_options_t* opt = NULL) {
+    DnsID resolveDns(const char* host, DnsCallback cb, const hdns_setting_t* opt = NULL) {
         if (loop_ == NULL) return INVALID_DNS_ID;
         assertInLoopThread();
         DnsID dnsID = generateDnsID();

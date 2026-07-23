@@ -82,7 +82,7 @@ int main(int argc, char** argv) {
     unsigned long long a0 = gethrtime_us();
     for (int i = 0; i < nhosts; ++i) {
         // disable cache so the comparison is apples-to-apples (real queries)
-        hdns_options_t opt;
+        hdns_setting_t opt;
         memset(&opt, 0, sizeof(opt));
         opt.family = HDNS_QUERY_A;
         opt.timeout_ms = 5000;

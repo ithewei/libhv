@@ -3,7 +3,7 @@
  *
  * Tests run deterministically without requiring external network access by
  * spinning up a local mock DNS nameserver (a UDP socket answering with canned
- * A records) and pointing the resolver at it via hdns_options_t.nameserver.
+ * A records) and pointing the resolver at it via hdns_setting_t.nameserver.
  *
  * Covered:
  *   1. numeric IPv4 / IPv6 fast path
@@ -139,7 +139,7 @@ static void on_expect(hdns_t* query, const hdns_result_t* result, void* userdata
     hloop_stop(e->loop);
 }
 
-static void run_expect(hloop_t* loop, const char* host, const hdns_options_t* opt,
+static void run_expect(hloop_t* loop, const char* host, const hdns_setting_t* opt,
                        int want_status, int want_min_addrs) {
     expect_t e;
     memset(&e, 0, sizeof(e));
@@ -171,7 +171,7 @@ int main() {
     snprintf(ns, sizeof(ns), "127.0.0.1:%d", g_mock_port);
     printf("mock nameserver on %s\n", ns);
 
-    hdns_options_t opt;
+    hdns_setting_t opt;
     memset(&opt, 0, sizeof(opt));
     opt.family = HDNS_QUERY_A;   // only A (mock answers A)
     opt.timeout_ms = 2000;
@@ -184,7 +184,7 @@ int main() {
 
     // 2) numeric IPv6 fast path
     {
-        hdns_options_t o6 = opt;
+        hdns_setting_t o6 = opt;
         o6.family = HDNS_QUERY_BOTH;
         run_expect(loop, "::1", &o6, HDNS_STATUS_OK, 1);
     }
@@ -192,7 +192,7 @@ int main() {
     // 3) /etc/hosts: localhost should resolve without touching the mock
     {
         int before = g_mock_queries;
-        hdns_options_t oh = opt;
+        hdns_setting_t oh = opt;
         oh.family = HDNS_QUERY_BOTH;
         run_expect(loop, "localhost", &oh, HDNS_STATUS_OK, 1);
         assert(g_mock_queries == before); // hosts hit, no query sent
@@ -214,7 +214,7 @@ int main() {
 
     // 6) NXDOMAIN
     {
-        hdns_options_t onx = opt;
+        hdns_setting_t onx = opt;
         onx.use_cache = 0;
         run_expect(loop, "nx.test", &onx, HDNS_STATUS_NXDOMAIN, 0);
     }
@@ -222,7 +222,7 @@ int main() {
     // 7) cancel before completion: callback must not fire
     {
         g_cancel_cb_called = 0;
-        hdns_options_t oc = opt;
+        hdns_setting_t oc = opt;
         oc.use_cache = 0;
         // use a host the mock does not answer quickly? It answers immediately,
         // so cancel synchronously right after issuing, before the deferred send.
