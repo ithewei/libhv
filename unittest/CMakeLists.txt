@@ -119,6 +119,12 @@ add_executable(tcpclient_dns_test tcpclient_dns_test.cpp)
 target_include_directories(tcpclient_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
 target_link_libraries(tcpclient_dns_test ${HV_LIBRARIES})
 set(EVPP_DNS_UNITTEST_TARGETS tcpclient_dns_test)
+
+# regression: destroying a client mid-resolve must not UAF/double-free
+add_executable(dns_lifetime_test dns_lifetime_test.cpp)
+target_include_directories(dns_lifetime_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
+target_link_libraries(dns_lifetime_test ${HV_LIBRARIES})
+list(APPEND EVPP_DNS_UNITTEST_TARGETS dns_lifetime_test)
 endif()
 
 # ------http: async dns in AsyncHttpClient------

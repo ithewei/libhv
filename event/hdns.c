@@ -452,13 +452,19 @@ typedef struct hdns_cache_entry_s {
 } hdns_cache_entry_t;
 
 // One logical resolve.
-struct hdns_query_s {
-    hloop_t*        loop;
+// NOTE: hdns_s is a subclass of hevent_t (like htimer_s / hio_s): it starts
+// with HEVENT_FIELDS so it inherits `loop`, `event_id`, `userdata`, `priority`
+// and the destroy/active/pending flags, and can use hevent_set_id/hevent_id.
+// It is NOT scheduled by the loop as an event, though; it is driven by the
+// resolver's UDP io + timers. HEVENT_FIELDS is reused only for a uniform
+// layout and a built-in id slot.
+struct hdns_s {
+    HEVENT_FIELDS   // loop, event_type, event_id, cb, userdata, priority, flags...
     struct hdns_resolver_s* resolver;
+    int             detached;       // 1 = cancelled: run to completion, drop result
     char            host[HDNS_NAME_MAXLEN];
     hdns_options_t  opt;
-    hdns_cb         cb;
-    void*           userdata;
+    hdns_cb         dns_cb;         // user callback (hevent_t::cb has a different type)
 
     // sub-queries: index 0 = A, index 1 = AAAA (per opt.family)
     struct {
@@ -486,10 +492,10 @@ typedef struct hdns_resolver_s {
     hloop_t*        loop;
     hio_t*          io4;            // UDP socket for IPv4 nameservers (lazy)
     hio_t*          io6;            // UDP socket for IPv6 nameservers (lazy)
-    struct list_head queries;       // in-flight hdns_query_t
+    struct list_head queries;       // in-flight hdns_t
     struct list_head cache;         // hdns_cache_entry_t (LRU-ish by insertion)
     int             ncache;
-    uint16_t        next_txid;      // monotonic base for sub-query txids
+    uint16_t        next_txid;      // monotonic base for sub-query txids (wire)
     uint8_t         sndbuf[HDNS_UDP_BUFSIZE];
 } hdns_resolver_t;
 
@@ -497,8 +503,8 @@ typedef struct hdns_resolver_s {
 static void hdns__on_udp_read(hio_t* io, void* buf, int readbytes);
 static void hdns__on_timeout(htimer_t* timer);
 static void hdns__on_defer(htimer_t* timer);
-static void hdns__send_queries(hdns_query_t* q);
-static void hdns__finish(hdns_query_t* q, int status);
+static void hdns__send_queries(hdns_t* q);
+static void hdns__finish(hdns_t* q, int status);
 
 // Lazily create the UDP send/recv socket matching the nameserver's family.
 // A socket's family must match sendto()'s destination, so IPv4 and IPv6
@@ -547,7 +553,7 @@ void hdns_resolver_free(hloop_t* loop) {
     // cancel outstanding queries (no callbacks on teardown)
     struct list_node *node, *tmp;
     list_for_each_safe(node, tmp, &r->queries) {
-        hdns_query_t* q = list_entry(node, hdns_query_t, node);
+        hdns_t* q = list_entry(node, hdns_t, node);
         list_del(&q->node);
         if (q->timer) htimer_del(q->timer);
         if (q->defer_timer) htimer_del(q->defer_timer);
@@ -642,29 +648,37 @@ void hdns_clear_cache(hloop_t* loop) {
 //==============================================================================
 
 // Fill an hdns_result_t and invoke the user callback, then free the query.
-static void hdns__deliver(hdns_query_t* q, int status) {
-    hdns_result_t result;
-    memset(&result, 0, sizeof(result));
-    result.status = status;
-    strncpy(result.host, q->host, sizeof(result.host) - 1);
-    if (status == HDNS_STATUS_OK) {
-        result.naddrs = q->naddrs > HDNS_MAX_ADDRS ? HDNS_MAX_ADDRS : q->naddrs;
-        memcpy(result.addrs, q->addrs, result.naddrs * sizeof(sockaddr_u));
-    }
-    hdns_cb cb = q->cb;
+// A cancelled (detached) query is freed silently without invoking any callback.
+static void hdns__deliver(hdns_t* q, int status) {
+    hdns_cb cb = q->detached ? NULL : q->dns_cb;
     void* ud = q->userdata;
 
-    // detach + free before callback so cb may safely destroy related objects
-    if (q->node.next) list_del(&q->node);
+    hdns_result_t result;
+    if (cb) {
+        memset(&result, 0, sizeof(result));
+        result.status = status;
+        strncpy(result.host, q->host, sizeof(result.host) - 1);
+        if (status == HDNS_STATUS_OK) {
+            result.naddrs = q->naddrs > HDNS_MAX_ADDRS ? HDNS_MAX_ADDRS : q->naddrs;
+            memcpy(result.addrs, q->addrs, result.naddrs * sizeof(sockaddr_u));
+        }
+    }
+
+    // Detach from the resolver and stop timers, then invoke the callback while
+    // the handle is still alive (the cb receives it, e.g. to read hevent_id),
+    // and finally free it. The query is already removed from the in-flight list
+    // so a re-entrant hdns_cancel(q) from the callback cannot double-free.
+    if (q->node.next) { list_del(&q->node); q->node.next = q->node.prev = NULL; }
     if (q->timer) { htimer_del(q->timer); q->timer = NULL; }
     if (q->defer_timer) { htimer_del(q->defer_timer); q->defer_timer = NULL; }
-    HV_FREE(q);
 
-    if (cb) cb(&result, ud);
+    if (cb) cb(q, &result, ud);
+
+    HV_FREE(q);
 }
 
 // Sort accumulated addresses: IPv4 first (stable), matching getaddrinfo-ish order.
-static void hdns__sort_v4_first(hdns_query_t* q) {
+static void hdns__sort_v4_first(hdns_t* q) {
     sockaddr_u tmp[HDNS_MAX_ADDRS];
     int n = 0;
     for (int i = 0; i < q->naddrs; ++i) {
@@ -678,7 +692,7 @@ static void hdns__sort_v4_first(hdns_query_t* q) {
 }
 
 // Called when all requested sub-queries have settled.
-static void hdns__complete(hdns_query_t* q) {
+static void hdns__complete(hdns_t* q) {
     hdns_resolver_t* r = q->resolver;
     int status;
     if (q->naddrs > 0) {
@@ -698,7 +712,7 @@ static void hdns__complete(hdns_query_t* q) {
     hdns__deliver(q, status);
 }
 
-static int hdns__all_done(hdns_query_t* q) {
+static int hdns__all_done(hdns_t* q) {
     for (int i = 0; i < 2; ++i) {
         if (q->sub[i].qtype && !q->sub[i].done) return 0;
     }
@@ -706,7 +720,7 @@ static int hdns__all_done(hdns_query_t* q) {
 }
 
 // Send (or resend) all not-yet-done sub-queries to the current nameserver.
-static void hdns__send_queries(hdns_query_t* q) {
+static void hdns__send_queries(hdns_t* q) {
     hdns_resolver_t* r = q->resolver;
     hdns__config_lock_init();
     hmutex_lock(&s_config_mutex);
@@ -763,7 +777,7 @@ static void hdns__send_queries(hdns_query_t* q) {
 
 // Per-attempt timeout: retry (rotate nameserver) or give up.
 static void hdns__on_timeout(htimer_t* timer) {
-    hdns_query_t* q = (hdns_query_t*)hevent_userdata(timer);
+    hdns_t* q = (hdns_t*)hevent_userdata(timer);
     if (!q) return;
     q->timer = NULL; // this single-shot timer auto-deletes after firing
 
@@ -785,7 +799,7 @@ static void hdns__on_timeout(htimer_t* timer) {
 }
 
 // Terminal helper for setup errors (async-safe: schedules delivery).
-static void hdns__finish(hdns_query_t* q, int status) {
+static void hdns__finish(hdns_t* q, int status) {
     q->naddrs = 0;
     q->any_error = status;
     hdns__deliver(q, status);
@@ -801,7 +815,7 @@ static void hdns__on_udp_read(hio_t* io, void* buf, int readbytes) {
     // find the query + sub-query for this txid
     struct list_node* node;
     list_for_each(node, &r->queries) {
-        hdns_query_t* q = list_entry(node, hdns_query_t, node);
+        hdns_t* q = list_entry(node, hdns_t, node);
         for (int i = 0; i < 2; ++i) {
             if (!q->sub[i].qtype || q->sub[i].done) continue;
             if (q->sub[i].txid != txid) continue;
@@ -832,7 +846,7 @@ static void hdns__on_udp_read(hio_t* io, void* buf, int readbytes) {
 
 // Deferred delivery for immediate results (numeric IP / hosts / cache hit).
 static void hdns__on_defer(htimer_t* timer) {
-    hdns_query_t* q = (hdns_query_t*)hevent_userdata(timer);
+    hdns_t* q = (hdns_t*)hevent_userdata(timer);
     if (!q) return;
     q->defer_timer = NULL; // single-shot auto-deletes
     hdns__complete(q);
@@ -841,13 +855,13 @@ static void hdns__on_defer(htimer_t* timer) {
 // Deferred start of the network query, so hdns_resolve() never sends (or
 // completes, or invokes the callback) re-entrantly inside the call.
 static void hdns__on_start(htimer_t* timer) {
-    hdns_query_t* q = (hdns_query_t*)hevent_userdata(timer);
+    hdns_t* q = (hdns_t*)hevent_userdata(timer);
     if (!q) return;
     q->defer_timer = NULL; // single-shot auto-deletes
     hdns__send_queries(q);
 }
 
-static void hdns__defer_complete(hdns_query_t* q) {
+static void hdns__defer_complete(hdns_t* q) {
     // schedule completion on the next loop tick (1ms) so cb never runs
     // re-entrantly inside hdns_resolve().
     q->defer_timer = htimer_add(q->loop, hdns__on_defer, 1, 1);
@@ -859,9 +873,9 @@ static void hdns__defer_complete(hdns_query_t* q) {
     }
 }
 
-hdns_query_t* hdns_resolve_ex(hloop_t* loop, const char* host,
-                              const hdns_options_t* opt,
-                              hdns_cb cb, void* userdata) {
+hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
+                        const hdns_options_t* opt,
+                        hdns_cb cb, void* userdata) {
     if (!loop || !host || !cb) return NULL;
     size_t hlen = strlen(host);
     if (hlen == 0 || hlen >= HDNS_NAME_MAXLEN) return NULL;
@@ -869,13 +883,14 @@ hdns_query_t* hdns_resolve_ex(hloop_t* loop, const char* host,
     hdns_resolver_t* r = hdns__resolver_get(loop);
     if (!r) return NULL;
 
-    hdns_query_t* q;
+    hdns_t* q;
     HV_ALLOC_SIZEOF(q);
     if (!q) return NULL;
     q->loop = loop;
+    q->event_type = HEVENT_TYPE_CUSTOM;
     q->resolver = r;
     strncpy(q->host, host, sizeof(q->host) - 1);
-    q->cb = cb;
+    q->dns_cb = cb;
     q->userdata = userdata;
     q->min_ttl = HDNS_CACHE_MAX_TTL;
 
@@ -895,6 +910,10 @@ hdns_query_t* hdns_resolve_ex(hloop_t* loop, const char* host,
 
     // register in resolver so it can be cancelled / matched
     list_add(&q->node, &r->queries);
+
+    // NOTE: htimer_add(loop, cb, 1, 1) below never returns NULL (timeout_ms>0),
+    // so completion is always deferred to the next loop tick and this function
+    // always returns a still-valid handle before any callback runs.
 
     // 1) numeric IP fast path
     sockaddr_u num;
@@ -962,12 +981,12 @@ hdns_query_t* hdns_resolve_ex(hloop_t* loop, const char* host,
     return q;
 }
 
-hdns_query_t* hdns_resolve(hloop_t* loop, const char* host,
-                           hdns_cb cb, void* userdata) {
+hdns_t* hdns_resolve(hloop_t* loop, const char* host,
+                     hdns_cb cb, void* userdata) {
     return hdns_resolve_ex(loop, host, NULL, cb, userdata);
 }
 
-void hdns_cancel(hdns_query_t* q) {
+void hdns_cancel(hdns_t* q) {
     if (!q) return;
     if (q->node.next) list_del(&q->node);
     if (q->timer) { htimer_del(q->timer); q->timer = NULL; }

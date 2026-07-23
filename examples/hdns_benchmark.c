@@ -38,7 +38,8 @@ static const char* default_hosts[] = {
 static int g_pending = 0;
 static int g_ok = 0;
 
-static void on_resolved(const hdns_result_t* result, void* userdata) {
+static void on_resolved(hdns_t* query, const hdns_result_t* result, void* userdata) {
+    (void)query;
     hloop_t* loop = (hloop_t*)userdata;
     if (result->status == HDNS_STATUS_OK) ++g_ok;
     if (--g_pending == 0) hloop_stop(loop);

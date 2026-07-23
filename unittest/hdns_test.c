@@ -127,7 +127,8 @@ typedef struct {
     hloop_t*    loop;
 } expect_t;
 
-static void on_expect(const hdns_result_t* result, void* userdata) {
+static void on_expect(hdns_t* query, const hdns_result_t* result, void* userdata) {
+    (void)query;
     expect_t* e = (expect_t*)userdata;
     e->got = 1;
     printf("[%s] status=%d naddrs=%d\n", e->label, result->status, result->naddrs);
@@ -146,7 +147,7 @@ static void run_expect(hloop_t* loop, const char* host, const hdns_options_t* op
     e.want_status = want_status;
     e.want_min_addrs = want_min_addrs;
     e.loop = loop;
-    hdns_query_t* q = hdns_resolve_ex(loop, host, opt, on_expect, &e);
+    hdns_t* q = hdns_resolve_ex(loop, host, opt, on_expect, &e);
     assert(q != NULL);
     hloop_run(loop);
     assert(e.got == 1);
@@ -154,8 +155,8 @@ static void run_expect(hloop_t* loop, const char* host, const hdns_options_t* op
 
 // callback that must NEVER be invoked (cancel test)
 static int g_cancel_cb_called = 0;
-static void on_never(const hdns_result_t* result, void* userdata) {
-    (void)result; (void)userdata;
+static void on_never(hdns_t* query, const hdns_result_t* result, void* userdata) {
+    (void)query; (void)result; (void)userdata;
     g_cancel_cb_called = 1;
 }
 static void stop_after(htimer_t* timer) {
@@ -225,7 +226,7 @@ int main() {
         oc.use_cache = 0;
         // use a host the mock does not answer quickly? It answers immediately,
         // so cancel synchronously right after issuing, before the deferred send.
-        hdns_query_t* q = hdns_resolve_ex(loop, "cancel.test", &oc, on_never, NULL);
+        hdns_t* q = hdns_resolve_ex(loop, "cancel.test", &oc, on_never, NULL);
         assert(q != NULL);
         hdns_cancel(q);
         // spin the loop briefly to ensure no callback is delivered

@@ -37,8 +37,9 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     const char* host = req->host.c_str();
 
     // If host is a numeric IP (or UDS), resolve synchronously (fast path).
-    // Otherwise resolve the hostname asynchronously via hdns so the event loop
-    // is never blocked by getaddrinfo.
+    // Otherwise resolve the hostname asynchronously via EventLoop::resolveDns
+    // so the event loop is never blocked by getaddrinfo. resolveDns returns a
+    // use-after-free-proof DnsID and owns the underlying hdns_t lifetime.
     if (req->port < 0 || is_ipaddr(host)) {
         sockaddr_u peeraddr;
         memset(&peeraddr, 0, sizeof(peeraddr));
@@ -50,49 +51,28 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         return doTaskWithAddr(task, &peeraddr);
     }
 
-    // async resolve hostname, then continue in onDnsResolved
-    DnsContext* dctx = new DnsContext();
-    dctx->client = this;
-    dctx->task = task;
-    dctx->query = NULL;
-    dns_queries.insert(dctx);
-
     hdns_options_t opt;
     if (req->connect_timeout > 0) opt.timeout_ms = req->connect_timeout * 1000;
-    dctx->query = hdns_resolve_ex(EventLoopThread::hloop(), host, &opt,
-                                  &AsyncHttpClient::onDnsResolved, dctx);
-    if (dctx->query == NULL) {
-        dns_queries.erase(dctx);
-        delete dctx;
+    int port = req->port;
+    DnsID id = EventLoopThread::loop()->resolveDns(host,
+        [this, task, port](int status, int naddrs, const sockaddr_u* addrs) {
+            if (status != HDNS_STATUS_OK || naddrs <= 0) {
+                hloge("resolve host %s failed, status=%d", task->req->host.c_str(), status);
+                if (task->cb) task->cb(NULL);
+                return;
+            }
+            sockaddr_u peeraddr = addrs[0];
+            sockaddr_set_port(&peeraddr, port);
+            int err = doTaskWithAddr(task, &peeraddr);
+            if (err != 0 && task->cb) {
+                task->cb(NULL);
+            }
+        }, &opt);
+    if (id == INVALID_DNS_ID) {
         hloge("hdns_resolve failed for host %s", host);
         return -20;
     }
     return 0;
-}
-
-// hdns callback (runs in loop thread).
-void AsyncHttpClient::onDnsResolved(const hdns_result_t* result, void* userdata) {
-    DnsContext* dctx = (DnsContext*)userdata;
-    AsyncHttpClient* self = dctx->client;
-    HttpClientTaskPtr task = dctx->task;
-    // handle is invalid after this callback; drop the tracking context.
-    self->dns_queries.erase(dctx);
-    delete dctx;
-
-    if (result->status != HDNS_STATUS_OK || result->naddrs <= 0) {
-        hloge("resolve host %s failed, status=%d", result->host, result->status);
-        if (task->cb) task->cb(NULL);
-        return;
-    }
-
-    // adopt the first resolved address and set the target port.
-    sockaddr_u peeraddr = result->addrs[0];
-    sockaddr_set_port(&peeraddr, task->req->port);
-
-    int err = self->doTaskWithAddr(task, &peeraddr);
-    if (err != 0 && task->cb) {
-        task->cb(NULL);
-    }
 }
 
 // Continue the request once the peer address is known.

@@ -318,6 +318,7 @@ unittest: prepare
 ifeq ($(WITH_EVPP), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/dns_lifetime_test unittest/dns_lifetime_test.cpp -Llib -lhv -pthread
 ifeq ($(WITH_HTTP), yes)
 ifeq ($(WITH_HTTP_CLIENT), yes)
 ifeq ($(WITH_HTTP_SERVER), yes)
@@ -337,7 +338,7 @@ else
 	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 else
-	$(RM) bin/tcpclient_dns_test bin/asynchttp_dns_test bin/websocket_dns_test
+	$(RM) bin/tcpclient_dns_test bin/dns_lifetime_test bin/asynchttp_dns_test bin/websocket_dns_test
 	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 

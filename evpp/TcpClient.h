@@ -28,7 +28,7 @@ public:
         reconn_setting = NULL;
         unpack_setting = NULL;
         reconn_timer_id = INVALID_TIMER_ID;
-        dns_query = NULL;
+        dns_id = INVALID_DNS_ID;
     }
 
     virtual ~TcpClientEventLoopTmpl() {
@@ -151,38 +151,36 @@ public:
     }
 
     // @internal: resolve remote_host asynchronously, then connect.
+    // Uses EventLoop::resolveDns which returns a use-after-free-proof DnsID and
+    // manages the underlying hdns_t lifetime, so this class only holds an id.
     int startResolveThenConnect() {
         cancelDnsQuery();
         hdns_options_t opt;
         opt.family = HDNS_QUERY_BOTH;
         if (connect_timeout > 0) opt.timeout_ms = connect_timeout;
-        dns_query = hdns_resolve_ex(loop_->loop(), remote_host.c_str(), &opt,
-                                    &TcpClientEventLoopTmpl::onDnsResolved, this);
-        if (dns_query == NULL) {
+        dns_id = loop_->resolveDns(remote_host.c_str(),
+            [this](int status, int naddrs, const sockaddr_u* addrs) {
+                dns_id = INVALID_DNS_ID; // this query is done
+                if (status == HDNS_STATUS_OK && naddrs > 0) {
+                    // adopt the first resolved address, keep the target port
+                    remote_addr = addrs[0];
+                    sockaddr_set_port(&remote_addr, remote_port);
+                } else if (remote_addr.sa.sa_family == 0) {
+                    // resolve failed and no previously-resolved address to fall
+                    // back to. Report failure and drive reconnect (if enabled).
+                    hloge("resolve %s failed, status=%d", remote_host.c_str(), status);
+                    onResolveFailed();
+                    return;
+                }
+                // else: resolve failed but keep the previous remote_addr; the
+                // connect attempt will fail and drive the normal reconnect path.
+                startConnectWithAddr();
+            }, &opt);
+        if (dns_id == INVALID_DNS_ID) {
             // could not start async resolve; fall back to synchronous path
             return startConnectWithAddr();
         }
         return 0;
-    }
-
-    // @internal: hdns callback (runs in loop thread).
-    static void onDnsResolved(const hdns_result_t* result, void* userdata) {
-        TcpClientEventLoopTmpl* self = (TcpClientEventLoopTmpl*)userdata;
-        self->dns_query = NULL; // handle is invalid after the callback
-        if (result->status == HDNS_STATUS_OK && result->naddrs > 0) {
-            // adopt the first resolved address, keep the target port
-            self->remote_addr = result->addrs[0];
-            sockaddr_set_port(&self->remote_addr, self->remote_port);
-        } else if (self->remote_addr.sa.sa_family == 0) {
-            // resolve failed and we have no previously-resolved address to fall
-            // back to. Report failure and drive reconnect (if enabled).
-            hloge("resolve %s failed, status=%d", self->remote_host.c_str(), result->status);
-            self->onResolveFailed();
-            return;
-        }
-        // else: resolve failed but keep the previous remote_addr; the connect
-        // attempt will fail and drive the normal reconnect path.
-        self->startConnectWithAddr();
     }
 
     // @internal: DNS resolution failed with no usable address.
@@ -366,16 +364,16 @@ private:
 
     // Cancel any in-flight async DNS query (loop thread only).
     void cancelDnsQuery() {
-        if (dns_query != NULL) {
-            hdns_cancel(dns_query);
-            dns_query = NULL;
+        if (dns_id != INVALID_DNS_ID) {
+            loop_->cancelDns(dns_id);
+            dns_id = INVALID_DNS_ID;
         }
     }
 
 private:
     EventLoopPtr    loop_;
     TimerID         reconn_timer_id;
-    hdns_query_t*   dns_query;
+    DnsID           dns_id;
 };
 
 template<class TSocketChannel = SocketChannel>

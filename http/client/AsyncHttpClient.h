@@ -3,11 +3,9 @@
 
 #include <map>
 #include <list>
-#include <set>
 
 #include "EventLoopThread.h"
 #include "Channel.h"
-#include "hdns.h"
 
 #include "HttpMessage.h"
 #include "HttpParser.h"
@@ -112,19 +110,10 @@ public:
         }
     }
     ~AsyncHttpClient() {
-        // Stop (and, for an owned loop, free) the event loop first. An owned
-        // loop uses HLOOP_FLAG_AUTO_FREE, so joining the loop thread runs
-        // hloop_free() -> hdns_resolver_free(), which cancels and frees every
-        // in-flight hdns_query_t. After stop() the loop thread is joined, so no
-        // resolve callback can race with teardown.
+        // Stop (and, for an owned loop, free) the event loop. Any in-flight
+        // async DNS queries are owned by EventLoop::resolveDns and the C
+        // resolver, which are torn down with the loop; nothing to clean here.
         EventLoopThread::stop(true);
-        // The resolver already freed the hdns_query_t objects during loop
-        // teardown, so DO NOT call hdns_cancel() here (that would be a
-        // use-after-free). Just free our own per-request context shells.
-        for (auto* dctx : dns_queries) {
-            delete dctx;
-        }
-        dns_queries.clear();
     }
 
     // thread-safe
@@ -143,16 +132,8 @@ protected:
     }
     int doTask(const HttpClientTaskPtr& task);
 
-    // async DNS resolve context for one task (heap-allocated, tracked so it can
-    // be cancelled/freed on teardown).
-    struct DnsContext {
-        AsyncHttpClient*    client;
-        HttpClientTaskPtr   task;
-        hdns_query_t*       query;
-    };
     // @internal: continue doTask after the peer address is known.
     int doTaskWithAddr(const HttpClientTaskPtr& task, const sockaddr_u* peeraddr);
-    static void onDnsResolved(const hdns_result_t* result, void* userdata);
 
     static int sendRequest(const SocketChannelPtr& channel);
 
@@ -182,8 +163,6 @@ private:
     std::map<int, SocketChannelPtr>         channels;
     // peeraddr => ConnPool
     std::map<std::string, ConnPool<int>>    conn_pools;
-    // in-flight async DNS resolve contexts (for cancel/free on teardown)
-    std::set<DnsContext*>                   dns_queries;
 };
 
 }

@@ -80,14 +80,26 @@ typedef struct hdns_result_s {
     sockaddr_u  addrs[HDNS_MAX_ADDRS];      // A/AAAA merged (IPv4 first), port = 0
 } hdns_result_t;
 
-// opaque, cancelable handle
-typedef struct hdns_query_s hdns_query_t;
+// Cancelable query handle.
+//
+// hdns_t is an event object (subclass of hevent_t, like htimer_t / hio_t), so
+// it can carry an event_id and integrate with the loop's conventions.
+//
+// C API lifetime contract (same as htimer_t): the handle is valid until the
+// query completes (its callback fires) or it is cancelled via hdns_cancel().
+// Do NOT keep or use the pointer after that. For a use-after-free-proof handle,
+// use the C++ EventLoop::resolveDns()/cancelDns() which manage an id -> hdns_t
+// map (mirrors TimerID), just like htimer_t vs EventLoop TimerID.
+typedef struct hdns_s hdns_t;
 
 /*
  * result callback, invoked in the loop thread.
- * NOTE: the result pointer is only valid during the callback.
+ * @query:    the handle returned by hdns_resolve*(); it is freed immediately
+ *            after this callback returns, so do NOT retain it. Its event_id
+ *            (hevent_id) can be read here to correlate with a caller-side map.
+ * @result:   only valid during the callback.
  */
-typedef void (*hdns_cb)(const hdns_result_t* result, void* userdata);
+typedef void (*hdns_cb)(hdns_t* query, const hdns_result_t* result, void* userdata);
 
 BEGIN_EXTERN_C
 
@@ -101,18 +113,19 @@ BEGIN_EXTERN_C
  *
  * @return a query handle, or NULL on immediate failure (invalid params / OOM).
  */
-HV_EXPORT hdns_query_t* hdns_resolve(hloop_t* loop, const char* host,
-                                     hdns_cb cb, void* userdata);
+HV_EXPORT hdns_t* hdns_resolve(hloop_t* loop, const char* host,
+                               hdns_cb cb, void* userdata);
 
-HV_EXPORT hdns_query_t* hdns_resolve_ex(hloop_t* loop, const char* host,
-                                        const hdns_options_t* opt,
-                                        hdns_cb cb, void* userdata);
+HV_EXPORT hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
+                                  const hdns_options_t* opt,
+                                  hdns_cb cb, void* userdata);
 
 /*
- * Cancel an in-flight query. After this returns, @cb will NOT be called and
- * @query is invalid. MUST be called from the loop thread.
+ * Cancel an in-flight query and free it immediately. After this returns, @cb
+ * will NOT be called and @query is invalid. MUST be called from the loop
+ * thread, and MUST NOT be called from within that query's own callback.
  */
-HV_EXPORT void hdns_cancel(hdns_query_t* query);
+HV_EXPORT void hdns_cancel(hdns_t* query);
 
 // Clear the per-loop DNS cache (e.g. on a network change). Loop-thread only.
 HV_EXPORT void hdns_clear_cache(hloop_t* loop);

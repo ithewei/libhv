@@ -38,6 +38,9 @@ fi
 if [ -x bin/tcpclient_dns_test ]; then
     bin/tcpclient_dns_test
 fi
+if [ -x bin/dns_lifetime_test ]; then
+    bin/dns_lifetime_test
+fi
 if [ -x bin/asynchttp_dns_test ]; then
     bin/asynchttp_dns_test
 fi

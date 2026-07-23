@@ -58,27 +58,33 @@ typedef struct hdns_result_s {
     sockaddr_u  addrs[HDNS_MAX_ADDRS];      // A/AAAA 合并结果（IPv4 在前），端口为 0
 } hdns_result_t;
 
-// 查询句柄（不透明，可用于取消）
-typedef struct hdns_query_s hdns_query_t;
+// 查询句柄：hdns_t 是一个事件对象（继承自 hevent_t，与 htimer_t / hio_t 同源），
+// 因此可携带 event_id、复用 hevent_set_id/hevent_id。
+typedef struct hdns_s hdns_t;
 
-// 解析完成回调，在 loop 线程被调用；result 仅在回调期间有效
-typedef void (*hdns_cb)(const hdns_result_t* result, void* userdata);
+// 解析完成回调，在 loop 线程被调用。
+// query: 本次查询句柄；回调返回后立即被释放，不要保留。可在此读取其 event_id
+//        （hevent_id）与调用方的 id 映射关联。result 仅在回调期间有效。
+typedef void (*hdns_cb)(hdns_t* query, const hdns_result_t* result, void* userdata);
 
 // 发起异步解析，绑定到 loop。返回查询句柄，失败返回 NULL。
-hdns_query_t* hdns_resolve(hloop_t* loop, const char* host,
-                           hdns_cb cb, void* userdata);
+hdns_t* hdns_resolve(hloop_t* loop, const char* host,
+                     hdns_cb cb, void* userdata);
 
 // 带选项版本
-hdns_query_t* hdns_resolve_ex(hloop_t* loop, const char* host,
-                              const hdns_options_t* opt,
-                              hdns_cb cb, void* userdata);
+hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
+                        const hdns_options_t* opt,
+                        hdns_cb cb, void* userdata);
 
-// 取消进行中的查询；返回后回调不会再被调用。只能在 loop 线程调用。
-void hdns_cancel(hdns_query_t* query);
+// 取消进行中的查询并立即释放；返回后回调不会再被调用。
+// 只能在 loop 线程调用，且不得在该查询自己的回调内调用。
+void hdns_cancel(hdns_t* query);
 
 // 清空该 loop 的 DNS 缓存（如网络切换时）。只能在 loop 线程调用。
 void hdns_clear_cache(hloop_t* loop);
 ```
+
+> C 层句柄的生命周期契约与 `htimer_t` 一致：句柄在查询完成（回调触发）或被 `hdns_cancel` 后失效，之后不得再使用。**如果需要免疫 use-after-free 的句柄，使用 C++ 层 `EventLoop::resolveDns()` / `cancelDns()`**——它维护 `DnsID → hdns_t` 映射（对标 `TimerID`），失效的 `DnsID` 在 `cancelDns` 里查不到即安全 no-op。
 
 ### 状态码
 
@@ -107,8 +113,9 @@ void hdns_clear_cache(hloop_t* loop);
 
 static int pending = 0;
 
-static void on_resolved(const hdns_result_t* result, void* userdata) {
+static void on_resolved(hdns_t* query, const hdns_result_t* result, void* userdata) {
     hloop_t* loop = (hloop_t*)userdata;
+    (void)query;
     if (result->status == HDNS_STATUS_OK) {
         printf("%s =>\n", result->host);
         for (int i = 0; i < result->naddrs; ++i) {
@@ -137,27 +144,40 @@ int main() {
 
 完整示例见 `examples/hdns_example.c`，性能对比见 `examples/hdns_benchmark.c`。
 
+## C++ 层:EventLoop::resolveDns
+
+C++ 客户端不直接用 C 层裸指针句柄,而是通过 `EventLoop` 提供的 id 化接口(对标 `setTimer`/`killTimer` 的 `TimerID`):
+
+```cpp
+// 返回免疫 use-after-free 的 DnsID(0 = 失败);cb 在 loop 线程回调
+DnsID resolveDns(const char* host, DnsCallback cb, const hdns_options_t* opt = NULL);
+void  cancelDns(DnsID id);   // 线程安全;失效 id 自动 no-op
+// DnsCallback: void(int status, int naddrs, const sockaddr_u* addrs)
+```
+
+`EventLoop` 内部维护 `DnsID → hdns_t*` 映射:查询完成时在完成回调里擦除映射项,`cancelDns` 按 id 查表(查不到即安全 no-op)。因此上层只持有一个 `DnsID` 整数,**即使底层 `hdns_t` 已被释放,拿旧 id 去 cancel 也不会 UAF**——与 `TimerID` 完全同构。
+
 ## 与 connect 路径的集成
 
-`hdns` 已接入 C++ 客户端的 connect 路径。**异步解析逻辑统一沉淀在基类 `TcpClientEventLoopTmpl`（`evpp/TcpClient.h`）里**，因此所有继承自 `TcpClientTmpl` 的客户端（`TcpClient`、`WebSocketClient`，以及未来任何 `XXXClient`）都**自动获得**异步 DNS,无需各自编写胶水代码。
+`hdns` 已接入 C++ 客户端的 connect 路径。**异步解析逻辑统一沉淀在基类 `TcpClientEventLoopTmpl`（`evpp/TcpClient.h`）里**,并通过上面的 `EventLoop::resolveDns` 使用 `DnsID` 句柄,因此所有继承自 `TcpClientTmpl` 的客户端（`TcpClient`、`WebSocketClient`,以及未来任何 `XXXClient`）都**自动获得**异步 DNS,无需各自编写胶水代码。
 
 ### TcpClientTmpl 派生类（TcpClient / WebSocketClient / ...）
 
 - 目标是**数字 IP**（或 Unix Domain Socket）时，`createsocket` 走原有同步快速路径立即建 socket，行为不变；
-- 目标是**域名**时，`createsocket` 只记录 host/port 并**延迟解析**（不阻塞）；`startConnect()`（首次连接与每次重连都会调用）先用 `hdns_resolve` 异步解析，拿到地址后再在 `startConnectWithAddr()` 建 socket、connect。整个过程**不阻塞事件循环**。旧实现在 loop 线程里调用阻塞的 `getaddrinfo`，会卡住整个 loop。
+- 目标是**域名**时，`createsocket` 只记录 host/port 并**延迟解析**（不阻塞）；`startConnect()`（首次连接与每次重连都会调用）先用 `EventLoop::resolveDns` 异步解析，拿到地址后再在 `startConnectWithAddr()` 建 socket、connect。整个过程**不阻塞事件循环**。旧实现在 loop 线程里调用阻塞的 `getaddrinfo`，会卡住整个 loop。
 - 每次连接/重连都会重新解析，自动应对 DNS 变化；
-- 对象析构或主动 `closesocket()` 时，会自动取消在途的解析查询，避免悬垂回调。
+- 对象只持有 `DnsID`；析构或主动 `closesocket()` 时 `cancelDns` 即可，**无悬垂指针风险**（销毁客户端时查询仍在途也安全,由 `unittest/dns_lifetime_test` 覆盖）。
 - 若解析失败且无可用历史地址，会走正常的失败/重连回调。
 
 > 新增客户端零成本:只要继承 `TcpClientTmpl` 并用 `createsocket(port, host)` + `start()`，就自动拥有异步 DNS，不需要实现任何 `onDnsResolved` 之类的回调。
 
 ### AsyncHttpClient
 
-`AsyncHttpClient` 不继承 `TcpClientTmpl`（自带连接池等逻辑），单独接入：
+`AsyncHttpClient` 不继承 `TcpClientTmpl`（自带连接池等逻辑），单独接入,但同样使用 `EventLoop::resolveDns`:
 
 - 请求 URL 里是**数字 IP**（或 Unix Domain Socket）时，走原有同步快速路径；
-- 请求 URL 里是**域名**时，`doTask` 会先用 `hdns_resolve` 异步解析，回调里再建立连接、发送请求——同样**不阻塞 loop**。旧实现直接在 loop 线程里对域名做阻塞 `getaddrinfo`。
-- 客户端析构时会取消所有在途解析并释放其上下文，避免泄漏与悬垂回调。
+- 请求 URL 里是**域名**时，`doTask` 会先用 `EventLoop::resolveDns` 异步解析，回调里再建立连接、发送请求——同样**不阻塞 loop**。旧实现直接在 loop 线程里对域名做阻塞 `getaddrinfo`。
+- 查询生命周期由 `EventLoop` 的 `DnsID` 映射管理,随 loop 拆除统一回收,无需客户端手工跟踪。
 
 > 说明：同步的 `HttpClient` / `requests` 请求路径运行在调用方线程（并非在 loop 内），阻塞解析可接受，故该路径维持不变。
 
