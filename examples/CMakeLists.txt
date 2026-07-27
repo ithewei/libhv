@@ -143,6 +143,12 @@ if(WITH_HTTP_SERVER)
     target_link_libraries(websocket_server_test ${HV_LIBRARIES})
 
     list(APPEND EXAMPLES http_server_test websocket_server_test)
+
+    if(WITH_LUA)
+        add_executable(http_lua_server http_lua_server.cpp)
+        target_link_libraries(http_lua_server ${HV_LIBRARIES})
+        list(APPEND EXAMPLES http_lua_server)
+    endif()
 endif()
 
 if(WITH_HTTP_CLIENT)

@@ -90,6 +90,13 @@ target_include_directories(sendmail PRIVATE .. ../base ../protocol ../util)
 add_executable(http_router_test http_router_test.cpp)
 target_include_directories(http_router_test PRIVATE ../http/server)
 
+if(WITH_LUA)
+add_executable(http_lua_handler_test http_lua_handler_test.cpp)
+target_include_directories(http_lua_handler_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server)
+target_link_libraries(http_lua_handler_test ${HV_LIBRARIES})
+set(HTTP_LUA_UNITTEST_TARGETS http_lua_handler_test)
+endif()
+
 # ------event: async dns------
 add_executable(hdns_test hdns_test.c)
 target_include_directories(hdns_test PRIVATE .. ../base ../ssl ../event)
@@ -155,6 +162,7 @@ add_custom_target(unittest DEPENDS
     ftp
     sendmail
     http_router_test
+    ${HTTP_LUA_UNITTEST_TARGETS}
     hdns_test
     hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}

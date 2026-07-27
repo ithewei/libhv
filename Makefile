@@ -40,6 +40,9 @@ endif
 ifeq ($(WITH_HTTP_SERVER), yes)
 LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
+ifeq ($(WITH_LUA), yes)
+LIBHV_HEADERS += http/server/HttpLuaHandler.h
+endif
 endif
 
 ifeq ($(WITH_HTTP_CLIENT), yes)
@@ -84,6 +87,9 @@ ifeq ($(WITH_HTTP), yes)
 EXAMPLES += wrk
 ifeq ($(WITH_HTTP_SERVER), yes)
 EXAMPLES += http_server_test websocket_server_test
+ifeq ($(WITH_LUA), yes)
+EXAMPLES += http_lua_server
+endif
 endif
 ifeq ($(WITH_HTTP_CLIENT), yes)
 EXAMPLES += curl wget consul http_client_test websocket_client_test
@@ -112,6 +118,9 @@ prepare:
 
 libhv:
 	$(MKDIR) lib
+ifeq ($(WITH_LUA), yes)
+	$(RM) http/server/HttpLuaHandler.o
+endif
 ifeq ($(BUILD_SHARED), yes)
 ifeq ($(BUILD_STATIC), yes)
 	$(MAKEF) TARGET=$@ TARGET_TYPE="SHARED|STATIC" SRCDIRS="$(LIBHV_SRCDIRS)"
@@ -233,6 +242,9 @@ http_client_test: prepare
 websocket_server_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/server" SRCS="examples/websocket_server_test.cpp"
 
+http_lua_server: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/server" SRCS="examples/http_lua_server.cpp" WITH_LUA=yes
+
 websocket_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client" SRCS="examples/websocket_client_test.cpp"
 
@@ -315,6 +327,12 @@ unittest: prepare
 ifeq ($(WITH_EVPP), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
+ifeq ($(WITH_LUA), yes)
+	$(MAKE) libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+else
+	$(RM) bin/http_lua_handler_test
+endif
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Iredis -o bin/redis_protocol_test unittest/redis_protocol_test.cpp redis/RedisMessage.cpp

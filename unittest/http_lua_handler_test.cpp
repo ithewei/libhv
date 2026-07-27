@@ -1,0 +1,105 @@
+#include "HttpLuaHandler.h"
+
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "hbase.h"
+#include "hfile.h"
+#include "hpath.h"
+#include "HttpService.h"
+#include "HttpContext.h"
+
+static std::string write_script(const char* name, const char* content) {
+    std::string dir = "tmp/http_lua_handler_test";
+    const char* slash = strrchr(name, '/');
+    if (slash) {
+        dir = HPath::join(dir, std::string(name, slash - name));
+    }
+    hv_mkdir_p(dir.c_str());
+    std::string path = HPath::join("tmp/http_lua_handler_test", name);
+    HFile file;
+    int ret = file.open(path.c_str(), "wb");
+    assert(ret == 0);
+    file.write(content, strlen(content));
+    file.close();
+    return path;
+}
+
+static HttpContextPtr make_ctx(const char* method, const char* path) {
+    HttpContextPtr ctx = std::make_shared<hv::HttpContext>();
+    ctx->request = std::make_shared<HttpRequest>();
+    ctx->response = std::make_shared<HttpResponse>();
+    ctx->request->method = http_method_enum(method);
+    ctx->request->path = path;
+    ctx->request->query_params["id"] = "42";
+    ctx->request->headers["X-Test"] = "header-value";
+    ctx->request->body = "request-body";
+    return ctx;
+}
+
+static void test_text_response() {
+    std::string script = write_script("text.lua",
+        "function handle(ctx)\n"
+        "  ctx:status(201)\n"
+        "  ctx:set_header('X-Lua', ctx:query('id'))\n"
+        "  return ctx:text(ctx:method() .. ' ' .. ctx:path() .. ' ' .. ctx:header('X-Test'))\n"
+        "end\n");
+
+    hv::LuaHandler handler(script.c_str());
+    HttpContextPtr ctx = make_ctx("GET", "/hello");
+    int status = handler(ctx);
+    assert(status == 201);
+    assert(ctx->response->status_code == 201);
+    assert(ctx->response->body == "GET /hello header-value");
+    assert(ctx->response->GetHeader("X-Lua") == "42");
+    assert(ctx->response->ContentType() == TEXT_PLAIN);
+}
+
+static void test_json_response() {
+    std::string script = write_script("json.lua",
+        "function handle(ctx)\n"
+        "  return ctx:json({ok=true, id=ctx:query('id')})\n"
+        "end\n");
+
+    hv::LuaHandler handler(script.c_str());
+    HttpContextPtr ctx = make_ctx("POST", "/json");
+    int status = handler(ctx);
+    assert(status == 200);
+    assert(ctx->response->ContentType() == APPLICATION_JSON);
+    assert(ctx->response->body.find("\"ok\": true") != std::string::npos);
+    assert(ctx->response->body.find("\"id\": \"42\"") != std::string::npos);
+}
+
+static void test_script_dir_mapping() {
+    write_script("api/user.lua",
+        "function handle(ctx)\n"
+        "  return ctx:text('script:' .. ctx:query('id'))\n"
+        "end\n");
+
+    hv::HttpService service;
+    service.Script("/api/", "tmp/http_lua_handler_test/api");
+
+    http_handler* handler = NULL;
+    std::map<std::string, std::string> params;
+    int ret = service.GetRoute("/api/user?id=42", HTTP_GET, &handler, params);
+    assert(ret == 0);
+    assert(handler != NULL);
+    assert(handler->ctx_handler != NULL);
+
+    HttpContextPtr ctx = make_ctx("GET", "/api/user");
+    ctx->service = &service;
+    ctx->request->query_params = params;
+    ctx->request->query_params["id"] = "42";
+    int status = handler->ctx_handler(ctx);
+    assert(status == 200);
+    assert(ctx->response->body == "script:42");
+}
+
+int main() {
+    test_text_response();
+    test_json_response();
+    test_script_dir_mapping();
+    printf("ALL http_lua_handler_test PASSED\n");
+    return 0;
+}

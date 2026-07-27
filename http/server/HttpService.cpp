@@ -1,6 +1,11 @@
 #include "HttpService.h"
 #include "HttpMiddleware.h"
 #include "HttpRouter.h"
+#ifdef WITH_LUA
+#include "HttpLuaHandler.h"
+#include "hpath.h"
+#include "hstring.h"
+#endif
 
 namespace hv {
 
@@ -28,6 +33,78 @@ void HttpService::AddRoute(const char* path, http_method method, const http_hand
     // add
     method_handlers->push_back(http_method_handler(method, handler));
 }
+
+#ifdef WITH_LUA
+static bool http_lua_script_path_is_safe(const std::string& path) {
+    if (path.empty()) return true;
+    size_t start = 0;
+    while (start <= path.size()) {
+        size_t end = path.find_first_of("/\\", start);
+        std::string segment = end == std::string::npos ? path.substr(start) : path.substr(start, end - start);
+        if (segment == "..") {
+            return false;
+        }
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return true;
+}
+
+void HttpService::Script(const char* path, const char* script_dir) {
+    std::string route_path(path ? path : "");
+    if (route_path.empty()) return;
+    if (route_path.back() != '*') {
+        if (route_path.back() != '/') route_path += '/';
+        route_path += '*';
+    }
+
+    std::string route_prefix = route_path.substr(0, route_path.size() - 1);
+    std::string root(script_dir ? script_dir : "");
+    while (!root.empty() && (root.back() == '/' || root.back() == '\\')) {
+        root.pop_back();
+    }
+
+    std::shared_ptr<std::map<std::string, LuaHandlerPtr> > scripts =
+        std::make_shared<std::map<std::string, LuaHandlerPtr> >();
+    std::shared_ptr<std::mutex> scripts_mutex = std::make_shared<std::mutex>();
+    http_handler handler([route_prefix, root, scripts, scripts_mutex](const HttpContextPtr& ctx) {
+        std::string path = ctx->path();
+        if (path.compare(0, route_prefix.size(), route_prefix) != 0) {
+            return HTTP_STATUS_NOT_FOUND;
+        }
+        std::string name = path.substr(route_prefix.size());
+        if (name.empty()) {
+            name = "index";
+        }
+        if (!http_lua_script_path_is_safe(name)) {
+            return HTTP_STATUS_FORBIDDEN;
+        }
+        std::string script = HPath::join(root, name);
+        if (HPath::suffixname(script).empty()) {
+            script += ".lua";
+        }
+
+        LuaHandlerPtr lua_handler;
+        {
+            std::lock_guard<std::mutex> lock(*scripts_mutex);
+            auto iter = scripts->find(script);
+            if (iter == scripts->end()) {
+                lua_handler = std::make_shared<LuaHandler>(script.c_str());
+                (*scripts)[script] = lua_handler;
+            } else {
+                lua_handler = iter->second;
+            }
+        }
+        return (*lua_handler)(ctx);
+    });
+
+    AddRoute(route_path.c_str(), HTTP_GET, handler);
+    AddRoute(route_path.c_str(), HTTP_POST, handler);
+    AddRoute(route_path.c_str(), HTTP_PUT, handler);
+    AddRoute(route_path.c_str(), HTTP_DELETE, handler);
+    AddRoute(route_path.c_str(), HTTP_PATCH, handler);
+}
+#endif
 
 bool HttpService::HasRoutes() const {
     return router && !router->Empty();
