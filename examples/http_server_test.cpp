@@ -25,8 +25,6 @@ using namespace hv;
  *          curl -v https://127.0.0.1:8443/ping --insecure
  *          bin/curl -v http://127.0.0.1:8080/ping
  *          bin/curl -v https://127.0.0.1:8443/ping
- *          curl -v "http://127.0.0.1:8080/lua/hello?id=42"  # WITH_LUA=yes
- *          curl -v "http://127.0.0.1:8080/script/hello?id=42" # WITH_LUA=yes
  *
  */
 #define TEST_HTTPS 0

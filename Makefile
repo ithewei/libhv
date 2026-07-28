@@ -115,9 +115,6 @@ prepare:
 
 libhv:
 	$(MKDIR) lib
-ifeq ($(WITH_LUA), yes)
-	$(RM) http/server/HttpLuaHandler.o http/server/HttpScriptHandler.o
-endif
 ifeq ($(BUILD_SHARED), yes)
 ifeq ($(BUILD_STATIC), yes)
 	$(MAKEF) TARGET=$@ TARGET_TYPE="SHARED|STATIC" SRCDIRS="$(LIBHV_SRCDIRS)"

@@ -18,7 +18,6 @@ option(WITH_HTTP_SERVER "compile http/server" ON)
 option(WITH_HTTP_CLIENT "compile http/client" ON)
 option(WITH_MQTT "compile mqtt" OFF)
 option(WITH_REDIS "compile redis" OFF)
-option(WITH_LUA "with Lua handler for http/server" OFF)
 
 option(ENABLE_UDS "Unix Domain Socket" OFF)
 option(USE_MULTIMAP "MultiMap" OFF)
@@ -29,6 +28,8 @@ option(WITH_NGHTTP2 "with nghttp2 library" OFF)
 option(WITH_OPENSSL "with openssl library" OFF)
 option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
+
+option(WITH_LUA "with lua library" OFF)
 
 option(WITH_KCP "compile event/kcp" OFF)
 
