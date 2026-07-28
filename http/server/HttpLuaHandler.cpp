@@ -273,21 +273,21 @@ static time_t file_mtime(const std::string& filepath) {
 
 } // namespace
 
-LuaHandler::LuaHandler(const char* filepath, const LuaHandlerOptions& options)
+HttpLuaHandler::HttpLuaHandler(const char* filepath, const HttpLuaHandlerOptions& options)
     : filepath_(filepath ? filepath : "")
     , options_(options)
     , L_(NULL)
     , mtime_(0) {
 }
 
-LuaHandler::LuaHandler(const LuaHandler& rhs)
+HttpLuaHandler::HttpLuaHandler(const HttpLuaHandler& rhs)
     : filepath_(rhs.filepath_)
     , options_(rhs.options_)
     , L_(NULL)
     , mtime_(0) {
 }
 
-LuaHandler& LuaHandler::operator=(const LuaHandler& rhs) {
+HttpLuaHandler& HttpLuaHandler::operator=(const HttpLuaHandler& rhs) {
     if (this == &rhs) return *this;
     std::lock_guard<std::mutex> lock(mutex_);
     closeLocked();
@@ -298,28 +298,28 @@ LuaHandler& LuaHandler::operator=(const LuaHandler& rhs) {
     return *this;
 }
 
-LuaHandler::~LuaHandler() {
+HttpLuaHandler::~HttpLuaHandler() {
     std::lock_guard<std::mutex> lock(mutex_);
     closeLocked();
 }
 
-std::string LuaHandler::lastError() const {
+std::string HttpLuaHandler::lastError() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return last_error_;
 }
 
-void LuaHandler::setErrorLocked(const std::string& error) {
+void HttpLuaHandler::setErrorLocked(const std::string& error) {
     last_error_ = error;
 }
 
-void LuaHandler::closeLocked() {
+void HttpLuaHandler::closeLocked() {
     if (L_) {
         lua_close(L_);
         L_ = NULL;
     }
 }
 
-bool LuaHandler::loadLocked(time_t mtime) {
+bool HttpLuaHandler::loadLocked(time_t mtime) {
     lua_State* L = luaL_newstate();
     if (L == NULL) {
         setErrorLocked("luaL_newstate failed");
@@ -354,7 +354,7 @@ bool LuaHandler::loadLocked(time_t mtime) {
     return true;
 }
 
-bool LuaHandler::reloadIfNeeded() {
+bool HttpLuaHandler::reloadIfNeeded() {
     std::lock_guard<std::mutex> lock(mutex_);
     time_t mtime = file_mtime(filepath_);
     if (mtime == 0) {
@@ -367,7 +367,7 @@ bool LuaHandler::reloadIfNeeded() {
     return loadLocked(mtime) || L_ != NULL;
 }
 
-int LuaHandler::callLocked(const HttpContextPtr& ctx) {
+int HttpLuaHandler::callLocked(const HttpContextPtr& ctx) {
     std::string handler_name = http_method_str(ctx->request->method);
     tolower(handler_name);
     lua_getglobal(L_, handler_name.c_str());
@@ -406,7 +406,7 @@ int LuaHandler::callLocked(const HttpContextPtr& ctx) {
     return status;
 }
 
-int LuaHandler::operator()(const HttpContextPtr& ctx) {
+int HttpLuaHandler::operator()(const HttpContextPtr& ctx) {
     if (!ctx || !ctx->response || !ctx->request) {
         return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }

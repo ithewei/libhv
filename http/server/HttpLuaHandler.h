@@ -13,20 +13,20 @@ struct lua_State;
 
 namespace hv {
 
-struct HV_EXPORT LuaHandlerOptions {
+struct HV_EXPORT HttpLuaHandlerOptions {
     bool reload_on_change;
 
-    LuaHandlerOptions() {
+    HttpLuaHandlerOptions() {
         reload_on_change = true;
     }
 };
 
-class HV_EXPORT LuaHandler {
+class HV_EXPORT HttpLuaHandler {
 public:
-    LuaHandler(const char* filepath, const LuaHandlerOptions& options = LuaHandlerOptions());
-    LuaHandler(const LuaHandler& rhs);
-    LuaHandler& operator=(const LuaHandler& rhs);
-    ~LuaHandler();
+    HttpLuaHandler(const char* filepath, const HttpLuaHandlerOptions& options = HttpLuaHandlerOptions());
+    HttpLuaHandler(const HttpLuaHandler& rhs);
+    HttpLuaHandler& operator=(const HttpLuaHandler& rhs);
+    ~HttpLuaHandler();
 
     int operator()(const HttpContextPtr& ctx);
 
@@ -44,15 +44,15 @@ private:
     void setErrorLocked(const std::string& error);
 
 private:
-    std::string       filepath_;
-    LuaHandlerOptions options_;
-    lua_State*        L_;
-    time_t            mtime_;
-    std::string       last_error_;
-    mutable std::mutex mutex_;
+    std::string           filepath_;
+    HttpLuaHandlerOptions options_;
+    lua_State*            L_;
+    time_t                mtime_;
+    std::string           last_error_;
+    mutable std::mutex    mutex_;
 };
 
-typedef std::shared_ptr<LuaHandler> LuaHandlerPtr;
+typedef std::shared_ptr<HttpLuaHandler> HttpLuaHandlerPtr;
 
 } // namespace hv
 

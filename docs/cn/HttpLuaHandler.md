@@ -66,7 +66,7 @@ function handle(ctx)
 end
 ```
 
-如果需要明确指定 Lua 引擎，也可以直接使用 `LuaHandler("scripts/hello.lua")`。推荐用户代码优先使用 `HttpScriptHandler`，这样后续增加 JS/Python 等脚本引擎时不用改路由注册代码。
+如果需要明确指定 Lua 引擎，也可以直接使用 `HttpLuaHandler("scripts/hello.lua")`。推荐用户代码优先使用 `HttpScriptHandler`，这样后续增加 JS/Python 等脚本引擎时不用改路由注册代码。
 
 ## 目录映射
 
@@ -121,7 +121,7 @@ hv.now()
 
 ## 热更新
 
-`HttpScriptHandler` 当前会把 `.lua` 文件转给 `LuaHandler`。`LuaHandler` 会记录脚本文件的 `mtime`。每次请求前，如果文件被修改，会重新加载脚本。
+`HttpScriptHandler` 当前会把 `.lua` 文件转给 `HttpLuaHandler`。`HttpLuaHandler` 会记录脚本文件的 `mtime`。每次请求前，如果文件被修改，会重新加载脚本。
 
 重新加载失败时：
 

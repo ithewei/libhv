@@ -9,7 +9,7 @@
 namespace hv {
 
 struct HttpScriptHandler::State {
-    LuaHandlerPtr lua_handler;
+    HttpLuaHandlerPtr lua_handler;
 };
 
 namespace {
@@ -44,9 +44,9 @@ HttpScriptHandler& HttpScriptHandler::operator=(const HttpScriptHandler& rhs) {
 int HttpScriptHandler::operator()(const HttpContextPtr& ctx) {
     if (filepath_has_suffix(filepath_, "lua")) {
         if (!state_->lua_handler) {
-            LuaHandlerOptions lua_options;
+            HttpLuaHandlerOptions lua_options;
             lua_options.reload_on_change = options_.reload_on_change;
-            state_->lua_handler = std::make_shared<LuaHandler>(filepath_.c_str(), lua_options);
+            state_->lua_handler = std::make_shared<HttpLuaHandler>(filepath_.c_str(), lua_options);
         }
         return (*state_->lua_handler)(ctx);
     }
