@@ -5,10 +5,12 @@
 #include "hbase.h"
 #include "hstring.h"
 #include "HttpLuaHandler.h"
+#include <mutex>
 
 namespace hv {
 
 struct HttpScriptHandler::State {
+    std::once_flag    lua_once;
     HttpLuaHandlerPtr lua_handler;
 };
 
@@ -43,11 +45,11 @@ HttpScriptHandler& HttpScriptHandler::operator=(const HttpScriptHandler& rhs) {
 
 int HttpScriptHandler::operator()(const HttpContextPtr& ctx) {
     if (filepath_has_suffix(filepath_, "lua")) {
-        if (!state_->lua_handler) {
+        std::call_once(state_->lua_once, [this]() {
             HttpLuaHandlerOptions lua_options;
             lua_options.reload_on_change = options_.reload_on_change;
             state_->lua_handler = std::make_shared<HttpLuaHandler>(filepath_.c_str(), lua_options);
-        }
+        });
         return (*state_->lua_handler)(ctx);
     }
 

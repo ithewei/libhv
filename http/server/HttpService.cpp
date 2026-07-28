@@ -5,6 +5,7 @@
 #include "HttpScriptHandler.h"
 #include "hpath.h"
 #include "hstring.h"
+#include <mutex>
 #include <string.h>
 #endif
 

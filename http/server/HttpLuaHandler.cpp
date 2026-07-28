@@ -192,7 +192,7 @@ static int lua_ctx_json(lua_State* L) {
 
 static int lua_ctx_gc(lua_State* L) {
     LuaHttpContext* holder = lua_check_ctx(L);
-    holder->ctx.~shared_ptr<hv::HttpContext>();
+    holder->~LuaHttpContext();
     return 0;
 }
 
