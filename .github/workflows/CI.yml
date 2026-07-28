@@ -19,8 +19,8 @@ jobs:
       - name: build
         run: |
           sudo apt update
-          sudo apt install libssl-dev libnghttp2-dev
-          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis
+          sudo apt install libssl-dev libnghttp2-dev liblua5.4-dev
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua
           make libhv evpp
 
       - name: test

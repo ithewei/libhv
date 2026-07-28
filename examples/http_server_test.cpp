@@ -8,6 +8,10 @@
 #include "hthread.h"    // import hv_gettid
 #include "hasync.h"     // import hv::async
 
+#ifdef WITH_LUA
+#include "HttpScriptHandler.h"
+#endif
+
 using namespace hv;
 
 /*
@@ -87,6 +91,13 @@ int main(int argc, char** argv) {
         resp["id"] = ctx->param("id");
         return ctx->send(resp.dump(2));
     });
+
+#ifdef WITH_LUA
+    // curl -v "http://ip:port/lua/hello?id=42"
+    router.GET("/lua/hello", HttpScriptHandler("examples/scripts/hello.lua"));
+    // curl -v "http://ip:port/script/hello?id=42"
+    router.Script("/script/", "examples/scripts");
+#endif
 
     // curl -v http://ip:port/async
     router.GET("/async", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {

@@ -1,6 +1,13 @@
 #include "HttpService.h"
 #include "HttpMiddleware.h"
 #include "HttpRouter.h"
+#ifdef WITH_LUA
+#include "HttpScriptHandler.h"
+#include "hpath.h"
+#include "hstring.h"
+#include <mutex>
+#include <string.h>
+#endif
 
 namespace hv {
 
@@ -107,6 +114,59 @@ std::string HttpService::GetStaticFilepath(const char* path) {
     }
     return filepath;
 }
+
+#ifdef WITH_LUA
+void HttpService::Script(const char* path, const char* script_dir) {
+    std::string route_path(path ? path : "");
+    if (route_path.empty()) return;
+    if (route_path.back() != '*') {
+        if (route_path.back() != '/') route_path += '/';
+        route_path += '*';
+    }
+
+    std::string route_prefix = route_path.substr(0, route_path.size() - 1);
+    std::string root(script_dir ? script_dir : "");
+    while (!root.empty() && (root.back() == '/' || root.back() == '\\')) {
+        root.pop_back();
+    }
+
+    std::shared_ptr<std::map<std::string, HttpScriptHandlerPtr> > scripts =
+        std::make_shared<std::map<std::string, HttpScriptHandlerPtr> >();
+    std::shared_ptr<std::mutex> scripts_mutex = std::make_shared<std::mutex>();
+    http_ctx_handler script_handler_func = [route_prefix, root, scripts, scripts_mutex](const HttpContextPtr& ctx) -> int {
+        std::string path = ctx->path();
+        if (path.compare(0, route_prefix.size(), route_prefix) != 0) {
+            return HTTP_STATUS_NOT_FOUND;
+        }
+        std::string name = path.substr(route_prefix.size());
+        if (name.empty()) {
+            name = "index";
+        }
+        if (strstr(path.c_str(), "/..") || strstr(path.c_str(), "\\..")) {
+            return HTTP_STATUS_FORBIDDEN;
+        }
+        std::string script = HPath::join(root, name);
+        if (HPath::suffixname(script).empty()) {
+            script += ".lua";
+        }
+
+        HttpScriptHandlerPtr script_handler;
+        {
+            std::lock_guard<std::mutex> lock(*scripts_mutex);
+            auto iter = scripts->find(script);
+            if (iter == scripts->end()) {
+                script_handler = std::make_shared<HttpScriptHandler>(script.c_str());
+                (*scripts)[script] = script_handler;
+            } else {
+                script_handler = iter->second;
+            }
+        }
+        return (*script_handler)(ctx);
+    };
+
+    Any(route_path.c_str(), http_handler(script_handler_func));
+}
+#endif
 
 void HttpService::Proxy(const char* path, const char* url) {
     proxies[path] = url;

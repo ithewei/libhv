@@ -10,6 +10,7 @@
 - mqtt client
 - redis client
 - async DNS
+- http lua handler
 
 ## Plan
 

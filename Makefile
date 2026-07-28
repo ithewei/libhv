@@ -40,6 +40,9 @@ endif
 ifeq ($(WITH_HTTP_SERVER), yes)
 LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
+ifeq ($(WITH_LUA), yes)
+LIBHV_HEADERS += http/server/HttpScriptHandler.h http/server/HttpLuaHandler.h
+endif
 endif
 
 ifeq ($(WITH_HTTP_CLIENT), yes)
@@ -315,6 +318,12 @@ unittest: prepare
 ifeq ($(WITH_EVPP), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
+ifeq ($(WITH_LUA), yes)
+	$(MAKE) libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+else
+	$(RM) bin/http_lua_handler_test
+endif
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Iredis -o bin/redis_protocol_test unittest/redis_protocol_test.cpp redis/RedisMessage.cpp
