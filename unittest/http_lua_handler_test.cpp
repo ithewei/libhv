@@ -1,4 +1,4 @@
-#include "HttpLuaHandler.h"
+#include "HttpScriptHandler.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -46,7 +46,7 @@ static void test_text_response() {
         "  return ctx:text(ctx:method() .. ' ' .. ctx:path() .. ' ' .. ctx:header('X-Test'))\n"
         "end\n");
 
-    hv::LuaHandler handler(script.c_str());
+    hv::HttpScriptHandler handler(script.c_str());
     HttpContextPtr ctx = make_ctx("GET", "/hello");
     int status = handler(ctx);
     assert(status == 201);
@@ -62,7 +62,7 @@ static void test_json_response() {
         "  return ctx:json({ok=true, id=ctx:query('id')})\n"
         "end\n");
 
-    hv::LuaHandler handler(script.c_str());
+    hv::HttpScriptHandler handler(script.c_str());
     HttpContextPtr ctx = make_ctx("POST", "/json");
     int status = handler(ctx);
     assert(status == 200);
@@ -96,10 +96,21 @@ static void test_script_dir_mapping() {
     assert(ctx->response->body == "script:42");
 }
 
+static void test_unknown_script_suffix() {
+    std::string script = write_script("unknown.py", "def handle(ctx): pass\n");
+
+    hv::HttpScriptHandler handler(script.c_str());
+    HttpContextPtr ctx = make_ctx("GET", "/unknown");
+    int status = handler(ctx);
+    assert(status == HTTP_STATUS_NOT_IMPLEMENTED);
+    assert(ctx->response->status_code == HTTP_STATUS_NOT_IMPLEMENTED);
+}
+
 int main() {
     test_text_response();
     test_json_response();
     test_script_dir_mapping();
+    test_unknown_script_suffix();
     printf("ALL http_lua_handler_test PASSED\n");
     return 0;
 }

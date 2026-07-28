@@ -41,7 +41,7 @@ ifeq ($(WITH_HTTP_SERVER), yes)
 LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
 ifeq ($(WITH_LUA), yes)
-LIBHV_HEADERS += http/server/HttpLuaHandler.h
+LIBHV_HEADERS += http/server/HttpScriptHandler.h http/server/HttpLuaHandler.h
 endif
 endif
 
@@ -119,7 +119,7 @@ prepare:
 libhv:
 	$(MKDIR) lib
 ifeq ($(WITH_LUA), yes)
-	$(RM) http/server/HttpLuaHandler.o
+	$(RM) http/server/HttpLuaHandler.o http/server/HttpScriptHandler.o
 endif
 ifeq ($(BUILD_SHARED), yes)
 ifeq ($(BUILD_STATIC), yes)

@@ -1,6 +1,6 @@
 # Http Lua Handler
 
-`HttpLuaHandler` 允许 `HttpService` 调用 Lua 脚本里的 `handle(ctx)` 方法处理 HTTP 请求。它适合把少量业务逻辑从 C++ 编译周期里解耦出来：修改脚本后无需重新编译服务，下一次请求会自动加载新脚本。
+`HttpScriptHandler` 允许 `HttpService` 调用脚本里的 `handle(ctx)` 方法处理 HTTP 请求。当前支持 `.lua` 脚本，适合把少量业务逻辑从 C++ 编译周期里解耦出来：修改脚本后无需重新编译服务，下一次请求会自动加载新脚本。
 
 该功能是可选模块，默认不编译。
 
@@ -37,13 +37,13 @@ C++:
 
 ```cpp
 #include "HttpServer.h"
-#include "HttpLuaHandler.h"
+#include "HttpScriptHandler.h"
 
 using namespace hv;
 
 int main() {
     HttpService router;
-    router.GET("/hello", LuaHandler("scripts/hello.lua"));
+    router.GET("/hello", HttpScriptHandler("scripts/hello.lua"));
 
     HttpServer server;
     server.port = 8080;
@@ -66,15 +66,17 @@ function handle(ctx)
 end
 ```
 
+如果需要明确指定 Lua 引擎，也可以直接使用 `LuaHandler("scripts/hello.lua")`。推荐用户代码优先使用 `HttpScriptHandler`，这样后续增加 JS/Python 等脚本引擎时不用改路由注册代码。
+
 ## 目录映射
 
-`HttpService::Script(path, script_dir)` 可以把 URL 前缀映射到脚本目录：
+`HttpService::Script(path, script_dir)` 可以把 URL 前缀映射到脚本目录，内部同样使用 `HttpScriptHandler`：
 
 ```cpp
 router.Script("/script/", "scripts");
 ```
 
-访问 `/script/user?id=42` 时会调用 `scripts/user.lua`。访问 `/script/` 时会调用 `scripts/index.lua`。
+访问 `/script/user?id=42` 时会调用 `scripts/user.lua`。访问 `/script/` 时会调用 `scripts/index.lua`。当前目录映射只自动补 `.lua` 后缀。
 
 目录映射默认支持 `GET`、`POST`、`PUT`、`DELETE`、`PATCH`。路径中包含 `..` 路径段时返回 `403`。
 
@@ -119,7 +121,7 @@ hv.now()
 
 ## 热更新
 
-`LuaHandler` 会记录脚本文件的 `mtime`。每次请求前，如果文件被修改，会重新加载脚本。
+`HttpScriptHandler` 当前会把 `.lua` 文件转给 `LuaHandler`。`LuaHandler` 会记录脚本文件的 `mtime`。每次请求前，如果文件被修改，会重新加载脚本。
 
 重新加载失败时：
 

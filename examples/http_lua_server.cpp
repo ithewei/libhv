@@ -1,5 +1,5 @@
 #include "HttpServer.h"
-#include "HttpLuaHandler.h"
+#include "HttpScriptHandler.h"
 
 using namespace hv;
 
@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
     }
 
     HttpService router;
-    router.GET("/hello", LuaHandler("examples/scripts/hello.lua"));
+    router.GET("/hello", HttpScriptHandler("examples/scripts/hello.lua"));
     router.Script("/script/", script_dir);
 
     HttpServer server;

@@ -2,7 +2,7 @@
 #include "HttpMiddleware.h"
 #include "HttpRouter.h"
 #ifdef WITH_LUA
-#include "HttpLuaHandler.h"
+#include "HttpScriptHandler.h"
 #include "hpath.h"
 #include "hstring.h"
 #endif
@@ -64,8 +64,8 @@ void HttpService::Script(const char* path, const char* script_dir) {
         root.pop_back();
     }
 
-    std::shared_ptr<std::map<std::string, LuaHandlerPtr> > scripts =
-        std::make_shared<std::map<std::string, LuaHandlerPtr> >();
+    std::shared_ptr<std::map<std::string, HttpScriptHandlerPtr> > scripts =
+        std::make_shared<std::map<std::string, HttpScriptHandlerPtr> >();
     std::shared_ptr<std::mutex> scripts_mutex = std::make_shared<std::mutex>();
     http_handler handler([route_prefix, root, scripts, scripts_mutex](const HttpContextPtr& ctx) -> int {
         std::string path = ctx->path();
@@ -84,18 +84,18 @@ void HttpService::Script(const char* path, const char* script_dir) {
             script += ".lua";
         }
 
-        LuaHandlerPtr lua_handler;
+        HttpScriptHandlerPtr script_handler;
         {
             std::lock_guard<std::mutex> lock(*scripts_mutex);
             auto iter = scripts->find(script);
             if (iter == scripts->end()) {
-                lua_handler = std::make_shared<LuaHandler>(script.c_str());
-                (*scripts)[script] = lua_handler;
+                script_handler = std::make_shared<HttpScriptHandler>(script.c_str());
+                (*scripts)[script] = script_handler;
             } else {
-                lua_handler = iter->second;
+                script_handler = iter->second;
             }
         }
-        return (*lua_handler)(ctx);
+        return (*script_handler)(ctx);
     });
 
     AddRoute(route_path.c_str(), HTTP_GET, handler);
