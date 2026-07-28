@@ -56,12 +56,8 @@ struct http_handler {
     http_handler(http_async_handler fn) : async_handler(std::move(fn))  {}
     http_handler(http_ctx_handler fn)   : ctx_handler(std::move(fn))    {}
     http_handler(http_state_handler fn) : state_handler(std::move(fn))  {}
-    http_handler(const http_handler& rhs)
-        : sync_handler(std::move(const_cast<http_handler&>(rhs).sync_handler))
-        , async_handler(std::move(const_cast<http_handler&>(rhs).async_handler))
-        , ctx_handler(std::move(const_cast<http_handler&>(rhs).ctx_handler))
-        , state_handler(std::move(const_cast<http_handler&>(rhs).state_handler))
-    {}
+    http_handler(const http_handler& rhs) = default;
+    http_handler& operator=(const http_handler& rhs) = default;
 
     const http_handler& operator=(http_sync_handler fn) {
         sync_handler = std::move(fn);

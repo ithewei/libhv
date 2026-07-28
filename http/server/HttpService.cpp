@@ -163,12 +163,7 @@ void HttpService::Script(const char* path, const char* script_dir) {
         return (*script_handler)(ctx);
     };
 
-    AddRoute(route_path.c_str(), HTTP_HEAD, http_handler(script_handler_func));
-    AddRoute(route_path.c_str(), HTTP_GET, http_handler(script_handler_func));
-    AddRoute(route_path.c_str(), HTTP_POST, http_handler(script_handler_func));
-    AddRoute(route_path.c_str(), HTTP_PUT, http_handler(script_handler_func));
-    AddRoute(route_path.c_str(), HTTP_DELETE, http_handler(script_handler_func));
-    AddRoute(route_path.c_str(), HTTP_PATCH, http_handler(script_handler_func));
+    Any(route_path.c_str(), http_handler(script_handler_func));
 }
 #endif
 
