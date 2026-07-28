@@ -123,6 +123,16 @@ if(WITH_EVPP)
 
         list(APPEND EXAMPLES redis_client_example redis_subscriber_example)
     endif()
+
+    if(WITH_LUA)
+        include_directories(../lua)
+
+        # hvlua: standalone Lua runtime on top of libhv's event loop
+        add_executable(hvlua hvlua.cpp)
+        target_link_libraries(hvlua ${HV_LIBRARIES})
+
+        list(APPEND EXAMPLES hvlua)
+    endif()
 if(WITH_HTTP)
     include_directories(../http)
 

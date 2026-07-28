@@ -91,10 +91,13 @@ add_executable(http_router_test http_router_test.cpp)
 target_include_directories(http_router_test PRIVATE ../http/server)
 
 if(WITH_LUA)
+add_executable(lua_binding_test lua_binding_test.cpp)
+target_include_directories(lua_binding_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../lua)
+target_link_libraries(lua_binding_test ${HV_LIBRARIES})
 add_executable(http_lua_handler_test http_lua_handler_test.cpp)
 target_include_directories(http_lua_handler_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server)
 target_link_libraries(http_lua_handler_test ${HV_LIBRARIES})
-set(HTTP_LUA_UNITTEST_TARGETS http_lua_handler_test)
+set(HTTP_LUA_UNITTEST_TARGETS lua_binding_test http_lua_handler_test)
 endif()
 
 # ------event: async dns------

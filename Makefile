@@ -24,6 +24,11 @@ ifeq ($(WITH_EVPP), yes)
 LIBHV_HEADERS += $(CPPUTIL_HEADERS) $(EVPP_HEADERS)
 LIBHV_SRCDIRS += cpputil evpp
 
+ifeq ($(WITH_LUA), yes)
+LIBHV_HEADERS += lua/hv_lua.h
+LIBHV_SRCDIRS += lua
+endif
+
 ifeq ($(WITH_REDIS), yes)
 LIBHV_HEADERS += $(REDIS_HEADERS)
 LIBHV_SRCDIRS += redis
@@ -99,6 +104,10 @@ endif
 
 ifeq ($(WITH_MQTT), yes)
 EXAMPLES += mqtt_sub mqtt_pub mqtt_client_test
+endif
+
+ifeq ($(WITH_LUA), yes)
+EXAMPLES += hvlua
 endif
 
 examples: $(EXAMPLES)
@@ -178,6 +187,9 @@ socks5_proxy_server: prepare
 
 host: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/host.c"
+
+hvlua: prepare libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/hvlua examples/hvlua.cpp -Llib -lhv -pthread $(LUA_LIBS)
 
 multi-acceptor-processes: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/multi-thread/multi-acceptor-processes.c"
@@ -320,9 +332,10 @@ ifeq ($(WITH_EVPP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
 ifeq ($(WITH_LUA), yes)
 	$(MAKE) libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 else
-	$(RM) bin/http_lua_handler_test
+	$(RM) bin/lua_binding_test bin/http_lua_handler_test
 endif
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv

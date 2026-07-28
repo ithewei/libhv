@@ -32,6 +32,9 @@ bin/socketpair_test
 # bin/objectpool_test
 bin/sizeof_test
 bin/http_router_test
+if [ -x bin/lua_binding_test ]; then
+    bin/lua_binding_test
+fi
 if [ -x bin/http_lua_handler_test ]; then
     bin/http_lua_handler_test
 fi
