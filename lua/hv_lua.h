@@ -61,6 +61,22 @@ lua_State* hvlua_coroutine_state(HvLuaCoroutine* co);
 // Recover the owning hloop_t* for a lua_State (stashed at state creation).
 hloop_t* hvlua_loop(lua_State* L);
 
+// ---- coroutine "task" runner (used by the HTTP handler and hvlua) ----
+//
+// Runs fn(args...) inside a fresh coroutine. If the coroutine yields on an
+// async op, it is resumed later (on the same loop thread) by hvlua_resume.
+// When the coroutine finally finishes (success or error), `on_done` is invoked
+// exactly once on the loop thread.
+//
+// @on_done(ud, ok, L): ok = true on normal finish; on error ok = false and the
+//                      error message is on top of L's stack.
+typedef void (*hvlua_done_cb)(void* ud, bool ok, lua_State* co);
+
+// The function and `nargs` arguments must already be pushed on `L` (a main or
+// coroutine state); they are moved into the new coroutine. Returns 1 if the
+// task finished synchronously (on_done already called), 0 if it yielded.
+int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud);
+
 } // namespace hv
 
 #endif // HV_LUA_H_

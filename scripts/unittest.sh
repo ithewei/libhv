@@ -38,6 +38,9 @@ fi
 if [ -x bin/http_lua_handler_test ]; then
     bin/http_lua_handler_test
 fi
+if [ -x bin/http_lua_async_test ]; then
+    bin/http_lua_async_test
+fi
 if [ -x bin/hdns_test ]; then
     bin/hdns_test
 fi

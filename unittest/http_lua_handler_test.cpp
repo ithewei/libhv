@@ -9,6 +9,7 @@
 #include "hpath.h"
 #include "HttpService.h"
 #include "HttpContext.h"
+#include "EventLoop.h"
 
 static std::string write_script(const char* name, const char* content) {
     std::string dir = "tmp/http_lua_handler_test";
@@ -156,6 +157,12 @@ static void test_unknown_script_suffix() {
 }
 
 int main() {
+    // HttpLuaHandler runs on the IO thread's per-loop lua_State, obtained via
+    // currentThreadEventLoop. Bind an EventLoop to this thread's TLS so the
+    // handler can create/reuse its lua_State (these scripts finish synchronously).
+    hv::EventLoop loop;
+    hv::ThreadLocalStorage::set(hv::ThreadLocalStorage::EVENT_LOOP, &loop);
+
     test_text_response();
     test_json_response();
     test_method_function_preferred();

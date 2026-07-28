@@ -1,5 +1,6 @@
 #include "hv_lua.h"
 
+#include <map>
 #include <string>
 
 extern "C" {
@@ -31,6 +32,53 @@ struct HvLuaCoroutine {
     lua_State* L;      // the coroutine thread
     int        ref;    // luaL_ref of the thread in the registry, LUA_NOREF if freed
 };
+
+// A "task" is a top-level coroutine with a C completion callback. We track the
+// pending callback keyed by the coroutine's lua_State* so that whichever resume
+// finishes it (initial run or a later async resume) can fire on_done once.
+struct HvLuaTask {
+    hvlua_done_cb on_done;
+    void*         ud;
+    int           thread_ref;  // keeps the coroutine alive between resumes
+};
+static std::map<lua_State*, HvLuaTask> g_tasks;
+
+// Drive one resume step of a task coroutine. Fires on_done when it finishes.
+// `co` is the coroutine; nresults is the number of values already pushed on it.
+static void hvlua_task_step(lua_State* co, int nresults) {
+    int nres = 0;
+    (void)nres;
+    int status = lua_resume(co, NULL, nresults
+#if LUA_VERSION_NUM >= 504
+        , &nres
+#endif
+    );
+    if (status == LUA_YIELD) {
+        return;  // suspended again; a resume token owns the next wakeup
+    }
+    // Finished (LUA_OK) or errored: fire the completion callback, then release.
+    auto iter = g_tasks.find(co);
+    if (iter == g_tasks.end()) return;
+    HvLuaTask task = iter->second;
+    g_tasks.erase(iter);
+    bool ok = (status == LUA_OK);
+    if (task.on_done) task.on_done(task.ud, ok, co);
+    luaL_unref(co, LUA_REGISTRYINDEX, task.thread_ref);
+}
+
+int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud) {
+    // stack (top): fn, arg1, ..., argN
+    lua_State* co = lua_newthread(L);      // push thread
+    // move fn+args (below the thread) into the coroutine
+    lua_insert(L, -(nargs + 2));           // move thread below fn+args
+    lua_xmove(L, co, nargs + 1);           // move fn+args into co; thread stays on L
+    int thread_ref = luaL_ref(L, LUA_REGISTRYINDEX);  // pop+ref the thread
+
+    g_tasks[co] = HvLuaTask{ on_done, ud, thread_ref };
+    hvlua_task_step(co, nargs);
+    // If the task is no longer tracked, it finished synchronously.
+    return g_tasks.find(co) == g_tasks.end() ? 1 : 0;
+}
 
 HvLuaCoroutine* hvlua_suspend(lua_State* L) {
     // L is the running coroutine. Keep it alive by ref'ing the thread object
@@ -65,23 +113,29 @@ void hvlua_resume(HvLuaCoroutine* co, int nresults) {
     }
     lua_State* L = co->L;
     int ref = co->ref;
-    // Release the registry ref BEFORE resuming so a re-entrant resume can't
-    // double-free, and so the thread can be GC'd once it finishes.
+    // Release the suspend token's registry ref BEFORE resuming so a re-entrant
+    // resume can't double-free. Task tracking (g_tasks) keeps its own ref, so
+    // the coroutine stays alive across this transition.
     co->ref = LUA_NOREF;
-
-    int status = lua_resume(L, NULL, nresults
-#if LUA_VERSION_NUM >= 504
-        , &nresults
-#endif
-    );
-    if (status != LUA_OK && status != LUA_YIELD) {
-        const char* msg = lua_tostring(L, -1);
-        hloge("[lua] coroutine error: %s", msg ? msg : "unknown");
-    }
-    // Unref the thread now that it has either finished or yielded again.
-    // (If it yielded again, a new token was created via hvlua_suspend.)
-    luaL_unref(L, LUA_REGISTRYINDEX, ref);
     delete co;
+
+    // Drive the coroutine; hvlua_task_step fires on_done if it finishes and is
+    // a tracked task. For non-task coroutines it just resumes/logs errors.
+    if (g_tasks.find(L) != g_tasks.end()) {
+        hvlua_task_step(L, nresults);
+    } else {
+        int nres = 0; (void)nres;
+        int status = lua_resume(L, NULL, nresults
+#if LUA_VERSION_NUM >= 504
+            , &nres
+#endif
+        );
+        if (status != LUA_OK && status != LUA_YIELD) {
+            const char* msg = lua_tostring(L, -1);
+            hloge("[lua] coroutine error: %s", msg ? msg : "unknown");
+        }
+    }
+    luaL_unref(L, LUA_REGISTRYINDEX, ref);
 }
 
 // ---------------------------------------------------------------------------

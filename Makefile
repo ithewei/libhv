@@ -11,6 +11,14 @@ endif
 BUILD_SHARED ?= yes
 BUILD_STATIC ?= yes
 
+# http/server examples compile sources directly (not linking libhv), so when
+# WITH_LUA is on they must also include the lua/ binding sources that
+# HttpLuaHandler depends on.
+HTTP_SERVER_EXAMPLE_SRCDIRS = $(CORE_SRCDIRS) util cpputil evpp http http/server
+ifeq ($(WITH_LUA), yes)
+HTTP_SERVER_EXAMPLE_SRCDIRS += lua
+endif
+
 LIBHV_SRCDIRS = $(CORE_SRCDIRS) util
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
 LIBHV_HEADERS += $(BASE_HEADERS) $(SSL_HEADERS) $(EVENT_HEADERS) $(UTIL_HEADERS)
@@ -240,7 +248,7 @@ wget: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client" SRCS="examples/wget.cpp"
 
 http_server_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/server" SRCS="examples/http_server_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS="$(HTTP_SERVER_EXAMPLE_SRCDIRS)" SRCS="examples/http_server_test.cpp"
 
 http_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client" SRCS="examples/http_client_test.cpp"
@@ -333,9 +341,10 @@ ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_LUA), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/http_lua_async_test unittest/http_lua_async_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 else
-	$(RM) bin/lua_binding_test bin/http_lua_handler_test
+	$(RM) bin/lua_binding_test bin/http_lua_handler_test bin/http_lua_async_test
 endif
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv

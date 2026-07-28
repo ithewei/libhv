@@ -108,16 +108,41 @@ function handle(ctx)
 end
 ```
 
-## hv API
+## hv / hloop API
 
-首版只提供少量宿主能力：
+脚本运行在所属 IO 线程的 **协程** 里，因此可以用 **同步写法** 调用异步能力：调用会挂起当前请求的协程、把控制权交还事件循环，结果就绪后在同一线程恢复，全程不阻塞 loop。
+
+当前可用的宿主能力：
 
 ```lua
-hv.log(...)
-hv.now()
+hv.log(...)                 -- 日志
+hv.now()                    -- unix 秒
+hv.json.encode(tbl)         -- table -> json string
+hv.json.decode(str)         -- json string -> table
+hv.dns.resolve(host)        -- 协程同步 DNS 解析: 返回 { ip, ... } 或 nil, err
+
+hloop.setTimeout(ms, fn)    -- 定时器 (返回句柄)
+hloop.setInterval(ms, fn)
+hloop.clearTimer(handle)
+hloop.sleep(ms)             -- 协程同步 sleep: 挂起当前协程 ms 毫秒, 不阻塞 loop
 ```
 
-暂不暴露 `hv.event_loop`、TCP/HTTP client、Redis 等能力，避免脚本直接操作底层事件循环。后续可以按业务需要增加受控的 `hv.redis`、`hv.http` 等模块。
+示例（handler 内部“同步”写法，实际异步，loop 不阻塞）：
+
+```lua
+function handle(ctx)
+    local addrs, err = hv.dns.resolve("example.com")
+    if err then
+        ctx:status(502)
+        return ctx:json({ ok = false, error = err })
+    end
+    return ctx:json({ ok = true, addrs = addrs })
+end
+```
+
+多个请求会在同一 IO 线程上并发交错执行：某个请求在 `hv.dns.resolve` / `hloop.sleep` 处挂起时，同线程的其它请求会继续推进。注意协作式调度的语义——跨越挂起点不要对全局状态做原子性假设。
+
+> TCP/HTTP client、Redis 等高层 client 的协程绑定见 `lua/` 模块，按 `WITH_LUA` / `WITH_REDIS` 等开关编入。
 
 ## 热更新
 
