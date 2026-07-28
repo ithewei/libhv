@@ -96,6 +96,23 @@ static void test_script_dir_mapping() {
     assert(ctx->response->body == "script:42");
 }
 
+static void test_script_dir_parent_path_forbidden() {
+    hv::HttpService service;
+    service.Script("/api/", "tmp/http_lua_handler_test/api");
+
+    http_handler* handler = NULL;
+    std::map<std::string, std::string> params;
+    int ret = service.GetRoute("/api/foo/..bar", HTTP_GET, &handler, params);
+    assert(ret == 0);
+    assert(handler != NULL);
+    assert(handler->ctx_handler != NULL);
+
+    HttpContextPtr ctx = make_ctx("GET", "/api/foo/..bar");
+    ctx->service = &service;
+    int status = handler->ctx_handler(ctx);
+    assert(status == HTTP_STATUS_FORBIDDEN);
+}
+
 static void test_unknown_script_suffix() {
     std::string script = write_script("unknown.py", "def handle(ctx): pass\n");
 
@@ -110,6 +127,7 @@ int main() {
     test_text_response();
     test_json_response();
     test_script_dir_mapping();
+    test_script_dir_parent_path_forbidden();
     test_unknown_script_suffix();
     printf("ALL http_lua_handler_test PASSED\n");
     return 0;

@@ -109,8 +109,6 @@ typedef std::unordered_map<std::string, http_method_handlers_ptr>   http_path_ha
 
 namespace hv {
 
-class LuaHandler;
-
 template<typename Handler>
 class HttpRouter;
 
@@ -193,9 +191,6 @@ struct HV_EXPORT HttpService {
 
     // router interface
     void AddRoute(const char* path, http_method method, const http_handler& handler);
-#ifdef WITH_LUA
-    void Script(const char* path, const char* script_dir);
-#endif
     // @param[in] full_path: {base_url}/path?query
     // @param[out] params: RESTful API /:field/ => params["field"]
     // @retval 0 OK, else HTTP_STATUS_NOT_FOUND, HTTP_STATUS_METHOD_NOT_ALLOWED
@@ -209,6 +204,10 @@ struct HV_EXPORT HttpService {
     void Static(const char* path, const char* dir);
     // @retval / => /var/www/html/index.html
     std::string GetStaticFilepath(const char* path);
+
+#ifdef WITH_LUA
+    void Script(const char* path, const char* script_dir);
+#endif
 
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
     void AllowCORS();
