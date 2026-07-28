@@ -368,7 +368,13 @@ bool LuaHandler::reloadIfNeeded() {
 }
 
 int LuaHandler::callLocked(const HttpContextPtr& ctx) {
-    lua_getglobal(L_, "handle");
+    std::string handler_name = http_method_str(ctx->request->method);
+    tolower(handler_name);
+    lua_getglobal(L_, handler_name.c_str());
+    if (!lua_isfunction(L_, -1)) {
+        lua_pop(L_, 1);
+        lua_getglobal(L_, "handle");
+    }
     lua_push_ctx(L_, ctx);
     if (lua_pcall(L_, 1, 1, 0) != LUA_OK) {
         std::string error = lua_tostring(L_, -1) ? lua_tostring(L_, -1) : "call handle failed";

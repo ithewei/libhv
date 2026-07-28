@@ -71,6 +71,38 @@ static void test_json_response() {
     assert(ctx->response->body.find("\"id\": \"42\"") != std::string::npos);
 }
 
+static void test_method_function_preferred() {
+    std::string script = write_script("method.lua",
+        "function get(ctx)\n"
+        "  return ctx:text('get:' .. ctx:query('id'))\n"
+        "end\n"
+        "function handle(ctx)\n"
+        "  return ctx:text('handle')\n"
+        "end\n");
+
+    hv::HttpScriptHandler handler(script.c_str());
+    HttpContextPtr ctx = make_ctx("GET", "/method");
+    int status = handler(ctx);
+    assert(status == 200);
+    assert(ctx->response->body == "get:42");
+}
+
+static void test_method_function_fallback_to_handle() {
+    std::string script = write_script("method_fallback.lua",
+        "function get(ctx)\n"
+        "  return ctx:text('get')\n"
+        "end\n"
+        "function handle(ctx)\n"
+        "  return ctx:text('fallback:' .. ctx:method())\n"
+        "end\n");
+
+    hv::HttpScriptHandler handler(script.c_str());
+    HttpContextPtr ctx = make_ctx("POST", "/method");
+    int status = handler(ctx);
+    assert(status == 200);
+    assert(ctx->response->body == "fallback:POST");
+}
+
 static void test_script_dir_mapping() {
     write_script("api/user.lua",
         "function handle(ctx)\n"
@@ -126,6 +158,8 @@ static void test_unknown_script_suffix() {
 int main() {
     test_text_response();
     test_json_response();
+    test_method_function_preferred();
+    test_method_function_fallback_to_handle();
     test_script_dir_mapping();
     test_script_dir_parent_path_forbidden();
     test_unknown_script_suffix();
