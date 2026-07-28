@@ -12,7 +12,7 @@ Makefile:
 
 ```bash
 make libhv WITH_LUA=yes
-make http_lua_server WITH_LUA=yes
+make http_server_test WITH_LUA=yes
 make unittest WITH_LUA=yes
 ```
 
@@ -133,8 +133,8 @@ hv.now()
 ## 示例
 
 ```bash
-make http_lua_server WITH_LUA=yes
-bin/http_lua_server 8080 examples/scripts
-curl "http://127.0.0.1:8080/hello?id=42"
+make http_server_test WITH_LUA=yes
+bin/http_server_test 8080
+curl "http://127.0.0.1:8080/lua/hello?id=42"
 curl "http://127.0.0.1:8080/script/hello?id=42"
 ```

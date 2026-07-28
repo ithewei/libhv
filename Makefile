@@ -87,9 +87,6 @@ ifeq ($(WITH_HTTP), yes)
 EXAMPLES += wrk
 ifeq ($(WITH_HTTP_SERVER), yes)
 EXAMPLES += http_server_test websocket_server_test
-ifeq ($(WITH_LUA), yes)
-EXAMPLES += http_lua_server
-endif
 endif
 ifeq ($(WITH_HTTP_CLIENT), yes)
 EXAMPLES += curl wget consul http_client_test websocket_client_test
@@ -241,9 +238,6 @@ http_client_test: prepare
 
 websocket_server_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/server" SRCS="examples/websocket_server_test.cpp"
-
-http_lua_server: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/server" SRCS="examples/http_lua_server.cpp" WITH_LUA=yes
 
 websocket_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client" SRCS="examples/websocket_client_test.cpp"

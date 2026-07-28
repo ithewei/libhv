@@ -8,6 +8,10 @@
 #include "hthread.h"    // import hv_gettid
 #include "hasync.h"     // import hv::async
 
+#ifdef WITH_LUA
+#include "HttpScriptHandler.h"
+#endif
+
 using namespace hv;
 
 /*
@@ -21,6 +25,8 @@ using namespace hv;
  *          curl -v https://127.0.0.1:8443/ping --insecure
  *          bin/curl -v http://127.0.0.1:8080/ping
  *          bin/curl -v https://127.0.0.1:8443/ping
+ *          curl -v "http://127.0.0.1:8080/lua/hello?id=42"  # WITH_LUA=yes
+ *          curl -v "http://127.0.0.1:8080/script/hello?id=42" # WITH_LUA=yes
  *
  */
 #define TEST_HTTPS 0
@@ -87,6 +93,13 @@ int main(int argc, char** argv) {
         resp["id"] = ctx->param("id");
         return ctx->send(resp.dump(2));
     });
+
+#ifdef WITH_LUA
+    // curl -v "http://ip:port/lua/hello?id=42"
+    router.GET("/lua/hello", HttpScriptHandler("examples/scripts/hello.lua"));
+    // curl -v "http://ip:port/script/hello?id=42"
+    router.Script("/script/", "examples/scripts");
+#endif
 
     // curl -v http://ip:port/async
     router.GET("/async", [](const HttpRequestPtr& req, const HttpResponseWriterPtr& writer) {
