@@ -185,7 +185,7 @@ if(WITH_LUA)
     add_definitions(-DWITH_LUA)
     find_package(PkgConfig QUIET)
     if(PKG_CONFIG_FOUND)
-        foreach(LUA_MODULE lua5.4 lua5.3 lua)
+        foreach(LUA_MODULE lua5.5 lua-5.5 lua5.4 lua5.3 lua)
             if(NOT LUA_FOUND)
                 pkg_check_modules(LUA QUIET ${LUA_MODULE})
             endif()
@@ -197,9 +197,11 @@ if(WITH_LUA)
         link_directories(${LUA_LIBRARY_DIRS})
     else()
         find_path(LUA_INCLUDE_DIR lua.h
-            PATH_SUFFIXES lua lua5.4 lua5.3)
+            PATHS /opt/homebrew/opt/lua/include /usr/local/opt/lua/include
+            PATH_SUFFIXES lua lua5.5 lua5.4 lua5.3)
         find_library(LUA_LIBRARY
-            NAMES lua lua5.4 lua5.3)
+            NAMES lua lua5.5 lua5.4 lua5.3
+            PATHS /opt/homebrew/opt/lua/lib /usr/local/opt/lua/lib)
         if(NOT LUA_INCLUDE_DIR OR NOT LUA_LIBRARY)
             message(FATAL_ERROR "WITH_LUA=ON requires Lua development headers and library")
         endif()

@@ -6,7 +6,7 @@
 
 ## 编译
 
-需要 Lua 5.3 或 5.4 开发库。
+需要 Lua 5.3 或更新版本的开发库。
 
 Makefile:
 
@@ -20,7 +20,7 @@ make unittest WITH_LUA=yes
 
 ```bash
 make libhv WITH_LUA=yes \
-    LUA_CFLAGS="-I/usr/local/include/lua5.4" \
+    LUA_CFLAGS="-I/usr/local/include/lua" \
     LUA_LIBS="-L/usr/local/lib -llua"
 ```
 

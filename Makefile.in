@@ -22,6 +22,7 @@
 # LIBS="opencv_core opencv_highgui"
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 -include config.mk
+-include Makefile.vars
 
 # VARIABLES
 TARGET ?= test
@@ -29,10 +30,6 @@ TARGET ?= test
 BUILD_TYPE ?= RELEASE
 # TARGET_TYPE=EXECUTABLE,SHARED,STATIC,SHARED|STATIC
 TARGET_TYPE ?= EXECUTABLE
-PKG_CONFIG ?= pkg-config
-LUA_PKG_CONFIG ?= $(shell if command -v $(PKG_CONFIG) >/dev/null 2>&1; then $(PKG_CONFIG) --exists lua5.4 && echo lua5.4 || $(PKG_CONFIG) --exists lua5.3 && echo lua5.3 || $(PKG_CONFIG) --exists lua && echo lua; fi)
-LUA_CFLAGS ?= $(shell if [ -n "$(LUA_PKG_CONFIG)" ]; then $(PKG_CONFIG) --cflags $(LUA_PKG_CONFIG); fi)
-LUA_LIBS ?= $(shell if [ -n "$(LUA_PKG_CONFIG)" ]; then $(PKG_CONFIG) --libs $(LUA_PKG_CONFIG); else echo -llua; fi)
 
 # COMMANDS
 ifdef CROSS_COMPILE

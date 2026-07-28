@@ -67,7 +67,7 @@ void HttpService::Script(const char* path, const char* script_dir) {
     std::shared_ptr<std::map<std::string, LuaHandlerPtr> > scripts =
         std::make_shared<std::map<std::string, LuaHandlerPtr> >();
     std::shared_ptr<std::mutex> scripts_mutex = std::make_shared<std::mutex>();
-    http_handler handler([route_prefix, root, scripts, scripts_mutex](const HttpContextPtr& ctx) {
+    http_handler handler([route_prefix, root, scripts, scripts_mutex](const HttpContextPtr& ctx) -> int {
         std::string path = ctx->path();
         if (path.compare(0, route_prefix.size(), route_prefix) != 0) {
             return HTTP_STATUS_NOT_FOUND;
