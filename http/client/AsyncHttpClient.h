@@ -106,24 +106,13 @@ class HV_EXPORT AsyncHttpClient : private EventLoopThread {
 public:
     AsyncHttpClient(EventLoopPtr loop = NULL)
         : EventLoopThread(loop)
-        , is_loop_owner(loop == NULL)
     {
         if (loop == NULL) {
             EventLoopThread::start(true);
         }
     }
     ~AsyncHttpClient() {
-        // When we own the loop (constructed with loop==NULL), stop and join the
-        // loop thread FIRST, so nothing runs concurrently while we tear down
-        // below. With an external loop, do NOT stop it — the caller owns its
-        // lifetime (mirrors evpp/TcpClient.h TcpClientTmpl), and in the
-        // single-loop model this destructor already runs on the loop thread
-        // (e.g. via a Lua __gc during hloop teardown). Any in-flight async DNS
-        // queries are owned by EventLoop::resolveDns / the C resolver and torn
-        // down with the loop; nothing to clean here.
-        if (is_loop_owner) {
-            EventLoopThread::stop(true);
-        }
+        EventLoopThread::stop(true);
         // Detach per-connection close callbacks before members are destroyed.
         // Member dtors run in reverse declaration order (conn_pools before
         // channels); tearing down `channels` fires ~Channel -> close -> the
@@ -185,9 +174,6 @@ private:
     std::map<int, SocketChannelPtr>         channels;
     // peeraddr => ConnPool
     std::map<std::string, ConnPool<int>>    conn_pools;
-    // Whether this client owns (and must stop) its event loop. False when an
-    // external loop was passed in (then the caller owns the loop's lifetime).
-    bool                                    is_loop_owner;
 };
 
 }

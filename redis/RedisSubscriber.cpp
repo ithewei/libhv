@@ -53,7 +53,6 @@ struct RedisSubscriber::Impl {
     RedisSubscriber* self;
     TcpClientEventLoopTmpl<SocketChannel> tcp_client;
     RedisParser parser;
-    bool is_loop_owner;
     std::string host;
     int port;
     std::string password;
@@ -68,10 +67,9 @@ struct RedisSubscriber::Impl {
     std::set<std::string> channels;
     std::set<std::string> patterns;
 
-    Impl(RedisSubscriber* subscriber, const EventLoopPtr& loop, bool loop_owner)
+    Impl(RedisSubscriber* subscriber, const EventLoopPtr& loop)
         : self(subscriber)
         , tcp_client(loop)
-        , is_loop_owner(loop_owner)
         , port(6379)
         , db(0)
         , handshake_pending(false)
@@ -90,7 +88,7 @@ struct RedisSubscriber::Impl {
         if (!started || destroyed || stop_in_progress || !accept_requests || self->loop() == NULL || self->loop()->loop() == NULL) {
             return false;
         }
-        if (!is_loop_owner && !self->loop()->isRunning()) {
+        if (!self->isLoopOwner() && !self->loop()->isRunning()) {
             return false;
         }
         return true;
@@ -142,7 +140,7 @@ struct RedisSubscriber::Impl {
         if (!accept_requests || destroyed || self->loop() == NULL || self->loop()->loop() == NULL) {
             return ERR_CONNECT;
         }
-        if (!is_loop_owner && !self->loop()->isRunning()) {
+        if (!self->isLoopOwner() && !self->loop()->isRunning()) {
             return ERR_CONNECT;
         }
         int ret = applySettings();
@@ -484,7 +482,7 @@ struct RedisSubscriber::Impl {
 
 RedisSubscriber::RedisSubscriber(EventLoopPtr loop)
     : EventLoopThread(loop)
-    , impl_(std::make_shared<Impl>(this, EventLoopThread::loop(), loop == NULL)) {
+    , impl_(std::make_shared<Impl>(this, EventLoopThread::loop())) {
     impl_->initCallbacks();
 }
 
@@ -517,7 +515,7 @@ void RedisSubscriber::start(bool wait_threads_started) {
     impl_->stop_in_progress = false;
     impl_->started = true;
     impl_->accept_requests = true;
-    if (!impl_->is_loop_owner) {
+    if (!isLoopOwner()) {
         if (!loop() || !loop()->loop() || !loop()->isRunning()) {
             impl_->started = false;
             impl_->accept_requests = false;
@@ -550,7 +548,7 @@ void RedisSubscriber::stop(bool wait_threads_stopped) {
         impl_->stop_in_progress = false;
         return;
     }
-    if (!impl_->is_loop_owner) {
+    if (!isLoopOwner()) {
         if (loop()->isRunning()) {
             impl_->runCleanupOnLoopAndWait();
         }

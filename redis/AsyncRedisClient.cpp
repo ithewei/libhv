@@ -60,7 +60,6 @@ struct AsyncRedisClient::Impl {
     TcpClientEventLoopTmpl<SocketChannel> tcp_client;
     std::deque<std::shared_ptr<PendingRequest> > pending;
     RedisParser parser;
-    bool is_loop_owner;
     std::string host;
     int port;
     int connect_timeout_ms;
@@ -75,10 +74,9 @@ struct AsyncRedisClient::Impl {
     size_t handshake_index;
     std::vector<RedisCommand> handshake_commands;
 
-    Impl(AsyncRedisClient* client, const EventLoopPtr& loop, bool loop_owner)
+    Impl(AsyncRedisClient* client, const EventLoopPtr& loop)
         : self(client)
         , tcp_client(loop)
-        , is_loop_owner(loop_owner)
         , port(6379)
         , connect_timeout_ms(5000)
         , timeout_ms(5000)
@@ -99,7 +97,7 @@ struct AsyncRedisClient::Impl {
         if (!started || destroyed || stop_in_progress || !accept_requests || self->loop() == NULL || self->loop()->loop() == NULL) {
             return false;
         }
-        if (!is_loop_owner && !self->loop()->isRunning()) {
+        if (!self->isLoopOwner() && !self->loop()->isRunning()) {
             return false;
         }
         return true;
@@ -157,7 +155,7 @@ struct AsyncRedisClient::Impl {
         if (!accept_requests || destroyed || self->loop() == NULL || self->loop()->loop() == NULL) {
             return ERR_CONNECT;
         }
-        if (!is_loop_owner && !self->loop()->isRunning()) {
+        if (!self->isLoopOwner() && !self->loop()->isRunning()) {
             return ERR_CONNECT;
         }
         int ret = applySettings();
@@ -444,7 +442,7 @@ struct AsyncRedisClient::Impl {
 
 AsyncRedisClient::AsyncRedisClient(EventLoopPtr loop)
     : EventLoopThread(loop)
-    , impl_(std::make_shared<Impl>(this, EventLoopThread::loop(), loop == NULL)) {
+    , impl_(std::make_shared<Impl>(this, EventLoopThread::loop())) {
     impl_->initCallbacks();
 }
 
@@ -485,7 +483,7 @@ void AsyncRedisClient::start(bool wait_threads_started) {
     impl_->stop_in_progress = false;
     impl_->started = true;
     impl_->accept_requests = true;
-    if (!impl_->is_loop_owner) {
+    if (!isLoopOwner()) {
         if (!loop() || !loop()->loop() || !loop()->isRunning()) {
             impl_->started = false;
             impl_->accept_requests = false;
@@ -518,7 +516,7 @@ void AsyncRedisClient::stop(bool wait_threads_stopped) {
         impl_->stop_in_progress = false;
         return;
     }
-    if (!impl_->is_loop_owner) {
+    if (!isLoopOwner()) {
         if (loop()->isRunning()) {
             impl_->runCleanupOnLoopAndWait();
         }

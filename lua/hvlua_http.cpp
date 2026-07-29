@@ -33,7 +33,7 @@ struct LuaHttpClientBox {
 static int http_client_gc(lua_State* L) {
     LuaHttpClientBox* box = (LuaHttpClientBox*)lua_touserdata(L, 1);
     if (box && box->client) {
-        delete box->client;   // is_loop_owner=false: does NOT stop the shared loop
+        delete box->client;   // external loop (not owner): does NOT stop the shared loop
         box->client = NULL;
     }
     return 0;

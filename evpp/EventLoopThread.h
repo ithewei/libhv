@@ -17,6 +17,13 @@ public:
 
     EventLoopThread(EventLoopPtr loop = NULL) {
         setStatus(kInitializing);
+        // is_loop_owner_ records whether this object created its own loop.
+        // When an external loop is passed in, the caller owns that loop's
+        // lifetime (and its thread), so subclasses must NOT stop it on their
+        // own teardown. Exposed to subclasses via isLoopOwner() so the
+        // "own loop -> stop it / external loop -> leave it" decision lives in
+        // one place instead of a duplicated flag in every client/server class.
+        is_loop_owner_ = (loop == NULL);
         loop_ = loop ? loop : std::make_shared<EventLoop>();
         setStatus(kInitialized);
     }
@@ -28,6 +35,13 @@ public:
 
     const EventLoopPtr& loop() {
         return loop_;
+    }
+
+    // Whether this object created (and therefore owns) its EventLoop. False when
+    // an external loop was supplied at construction. Subclasses use this to
+    // decide whether their stop() should also stop the loop/thread.
+    bool isLoopOwner() const {
+        return is_loop_owner_;
     }
 
     hloop_t* hloop() {
@@ -59,7 +73,17 @@ public:
 
     // @param wait_thread_started: if ture this method will block until loop_thread stopped.
     // stop thread-safe
+    //
+    // Ownership rule: stop() only stops the loop it is entitled to. A shared,
+    // externally-supplied loop (is_loop_owner_ == false) must NOT be stopped
+    // here — its creator owns that decision; a mere user has no right to stop
+    // it. The one exception is when this object had to spin up its OWN thread
+    // for an external loop that was not yet running (start() falls back to
+    // EventLoopThread::start() then): that thread IS ours, so thread_ != NULL
+    // and we must stop/join it to avoid a hang in the destructor's join().
+    // So the guard is "own the loop, OR own a thread".
     void stop(bool wait_thread_stopped = false) {
+        if (!is_loop_owner_ && !thread_) return;
         if (status() < kStarting || status() >= kStopping) return;
         setStatus(kStopping);
 
@@ -108,6 +132,7 @@ private:
 private:
     EventLoopPtr                 loop_;
     std::shared_ptr<std::thread> thread_;
+    bool                         is_loop_owner_;
 };
 
 typedef std::shared_ptr<EventLoopThread> EventLoopThreadPtr;
