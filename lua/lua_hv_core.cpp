@@ -15,7 +15,9 @@ extern "C" {
 
 using nlohmann::json;
 
-namespace hv {
+// This module stays C++ (nlohmann::json). All helpers are file-static; only
+// hvlua_open_core is exported, with C linkage so the C core (hv_lua.c) can call
+// it. No `namespace hv` wrapper is needed here.
 
 // ---- lua <-> json conversion (shared style with HttpLuaHandler) ----
 
@@ -187,7 +189,7 @@ static const luaL_Reg hv_json_funcs[] = {
     { NULL, NULL }
 };
 
-void hvlua_open_core(lua_State* L) {
+extern "C" void hvlua_open_core(lua_State* L) {
     // create/get global "hv"
     lua_getglobal(L, "hv");
     if (!lua_istable(L, -1)) {
@@ -202,5 +204,3 @@ void hvlua_open_core(lua_State* L) {
 
     lua_setglobal(L, "hv");
 }
-
-} // namespace hv

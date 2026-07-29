@@ -1,54 +1,60 @@
-#include "hv_lua.h"
-
-#include <map>
-#include <string>
-
-extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-}
 
+#include "hv_lua.h"
+
+#include "hbase.h"   // HV_ALLOC / HV_FREE
 #include "hlog.h"
-
-// Module registration entry points implemented in the per-module files.
-namespace hv {
-void hvlua_open_hloop(lua_State* L);   // lua_hloop.cpp  -> global "hloop"
-void hvlua_open_core(lua_State* L);    // lua_hv_core.cpp -> table "hv"
-void hvlua_open_dns(lua_State* L);     // lua_hv_dns.cpp  -> hv.dns
-}
-
-namespace hv {
 
 // ---------------------------------------------------------------------------
 // coroutine scheduler
 // ---------------------------------------------------------------------------
 //
 // A suspended coroutine is kept alive by an int ref into the registry (the
-// lua_State* thread object). The token stores that ref plus a generation/valid
-// flag so a stale resume (loop teardown, double resume) is a safe no-op.
+// lua_State* thread object). The token stores that ref plus a valid flag so a
+// stale resume (loop teardown, double resume) is a safe no-op.
 struct HvLuaCoroutine {
-    lua_State* main;   // the per-loop main state (owns the registry)
     lua_State* L;      // the coroutine thread
     int        ref;    // luaL_ref of the thread in the registry, LUA_NOREF if freed
 };
 
-// A "task" is a top-level coroutine with a C completion callback. We track the
-// pending callback keyed by the coroutine's lua_State* so that whichever resume
-// finishes it (initial run or a later async resume) can fire on_done once.
-struct HvLuaTask {
+// A "task" is a top-level coroutine with a C completion callback. The task
+// struct is stored in the registry keyed by the coroutine pointer (lua_rawsetp)
+// so whichever resume finishes it (initial run or a later async resume) can
+// fire on_done once, without needing a C++ container.
+typedef struct HvLuaTask {
     hvlua_done_cb on_done;
     void*         ud;
     int           thread_ref;  // keeps the coroutine alive between resumes
-};
-static std::map<lua_State*, HvLuaTask> g_tasks;
+} HvLuaTask;
+
+// registry[co] = lightuserdata(task)   (NULL entry == not a task / finished)
+static HvLuaTask* task_get(lua_State* co) {
+    HvLuaTask* task;
+    lua_rawgetp(co, LUA_REGISTRYINDEX, co);
+    task = (HvLuaTask*)lua_touserdata(co, -1);
+    lua_pop(co, 1);
+    return task;
+}
+
+static void task_set(lua_State* co, HvLuaTask* task) {
+    if (task) {
+        lua_pushlightuserdata(co, task);
+    } else {
+        lua_pushnil(co);
+    }
+    lua_rawsetp(co, LUA_REGISTRYINDEX, co);
+}
 
 // Drive one resume step of a task coroutine. Fires on_done when it finishes.
 // `co` is the coroutine; nresults is the number of values already pushed on it.
 static void hvlua_task_step(lua_State* co, int nresults) {
+    HvLuaTask* task;
     int nres = 0;
+    int status;
     (void)nres;
-    int status = lua_resume(co, NULL, nresults
+    status = lua_resume(co, NULL, nresults
 #if LUA_VERSION_NUM >= 504
         , &nres
 #endif
@@ -57,34 +63,41 @@ static void hvlua_task_step(lua_State* co, int nresults) {
         return;  // suspended again; a resume token owns the next wakeup
     }
     // Finished (LUA_OK) or errored: fire the completion callback, then release.
-    auto iter = g_tasks.find(co);
-    if (iter == g_tasks.end()) return;
-    HvLuaTask task = iter->second;
-    g_tasks.erase(iter);
-    bool ok = (status == LUA_OK);
-    if (task.on_done) task.on_done(task.ud, ok, co);
-    luaL_unref(co, LUA_REGISTRYINDEX, task.thread_ref);
+    task = task_get(co);
+    if (task == NULL) return;
+    task_set(co, NULL);  // erase before callback so a re-entrant step no-ops
+    if (task->on_done) task->on_done(task->ud, status == LUA_OK, co);
+    luaL_unref(co, LUA_REGISTRYINDEX, task->thread_ref);
+    HV_FREE(task);
 }
 
 int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud) {
+    lua_State* co;
+    int thread_ref;
+    HvLuaTask* task;
     // stack (top): fn, arg1, ..., argN
-    lua_State* co = lua_newthread(L);      // push thread
+    co = lua_newthread(L);                 // push thread
     // move fn+args (below the thread) into the coroutine
     lua_insert(L, -(nargs + 2));           // move thread below fn+args
     lua_xmove(L, co, nargs + 1);           // move fn+args into co; thread stays on L
-    int thread_ref = luaL_ref(L, LUA_REGISTRYINDEX);  // pop+ref the thread
+    thread_ref = luaL_ref(L, LUA_REGISTRYINDEX);  // pop+ref the thread
 
-    g_tasks[co] = HvLuaTask{ on_done, ud, thread_ref };
+    HV_ALLOC_SIZEOF(task);
+    task->on_done = on_done;
+    task->ud = ud;
+    task->thread_ref = thread_ref;
+    task_set(co, task);
+
     hvlua_task_step(co, nargs);
     // If the task is no longer tracked, it finished synchronously.
-    return g_tasks.find(co) == g_tasks.end() ? 1 : 0;
+    return task_get(co) == NULL ? 1 : 0;
 }
 
 HvLuaCoroutine* hvlua_suspend(lua_State* L) {
     // L is the running coroutine. Keep it alive by ref'ing the thread object
     // in the registry so it survives GC while suspended.
-    HvLuaCoroutine* co = new HvLuaCoroutine();
-    co->main = L;
+    HvLuaCoroutine* co;
+    HV_ALLOC_SIZEOF(co);
     co->L = L;
     lua_pushthread(L);              // push the running thread onto its own stack
     co->ref = luaL_ref(L, LUA_REGISTRYINDEX); // pops it, stores ref in registry
@@ -102,30 +115,34 @@ void hvlua_cancel(HvLuaCoroutine* co) {
         luaL_unref(co->L, LUA_REGISTRYINDEX, co->ref);
         co->ref = LUA_NOREF;
     }
-    delete co;
+    HV_FREE(co);
 }
 
 void hvlua_resume(HvLuaCoroutine* co, int nresults) {
+    lua_State* L;
+    int ref;
     if (co == NULL) return;
     if (co->ref == LUA_NOREF) {  // stale: already resumed/freed
-        delete co;
+        HV_FREE(co);
         return;
     }
-    lua_State* L = co->L;
-    int ref = co->ref;
+    L = co->L;
+    ref = co->ref;
     // Release the suspend token's registry ref BEFORE resuming so a re-entrant
-    // resume can't double-free. Task tracking (g_tasks) keeps its own ref, so
-    // the coroutine stays alive across this transition.
+    // resume can't double-free. Task tracking keeps its own ref, so the
+    // coroutine stays alive across this transition.
     co->ref = LUA_NOREF;
-    delete co;
+    HV_FREE(co);
 
     // Drive the coroutine; hvlua_task_step fires on_done if it finishes and is
     // a tracked task. For non-task coroutines it just resumes/logs errors.
-    if (g_tasks.find(L) != g_tasks.end()) {
+    if (task_get(L) != NULL) {
         hvlua_task_step(L, nresults);
     } else {
-        int nres = 0; (void)nres;
-        int status = lua_resume(L, NULL, nresults
+        int nres = 0;
+        int status;
+        (void)nres;
+        status = lua_resume(L, NULL, nresults
 #if LUA_VERSION_NUM >= 504
             , &nres
 #endif
@@ -164,8 +181,9 @@ static lua_State* hvlua_new_state(hloop_t* loop) {
 }
 
 lua_State* hvlua_state(hloop_t* loop) {
+    lua_State* L;
     if (loop == NULL) return NULL;
-    lua_State* L = (lua_State*)hloop_lua_state(loop);
+    L = (lua_State*)hloop_lua_state(loop);
     if (L == NULL) {
         L = hvlua_new_state(loop);
     }
@@ -174,8 +192,9 @@ lua_State* hvlua_state(hloop_t* loop) {
 
 // Recover the owning loop for a state (used by bindings).
 hloop_t* hvlua_loop(lua_State* L) {
+    hloop_t* loop;
     lua_getfield(L, LUA_REGISTRYINDEX, "hv.loop");
-    hloop_t* loop = (hloop_t*)lua_touserdata(L, -1);
+    loop = (hloop_t*)lua_touserdata(L, -1);
     lua_pop(L, 1);
     return loop;
 }
@@ -186,17 +205,21 @@ hloop_t* hvlua_loop(lua_State* L) {
 
 // Run a loaded chunk (on stack top of main L) inside a fresh coroutine.
 static int hvlua_run_chunk(lua_State* L) {
+    lua_State* co;
+    int ref;
+    int nres = 0;
+    int status;
+    (void)nres;
     // stack: [chunk]
-    lua_State* co = lua_newthread(L);   // stack: [chunk][thread]
+    co = lua_newthread(L);              // stack: [chunk][thread]
     lua_pushvalue(L, -2);               // stack: [chunk][thread][chunk]
     lua_xmove(L, co, 1);                // move chunk into co; stack: [chunk][thread]
 
     // Keep the thread referenced while it may yield.
-    int ref = luaL_ref(L, LUA_REGISTRYINDEX); // pops thread; stack: [chunk]
+    ref = luaL_ref(L, LUA_REGISTRYINDEX); // pops thread; stack: [chunk]
     lua_pop(L, 1);                      // pop chunk; stack: []
 
-    int nres = 0;
-    int status = lua_resume(co, NULL, 0
+    status = lua_resume(co, NULL, 0
 #if LUA_VERSION_NUM >= 504
         , &nres
 #endif
@@ -240,5 +263,3 @@ int hvlua_dostring(hloop_t* loop, const char* code) {
     }
     return hvlua_run_chunk(L);
 }
-
-} // namespace hv
