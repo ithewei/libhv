@@ -33,7 +33,7 @@ LIBHV_HEADERS += $(CPPUTIL_HEADERS) $(EVPP_HEADERS)
 LIBHV_SRCDIRS += cpputil evpp
 
 ifeq ($(WITH_LUA), yes)
-LIBHV_HEADERS += lua/hv_lua.h
+LIBHV_HEADERS += lua/hvlua.h
 LIBHV_SRCDIRS += lua
 endif
 

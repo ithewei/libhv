@@ -18,7 +18,7 @@ extern "C" {
 #include "htime.h"
 
 #include "EventLoop.h"
-#include "hv_lua.h"
+#include "hvlua.h"
 
 namespace hv {
 

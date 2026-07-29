@@ -2,18 +2,20 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
-#include "hv_lua.h"
+#include "hvlua.h"
 
 #include "hbase.h"   // HV_ALLOC / HV_FREE
 #include "hloop.h"
 #include "hlog.h"
+#include "hdns.h"     // async DNS is part of the event/ layer (hv.resolveDns)
+#include "hsocket.h"  // sockaddr_ip
 
 // A Lua timer: holds a ref to the callback function and the htimer_t.
 // For setInterval the ref persists across fires; for setTimeout it is released
 // after the single fire. The callback runs inside a fresh coroutine so it may
 // itself use synchronous-style async APIs (sleep, dns, ...).
 //
-// Re-entrancy: the callback may call hloop.clearTimer(self). To avoid a
+// Re-entrancy: the callback may call hv.clearTimer(self). To avoid a
 // use-after-free, clearTimer during the callback only marks `dead` (and deletes
 // the htimer_t); on_lua_timer performs the deferred free after the callback.
 typedef struct LuaTimer {
@@ -99,7 +101,7 @@ static htimer_t* add_lua_timer(lua_State* L, uint32_t timeout_ms, uint32_t repea
     return timer;
 }
 
-// hloop.setTimeout(ms, fn) -> lightuserdata handle
+// hv.setTimeout(ms, fn) -> lightuserdata handle
 static int l_hloop_setTimeout(lua_State* L) {
     uint32_t ms = (uint32_t)luaL_checkinteger(L, 1);
     htimer_t* timer = add_lua_timer(L, ms, 1, 1);
@@ -108,7 +110,7 @@ static int l_hloop_setTimeout(lua_State* L) {
     return 1;
 }
 
-// hloop.setInterval(ms, fn) -> lightuserdata handle
+// hv.setInterval(ms, fn) -> lightuserdata handle
 static int l_hloop_setInterval(lua_State* L) {
     uint32_t ms = (uint32_t)luaL_checkinteger(L, 1);
     htimer_t* timer = add_lua_timer(L, ms, INFINITE, 0);
@@ -117,7 +119,7 @@ static int l_hloop_setInterval(lua_State* L) {
     return 1;
 }
 
-// hloop.clearTimer(handle)
+// hv.clearTimer(handle)
 static int l_hloop_clearTimer(lua_State* L) {
     htimer_t* timer;
     LuaTimer* lt;
@@ -139,7 +141,7 @@ static int l_hloop_clearTimer(lua_State* L) {
     return 0;
 }
 
-// ---- hloop.sleep(ms): suspend the running coroutine for ms milliseconds ----
+// ---- hv.sleep(ms): suspend the running coroutine for ms milliseconds ----
 
 typedef struct SleepCtx {
     HvLuaCoroutine* co;
@@ -160,7 +162,7 @@ static int sleep_k(lua_State* L, int status, lua_KContext ctx) {
     return 0;
 }
 
-// hloop.sleep(ms)
+// hv.sleep(ms)
 static int l_hloop_sleep(lua_State* L) {
     uint32_t ms = (uint32_t)luaL_checkinteger(L, 1);
     hloop_t* loop = hvlua_loop(L);
@@ -174,7 +176,78 @@ static int l_hloop_sleep(lua_State* L) {
     return lua_yieldk(L, 0, (lua_KContext)0, sleep_k);
 }
 
-// hloop.run() / hloop.stop()
+// ---- hv.resolveDns(host): coroutine-synchronous async DNS ----
+//
+// DNS resolution is part of the event/ layer (event/hdns.c), same as timers,
+// so it lives here alongside setTimeout/sleep rather than in a hv.* module.
+// Suspends the running coroutine, issues an async hdns query on the loop, and
+// resumes with the resolved addresses (or nil,err) on the same loop thread.
+
+typedef struct DnsCtx {
+    HvLuaCoroutine* co;
+} DnsCtx;
+
+static void on_dns_resolved(hdns_t* query, const hdns_result_t* result, void* userdata) {
+    DnsCtx* d = (DnsCtx*)userdata;
+    HvLuaCoroutine* co = d->co;
+    lua_State* L;
+    (void)query;
+    HV_FREE(d);
+
+    L = hvlua_coroutine_state(co);
+    if (L == NULL) {   // coroutine gone (loop teardown); nothing to resume
+        return;
+    }
+
+    if (result->status == HDNS_STATUS_OK && result->naddrs > 0) {
+        int i;
+        lua_createtable(L, result->naddrs, 0);
+        for (i = 0; i < result->naddrs; ++i) {
+            char ip[64];
+            ip[0] = '\0';
+            sockaddr_ip((sockaddr_u*)&result->addrs[i], ip, sizeof(ip));
+            lua_pushstring(L, ip);
+            lua_seti(L, -2, i + 1);
+        }
+        hvlua_resume(co, 1);        // one result: the address table
+    } else {
+        lua_pushnil(L);
+        lua_pushfstring(L, "dns resolve failed: status=%d", result->status);
+        hvlua_resume(co, 2);        // nil, err
+    }
+}
+
+static int resolve_k(lua_State* L, int status, lua_KContext ctx) {
+    (void)status; (void)ctx;
+    // Results were pushed by on_dns_resolved before resume; return them.
+    return lua_gettop(L) >= 2 && lua_isnil(L, -2) ? 2 : 1;
+}
+
+// hv.resolveDns(host) -> { ip, ip, ... } | nil, err
+static int l_hloop_resolveDns(lua_State* L) {
+    const char* host = luaL_checkstring(L, 1);
+    hloop_t* loop = hvlua_loop(L);
+    DnsCtx* d;
+    hdns_t* q;
+
+    HV_ALLOC_SIZEOF(d);
+    d->co = hvlua_suspend(L);
+
+    q = hdns_resolve(loop, host, on_dns_resolved, d);
+    if (q == NULL) {
+        // Immediate failure before yielding: release the token and return
+        // nil,err inline (the coroutine keeps running, no yield happened).
+        hvlua_cancel(d->co);
+        HV_FREE(d);
+        lua_pushnil(L);
+        lua_pushstring(L, "dns resolve: failed to start query");
+        return 2;
+    }
+
+    return lua_yieldk(L, 0, (lua_KContext)0, resolve_k);
+}
+
+// hv.run() / hv.stop()
 static int l_hloop_run(lua_State* L) {
     hloop_run(hvlua_loop(L));
     return 0;
@@ -190,12 +263,22 @@ static const luaL_Reg hloop_funcs[] = {
     { "setInterval", l_hloop_setInterval },
     { "clearTimer",  l_hloop_clearTimer  },
     { "sleep",       l_hloop_sleep       },
+    { "resolveDns",  l_hloop_resolveDns  },
     { "run",         l_hloop_run         },
     { "stop",        l_hloop_stop        },
     { NULL, NULL }
 };
 
-void hvlua_open_hloop(lua_State* L) {
-    luaL_newlib(L, hloop_funcs);
-    lua_setglobal(L, "hloop");
+// Register the event-loop primitives into the global "hv" table:
+//   hv.setTimeout / hv.setInterval / hv.clearTimer / hv.sleep /
+//   hv.resolveDns / hv.run / hv.stop
+// These operate on the current thread's event loop.
+void hvlua_open_event(lua_State* L) {
+    lua_getglobal(L, "hv");
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+    }
+    luaL_setfuncs(L, hloop_funcs, 0);
+    lua_setglobal(L, "hv");
 }

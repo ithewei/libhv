@@ -4,7 +4,7 @@ extern "C" {
 #include <lualib.h>
 }
 
-#include "hv_lua.h"
+#include "hvlua.h"
 
 #include <string>
 
@@ -14,7 +14,7 @@ extern "C" {
 using nlohmann::json;
 
 // This module stays C++ (nlohmann::json). All helpers are file-static; only
-// hvlua_open_json is exported, with C linkage so the C core (hv_lua.c) can call
+// hvlua_open_json is exported, with C linkage so the C core (hvlua.c) can call
 // it.
 
 // ---- lua <-> json conversion (shared style with HttpLuaHandler) ----

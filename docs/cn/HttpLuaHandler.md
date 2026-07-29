@@ -108,30 +108,32 @@ function handle(ctx)
 end
 ```
 
-## hv / hloop API
+## hv API
 
 脚本运行在所属 IO 线程的 **协程** 里，因此可以用 **同步写法** 调用异步能力：调用会挂起当前请求的协程、把控制权交还事件循环，结果就绪后在同一线程恢复，全程不阻塞 loop。
 
-当前可用的宿主能力：
+所有脚本可用能力都挂在统一的全局 `hv` 表下：
 
 ```lua
-hv.log(...)                 -- 日志
-hv.now()                    -- unix 秒
+hv.version()                -- libhv 版本串, 如 "1.3.4"
+hv.log(...)                 -- 日志 (INFO), 等价 hv.logi
+hv.logd(...) / hv.logi(...) / hv.logw(...) / hv.loge(...)  -- debug/info/warn/error
 hv.json.encode(tbl)         -- table -> json string
 hv.json.decode(str)         -- json string -> table
-hv.dns.resolve(host)        -- 协程同步 DNS 解析: 返回 { ip, ... } 或 nil, err
 
-hloop.setTimeout(ms, fn)    -- 定时器 (返回句柄)
-hloop.setInterval(ms, fn)
-hloop.clearTimer(handle)
-hloop.sleep(ms)             -- 协程同步 sleep: 挂起当前协程 ms 毫秒, 不阻塞 loop
+hv.setTimeout(ms, fn)       -- 定时器 (返回句柄)
+hv.setInterval(ms, fn)
+hv.clearTimer(handle)
+hv.sleep(ms)                -- 协程同步 sleep: 挂起当前协程 ms 毫秒, 不阻塞 loop
+hv.resolveDns(host)         -- 协程同步 DNS 解析: 返回 { ip, ... } 或 nil, err
+hv.run() / hv.stop()        -- 运行/停止当前线程的 event loop (独立脚本用; HTTP handler 内不需要)
 ```
 
 示例（handler 内部“同步”写法，实际异步，loop 不阻塞）：
 
 ```lua
 function handle(ctx)
-    local addrs, err = hv.dns.resolve("example.com")
+    local addrs, err = hv.resolveDns("example.com")
     if err then
         ctx:status(502)
         return ctx:json({ ok = false, error = err })
@@ -140,9 +142,9 @@ function handle(ctx)
 end
 ```
 
-多个请求会在同一 IO 线程上并发交错执行：某个请求在 `hv.dns.resolve` / `hloop.sleep` 处挂起时，同线程的其它请求会继续推进。注意协作式调度的语义——跨越挂起点不要对全局状态做原子性假设。
+多个请求会在同一 IO 线程上并发交错执行：某个请求在 `hv.resolveDns` / `hv.sleep` 处挂起时，同线程的其它请求会继续推进。注意协作式调度的语义——跨越挂起点不要对全局状态做原子性假设。
 
-> TCP/HTTP client、Redis 等高层 client 的协程绑定见 `lua/` 模块，按 `WITH_LUA` / `WITH_REDIS` 等开关编入。
+> `hv.setTimeout` / `hv.resolveDns` 对应 `event/` 层能力，`hv.log` / `hv.version` 对应 `base/` 层，`hv.json` 对应 `cpputil/`；实现分别在 `lua/hvlua_event.c`、`lua/hvlua_base.c`、`lua/hvlua_json.cpp`。TCP/HTTP client、Redis 等高层 client 绑定后续按 `WITH_LUA` / `WITH_REDIS` 等开关编入。
 
 ## 热更新
 

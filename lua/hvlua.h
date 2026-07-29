@@ -8,12 +8,14 @@
 //   - coroutine-based synchronous-style async IO: suspendable bindings call
 //     hvlua_suspend()/lua_yieldk() and are resumed on the same loop thread when
 //     the libhv async callback fires (hvlua_resume()).
-//   - two layers of modules: hloop.* + core scheduler are plain C (no evpp/http
-//     dependency); higher-level helpers like hv.json are C++.
+//   - all script-facing functions live under a single global "hv" table
+//     (hv.setTimeout, hv.sleep, hv.resolveDns, hv.log, hv.json, ...).
+//   - binding modules mirror libhv's C-layer dirs: lua_hv_event.c (event/) and
+//     lua_hv_base.c (base/) are plain C; lua_hv_json.cpp (cpputil/json) is C++.
 //
-// This header is usable from both C and C++. The core scheduler / hloop.* /
-// hv.dns bindings are implemented in C; hv.json (nlohmann) is implemented in
-// C++. C++ callers may use the hv:: aliases at the bottom.
+// This header is usable from both C and C++. The core scheduler and the event/
+// base bindings are implemented in C; hv.json (nlohmann) is C++. C++ callers may
+// use the hv:: aliases at the bottom.
 
 #include "hloop.h"   // hloop_t + hexport.h (BEGIN_EXTERN_C) + hplatform (bool)
 
@@ -32,7 +34,7 @@ BEGIN_EXTERN_C
 
 // Get (creating on first use) the lua_State bound to `loop`. The state is
 // stored on the hloop_t and closed when the loop is cleaned up. Registers all
-// hloop.* / hv.* modules on creation. Returns NULL if `loop` is NULL.
+// hv.* modules on creation. Returns NULL if `loop` is NULL.
 lua_State* hvlua_state(hloop_t* loop);
 
 // Run a script file on `loop`'s lua_State inside a fresh coroutine, so the
@@ -85,12 +87,15 @@ hloop_t* hvlua_loop(lua_State* L);
 // task finished synchronously (on_done already called), 0 if it yielded.
 int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud);
 
-// Module registration entry points (called by hvlua_state on state creation).
+// Module registration entry points (called by hvlua_state on state creation,
+// in this order — most basic first, mirroring libhv's layering).
 // Declared extern "C" so the C core can call the C++-implemented hv.json module.
-void hvlua_open_hloop(lua_State* L);   // lua_hloop.c    -> global "hloop"
-void hvlua_open_base(lua_State* L);    // lua_hv_base.c  -> table "hv" (log/now)
-void hvlua_open_json(lua_State* L);    // lua_hv_json.cpp -> hv.json (nlohmann)
-void hvlua_open_dns(lua_State* L);     // lua_hv_dns.c   -> hv.dns
+// Each hvlua_<dir> module mirrors a libhv C-layer directory and registers into
+// the single global "hv" table.
+void hvlua_open_base(lua_State* L);    // hvlua_base.c  -> hv.version / hv.log(=logi) / hv.logd/logi/logw/loge (base/)
+void hvlua_open_event(lua_State* L);   // hvlua_event.c -> hv.setTimeout/sleep/resolveDns/run/stop (event/)
+void hvlua_open_json(lua_State* L);    // hvlua_json.cpp -> hv.json (cpputil/, nlohmann)
+// future: hvlua_open_http, hvlua_open_redis, hvlua_open_mqtt, ...
 
 END_EXTERN_C
 

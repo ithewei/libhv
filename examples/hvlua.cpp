@@ -19,7 +19,7 @@ extern "C" {
 #include "hloop.h"
 #include "hlog.h"
 #include "EventLoop.h"
-#include "hv_lua.h"
+#include "hvlua.h"
 
 static void usage(const char* prog) {
     fprintf(stderr, "Usage: %s script.lua [args...]\n", prog);

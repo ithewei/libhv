@@ -2,7 +2,7 @@
  * http_lua_async_test — Stage B integration test for coroutine-based async
  * Lua HTTP handlers.
  *
- * Starts a real HttpServer whose Lua route calls hloop.sleep(ms) — a
+ * Starts a real HttpServer whose Lua route calls hv.sleep(ms) — a
  * synchronous-style API that yields the coroutine to the event loop. Fires
  * several concurrent requests and asserts:
  *   1. every response is correct (200 + expected body), proving the async
@@ -43,7 +43,7 @@ int main() {
     // The handler sleeps 300ms inside the coroutine, then echoes the id.
     std::string script = write_script("sleep.lua",
         "function handle(ctx)\n"
-        "  hloop.sleep(300)\n"
+        "  hv.sleep(300)\n"
         "  return ctx:json({ ok = true, id = ctx:query('id') })\n"
         "end\n");
 

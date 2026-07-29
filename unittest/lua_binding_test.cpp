@@ -6,11 +6,11 @@
  * "probe" C function exposed to the scripts.
  *
  * Covered:
- *   1. hv.now / hv.json encode+decode roundtrip
- *   2. hloop.setTimeout fires the callback
- *   3. hloop.setInterval + clearTimer (including clearTimer from within the
+ *   1. hv.version / hv.json encode+decode roundtrip
+ *   2. hv.setTimeout fires the callback
+ *   3. hv.setInterval + clearTimer (including clearTimer from within the
  *      timer's own callback — the re-entrant free regression)
- *   4. hloop.sleep suspends/resumes the coroutine (synchronous-style async)
+ *   4. hv.sleep suspends/resumes the coroutine (synchronous-style async)
  *   5. two coroutines interleave on one loop thread (concurrency, not parallel)
  */
 
@@ -26,7 +26,7 @@ extern "C" {
 }
 
 #include "hloop.h"
-#include "hv_lua.h"
+#include "hvlua.h"
 
 // A probe table the scripts write to, so C can assert what happened.
 static std::string g_probe;
@@ -62,7 +62,7 @@ static void test_core_json() {
         "assert(t.a == 1)\n"
         "assert(t.b[1] == 2 and t.b[2] == 3)\n"
         "assert(t.c == 'x')\n"
-        "assert(type(hv.now()) == 'number')\n"
+        "assert(type(hv.version()) == 'string')\n"
         "local s = hv.json.encode({ok=true, n=42})\n"
         "local u = hv.json.decode(s)\n"
         "assert(u.ok == true and u.n == 42)\n"
@@ -74,9 +74,9 @@ static void test_core_json() {
 
 static void test_set_timeout() {
     run_script(
-        "hloop.setTimeout(10, function()\n"
+        "hv.setTimeout(10, function()\n"
         "  probe('fired')\n"
-        "  hloop.stop()\n"
+        "  hv.stop()\n"
         "end)\n"
     );
     assert(g_probe == "fired");
@@ -88,12 +88,12 @@ static void test_interval_clear() {
     run_script(
         "local n = 0\n"
         "local id\n"
-        "id = hloop.setInterval(10, function()\n"
+        "id = hv.setInterval(10, function()\n"
         "  n = n + 1\n"
         "  probe(tostring(n))\n"
         "  if n >= 3 then\n"
-        "    hloop.clearTimer(id)\n"
-        "    hloop.stop()\n"
+        "    hv.clearTimer(id)\n"
+        "    hv.stop()\n"
         "  end\n"
         "end)\n"
     );
@@ -104,11 +104,11 @@ static void test_interval_clear() {
 static void test_sleep_coroutine() {
     // sleep suspends the coroutine; probe order proves it resumes after wait.
     run_script(
-        "hloop.setTimeout(1, function()\n"
+        "hv.setTimeout(1, function()\n"
         "  probe('a')\n"
-        "  hloop.sleep(30)\n"
+        "  hv.sleep(30)\n"
         "  probe('b')\n"
-        "  hloop.stop()\n"
+        "  hv.stop()\n"
         "end)\n"
     );
     assert(g_probe == "a,b");
@@ -122,13 +122,13 @@ static void test_two_coroutines_interleave() {
         "local done = 0\n"
         "local function worker(name, ms)\n"
         "  probe(name..'1')\n"
-        "  hloop.sleep(ms)\n"
+        "  hv.sleep(ms)\n"
         "  probe(name..'2')\n"
         "  done = done + 1\n"
-        "  if done == 2 then hloop.stop() end\n"
+        "  if done == 2 then hv.stop() end\n"
         "end\n"
-        "hloop.setTimeout(1, function() worker('A', 20) end)\n"
-        "hloop.setTimeout(1, function() worker('B', 60) end)\n"
+        "hv.setTimeout(1, function() worker('A', 20) end)\n"
+        "hv.setTimeout(1, function() worker('B', 60) end)\n"
     );
     // Both start (A1,B1 in some order), then A2 before B2 since A sleeps less.
     // Assert A2 appears before B2 and both first-probes precede both second.

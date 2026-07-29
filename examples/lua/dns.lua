@@ -13,8 +13,8 @@ end
 local pending = #hosts
 
 for _, host in ipairs(hosts) do
-    hloop.setTimeout(1, function()
-        local addrs, err = hv.dns.resolve(host)   -- synchronous-style, async underneath
+    hv.setTimeout(1, function()
+        local addrs, err = hv.resolveDns(host)   -- synchronous-style, async underneath
         if err then
             hv.log("resolve", host, "failed:", err)
         else
@@ -22,7 +22,7 @@ for _, host in ipairs(hosts) do
         end
         pending = pending - 1
         if pending == 0 then
-            hloop.stop()
+            hv.stop()
         end
     end)
 end

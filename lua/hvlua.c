@@ -2,7 +2,7 @@
 #include <lauxlib.h>
 #include <lualib.h>
 
-#include "hv_lua.h"
+#include "hvlua.h"
 
 #include "hbase.h"   // HV_ALLOC / HV_FREE
 #include "hlog.h"
@@ -172,10 +172,11 @@ static lua_State* hvlua_new_state(hloop_t* loop) {
     lua_pushlightuserdata(L, (void*)loop);
     lua_setfield(L, LUA_REGISTRYINDEX, "hv.loop");
 
-    hvlua_open_hloop(L);
+    // Register modules from most basic to higher-level (mirrors libhv layering):
+    //   base -> event -> json -> (future: http, redis, mqtt, ...)
     hvlua_open_base(L);
+    hvlua_open_event(L);
     hvlua_open_json(L);
-    hvlua_open_dns(L);
 
     hloop_set_lua_state(loop, L, hvlua_state_dtor);
     return L;
