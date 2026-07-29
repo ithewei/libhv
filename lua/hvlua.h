@@ -95,7 +95,10 @@ int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud);
 void hvlua_open_base(lua_State* L);    // hvlua_base.c  -> hv.version / hv.log(=logi) / hv.logd/logi/logw/loge (base/)
 void hvlua_open_event(lua_State* L);   // hvlua_event.c -> hv.setTimeout/sleep/resolveDns/run/stop (event/)
 void hvlua_open_json(lua_State* L);    // hvlua_json.cpp -> hv.json (cpputil/, nlohmann)
-// future: hvlua_open_http, hvlua_open_redis, hvlua_open_mqtt, ...
+#ifdef HVLUA_WITH_HTTP
+void hvlua_open_http(lua_State* L);    // hvlua_http.cpp -> hv.http (http/client AsyncHttpClient)
+#endif
+// future: hvlua_open_redis, hvlua_open_mqtt, ...
 
 END_EXTERN_C
 

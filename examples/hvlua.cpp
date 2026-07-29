@@ -2,13 +2,14 @@
 //
 // Usage: hvlua script.lua [args...]
 //
-// Binds an hv::EventLoop to this thread (so currentThreadEventLoop and the
-// hv.* client bindings work exactly as they do inside an HTTP server IO
-// thread), initializes the per-loop lua_State, loads and runs the script
-// (inside a coroutine so it may use synchronous-style async APIs), then runs
-// the event loop so timers / async IO can complete.
+// Holds the loop as a shared_ptr<EventLoop> (make_shared) and publishes it as
+// this thread's loop via EventLoop::run(). Using a shared_ptr (not a stack
+// object) is required so the hv.* client bindings can obtain an EventLoopPtr
+// for the current thread via currentThreadEventLoopPtr (EventLoop::
+// shared_from_this()) and share this one loop/thread with AsyncHttpClient /
+// AsyncRedisClient etc. The script runs inside a coroutine so it may use
+// synchronous-style async APIs.
 #include <stdio.h>
-#include <string.h>
 
 extern "C" {
 #include <lua.h>
@@ -16,7 +17,6 @@ extern "C" {
 #include <lualib.h>
 }
 
-#include "hloop.h"
 #include "hlog.h"
 #include "EventLoop.h"
 #include "hvlua.h"
@@ -38,25 +38,19 @@ int main(int argc, char** argv) {
     setvbuf(stdout, NULL, _IOLBF, 0);
     hlog_set_handler(stdout_logger);
 
-    // QUIT_WHEN_NO_ACTIVE_EVENTS: exit once the script and all timers/async
-    // work are done, so a script without an explicit hloop.stop() still ends.
-    // (No AUTO_FREE: the EventLoop wrapper owns/frees this hloop.)
-    hloop_t* hloop = hloop_new(HLOOP_FLAG_QUIT_WHEN_NO_ACTIVE_EVENTS);
-    if (hloop == NULL) {
-        fprintf(stderr, "hvlua: failed to create event loop\n");
-        return 1;
-    }
-
-    // Wrap in an EventLoop and publish it as this thread's loop, so
-    // currentThreadEventLoop (used by hv.http etc.) resolves during the script.
-    hv::EventLoop loop(hloop);
-    hv::ThreadLocalStorage::set(hv::ThreadLocalStorage::EVENT_LOOP, &loop);
+    // A default-constructed EventLoop owns its own hloop_t (auto-freed on run
+    // exit). Held via shared_ptr so currentThreadEventLoopPtr / shared_from_this
+    // work — that is how the hv.* client bindings share this one loop/thread.
+    // EventLoop::run() publishes it as this thread's loop (TLS) and returns when
+    // the script calls hv.stop(). We do NOT quit on "no active events": async
+    // work posted from a coroutine (e.g. hv.http.get) may not have registered
+    // its socket/timer yet when that check runs; scripts terminate via hv.stop().
+    hv::EventLoopPtr loop = std::make_shared<hv::EventLoop>();
 
     // Create the per-loop lua_State and expose script args as global `arg`.
-    lua_State* L = hv::hvlua_state(hloop);
+    lua_State* L = hv::hvlua_state(loop->loop());
     if (L == NULL) {
         fprintf(stderr, "hvlua: failed to create lua state\n");
-        hloop_free(&hloop);
         return 1;
     }
     lua_createtable(L, argc - 1, 0);
@@ -66,11 +60,15 @@ int main(int argc, char** argv) {
     }
     lua_setglobal(L, "arg");
 
+    // Publish this thread's loop (TLS) before running the script, so bindings
+    // that resolve currentThreadEventLoopPtr during script load also work.
+    hv::ThreadLocalStorage::set(hv::ThreadLocalStorage::EVENT_LOOP, loop.get());
+
     // Run the script (may yield on async ops), then drive the loop until the
-    // script calls hloop.stop() or no work remains.
-    if (hv::hvlua_dofile(hloop, script) == 0) {
-        loop.run();   // sets TLS again + hloop_run
+    // script calls hv.stop() or no work remains. The lua_State is closed when
+    // the owned hloop is torn down (dtor registered via hloop_set_lua_state).
+    if (hv::hvlua_dofile(loop->loop(), script) == 0) {
+        loop->run();   // re-sets TLS + hloop_run; frees the owned hloop on exit
     }
-    hloop_free(&hloop);
     return 0;
 }

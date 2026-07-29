@@ -104,6 +104,12 @@ add_executable(http_lua_async_test http_lua_async_test.cpp)
 target_include_directories(http_lua_async_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../lua ../http ../http/server ../http/client)
 target_link_libraries(http_lua_async_test ${HV_LIBRARIES})
 set(HTTP_LUA_UNITTEST_TARGETS lua_binding_test lua_io_test http_lua_handler_test http_lua_async_test)
+if(WITH_HTTP)
+add_executable(lua_http_test lua_http_test.cpp)
+target_include_directories(lua_http_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../lua ../http ../http/server ../http/client)
+target_link_libraries(lua_http_test ${HV_LIBRARIES})
+set(HTTP_LUA_UNITTEST_TARGETS ${HTTP_LUA_UNITTEST_TARGETS} lua_http_test)
+endif()
 endif()
 
 # ------event: async dns------

@@ -173,10 +173,13 @@ static lua_State* hvlua_new_state(hloop_t* loop) {
     lua_setfield(L, LUA_REGISTRYINDEX, "hv.loop");
 
     // Register modules from most basic to higher-level (mirrors libhv layering):
-    //   base -> event -> json -> (future: http, redis, mqtt, ...)
+    //   base -> event -> json -> http -> (future: redis, mqtt, ...)
     hvlua_open_base(L);
     hvlua_open_event(L);
     hvlua_open_json(L);
+#ifdef HVLUA_WITH_HTTP
+    hvlua_open_http(L);
+#endif
 
     hloop_set_lua_state(loop, L, hvlua_state_dtor);
     return L;

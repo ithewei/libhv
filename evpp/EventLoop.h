@@ -4,6 +4,7 @@
 #include <functional>
 #include <queue>
 #include <map>
+#include <memory>
 #include <mutex>
 
 #include "hloop.h"
@@ -17,7 +18,14 @@ namespace hv {
 
 // EventLoop is a loop-bound wrapper around hloop_t.
 // When constructed with an external hloop_t, the caller remains responsible for that loop's lifetime.
-class EventLoop : public Status {
+//
+// Inherits enable_shared_from_this so code holding a raw EventLoop* (e.g. from
+// currentThreadEventLoop / TLS) can recover a shared EventLoopPtr that shares
+// ownership with the original shared_ptr (see currentThreadEventLoopPtr). This
+// requires the EventLoop to be managed by a shared_ptr (make_shared<EventLoop>);
+// calling shared_from_this() on a stack/`new`-constructed EventLoop throws
+// std::bad_weak_ptr.
+class EventLoop : public Status, public std::enable_shared_from_this<EventLoop> {
 public:
 
     typedef std::function<void()> Functor;
@@ -56,6 +64,16 @@ public:
         setStatus(kRunning);
         hloop_run(loop_);
         setStatus(kStopped);
+        // An owned loop is created with HLOOP_FLAG_AUTO_FREE, so hloop_run() has
+        // already freed the hloop_t by the time it returns. Drop the now-dangling
+        // pointer so a later stop()/~EventLoop doesn't touch freed memory. This
+        // matters when the loop was stopped via the raw C hloop_stop() (e.g. the
+        // Lua binding's hv.stop()) rather than EventLoop::stop(), which would
+        // otherwise have nulled loop_ itself. A non-owned (external) loop is left
+        // untouched — the caller owns its lifetime.
+        if (is_loop_owner) {
+            loop_ = NULL;
+        }
     }
 
     // stop thread-safe
@@ -298,6 +316,24 @@ static inline EventLoop* tlsEventLoop() {
     return (EventLoop*)ThreadLocalStorage::get(ThreadLocalStorage::EVENT_LOOP);
 }
 #define currentThreadEventLoop ::hv::tlsEventLoop()
+
+// Get the current thread's EventLoop as a shared_ptr, sharing ownership with
+// whoever created it. Returns NULL if there is no current loop, or if it is not
+// managed by a shared_ptr (e.g. a stack-constructed EventLoop) — in which case
+// shared_from_this() would throw std::bad_weak_ptr, caught here. Callers should
+// treat NULL as "no shared loop available" rather than crash.
+// Used e.g. to hand the current loop to AsyncHttpClient/AsyncRedisClient so they
+// run on this same loop thread instead of spawning their own.
+static inline EventLoopPtr tlsEventLoopPtr() {
+    EventLoop* loop = tlsEventLoop();
+    if (loop == NULL) return EventLoopPtr();
+    try {
+        return loop->shared_from_this();
+    } catch (const std::bad_weak_ptr&) {
+        return EventLoopPtr();
+    }
+}
+#define currentThreadEventLoopPtr ::hv::tlsEventLoopPtr()
 
 static inline TimerID setTimer(int timeout_ms, TimerCallback cb, uint32_t repeat = INFINITE) {
     EventLoop* loop = tlsEventLoop();

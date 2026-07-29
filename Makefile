@@ -13,10 +13,10 @@ BUILD_STATIC ?= yes
 
 # http/server examples compile sources directly (not linking libhv), so when
 # WITH_LUA is on they must also include the lua/ binding sources that
-# HttpLuaHandler depends on.
+# HttpLuaHandler depends on (and http/client, which the lua hv.http binding uses).
 HTTP_SERVER_EXAMPLE_SRCDIRS = $(CORE_SRCDIRS) util cpputil evpp http http/server
 ifeq ($(WITH_LUA), yes)
-HTTP_SERVER_EXAMPLE_SRCDIRS += lua
+HTTP_SERVER_EXAMPLE_SRCDIRS += lua http/client
 endif
 
 LIBHV_SRCDIRS = $(CORE_SRCDIRS) util
@@ -344,8 +344,11 @@ ifeq ($(WITH_LUA), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_io_test unittest/lua_io_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/http_lua_async_test unittest/http_lua_async_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+ifeq ($(WITH_HTTP), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_http_test unittest/lua_http_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
 else
-	$(RM) bin/lua_binding_test bin/lua_io_test bin/http_lua_handler_test bin/http_lua_async_test
+	$(RM) bin/lua_binding_test bin/lua_io_test bin/http_lua_handler_test bin/http_lua_async_test bin/lua_http_test
 endif
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv

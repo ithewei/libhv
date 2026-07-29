@@ -44,6 +44,9 @@ fi
 if [ -x bin/http_lua_async_test ]; then
     bin/http_lua_async_test
 fi
+if [ -x bin/lua_http_test ]; then
+    bin/lua_http_test
+fi
 if [ -x bin/hdns_test ]; then
     bin/hdns_test
 fi

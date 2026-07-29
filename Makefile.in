@@ -164,6 +164,17 @@ endif
 ifeq ($(WITH_LUA), yes)
 	CPPFLAGS += -DWITH_LUA $(LUA_CFLAGS)
 	LDFLAGS += $(LUA_LIBS)
+# lua bindings that wrap higher-level modules are enabled only when both the lua
+# binding and the underlying module are built (HVLUA_WITH_* preprocessor macros).
+ifeq ($(WITH_HTTP), yes)
+	CPPFLAGS += -DHVLUA_WITH_HTTP
+endif
+ifeq ($(WITH_REDIS), yes)
+	CPPFLAGS += -DHVLUA_WITH_REDIS
+endif
+ifeq ($(WITH_MQTT), yes)
+	CPPFLAGS += -DHVLUA_WITH_MQTT
+endif
 endif
 
 CPPFLAGS += $(addprefix -D, $(DEFINES))
