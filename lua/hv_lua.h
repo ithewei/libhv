@@ -88,7 +88,8 @@ int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud);
 // Module registration entry points (called by hvlua_state on state creation).
 // Declared extern "C" so the C core can call the C++-implemented hv.json module.
 void hvlua_open_hloop(lua_State* L);   // lua_hloop.c    -> global "hloop"
-void hvlua_open_core(lua_State* L);    // lua_hv_core.cpp -> table "hv" (+ hv.json)
+void hvlua_open_base(lua_State* L);    // lua_hv_base.c  -> table "hv" (log/now)
+void hvlua_open_json(lua_State* L);    // lua_hv_json.cpp -> hv.json (nlohmann)
 void hvlua_open_dns(lua_State* L);     // lua_hv_dns.c   -> hv.dns
 
 END_EXTERN_C

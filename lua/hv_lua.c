@@ -173,7 +173,8 @@ static lua_State* hvlua_new_state(hloop_t* loop) {
     lua_setfield(L, LUA_REGISTRYINDEX, "hv.loop");
 
     hvlua_open_hloop(L);
-    hvlua_open_core(L);
+    hvlua_open_base(L);
+    hvlua_open_json(L);
     hvlua_open_dns(L);
 
     hloop_set_lua_state(loop, L, hvlua_state_dtor);

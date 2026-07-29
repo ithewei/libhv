@@ -1,23 +1,21 @@
-#include "hv_lua.h"
-
-#include <string>
-#include <time.h>
-
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
 }
 
-#include "hlog.h"
+#include "hv_lua.h"
+
+#include <string>
+
 #include "hstring.h"
 #include "json.hpp"
 
 using nlohmann::json;
 
 // This module stays C++ (nlohmann::json). All helpers are file-static; only
-// hvlua_open_core is exported, with C linkage so the C core (hv_lua.c) can call
-// it. No `namespace hv` wrapper is needed here.
+// hvlua_open_json is exported, with C linkage so the C core (hv_lua.c) can call
+// it.
 
 // ---- lua <-> json conversion (shared style with HttpLuaHandler) ----
 
@@ -132,29 +130,6 @@ static void json_to_lua(lua_State* L, const json& j) {
     }
 }
 
-// ---- hv.* functions ----
-
-// hv.log(...)
-static int l_hv_log(lua_State* L) {
-    int n = lua_gettop(L);
-    std::string line;
-    for (int i = 1; i <= n; ++i) {
-        size_t len = 0;
-        const char* s = luaL_tolstring(L, i, &len);
-        if (i > 1) line += "\t";
-        line.append(s, len);
-        lua_pop(L, 1);
-    }
-    hlogi("[lua] %s", line.c_str());
-    return 0;
-}
-
-// hv.now() -> unix seconds
-static int l_hv_now(lua_State* L) {
-    lua_pushinteger(L, (lua_Integer)time(NULL));
-    return 1;
-}
-
 // hv.json.encode(value) -> string
 static int l_hv_json_encode(lua_State* L) {
     json j = lua_to_json(L, 1);
@@ -177,30 +152,20 @@ static int l_hv_json_decode(lua_State* L) {
     return 1;
 }
 
-static const luaL_Reg hv_funcs[] = {
-    { "log", l_hv_log },
-    { "now", l_hv_now },
-    { NULL, NULL }
-};
-
 static const luaL_Reg hv_json_funcs[] = {
     { "encode", l_hv_json_encode },
     { "decode", l_hv_json_decode },
     { NULL, NULL }
 };
 
-extern "C" void hvlua_open_core(lua_State* L) {
-    // create/get global "hv"
+// Add the hv.json subtable to the (already created) global "hv" table.
+extern "C" void hvlua_open_json(lua_State* L) {
     lua_getglobal(L, "hv");
     if (!lua_istable(L, -1)) {
         lua_pop(L, 1);
         lua_newtable(L);
     }
-    luaL_setfuncs(L, hv_funcs, 0);
-
-    // hv.json subtable
     luaL_newlib(L, hv_json_funcs);
     lua_setfield(L, -2, "json");
-
     lua_setglobal(L, "hv");
 }
