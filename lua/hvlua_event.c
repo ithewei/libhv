@@ -4,6 +4,8 @@
 
 #include "hvlua.h"
 
+#include <string.h>   // memset / memcpy / strcmp
+
 #include "hbase.h"   // HV_ALLOC / HV_FREE
 #include "hloop.h"
 #include "hlog.h"
@@ -258,12 +260,532 @@ static int l_hloop_stop(lua_State* L) {
     return 0;
 }
 
+// ============================================================================
+// TCP client: hv.connect(host, port [, timeout_ms]) -> conn | nil, err
+//
+// conn is a userdata wrapping an hio_t that lives on the current loop (no evpp,
+// no extra thread). All callbacks fire on this loop thread, so we reuse the same
+// same-thread suspend/resume machinery as sleep/dns. A conn has at most one
+// pending coroutine at a time (connect OR read); close resumes it with nil,err.
+// ============================================================================
+
+static const char* CONN_META = "hv.conn";
+
+typedef struct LuaConn {
+    hio_t*          io;
+    HvLuaCoroutine* co;       // the coroutine waiting on connect/read (or NULL)
+    int             closed;   // set in the close callback
+    int             connecting; // pending op is connect (vs read), for resume shape
+    unpack_setting_t* unpack; // owned; hio_t only stores the pointer
+} LuaConn;
+
+// forward decl: conn_push_new is defined lower (after the read helpers) but
+// used by l_hv_connect above it.
+static LuaConn* conn_push_new(lua_State* L, hio_t* io);
+
+static LuaConn* lua_check_conn(lua_State* L) {
+    return (LuaConn*)luaL_checkudata(L, 1, CONN_META);
+}
+
+// Resume the conn's pending coroutine (if any) with values already pushed on it.
+static void conn_resume(LuaConn* c, int nresults) {
+    HvLuaCoroutine* co = c->co;
+    c->co = NULL;
+    hvlua_resume(co, nresults);
+}
+
+static void on_conn_close(hio_t* io) {
+    LuaConn* c = (LuaConn*)hevent_userdata(io);
+    if (c == NULL) return;
+    c->closed = 1;
+    c->io = NULL;  // hio_t is freed by the loop after this returns; drop it
+    if (c->co) {
+        lua_State* co = hvlua_coroutine_state(c->co);
+        if (co) {
+            lua_pushnil(co);
+            lua_pushstring(co, "closed");
+            conn_resume(c, 2);
+        } else {
+            hvlua_cancel(c->co);
+            c->co = NULL;
+        }
+    }
+}
+
+static void on_conn_connect(hio_t* io) {
+    LuaConn* c = (LuaConn*)hevent_userdata(io);
+    if (c == NULL || c->co == NULL) return;
+    lua_State* co = hvlua_coroutine_state(c->co);
+    if (co == NULL) { hvlua_cancel(c->co); c->co = NULL; return; }
+    // resume with the conn userdata itself (kept in the registry via co ref).
+    // The conn is already on the coroutine stack as the yielded self; we just
+    // signal success by pushing true, and the continuation returns the conn.
+    lua_pushboolean(co, 1);
+    conn_resume(c, 1);
+}
+
+static void on_conn_read(hio_t* io, void* buf, int len) {
+    LuaConn* c = (LuaConn*)hevent_userdata(io);
+    if (c == NULL || c->co == NULL) return;
+    lua_State* co = hvlua_coroutine_state(c->co);
+    if (co == NULL) { hvlua_cancel(c->co); c->co = NULL; return; }
+    lua_pushlstring(co, (const char*)buf, len);
+    conn_resume(c, 1);
+}
+
+// continuation for hv.connect: success resumes with a boolean `true` marker on
+// top; failure (close before connect) resumes with (nil, err) already on the
+// stack. Distinguish by the type at the top of the stack.
+static int connect_k(lua_State* L, int status, lua_KContext ctx) {
+    (void)status; (void)ctx;
+    if (lua_isboolean(L, -1) && lua_toboolean(L, -1)) {
+        // success: replace the `true` marker with the conn userdata (self,
+        // captured at stack index 1 before the yield).
+        lua_pop(L, 1);
+        lua_pushvalue(L, 1);
+        return 1;
+    }
+    // failure: (nil, err) were pushed by on_conn_close; hand them back.
+    return 2;
+}
+
+static int l_hv_connect(lua_State* L) {
+    const char* host = luaL_checkstring(L, 1);
+    int port = (int)luaL_checkinteger(L, 2);
+    int timeout_ms = (int)luaL_optinteger(L, 3, 0);
+    hloop_t* loop = hvlua_loop(L);
+
+    hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (io == NULL) {
+        lua_pushnil(L);
+        lua_pushstring(L, "hv.connect: create socket failed");
+        return 2;
+    }
+
+    // conn userdata (becomes stack slot 1's sibling; we return it on success)
+    LuaConn* c = conn_push_new(L, io);
+    c->connecting = 1;
+    // move the conn userdata to stack index 1 so connect_k can return it as self
+    lua_replace(L, 1);
+
+    hio_setcb_connect(io, on_conn_connect);
+    if (timeout_ms > 0) hio_set_connect_timeout(io, timeout_ms);
+
+    c->co = hvlua_suspend(L);
+    hio_connect(io);
+    return lua_yieldk(L, 0, (lua_KContext)0, connect_k);
+}
+
+// Push a new conn userdata wrapping an existing hio_t (used by connect + accept).
+// Sets the close callback; leaves read/connect callbacks to the caller.
+static LuaConn* conn_push_new(lua_State* L, hio_t* io) {
+    LuaConn* c = (LuaConn*)lua_newuserdata(L, sizeof(LuaConn));
+    c->io = io;
+    c->co = NULL;
+    c->closed = 0;
+    c->connecting = 0;
+    c->unpack = NULL;
+    luaL_getmetatable(L, CONN_META);
+    lua_setmetatable(L, -2);
+    hevent_set_userdata(io, c);
+    hio_setcb_close(io, on_conn_close);
+    return c;
+}
+
+// conn:read* -> data | nil, err
+static int read_k(lua_State* L, int status, lua_KContext ctx) {
+    (void)status; (void)ctx;
+    return lua_gettop(L) >= 2 && lua_isnil(L, -2) ? 2 : 1;
+}
+
+// Shared: arm the read callback + suspend. The specific hio_read* call is done
+// by the caller (read once / read_until_delim / read_until_length).
+static int conn_suspend_read(lua_State* L, LuaConn* c) {
+    hio_setcb_read(c->io, on_conn_read);
+    c->co = hvlua_suspend(L);
+    return lua_yieldk(L, 0, (lua_KContext)0, read_k);
+}
+
+// conn:read() -> data (read once: whatever bytes are available)
+static int l_conn_read(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
+    hio_read(c->io);
+    return conn_suspend_read(L, c);
+}
+
+// conn:readbytes(n) -> exactly n bytes (hio_read_until_length)
+static int l_conn_readbytes(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    unsigned int n = (unsigned int)luaL_checkinteger(L, 2);
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
+    hio_read_until_length(c->io, n);
+    return conn_suspend_read(L, c);
+}
+
+// conn:readuntil(delim) -> data up to and including the 1-byte delimiter
+static int l_conn_readuntil(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    size_t dlen = 0;
+    const char* delim = luaL_checklstring(L, 2, &dlen);
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
+    if (dlen != 1) {
+        return luaL_error(L, "conn:readuntil expects a single-byte delimiter");
+    }
+    hio_read_until_delim(c->io, (unsigned char)delim[0]);
+    return conn_suspend_read(L, c);
+}
+
+// conn:readline() -> data up to and including '\n'
+static int l_conn_readline(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
+    hio_read_until_delim(c->io, '\n');
+    return conn_suspend_read(L, c);
+}
+
+// conn:setUnpack(opts): configure automatic message unpacking so subsequent
+// conn:read() returns one complete packet. opts is a table:
+//   mode = "none"|"fixed"|"delimiter"|"length_field"
+//   package_max_length = <int>
+//   fixed_length = <int>                       (fixed)
+//   delimiter = "<bytes>"                       (delimiter)
+//   body_offset, length_field_offset,
+//   length_field_bytes, length_adjustment,
+//   length_field_coding = "be"|"le"|"varint"|"asn1"   (length_field)
+static int l_conn_setUnpack(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    const char* mode;
+    if (c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
+    luaL_checktype(L, 2, LUA_TTABLE);
+
+    if (c->unpack == NULL) {
+        HV_ALLOC_SIZEOF(c->unpack);
+    }
+    memset(c->unpack, 0, sizeof(*c->unpack));
+    c->unpack->package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
+
+    lua_getfield(L, 2, "package_max_length");
+    if (lua_isinteger(L, -1)) c->unpack->package_max_length = (unsigned int)lua_tointeger(L, -1);
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "mode");
+    mode = luaL_optstring(L, -1, "length_field");
+    lua_pop(L, 1);
+
+    if (strcmp(mode, "none") == 0) {
+        c->unpack->mode = UNPACK_MODE_NONE;
+    } else if (strcmp(mode, "fixed") == 0) {
+        c->unpack->mode = UNPACK_BY_FIXED_LENGTH;
+        lua_getfield(L, 2, "fixed_length");
+        c->unpack->fixed_length = (unsigned int)luaL_optinteger(L, -1, 0);
+        lua_pop(L, 1);
+    } else if (strcmp(mode, "delimiter") == 0) {
+        size_t dlen = 0;
+        const char* delim;
+        c->unpack->mode = UNPACK_BY_DELIMITER;
+        lua_getfield(L, 2, "delimiter");
+        delim = luaL_optlstring(L, -1, "", &dlen);
+        if (dlen > PACKAGE_MAX_DELIMITER_BYTES) dlen = PACKAGE_MAX_DELIMITER_BYTES;
+        memcpy(c->unpack->delimiter, delim, dlen);
+        c->unpack->delimiter_bytes = (unsigned short)dlen;
+        lua_pop(L, 1);
+    } else if (strcmp(mode, "length_field") == 0) {
+        const char* coding;
+        c->unpack->mode = UNPACK_BY_LENGTH_FIELD;
+        lua_getfield(L, 2, "body_offset");
+        c->unpack->body_offset = (unsigned short)luaL_optinteger(L, -1, 0);
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "length_field_offset");
+        c->unpack->length_field_offset = (unsigned short)luaL_optinteger(L, -1, 0);
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "length_field_bytes");
+        c->unpack->length_field_bytes = (unsigned short)luaL_optinteger(L, -1, 0);
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "length_adjustment");
+        c->unpack->length_adjustment = (short)luaL_optinteger(L, -1, 0);
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "length_field_coding");
+        coding = luaL_optstring(L, -1, "be");
+        if      (strcmp(coding, "le") == 0)     c->unpack->length_field_coding = ENCODE_BY_LITTLE_ENDIAN;
+        else if (strcmp(coding, "varint") == 0) c->unpack->length_field_coding = ENCODE_BY_VARINT;
+        else if (strcmp(coding, "asn1") == 0)   c->unpack->length_field_coding = ENCODE_BY_ASN1;
+        else                                    c->unpack->length_field_coding = ENCODE_BY_BIG_ENDIAN;
+        lua_pop(L, 1);
+    } else {
+        return luaL_error(L, "conn:setUnpack: unknown mode '%s'", mode);
+    }
+
+    // hio_t stores only the pointer; c->unpack (owned by the conn) outlives it.
+    hio_set_unpack(c->io, c->unpack);
+    return 0;
+}
+
+// conn:write(data) -> nbytes | nil, err  (non-blocking, no suspend)
+static int l_conn_write(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    size_t len = 0;
+    const char* data;
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L);
+        lua_pushstring(L, "closed");
+        return 2;
+    }
+    data = luaL_checklstring(L, 2, &len);
+    lua_pushinteger(L, hio_write(c->io, data, len));
+    return 1;
+}
+
+// conn:close()
+static int l_conn_close(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    if (c->io && !c->closed) {
+        hio_close(c->io);  // triggers on_conn_close (which clears c->io)
+    }
+    return 0;
+}
+
+// conn:fd()
+static int l_conn_fd(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    lua_pushinteger(L, (c->io && !c->closed) ? hio_fd(c->io) : -1);
+    return 1;
+}
+
+// conn:peeraddr() -> "ip:port"
+static int l_conn_peeraddr(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    if (c->io && !c->closed) {
+        char addr[SOCKADDR_STRLEN] = {0};
+        SOCKADDR_STR(hio_peeraddr(c->io), addr);
+        lua_pushstring(L, addr);
+    } else {
+        lua_pushnil(L);
+    }
+    return 1;
+}
+
+static int l_conn_gc(lua_State* L) {
+    LuaConn* c = (LuaConn*)luaL_checkudata(L, 1, CONN_META);
+    if (c->io && !c->closed) {
+        hevent_set_userdata(c->io, NULL);  // detach: no resume into a dead conn
+        hio_close(c->io);
+    }
+    if (c->unpack) { HV_FREE(c->unpack); c->unpack = NULL; }
+    return 0;
+}
+
+// ============================================================================
+// TCP server: hv.tcpServer(host, port, on_conn) -> true | nil, err
+//
+// on_conn(conn) runs in a fresh coroutine per accepted connection, so it can
+// use conn:read()/write() synchronously. All on the current loop thread.
+//
+// The on_conn handler is stored in the registry keyed by the LISTEN io pointer.
+// libhv copies the listen io's userdata to each accepted io (nio.c: connio->
+// userdata = io->userdata), so the accept callback recovers the listen io ptr
+// from the accepted io's userdata and uses it as the registry key.
+// ============================================================================
+static void on_server_accept(hio_t* io) {
+    hloop_t* loop = hevent_loop(io);
+    lua_State* L = (lua_State*)hloop_lua_state(loop);
+    void* listen_key = hevent_userdata(io);   // inherited listen io ptr
+    if (L == NULL || listen_key == NULL) return;
+
+    lua_rawgetp(L, LUA_REGISTRYINDEX, listen_key);  // on_conn fn
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return; }
+
+    // wrap accepted io in a conn (this overwrites io userdata -> conn ptr)
+    conn_push_new(L, io);                            // stack: fn, conn
+    // run on_conn(conn) in a fresh coroutine (moves fn+conn into it)
+    hvlua_start_task(L, 1, NULL, NULL);
+}
+
+static int l_hv_tcpServer(lua_State* L) {
+    const char* host = luaL_checkstring(L, 1);
+    int port = (int)luaL_checkinteger(L, 2);
+    hloop_t* loop = hvlua_loop(L);
+    hio_t* listenio;
+
+    luaL_checktype(L, 3, LUA_TFUNCTION);
+
+    listenio = hloop_create_tcp_server(loop, host, port, on_server_accept);
+    if (listenio == NULL) {
+        lua_pushnil(L);
+        lua_pushstring(L, "hv.tcpServer: create server failed");
+        return 2;
+    }
+
+    // registry[listenio] = on_conn; accepted ios inherit userdata=listenio,
+    // which the accept callback uses as this key.
+    lua_pushvalue(L, 3);
+    lua_rawsetp(L, LUA_REGISTRYINDEX, listenio);
+    hevent_set_userdata(listenio, listenio);
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+// ============================================================================
+// UDP: hv.udpClient(host, port) -> sock ; hv.udpServer(host, port, on_recv)
+//
+// UDP has no connection/accept. A udp "sock" reuses the conn userdata (it wraps
+// an hio_t). sock:recvfrom() coroutine-suspends for one datagram and returns
+// (data, peeraddr). sock:sendto(data) sends to the bound peer (client) or the
+// last peer (server reply). All on the current loop thread.
+// ============================================================================
+
+// UDP read callback: push data + peeraddr string, resume with 2 results.
+static void on_udp_read(hio_t* io, void* buf, int len) {
+    LuaConn* c = (LuaConn*)hevent_userdata(io);
+    lua_State* co;
+    char addr[SOCKADDR_STRLEN];
+    if (c == NULL || c->co == NULL) return;
+    co = hvlua_coroutine_state(c->co);
+    if (co == NULL) { hvlua_cancel(c->co); c->co = NULL; return; }
+    lua_pushlstring(co, (const char*)buf, len);
+    addr[0] = '\0';
+    SOCKADDR_STR(hio_peeraddr(io), addr);
+    lua_pushstring(co, addr);
+    conn_resume(c, 2);
+}
+
+static int recvfrom_k(lua_State* L, int status, lua_KContext ctx) {
+    (void)status; (void)ctx;
+    return 2;  // data, peeraddr  (or nil,err on close)
+}
+
+// sock:recvfrom() -> data, peeraddr | nil, err
+static int l_udp_recvfrom(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
+    hio_setcb_read(c->io, on_udp_read);
+    c->co = hvlua_suspend(L);
+    hio_read(c->io);
+    return lua_yieldk(L, 0, (lua_KContext)0, recvfrom_k);
+}
+
+// sock:sendto(data) -> nbytes  (to bound peer / last recvfrom peer)
+static int l_udp_sendto(lua_State* L) {
+    LuaConn* c = lua_check_conn(L);
+    size_t len = 0;
+    const char* data;
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
+    data = luaL_checklstring(L, 2, &len);
+    lua_pushinteger(L, hio_write(c->io, data, len));
+    return 1;
+}
+
+static int l_hv_udpClient(lua_State* L) {
+    const char* host = luaL_checkstring(L, 1);
+    int port = (int)luaL_checkinteger(L, 2);
+    hloop_t* loop = hvlua_loop(L);
+    hio_t* io = hloop_create_udp_client(loop, host, port);
+    if (io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "hv.udpClient: create failed"); return 2;
+    }
+    conn_push_new(L, io);  // returns conn userdata on stack
+    return 1;
+}
+
+// hv.udpServer(host, port, on_recv): on_recv(sock, data, peeraddr) per datagram.
+static void on_udp_server_read(hio_t* io, void* buf, int len) {
+    hloop_t* loop = hevent_loop(io);
+    lua_State* L = (lua_State*)hloop_lua_state(loop);
+    void* key = hevent_userdata(io);
+    char addr[SOCKADDR_STRLEN];
+    if (L == NULL || key == NULL) return;
+    lua_rawgetp(L, LUA_REGISTRYINDEX, key);      // on_recv fn
+    if (!lua_isfunction(L, -1)) { lua_pop(L, 1); return; }
+    // args: sock (the server conn userdata, stashed in registry too), data, peer
+    lua_rawgetp(L, LUA_REGISTRYINDEX, (char*)key + 1);  // sock userdata
+    lua_pushlstring(L, (const char*)buf, len);
+    addr[0] = '\0';
+    SOCKADDR_STR(hio_peeraddr(io), addr);
+    lua_pushstring(L, addr);
+    // run on_recv(sock, data, peer) in a fresh coroutine
+    hvlua_start_task(L, 3, NULL, NULL);
+}
+
+static int l_hv_udpServer(lua_State* L) {
+    const char* host = luaL_checkstring(L, 1);
+    int port = (int)luaL_checkinteger(L, 2);
+    hloop_t* loop = hvlua_loop(L);
+    hio_t* io;
+    LuaConn* c;
+
+    luaL_checktype(L, 3, LUA_TFUNCTION);
+    io = hloop_create_udp_server(loop, host, port);
+    if (io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "hv.udpServer: create failed"); return 2;
+    }
+
+    // registry[io] = on_recv ; registry[io+1] = sock userdata
+    lua_pushvalue(L, 3);
+    lua_rawsetp(L, LUA_REGISTRYINDEX, io);
+    c = conn_push_new(L, io);       // pushes sock userdata; sets userdata=c
+    (void)c;
+    lua_rawsetp(L, LUA_REGISTRYINDEX, (char*)io + 1);  // pops the sock userdata
+    // the read callback keys off hevent_userdata(io); set it back to io (not c)
+    hevent_set_userdata(io, io);
+
+    hio_setcb_read(io, on_udp_server_read);
+    hio_read(io);
+
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+static const luaL_Reg conn_methods[] = {
+    { "read",      l_conn_read      },
+    { "readbytes", l_conn_readbytes },
+    { "readuntil", l_conn_readuntil },
+    { "readline",  l_conn_readline  },
+    { "setUnpack", l_conn_setUnpack },
+    { "write",     l_conn_write     },
+    { "close",     l_conn_close     },
+    { "fd",        l_conn_fd        },
+    { "peeraddr",  l_conn_peeraddr  },
+    { "sendto",    l_udp_sendto     },
+    { "recvfrom",  l_udp_recvfrom   },
+    { NULL, NULL }
+};
+
+static void register_conn(lua_State* L) {
+    if (luaL_newmetatable(L, CONN_META)) {
+        lua_pushcfunction(L, l_conn_gc);
+        lua_setfield(L, -2, "__gc");
+        lua_newtable(L);
+        luaL_setfuncs(L, conn_methods, 0);
+        lua_setfield(L, -2, "__index");
+    }
+    lua_pop(L, 1);
+}
+
 static const luaL_Reg hloop_funcs[] = {
     { "setTimeout",  l_hloop_setTimeout  },
     { "setInterval", l_hloop_setInterval },
     { "clearTimer",  l_hloop_clearTimer  },
     { "sleep",       l_hloop_sleep       },
     { "resolveDns",  l_hloop_resolveDns  },
+    { "connect",     l_hv_connect        },
+    { "tcpServer",   l_hv_tcpServer      },
+    { "udpClient",   l_hv_udpClient      },
+    { "udpServer",   l_hv_udpServer      },
     { "run",         l_hloop_run         },
     { "stop",        l_hloop_stop        },
     { NULL, NULL }
@@ -271,9 +793,10 @@ static const luaL_Reg hloop_funcs[] = {
 
 // Register the event-loop primitives into the global "hv" table:
 //   hv.setTimeout / hv.setInterval / hv.clearTimer / hv.sleep /
-//   hv.resolveDns / hv.run / hv.stop
+//   hv.resolveDns / hv.connect / hv.tcpServer / hv.run / hv.stop
 // These operate on the current thread's event loop.
 void hvlua_open_event(lua_State* L) {
+    register_conn(L);
     lua_getglobal(L, "hv");
     if (!lua_istable(L, -1)) {
         lua_pop(L, 1);

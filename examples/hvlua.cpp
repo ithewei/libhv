@@ -33,6 +33,9 @@ int main(int argc, char** argv) {
     const char* script = argv[1];
 
     // Route hv.log() to stdout for a CLI runtime (default logger writes a file).
+    // Line-buffer stdout so logs from long-running scripts (e.g. servers) appear
+    // promptly even when stdout is redirected to a file/pipe (not a TTY).
+    setvbuf(stdout, NULL, _IOLBF, 0);
     hlog_set_handler(stdout_logger);
 
     // QUIT_WHEN_NO_ACTIVE_EVENTS: exit once the script and all timers/async

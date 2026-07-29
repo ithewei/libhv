@@ -127,6 +127,26 @@ hv.clearTimer(handle)
 hv.sleep(ms)                -- 协程同步 sleep: 挂起当前协程 ms 毫秒, 不阻塞 loop
 hv.resolveDns(host)         -- 协程同步 DNS 解析: 返回 { ip, ... } 或 nil, err
 hv.run() / hv.stop()        -- 运行/停止当前线程的 event loop (独立脚本用; HTTP handler 内不需要)
+
+-- TCP/UDP (协程同步, event 层, 仅当前 loop)
+local conn, err = hv.connect(host, port [, timeout_ms])  -- TCP 客户端
+hv.tcpServer(host, port, function(conn) ... end)          -- 每连接一个协程
+local sock = hv.udpClient(host, port)
+hv.udpServer(host, port, function(sock, data, peer) ... end)
+--   conn: conn:read() / conn:readline() / conn:readuntil(d) / conn:readbytes(n)
+--         conn:setUnpack(opts) / conn:write(s) / conn:close() / conn:fd() / conn:peeraddr()
+--   sock: sock:sendto(s) / sock:recvfrom() -> data,peer / sock:close()
+```
+
+`conn:setUnpack(opts)` 让后续 `conn:read()` 每次返回一个完整的包(参考 libhv `hio_set_unpack`)：
+
+```lua
+conn:setUnpack({
+    mode = "length_field",       -- none|fixed|delimiter|length_field
+    body_offset = 5, length_field_offset = 1,
+    length_field_bytes = 4, length_field_coding = "be",  -- be|le|varint|asn1
+    -- delimiter 模式: delimiter = "\r\n" ; fixed 模式: fixed_length = 16
+})
 ```
 
 示例（handler 内部“同步”写法，实际异步，loop 不阻塞）：

@@ -35,6 +35,9 @@ bin/http_router_test
 if [ -x bin/lua_binding_test ]; then
     bin/lua_binding_test
 fi
+if [ -x bin/lua_io_test ]; then
+    bin/lua_io_test
+fi
 if [ -x bin/http_lua_handler_test ]; then
     bin/http_lua_handler_test
 fi

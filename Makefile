@@ -341,10 +341,11 @@ ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_LUA), yes)
 	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_io_test unittest/lua_io_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/http_lua_async_test unittest/http_lua_async_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 else
-	$(RM) bin/lua_binding_test bin/http_lua_handler_test bin/http_lua_async_test
+	$(RM) bin/lua_binding_test bin/lua_io_test bin/http_lua_handler_test bin/http_lua_async_test
 endif
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv
