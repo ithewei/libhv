@@ -333,12 +333,14 @@ unittest: prepare libhv
 ifeq ($(WITH_EVPP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
 endif
+ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_REDIS), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Iredis -o bin/redis_protocol_test unittest/redis_protocol_test.cpp redis/RedisMessage.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_async_client_test unittest/redis_async_client_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_client_test unittest/redis_client_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_batch_test unittest/redis_batch_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_subscriber_test unittest/redis_subscriber_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
+endif
 endif
 ifeq ($(WITH_LUA), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
