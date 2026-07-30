@@ -49,7 +49,10 @@ static void task_set(lua_State* co, HvLuaTask* task) {
 
 // Drive one resume step of a task coroutine. Fires on_done when it finishes.
 // `co` is the coroutine; nresults is the number of values already pushed on it.
-static void hvlua_task_step(lua_State* co, int nresults) {
+// @return 1 if the task finished (on_done fired, thread ref released), 0 if it
+// yielded again. The caller must NOT touch `co` after a return of 1: finishing
+// released the thread ref, so `co` may be collected — do not re-read it.
+static int hvlua_task_step(lua_State* co, int nresults) {
     HvLuaTask* task;
     int nres = 0;
     int status;
@@ -60,21 +63,23 @@ static void hvlua_task_step(lua_State* co, int nresults) {
 #endif
     );
     if (status == LUA_YIELD) {
-        return;  // suspended again; a resume token owns the next wakeup
+        return 0;  // suspended again; a resume token owns the next wakeup
     }
     // Finished (LUA_OK) or errored: fire the completion callback, then release.
     task = task_get(co);
-    if (task == NULL) return;
+    if (task == NULL) return 1;
     task_set(co, NULL);  // erase before callback so a re-entrant step no-ops
     if (task->on_done) task->on_done(task->ud, status == LUA_OK, co);
     luaL_unref(co, LUA_REGISTRYINDEX, task->thread_ref);
     HV_FREE(task);
+    return 1;
 }
 
 int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud) {
     lua_State* co;
     int thread_ref;
     HvLuaTask* task;
+    int finished;
     // stack (top): fn, arg1, ..., argN
     co = lua_newthread(L);                 // push thread
     // move fn+args (below the thread) into the coroutine
@@ -88,9 +93,12 @@ int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud) {
     task->thread_ref = thread_ref;
     task_set(co, task);
 
-    hvlua_task_step(co, nargs);
-    // If the task is no longer tracked, it finished synchronously.
-    return task_get(co) == NULL ? 1 : 0;
+    // Use the return value instead of re-reading `co`: if it finished
+    // synchronously, hvlua_task_step already released the thread ref, so
+    // touching `co` again (e.g. task_get(co)) would read a coroutine whose last
+    // reference is gone.
+    finished = hvlua_task_step(co, nargs);
+    return finished;
 }
 
 HvLuaCoroutine* hvlua_suspend(lua_State* L) {
