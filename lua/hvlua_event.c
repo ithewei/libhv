@@ -36,7 +36,59 @@ static void lua_timer_release_ref(LuaTimer* lt) {
     }
 }
 
+// Live-timer registry: registry["hv.timers"][lightuserdata(timer)] = true.
+// hv.clearTimer receives a raw htimer_t* as an opaque handle, but a fired
+// once-timer's htimer_t is freed by the loop after its callback, leaving the
+// script holding a stale pointer. Validating the handle against this registry
+// (instead of blindly dereferencing hevent_userdata) makes clearTimer on a
+// stale/already-freed handle a safe no-op.
+#define HVLUA_TIMERS_REG "hv.timers"
+
+static void lua_timers_reg_get(lua_State* L) {
+    lua_getfield(L, LUA_REGISTRYINDEX, HVLUA_TIMERS_REG);
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -1);
+        lua_setfield(L, LUA_REGISTRYINDEX, HVLUA_TIMERS_REG);
+    }
+}
+
+static void lua_timer_reg_add(lua_State* L, htimer_t* timer) {
+    lua_timers_reg_get(L);              // [timers]
+    lua_pushlightuserdata(L, timer);    // [timers][key]
+    lua_pushboolean(L, 1);              // [timers][key][true]
+    lua_settable(L, -3);                // timers[key]=true
+    lua_pop(L, 1);
+}
+
+static void lua_timer_reg_remove(lua_State* L, htimer_t* timer) {
+    if (timer == NULL) return;
+    lua_timers_reg_get(L);              // [timers]
+    lua_pushlightuserdata(L, timer);    // [timers][key]
+    lua_pushnil(L);                     // [timers][key][nil]
+    lua_settable(L, -3);                // timers[key]=nil
+    lua_pop(L, 1);
+}
+
+// Is `timer` a currently-live lua timer handle?
+static int lua_timer_reg_has(lua_State* L, htimer_t* timer) {
+    int has;
+    lua_timers_reg_get(L);              // [timers]
+    lua_pushlightuserdata(L, timer);    // [timers][key]
+    lua_gettable(L, -2);                // [timers][val]
+    has = lua_toboolean(L, -1);
+    lua_pop(L, 2);
+    return has;
+}
+
 static void lua_timer_free(LuaTimer* lt) {
+    // Unregister the handle so a later clearTimer on this (soon-freed) timer is
+    // a safe no-op, and detach the timer's back-pointer to lt.
+    if (lt->timer) {
+        lua_timer_reg_remove(lt->L, lt->timer);
+        hevent_set_userdata(lt->timer, NULL);
+    }
     lua_timer_release_ref(lt);
     HV_FREE(lt);
 }
@@ -100,6 +152,7 @@ static htimer_t* add_lua_timer(lua_State* L, uint32_t timeout_ms, uint32_t repea
     }
     hevent_set_userdata(timer, lt);
     lt->timer = timer;
+    lua_timer_reg_add(L, timer);   // mark handle live for clearTimer validation
     return timer;
 }
 
@@ -128,13 +181,20 @@ static int l_hloop_clearTimer(lua_State* L) {
     if (!lua_islightuserdata(L, 1)) return 0;
     timer = (htimer_t*)lua_touserdata(L, 1);
     if (timer == NULL) return 0;
+    // Validate the handle: a fired once-timer's htimer_t is freed by the loop,
+    // so the script may hold a stale pointer. Only proceed if the handle is a
+    // currently-live timer we registered; otherwise it's a safe no-op (avoids
+    // dereferencing freed memory via hevent_userdata).
+    if (!lua_timer_reg_has(L, timer)) return 0;
     lt = (LuaTimer*)hevent_userdata(timer);
     htimer_del(timer);
     if (lt) {
         if (lt->in_callback) {
             // Called from within this timer's own callback: defer the free to
-            // on_lua_timer so we don't free `lt` while it's still in use.
+            // on_lua_timer so we don't free `lt` while it's still in use. Drop it
+            // from the live registry now so no further clearTimer can match.
             lt->dead = 1;
+            lua_timer_reg_remove(L, timer);
             lua_timer_release_ref(lt);
         } else {
             lua_timer_free(lt);
@@ -208,7 +268,8 @@ static void on_dns_resolved(hdns_t* query, const hdns_result_t* result, void* us
     HV_FREE(d);
 
     L = hvlua_coroutine_state(co);
-    if (L == NULL) {   // coroutine gone (loop teardown); nothing to resume
+    if (L == NULL) {   // coroutine gone (loop teardown); release the token
+        hvlua_cancel(co);
         return;
     }
 
@@ -289,6 +350,14 @@ typedef struct LuaConn {
     int             closed;   // set in the close callback
     int             connecting; // pending op is connect (vs read), for resume shape
     unpack_setting_t* unpack; // owned; hio_t only stores the pointer
+    // Sync-read detection: hio_read_until_length/delim may invoke the read
+    // callback INLINE (buffered data already satisfies the request) before the
+    // coroutine yields. In that window co is not yet set, so on_conn_read must
+    // not resume; instead it stashes the data here and l_conn_read* returns it
+    // directly without suspending.
+    lua_State*      reading_L;  // non-NULL while arming a read (the running coroutine)
+    int             read_done;  // set true if the read completed synchronously
+    int             read_nres;  // number of results pushed on reading_L (sync path)
 } LuaConn;
 
 // forward decl: conn_push_new is defined lower (after the read helpers) but
@@ -338,7 +407,18 @@ static void on_conn_connect(hio_t* io) {
 
 static void on_conn_read(hio_t* io, void* buf, int len) {
     LuaConn* c = (LuaConn*)hevent_userdata(io);
-    if (c == NULL || c->co == NULL) return;
+    if (c == NULL) return;
+    // Synchronous completion: hio_read_until_* found buffered data and called
+    // us inline, before the coroutine yielded. co is not set yet; push the data
+    // onto the running coroutine and let l_conn_read* return it directly (do NOT
+    // resume — the coroutine is still running).
+    if (c->reading_L) {
+        lua_pushlstring(c->reading_L, (const char*)buf, len);
+        c->read_done = 1;
+        c->read_nres = 1;
+        return;
+    }
+    if (c->co == NULL) return;
     lua_State* co = hvlua_coroutine_state(c->co);
     if (co == NULL) { hvlua_cancel(c->co); c->co = NULL; return; }
     lua_pushlstring(co, (const char*)buf, len);
@@ -397,6 +477,9 @@ static LuaConn* conn_push_new(lua_State* L, hio_t* io) {
     c->closed = 0;
     c->connecting = 0;
     c->unpack = NULL;
+    c->reading_L = NULL;
+    c->read_done = 0;
+    c->read_nres = 0;
     luaL_getmetatable(L, CONN_META);
     lua_setmetatable(L, -2);
     hevent_set_userdata(io, c);
@@ -410,10 +493,33 @@ static int read_k(lua_State* L, int status, lua_KContext ctx) {
     return lua_gettop(L) >= 2 && lua_isnil(L, -2) ? 2 : 1;
 }
 
-// Shared: arm the read callback + suspend. The specific hio_read* call is done
-// by the caller (read once / read_until_delim / read_until_length).
-static int conn_suspend_read(lua_State* L, LuaConn* c) {
+// Read protocol (fixes sync-callback data loss): the hio_read_until_* calls may
+// invoke on_conn_read INLINE when buffered data already satisfies the request.
+// So we (1) arm the read callback and mark reading_L BEFORE issuing hio_read*,
+// (2) issue hio_read*, then (3) if the callback fired synchronously (read_done),
+// return the data directly; otherwise suspend the coroutine.
+//
+// conn_begin_read: arm callback + enter the "reading" window. Returns 0 on ok.
+static void conn_begin_read(lua_State* L, LuaConn* c) {
     hio_setcb_read(c->io, on_conn_read);
+    c->reading_L = L;
+    c->read_done = 0;
+    c->read_nres = 0;
+}
+
+// conn_end_read: leave the reading window; return results if the read completed
+// synchronously, else suspend the coroutine and yield.
+static int conn_end_read(lua_State* L, LuaConn* c) {
+    c->reading_L = NULL;
+    if (c->read_done) {
+        // Data already pushed on L by on_conn_read; return it directly.
+        return c->read_nres;
+    }
+    // Also handle the case where the read synchronously closed the connection
+    // (on_conn_close ran inline and set closed): report it without suspending.
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
     c->co = hvlua_suspend(L);
     return lua_yieldk(L, 0, (lua_KContext)0, read_k);
 }
@@ -424,8 +530,9 @@ static int l_conn_read(lua_State* L) {
     if (c->closed || c->io == NULL) {
         lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
     }
+    conn_begin_read(L, c);
     hio_read(c->io);
-    return conn_suspend_read(L, c);
+    return conn_end_read(L, c);
 }
 
 // conn:readbytes(n) -> exactly n bytes (hio_read_until_length)
@@ -435,8 +542,9 @@ static int l_conn_readbytes(lua_State* L) {
     if (c->closed || c->io == NULL) {
         lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
     }
+    conn_begin_read(L, c);
     hio_read_until_length(c->io, n);
-    return conn_suspend_read(L, c);
+    return conn_end_read(L, c);
 }
 
 // conn:readuntil(delim) -> data up to and including the 1-byte delimiter
@@ -450,8 +558,9 @@ static int l_conn_readuntil(lua_State* L) {
     if (dlen != 1) {
         return luaL_error(L, "conn:readuntil expects a single-byte delimiter");
     }
+    conn_begin_read(L, c);
     hio_read_until_delim(c->io, (unsigned char)delim[0]);
-    return conn_suspend_read(L, c);
+    return conn_end_read(L, c);
 }
 
 // conn:readline() -> data up to and including '\n'
@@ -460,8 +569,9 @@ static int l_conn_readline(lua_State* L) {
     if (c->closed || c->io == NULL) {
         lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
     }
+    conn_begin_read(L, c);
     hio_read_until_delim(c->io, '\n');
-    return conn_suspend_read(L, c);
+    return conn_end_read(L, c);
 }
 
 // conn:setUnpack(opts): configure automatic message unpacking so subsequent

@@ -457,6 +457,21 @@ mqtt_client_t* mqtt_client_new(hloop_t* loop) {
 
 void mqtt_client_free(mqtt_client_t* cli) {
     if (!cli) return;
+    // Tear down the io and timer BEFORE freeing cli. They were registered on the
+    // loop with hevent_set_userdata(..., cli); if left armed, a later on_close /
+    // connect_timeout_cb / reconnect_timer_cb would dereference the freed cli
+    // (use-after-free). Detach their back-pointers and close/delete them first.
+    if (cli->timer) {
+        hevent_set_userdata(cli->timer, NULL);
+        htimer_del(cli->timer);
+        cli->timer = NULL;
+    }
+    if (cli->io) {
+        hevent_set_userdata(cli->io, NULL);
+        hio_setcb_close(cli->io, NULL);  // no on_close callback into freed cli
+        hio_close(cli->io);
+        cli->io = NULL;
+    }
     hmutex_destroy(&cli->mutex_);
     if (cli->ssl_ctx && cli->alloced_ssl_ctx) {
         hssl_ctx_free(cli->ssl_ctx);
