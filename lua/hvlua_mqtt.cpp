@@ -52,6 +52,7 @@ struct LuaMqttClient {
     bool            connected;
     bool            closed;
     bool            connecting;  // wait_co holds a connect() waiter (vs recv())
+    bool            reconnect;   // auto-reconnect enabled
 };
 
 // Push an inbox item as a Lua table { topic=, payload=, qos= }.
@@ -65,8 +66,9 @@ static void mqtt_push_msg(lua_State* L, const MqttInboxItem& item) {
     lua_setfield(L, -2, "qos");
 }
 
-// Wake a pending recv() with the front queued message, or (nil,"closed") when
-// the connection is gone and the queue is drained. No-op for a connect() waiter.
+// Wake a pending recv() with the front queued message, or an error when the
+// connection is gone: (nil,"reconnecting") if auto-reconnect is on (transient)
+// else (nil,"closed") (terminal). No-op for a connect() waiter.
 static void mqtt_try_deliver(LuaMqttClient* box) {
     if (box->wait_co == NULL || box->connecting) return;
     lua_State* co = hvlua_coroutine_state(box->wait_co);
@@ -82,7 +84,7 @@ static void mqtt_try_deliver(LuaMqttClient* box) {
         HvLuaCoroutine* tok = box->wait_co;
         box->wait_co = NULL;
         lua_pushnil(co);
-        lua_pushstring(co, "closed");
+        lua_pushstring(co, box->reconnect ? "reconnecting" : "closed");
         hvlua_resume(tok, 2);
     }
 }
@@ -95,6 +97,7 @@ static void on_mqtt(mqtt_client_t* cli, int type) {
     switch (type) {
     case MQTT_TYPE_CONNACK:
         box->connected = true;
+        box->closed = false;   // reset for a (re)established session
         if (box->wait_co && box->connecting) {
             lua_State* co = hvlua_coroutine_state(box->wait_co);
             if (co == NULL) { hvlua_cancel(box->wait_co); box->wait_co = NULL; return; }
@@ -125,7 +128,12 @@ static void on_mqtt(mqtt_client_t* cli, int type) {
             box->wait_co = NULL;
             box->connecting = false;
             lua_pushnil(co);
-            lua_pushstring(co, was_connecting ? "connect failed" : "closed");
+            // connect() waiter -> connect failed; recv() waiter -> transient
+            // "reconnecting" if auto-reconnect is on (the C client retries under
+            // the hood and a future CONNACK/PUBLISH wakes fresh recvs), else
+            // terminal "closed".
+            lua_pushstring(co, was_connecting ? "connect failed"
+                                              : (box->reconnect ? "reconnecting" : "closed"));
             hvlua_resume(tok, 2);
         }
         break;
@@ -193,6 +201,7 @@ static int l_mqtt_connect(lua_State* L) {
     box->connected = false;
     box->closed = false;
     box->connecting = true;
+    box->reconnect = false;
     box->client = mqtt_client_new(loop->loop());   // bound to current loop's hloop
     if (box->client == NULL) {
         box->inbox.~MqttInbox();
@@ -211,6 +220,27 @@ static int l_mqtt_connect(lua_State* L) {
     }
     if (keepalive > 0) box->client->keepalive = (unsigned short)keepalive;
     if (clean_session >= 0) box->client->clean_session = clean_session ? 1 : 0;
+    // optional reconnect = { min_delay, max_delay, delay_policy, max_retry }
+    lua_getfield(L, 1, "reconnect");
+    if (lua_istable(L, -1)) {
+        reconn_setting_t reconn;
+        reconn_setting_init(&reconn);
+        lua_getfield(L, -1, "min_delay");
+        if (lua_isinteger(L, -1)) reconn.min_delay = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "max_delay");
+        if (lua_isinteger(L, -1)) reconn.max_delay = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "delay_policy");
+        if (lua_isinteger(L, -1)) reconn.delay_policy = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, -1, "max_retry");
+        if (lua_isinteger(L, -1)) reconn.max_retry_cnt = (uint32_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        mqtt_client_set_reconnect(box->client, &reconn);
+        box->reconnect = true;
+    }
+    lua_pop(L, 1);   // pop reconnect table (or nil)
 
     box->wait_co = hvlua_suspend(L);
     int ret = mqtt_client_connect(box->client, host.c_str(), port, ssl);
@@ -313,6 +343,10 @@ static int l_mqtt_unsubscribe(lua_State* L) {
 static int l_mqtt_disconnect(lua_State* L) {
     LuaMqttClient* box = (LuaMqttClient*)luaL_checkudata(L, 1, MQTT_CLIENT_MT);
     if (box && box->client && !box->closed) {
+        // Explicit disconnect is terminal: mqtt_client_disconnect also cancels
+        // the underlying reconnect; clear our flag so recv() reports "closed"
+        // (not "reconnecting").
+        box->reconnect = false;
         mqtt_client_disconnect(box->client);
     }
     return 0;

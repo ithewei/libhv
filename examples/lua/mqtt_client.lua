@@ -6,7 +6,11 @@ local topic = arg[3] or "hv/lua/test"
 
 hv.setTimeout(1, function()
     -- connect() suspends until CONNACK (or fails with nil, err)
-    local m, err = hv.mqtt.connect({ host = host, port = port, id = "hvlua-demo", keepalive = 60 })
+    -- reconnect is optional; given it enables auto-reconnect.
+    local m, err = hv.mqtt.connect({
+        host = host, port = port, id = "hvlua-demo", keepalive = 60,
+        reconnect = { min_delay = 1000, max_delay = 10000, delay_policy = 2 },
+    })
     if err then
         hv.loge("connect failed:", err)
         hv.stop()

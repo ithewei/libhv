@@ -159,15 +159,28 @@ local resp5 = hv.http.request("GET", url [, body [, headers]])
 
 ## hv.ws（WebSocket，协程同步，需 WITH_HTTP）
 
-WebSocket 是消息驱动的，收到的消息缓存在收件箱，`ws:recv()` 挂起直到有一条消息（或连接关闭返回 `nil,"closed"`）。
+WebSocket 是消息驱动的，收到的消息缓存在收件箱，`ws:recv()` 挂起直到有一条消息。连接断开时 `recv()`/`send()` 返回 `(nil, err)`：开启了自动重连时 `err="reconnecting"`（临时断开，底层正在重连），否则 `err="closed"`（终止）。
 
 ```lua
-local ws, err = hv.ws.connect("ws://127.0.0.1:8888/path" [, headers])
+-- 第二参数为可选 opts 表
+local ws, err = hv.ws.connect("ws://127.0.0.1:8888/path", {
+    headers = { ["X-Token"] = "..." },   -- 可选：握手请求头
+    ping_interval = 10000,               -- 可选：心跳 ping 间隔 ms
+    reconnect = {                        -- 可选：给了就开自动重连
+        min_delay = 1000,                -- ms
+        max_delay = 10000,               -- ms
+        delay_policy = 2,                -- 0 固定 / 1 线性 / 2 指数退避
+        max_retry = 0,                   -- 最大重试次数，0 = 无限
+    },
+})
 ws:send("hello")                    -- 文本帧
 ws:send(payload, "binary")          -- 二进制帧
 local msg, err = ws:recv()          -- 协程同步：挂起直到收到一条消息
-ws:close()
+if err == "reconnecting" then ... end   -- 临时断开，正在重连
+ws:close()                          -- 显式关闭（终止，禁用重连）
 ```
+
+> 开启重连后：重连成功会自动恢复,后续 `recv()`/`send()` 继续可用；断开期间 `send()` 会返回 `(nil,"reconnecting")` 而非静默丢弃，`recv()` 同样返回 `(nil,"reconnecting")` 让脚本自行决定继续等待还是退出。`ws:close()` 是显式终止,会禁用重连。
 
 ## hv.redis（协程同步，需 WITH_REDIS）
 
@@ -197,14 +210,20 @@ local m, err = hv.mqtt.connect({
     host = "127.0.0.1", port = 1883,
     id = "client-1", username = "", password = "",
     keepalive = 60, clean_session = true, ssl = false,
+    reconnect = {                        -- 可选：给了就开自动重连
+        min_delay = 1000, max_delay = 10000, delay_policy = 2, max_retry = 0,
+    },
 })                                   -- 协程同步：挂起到 CONNACK 或失败
 
 m:subscribe("topic", 1)              -- 返回 mid
 m:publish("topic", "payload", 1, 0)  -- topic, payload, qos, retain -> mid
 m:unsubscribe("topic")
-local msg = m:recv()                 -- { topic =, payload =, qos = } ; 关闭返回 nil,"closed"
-m:disconnect()
+local msg, err = m:recv()            -- { topic =, payload =, qos = }
+if err == "reconnecting" then ... end   -- 临时断开，正在重连；err="closed" 为终止
+m:disconnect()                       -- 显式断开（终止，禁用重连）
 ```
+
+> 与 hv.ws 一致：开启重连后断线是临时的，`recv()` 在断线期间返回 `(nil,"reconnecting")`，重连成功后自动恢复；`m:disconnect()` 是显式终止,禁用重连。
 
 ## HTTP Lua Handler
 

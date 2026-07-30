@@ -3,7 +3,10 @@
 local url = arg[1] or "ws://127.0.0.1:8888/"
 
 hv.setTimeout(1, function()
-    local ws, err = hv.ws.connect(url)
+    -- opts (all optional): headers, ping_interval, reconnect
+    local ws, err = hv.ws.connect(url, {
+        reconnect = { min_delay = 1000, max_delay = 10000, delay_policy = 2 },
+    })
     if err then
         hv.loge("connect failed:", err)
         hv.stop()

@@ -63,6 +63,21 @@ int main() {
         "  local msg2 = ws:recv()\n"
         "  probe(msg2)\n"
         "  ws:close()\n"
+        // Second connect exercises the opts table: headers + ping_interval +
+        // reconnect. This proves the opts/reconnect parsing + setReconnect path
+        // does not break a normal round-trip (full drop->reconnect behavior is
+        // covered by the C++ websocket_client_test example).
+        "  local ws2, e2 = hv.ws.connect('ws://127.0.0.1:20802/', {\n"
+        "    headers = { ['X-Test'] = 'v' },\n"
+        "    ping_interval = 10000,\n"
+        "    reconnect = { min_delay = 1000, max_delay = 10000, delay_policy = 2, max_retry = 3 },\n"
+        "  })\n"
+        "  if e2 then probe('err2:'..e2); hv.stop(); return end\n"
+        "  probe('opened2')\n"
+        "  ws2:send('again')\n"
+        "  local m3 = ws2:recv()\n"
+        "  probe(m3)\n"
+        "  ws2:close()\n"
         "  hv.stop()\n"
         "end)\n"
     );
@@ -76,7 +91,7 @@ int main() {
     hv_msleep(100);
 
     printf("hv.ws result: %s\n", g_probe.c_str());
-    assert(g_probe == "opened,hello,world");
+    assert(g_probe == "opened,hello,world,opened2,again");
     printf("ALL lua_ws_test PASSED\n");
     return 0;
 }
