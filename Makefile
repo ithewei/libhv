@@ -20,14 +20,18 @@ LIBHV_HEADERS += $(PROTOCOL_HEADERS)
 LIBHV_SRCDIRS += protocol
 endif
 
+ifeq ($(WITH_LUA), yes)
+LIBHV_HEADERS += lua/hvlua.h lua/hvlua_json.h lua/hvlua_util.h
+LIBHV_SRCDIRS += lua
+ifneq ($(WITH_EVPP), yes)
+LIBHV_HEADERS += $(CPPUTIL_HEADERS)
+LIBHV_SRCDIRS += cpputil
+endif
+endif
+
 ifeq ($(WITH_EVPP), yes)
 LIBHV_HEADERS += $(CPPUTIL_HEADERS) $(EVPP_HEADERS)
 LIBHV_SRCDIRS += cpputil evpp
-
-ifeq ($(WITH_LUA), yes)
-LIBHV_HEADERS += lua/hvlua.h
-LIBHV_SRCDIRS += lua
-endif
 
 ifeq ($(WITH_REDIS), yes)
 LIBHV_HEADERS += $(REDIS_HEADERS)
@@ -107,7 +111,9 @@ EXAMPLES += mqtt_sub mqtt_pub mqtt_client_test
 endif
 
 ifeq ($(WITH_LUA), yes)
+ifeq ($(WITH_EVPP), yes)
 EXAMPLES += hvlua
+endif
 endif
 
 examples: $(EXAMPLES)
@@ -337,17 +343,27 @@ endif
 ifeq ($(WITH_LUA), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_io_test unittest/lua_io_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -o bin/http_script_handler_test unittest/http_script_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_HTTP), yes)
+ifeq ($(WITH_HTTP_SERVER), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -o bin/http_script_handler_test unittest/http_script_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+ifeq ($(WITH_HTTP_CLIENT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
+endif
+ifeq ($(WITH_HTTP_SERVER), yes)
+ifeq ($(WITH_HTTP_CLIENT), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_HTTP $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_http_test unittest/lua_http_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_HTTP $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_ws_test unittest/lua_ws_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
+endif
 endif
 ifeq ($(WITH_MQTT), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_MQTT $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Imqtt -o bin/lua_mqtt_test unittest/lua_mqtt_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 endif
 ifeq ($(WITH_REDIS), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_REDIS $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -Ilua -o bin/lua_redis_test unittest/lua_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
 endif
 endif
 
