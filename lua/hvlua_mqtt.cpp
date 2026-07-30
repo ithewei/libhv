@@ -362,13 +362,7 @@ static const luaL_Reg mqtt_funcs[] = {
 };
 
 extern "C" void hvlua_open_mqtt(lua_State* L) {
-    if (luaL_newmetatable(L, MQTT_CLIENT_MT)) {
-        lua_pushcfunction(L, mqtt_client_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushvalue(L, -1);
-        lua_setfield(L, -2, "__index");
-        luaL_setfuncs(L, mqtt_methods, 0);
-    }
+    hvlua_new_class(L, MQTT_CLIENT_MT, mqtt_client_gc, mqtt_methods);
     lua_pop(L, 1);
 
     lua_getglobal(L, "hv");

@@ -8,9 +8,8 @@
 
 #include "hloop.h"   // reconn_setting_t
 
-#ifndef lua_h
-typedef struct lua_State lua_State;
-#endif
+#include <lua.h>       // lua_State, lua_CFunction
+#include <lauxlib.h>   // luaL_Reg
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,6 +23,13 @@ extern "C" {
 // `reconnect` sub-table (out is left untouched). Used by hv.ws / hv.mqtt so the
 // reconnect parsing lives in one place.
 int hvlua_parse_reconnect(lua_State* L, int table_index, reconn_setting_t* out);
+
+// Register (once) a client metatable named `mt_name` with:
+//   __gc = gc, __index = the metatable itself, plus `methods` on it.
+// Leaves the metatable on top of L (matching luaL_newmetatable) so callers may
+// append extra entries. Returns 1 if it was newly created (caller should add
+// its own extras), 0 if it already existed. Pair with lua_pop(L, 1) after.
+int hvlua_new_class(lua_State* L, const char* mt_name, lua_CFunction gc, const luaL_Reg* methods);
 
 #ifdef __cplusplus
 }

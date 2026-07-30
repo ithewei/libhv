@@ -5,6 +5,7 @@ extern "C" {
 }
 
 #include "hvlua.h"
+#include "hvlua_util.h"   // hvlua_new_class
 
 #ifdef HVLUA_WITH_REDIS
 
@@ -312,9 +313,10 @@ static const luaL_Reg redis_funcs[] = {
     { NULL, NULL }
 };
 
-// Register redis methods (command + verb sugar) into the table on top of L.
-static void register_redis_methods(lua_State* L) {
-    luaL_setfuncs(L, redis_methods, 0);
+// Register redis verb sugar (get/set/... lowercase methods whose closure upvalue
+// is the UPPER verb) into the metatable on top of L. The base redis_methods and
+// __gc/__index are installed by hvlua_new_class.
+static void register_redis_verbs(lua_State* L) {
     for (int i = 0; redis_verbs[i] != NULL; ++i) {
         // method name is the lowercase verb; closure upvalue is the UPPER verb.
         std::string name(redis_verbs[i]);
@@ -327,12 +329,8 @@ static void register_redis_methods(lua_State* L) {
 
 extern "C" void hvlua_open_redis(lua_State* L) {
     // Create the shared client metatable once: __gc + __index=self + methods.
-    if (luaL_newmetatable(L, REDIS_CLIENT_MT)) {
-        lua_pushcfunction(L, redis_client_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushvalue(L, -1);
-        lua_setfield(L, -2, "__index");   // methods live on the metatable itself
-        register_redis_methods(L);        // command + verb sugar into the mt
+    if (hvlua_new_class(L, REDIS_CLIENT_MT, redis_client_gc, redis_methods)) {
+        register_redis_verbs(L);          // command + verb sugar into the mt
     }
     lua_pop(L, 1);
 

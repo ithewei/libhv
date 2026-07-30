@@ -296,13 +296,7 @@ static const luaL_Reg ws_funcs[] = {
 };
 
 extern "C" void hvlua_open_ws(lua_State* L) {
-    if (luaL_newmetatable(L, WS_CLIENT_MT)) {
-        lua_pushcfunction(L, ws_client_gc);
-        lua_setfield(L, -2, "__gc");
-        lua_pushvalue(L, -1);
-        lua_setfield(L, -2, "__index");
-        luaL_setfuncs(L, ws_methods, 0);
-    }
+    hvlua_new_class(L, WS_CLIENT_MT, ws_client_gc, ws_methods);
     lua_pop(L, 1);
 
     lua_getglobal(L, "hv");
