@@ -206,7 +206,28 @@ static int l_ws_connect(lua_State* L) {
     };
 
     box->recv_co = hvlua_suspend(L);   // reuse recv_co to hold the connect wait
-    int ret = box->client->open(url, headers);
+    // NOTE: lua_yieldk below never returns to this C++ frame (longjmp in a
+    // C-built Lua), so destructors of locals here are SKIPPED. Scope the
+    // non-trivial `headers` (std::map) so it is destroyed BEFORE the yield;
+    // open() copies what it needs. Keep only the trivial `ret` for the check.
+    int ret;
+    {
+        http_headers headers = DefaultHeaders;
+        if (lua_istable(L, 2)) {
+            lua_getfield(L, 2, "headers");
+            if (lua_istable(L, -1)) {
+                lua_pushnil(L);
+                while (lua_next(L, -2) != 0) {
+                    if (lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TSTRING) {
+                        headers[lua_tostring(L, -2)] = lua_tostring(L, -1);
+                    }
+                    lua_pop(L, 1);
+                }
+            }
+            lua_pop(L, 1);   // pop headers (or nil)
+        }
+        ret = box->client->open(url, headers);
+    }   // ~headers runs here, before the yield
     if (ret != 0) {
         hvlua_cancel(box->recv_co);
         box->recv_co = NULL;

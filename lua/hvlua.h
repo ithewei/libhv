@@ -56,6 +56,16 @@ int hvlua_dostring(hloop_t* loop, const char* code);
 //
 // The token keeps the coroutine alive (luaL_ref in the registry) while it is
 // suspended, and detects staleness so a late/duplicate resume is a safe no-op.
+//
+// IMPORTANT (C++ bindings): lua_yieldk() does NOT return to the C/C++ frame that
+// calls it — Lua unwinds via longjmp (liblua is built as C), which does NOT run
+// C++ destructors. Therefore, when the frame that calls lua_yieldk() is C++, it
+// MUST NOT hold any live non-trivial C++ object (std::string, std::shared_ptr,
+// std::map, ...) at the point of the yield, or that object's destructor is
+// skipped and it leaks on every suspend. Confine such objects to a scope that
+// ends before lua_yieldk (see hvlua_http.cpp / hvlua_ws.cpp / hvlua_redis.cpp /
+// hvlua_mqtt.cpp for the pattern). The pure-C bindings (hvlua_event.c) are
+// unaffected (POD + HV_ALLOC only).
 
 // Register the running coroutine `L` as suspendable; returns an opaque token.
 // Must be called from a coroutine (a lua_State created by lua_newthread).

@@ -93,40 +93,46 @@ static int do_request(lua_State* L, http_method method, int url_index) {
         return 2;
     }
 
-    auto req = std::make_shared<HttpRequest>();
-    req->method = method;
-    req->url = url;
-    // optional body
-    if (!lua_isnoneornil(L, url_index + 1)) {
-        size_t len = 0;
-        const char* body = lua_tolstring(L, url_index + 1, &len);
-        if (body) req->body.assign(body, len);
-    }
-    // optional headers table
-    if (lua_istable(L, url_index + 2)) {
-        lua_pushnil(L);
-        while (lua_next(L, url_index + 2) != 0) {
-            if (lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TSTRING) {
-                req->headers[lua_tostring(L, -2)] = lua_tostring(L, -1);
-            }
-            lua_pop(L, 1);
-        }
-    }
-
+    // NOTE: lua_yieldk never returns to this C++ frame (it longjmps in a C-built
+    // Lua), so C++ destructors of locals in this frame are SKIPPED. Any
+    // non-trivial local (here the shared_ptr<HttpRequest>) must therefore be
+    // scoped to end BEFORE the yield, or its destructor is leaked. client->send
+    // holds its own ref to req, so dropping our local ref here is fine.
     HvLuaCoroutine* co = hvlua_suspend(L);
-    client->send(req, [co](const HttpResponsePtr& resp) {
-        // Same loop thread (client bound to current loop): resume directly.
-        lua_State* cur = hvlua_coroutine_state(co);
-        if (cur == NULL) { hvlua_cancel(co); return; }  // coroutine gone
-        if (resp) {
-            push_response(cur, resp);
-            hvlua_resume(co, 1);
-        } else {
-            lua_pushnil(cur);
-            lua_pushstring(cur, "hv.http: request failed");
-            hvlua_resume(co, 2);
+    {
+        auto req = std::make_shared<HttpRequest>();
+        req->method = method;
+        req->url = url;
+        // optional body
+        if (!lua_isnoneornil(L, url_index + 1)) {
+            size_t len = 0;
+            const char* body = lua_tolstring(L, url_index + 1, &len);
+            if (body) req->body.assign(body, len);
         }
-    });
+        // optional headers table
+        if (lua_istable(L, url_index + 2)) {
+            lua_pushnil(L);
+            while (lua_next(L, url_index + 2) != 0) {
+                if (lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TSTRING) {
+                    req->headers[lua_tostring(L, -2)] = lua_tostring(L, -1);
+                }
+                lua_pop(L, 1);
+            }
+        }
+        client->send(req, [co](const HttpResponsePtr& resp) {
+            // Same loop thread (client bound to current loop): resume directly.
+            lua_State* cur = hvlua_coroutine_state(co);
+            if (cur == NULL) { hvlua_cancel(co); return; }  // coroutine gone
+            if (resp) {
+                push_response(cur, resp);
+                hvlua_resume(co, 1);
+            } else {
+                lua_pushnil(cur);
+                lua_pushstring(cur, "hv.http: request failed");
+                hvlua_resume(co, 2);
+            }
+        });
+    }   // ~req runs here, before the yield below
     return lua_yieldk(L, 0, (lua_KContext)0, http_result_k);
 }
 

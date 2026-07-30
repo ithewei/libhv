@@ -175,75 +175,84 @@ static int mqtt_connect_k(lua_State* L, int status, lua_KContext ctx) {
 // hv.mqtt.connect(cfg) -> client | nil, err
 static int l_mqtt_connect(lua_State* L) {
     luaL_checktype(L, 1, LUA_TTABLE);
-    EventLoopPtr loop = currentThreadEventLoopPtr;
-    if (!loop) {
-        lua_pushnil(L);
-        lua_pushstring(L, "hv.mqtt: no shared event loop on this thread");
-        return 2;
-    }
-
-    std::string host = "127.0.0.1";
+    // NOTE: lua_yieldk at the end never returns to this C++ frame (longjmp in a
+    // C-built Lua), so destructors of non-trivial locals here are SKIPPED and
+    // leak. All non-trivial locals (the EventLoopPtr and the std::strings from
+    // the config) are therefore confined to the scope below, which ends BEFORE
+    // hvlua_suspend/lua_yieldk. Only POD state crosses the yield.
+    LuaMqttClient* box = NULL;
+    char host[256] = "127.0.0.1";
     int port = DEFAULT_MQTT_PORT;
-    std::string id, username, password;
-    int keepalive = 0, ssl = 0, clean_session = -1;
-    lua_getfield(L, 1, "host");     if (lua_isstring(L, -1)) host = lua_tostring(L, -1);       lua_pop(L, 1);
-    lua_getfield(L, 1, "port");     if (lua_isinteger(L, -1)) port = (int)lua_tointeger(L, -1); lua_pop(L, 1);
-    lua_getfield(L, 1, "id");       if (lua_isstring(L, -1)) id = lua_tostring(L, -1);          lua_pop(L, 1);
-    lua_getfield(L, 1, "username"); if (lua_isstring(L, -1)) username = lua_tostring(L, -1);    lua_pop(L, 1);
-    lua_getfield(L, 1, "password"); if (lua_isstring(L, -1)) password = lua_tostring(L, -1);    lua_pop(L, 1);
-    lua_getfield(L, 1, "keepalive");if (lua_isinteger(L, -1)) keepalive = (int)lua_tointeger(L, -1); lua_pop(L, 1);
-    lua_getfield(L, 1, "ssl");      if (lua_isboolean(L, -1)) ssl = lua_toboolean(L, -1);       lua_pop(L, 1);
-    lua_getfield(L, 1, "clean_session"); if (lua_isboolean(L, -1)) clean_session = lua_toboolean(L, -1); lua_pop(L, 1);
+    int ssl = 0;
+    {
+        EventLoopPtr loop = currentThreadEventLoopPtr;
+        if (!loop) {
+            lua_pushnil(L);
+            lua_pushstring(L, "hv.mqtt: no shared event loop on this thread");
+            return 2;
+        }
 
-    LuaMqttClient* box = (LuaMqttClient*)lua_newuserdata(L, sizeof(LuaMqttClient));
-    new (&box->inbox) MqttInbox();
-    box->wait_co = NULL;
-    box->connected = false;
-    box->closed = false;
-    box->connecting = true;
-    box->reconnect = false;
-    box->client = mqtt_client_new(loop->loop());   // bound to current loop's hloop
-    if (box->client == NULL) {
-        box->inbox.~MqttInbox();
-        lua_pushnil(L);
-        lua_pushstring(L, "hv.mqtt: create client failed");
-        return 2;
-    }
-    luaL_setmetatable(L, MQTT_CLIENT_MT);
-    lua_replace(L, 1);              // move userdata to slot 1 for mqtt_connect_k
+        std::string id, username, password;
+        int keepalive = 0, clean_session = -1;
+        lua_getfield(L, 1, "host");     if (lua_isstring(L, -1)) { strncpy(host, lua_tostring(L, -1), sizeof(host) - 1); host[sizeof(host) - 1] = '\0'; } lua_pop(L, 1);
+        lua_getfield(L, 1, "port");     if (lua_isinteger(L, -1)) port = (int)lua_tointeger(L, -1); lua_pop(L, 1);
+        lua_getfield(L, 1, "id");       if (lua_isstring(L, -1)) id = lua_tostring(L, -1);          lua_pop(L, 1);
+        lua_getfield(L, 1, "username"); if (lua_isstring(L, -1)) username = lua_tostring(L, -1);    lua_pop(L, 1);
+        lua_getfield(L, 1, "password"); if (lua_isstring(L, -1)) password = lua_tostring(L, -1);    lua_pop(L, 1);
+        lua_getfield(L, 1, "keepalive");if (lua_isinteger(L, -1)) keepalive = (int)lua_tointeger(L, -1); lua_pop(L, 1);
+        lua_getfield(L, 1, "ssl");      if (lua_isboolean(L, -1)) ssl = lua_toboolean(L, -1);       lua_pop(L, 1);
+        lua_getfield(L, 1, "clean_session"); if (lua_isboolean(L, -1)) clean_session = lua_toboolean(L, -1); lua_pop(L, 1);
 
-    mqtt_client_set_userdata(box->client, box);
-    mqtt_client_set_callback(box->client, on_mqtt);
-    if (!id.empty()) mqtt_client_set_id(box->client, id.c_str());
-    if (!username.empty() || !password.empty()) {
-        mqtt_client_set_auth(box->client, username.c_str(), password.c_str());
-    }
-    if (keepalive > 0) box->client->keepalive = (unsigned short)keepalive;
-    if (clean_session >= 0) box->client->clean_session = clean_session ? 1 : 0;
-    // optional reconnect = { min_delay, max_delay, delay_policy, max_retry }
-    lua_getfield(L, 1, "reconnect");
-    if (lua_istable(L, -1)) {
-        reconn_setting_t reconn;
-        reconn_setting_init(&reconn);
-        lua_getfield(L, -1, "min_delay");
-        if (lua_isinteger(L, -1)) reconn.min_delay = (uint32_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, -1, "max_delay");
-        if (lua_isinteger(L, -1)) reconn.max_delay = (uint32_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, -1, "delay_policy");
-        if (lua_isinteger(L, -1)) reconn.delay_policy = (uint32_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-        lua_getfield(L, -1, "max_retry");
-        if (lua_isinteger(L, -1)) reconn.max_retry_cnt = (uint32_t)lua_tointeger(L, -1);
-        lua_pop(L, 1);
-        mqtt_client_set_reconnect(box->client, &reconn);
-        box->reconnect = true;
-    }
-    lua_pop(L, 1);   // pop reconnect table (or nil)
+        box = (LuaMqttClient*)lua_newuserdata(L, sizeof(LuaMqttClient));
+        new (&box->inbox) MqttInbox();
+        box->wait_co = NULL;
+        box->connected = false;
+        box->closed = false;
+        box->connecting = true;
+        box->reconnect = false;
+        box->client = mqtt_client_new(loop->loop());   // bound to current loop's hloop
+        if (box->client == NULL) {
+            box->inbox.~MqttInbox();
+            lua_pushnil(L);
+            lua_pushstring(L, "hv.mqtt: create client failed");
+            return 2;
+        }
+        luaL_setmetatable(L, MQTT_CLIENT_MT);
+        lua_replace(L, 1);              // move userdata to slot 1 for mqtt_connect_k
+
+        mqtt_client_set_userdata(box->client, box);
+        mqtt_client_set_callback(box->client, on_mqtt);
+        if (!id.empty()) mqtt_client_set_id(box->client, id.c_str());
+        if (!username.empty() || !password.empty()) {
+            mqtt_client_set_auth(box->client, username.c_str(), password.c_str());
+        }
+        if (keepalive > 0) box->client->keepalive = (unsigned short)keepalive;
+        if (clean_session >= 0) box->client->clean_session = clean_session ? 1 : 0;
+        // optional reconnect = { min_delay, max_delay, delay_policy, max_retry }
+        lua_getfield(L, 1, "reconnect");
+        if (lua_istable(L, -1)) {
+            reconn_setting_t reconn;
+            reconn_setting_init(&reconn);
+            lua_getfield(L, -1, "min_delay");
+            if (lua_isinteger(L, -1)) reconn.min_delay = (uint32_t)lua_tointeger(L, -1);
+            lua_pop(L, 1);
+            lua_getfield(L, -1, "max_delay");
+            if (lua_isinteger(L, -1)) reconn.max_delay = (uint32_t)lua_tointeger(L, -1);
+            lua_pop(L, 1);
+            lua_getfield(L, -1, "delay_policy");
+            if (lua_isinteger(L, -1)) reconn.delay_policy = (uint32_t)lua_tointeger(L, -1);
+            lua_pop(L, 1);
+            lua_getfield(L, -1, "max_retry");
+            if (lua_isinteger(L, -1)) reconn.max_retry_cnt = (uint32_t)lua_tointeger(L, -1);
+            lua_pop(L, 1);
+            mqtt_client_set_reconnect(box->client, &reconn);
+            box->reconnect = true;
+        }
+        lua_pop(L, 1);   // pop reconnect table (or nil)
+    }   // ~loop / ~id / ~username / ~password run here, before the yield
 
     box->wait_co = hvlua_suspend(L);
-    int ret = mqtt_client_connect(box->client, host.c_str(), port, ssl);
+    int ret = mqtt_client_connect(box->client, host, port, ssl);
     if (ret != 0) {
         hvlua_cancel(box->wait_co);
         box->wait_co = NULL;

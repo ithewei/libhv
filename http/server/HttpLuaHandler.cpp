@@ -19,6 +19,7 @@ extern "C" {
 
 #include "EventLoop.h"
 #include "hvlua.h"
+#include "hvlua_json.h"   // shared lua<->json conversion (single implementation)
 
 namespace hv {
 
@@ -109,85 +110,12 @@ static int lua_ctx_text(lua_State* L) {
     return 1;
 }
 
-static Json lua_to_json(lua_State* L, int index);
-
-static Json lua_table_to_json(lua_State* L, int index) {
-    index = lua_absindex(L, index);
-    bool is_array = true;
-    lua_Integer max_index = 0;
-    size_t count = 0;
-
-    lua_pushnil(L);
-    while (lua_next(L, index) != 0) {
-        ++count;
-        if (lua_type(L, -2) == LUA_TNUMBER && lua_isinteger(L, -2)) {
-            lua_Integer k = lua_tointeger(L, -2);
-            if (k <= 0) {
-                is_array = false;
-            } else if (k > max_index) {
-                max_index = k;
-            }
-        } else {
-            is_array = false;
-        }
-        lua_pop(L, 1);
-    }
-
-    if (is_array && (lua_Integer)count == max_index) {
-        Json j = Json::array();
-        for (lua_Integer i = 1; i <= max_index; ++i) {
-            lua_geti(L, index, i);
-            j.push_back(lua_to_json(L, -1));
-            lua_pop(L, 1);
-        }
-        return j;
-    }
-
-    Json j = Json::object();
-    lua_pushnil(L);
-    while (lua_next(L, index) != 0) {
-        std::string key;
-        if (lua_type(L, -2) == LUA_TSTRING) {
-            size_t len = 0;
-            const char* s = lua_tolstring(L, -2, &len);
-            key.assign(s, len);
-        } else if (lua_type(L, -2) == LUA_TNUMBER) {
-            key = hv::to_string((int64_t)lua_tointeger(L, -2));
-        }
-        if (!key.empty()) {
-            j[key] = lua_to_json(L, -1);
-        }
-        lua_pop(L, 1);
-    }
-    return j;
-}
-
-static Json lua_to_json(lua_State* L, int index) {
-    switch (lua_type(L, index)) {
-    case LUA_TNIL:
-        return nullptr;
-    case LUA_TBOOLEAN:
-        return lua_toboolean(L, index) != 0;
-    case LUA_TNUMBER:
-        if (lua_isinteger(L, index)) {
-            return (int64_t)lua_tointeger(L, index);
-        }
-        return lua_tonumber(L, index);
-    case LUA_TSTRING: {
-        size_t len = 0;
-        const char* s = lua_tolstring(L, index, &len);
-        return std::string(s, len);
-    }
-    case LUA_TTABLE:
-        return lua_table_to_json(L, index);
-    default:
-        return nullptr;
-    }
-}
+// lua <-> json conversion (incl. the cyclic-table depth guard) is shared via
+// hvlua_json.h: hv::hvlua_lua_to_json. Do not duplicate it here.
 
 static int lua_ctx_json(lua_State* L) {
     LuaHttpContext* holder = lua_check_ctx(L);
-    Json j = lua_to_json(L, 2);
+    Json j = hvlua_lua_to_json(L, 2);
     holder->ctx->response->Json(j);
     lua_pushinteger(L, holder->ctx->response->status_code);
     return 1;
@@ -358,7 +286,7 @@ static void apply_result(lua_State* co, const HttpContextPtr& ctx) {
         const char* s = lua_tolstring(co, -1, &len);
         ctx->response->String(std::string(s, len));
     } else if (lua_istable(co, -1)) {
-        Json j = lua_to_json(co, -1);
+        Json j = hvlua_lua_to_json(co, -1);
         ctx->response->Json(j);
     }
 }

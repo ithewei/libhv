@@ -5,23 +5,23 @@ extern "C" {
 }
 
 #include "hvlua.h"
+#include "hvlua_json.h"   // shared lua<->json conversion (also used by HttpLuaHandler)
 
 #include <string>
 
 #include "hstring.h"
-#include "json.hpp"
 
 using nlohmann::json;
 
-// This module stays C++ (nlohmann::json). All helpers are file-static; only
-// hvlua_open_json is exported, with C linkage so the C core (hvlua.c) can call
-// it.
+// The lua <-> json conversion is defined here (non-static, in namespace hv) as
+// the single shared implementation; http/server/HttpLuaHandler.cpp reuses it via
+// hvlua_json.h. Only hvlua_open_json is exported with C linkage for hvlua.c.
 
-// ---- lua <-> json conversion (shared style with HttpLuaHandler) ----
+namespace hv {
 
-static json lua_to_json(lua_State* L, int index);
+json hvlua_lua_to_json(lua_State* L, int index, int depth);
 
-static json lua_table_to_json(lua_State* L, int index) {
+static json lua_table_to_json(lua_State* L, int index, int depth) {
     index = lua_absindex(L, index);
     bool is_array = true;
     lua_Integer max_index = 0;
@@ -44,7 +44,7 @@ static json lua_table_to_json(lua_State* L, int index) {
         json j = json::array();
         for (lua_Integer i = 1; i <= max_index; ++i) {
             lua_geti(L, index, i);
-            j.push_back(lua_to_json(L, -1));
+            j.push_back(hvlua_lua_to_json(L, -1, depth + 1));
             lua_pop(L, 1);
         }
         return j;
@@ -61,13 +61,13 @@ static json lua_table_to_json(lua_State* L, int index) {
         } else if (lua_type(L, -2) == LUA_TNUMBER) {
             key = hv::to_string((int64_t)lua_tointeger(L, -2));
         }
-        if (!key.empty()) j[key] = lua_to_json(L, -1);
+        if (!key.empty()) j[key] = hvlua_lua_to_json(L, -1, depth + 1);
         lua_pop(L, 1);
     }
     return j;
 }
 
-static json lua_to_json(lua_State* L, int index) {
+json hvlua_lua_to_json(lua_State* L, int index, int depth) {
     switch (lua_type(L, index)) {
     case LUA_TNIL:     return nullptr;
     case LUA_TBOOLEAN: return lua_toboolean(L, index) != 0;
@@ -79,12 +79,21 @@ static json lua_to_json(lua_State* L, int index) {
         const char* s = lua_tolstring(L, index, &len);
         return std::string(s, len);
     }
-    case LUA_TTABLE:   return lua_table_to_json(L, index);
+    case LUA_TTABLE:
+        // Guard against cyclic / pathologically deep tables. Two limits:
+        // (1) a depth cap so a self-referential table (t.self=t) can't recurse
+        //     forever; (2) lua_checkstack, because each level uses Lua stack
+        //     slots (lua_next / lua_geti) and Lua only guarantees LUA_MINSTACK —
+        //     deep nesting without reserving would overflow the value stack and
+        //     corrupt Lua's table internals (crash in luaH_*/getgeneric).
+        if (depth >= HVLUA_JSON_MAX_DEPTH) return nullptr;
+        if (!lua_checkstack(L, 4)) return nullptr;
+        return lua_table_to_json(L, index, depth);
     default:           return nullptr;
     }
 }
 
-static void json_to_lua(lua_State* L, const json& j) {
+void hvlua_json_to_lua(lua_State* L, const json& j) {
     switch (j.type()) {
     case json::value_t::null:
         lua_pushnil(L);
@@ -110,7 +119,7 @@ static void json_to_lua(lua_State* L, const json& j) {
         lua_createtable(L, (int)j.size(), 0);
         int i = 1;
         for (const auto& item : j) {
-            json_to_lua(L, item);
+            hvlua_json_to_lua(L, item);
             lua_seti(L, -2, i++);
         }
         break;
@@ -119,7 +128,7 @@ static void json_to_lua(lua_State* L, const json& j) {
         lua_createtable(L, 0, (int)j.size());
         for (auto it = j.begin(); it != j.end(); ++it) {
             lua_pushlstring(L, it.key().data(), it.key().size());
-            json_to_lua(L, it.value());
+            hvlua_json_to_lua(L, it.value());
             lua_settable(L, -3);
         }
         break;
@@ -130,12 +139,24 @@ static void json_to_lua(lua_State* L, const json& j) {
     }
 }
 
-// hv.json.encode(value) -> string
+} // namespace hv
+
+// hv.json.encode(value) -> string | nil, err
 static int l_hv_json_encode(lua_State* L) {
-    json j = lua_to_json(L, 1);
-    std::string s = j.dump();
-    lua_pushlstring(L, s.data(), s.size());
-    return 1;
+    json j = hv::hvlua_lua_to_json(L, 1, 0);
+    // Lua strings are arbitrary byte strings; nlohmann throws type_error.316 on
+    // invalid UTF-8. Catch it (and any other dump error) and return (nil, err)
+    // instead of letting the exception abort the process — this path is
+    // reachable from untrusted input (e.g. an HTTP handler doing ctx:json).
+    try {
+        std::string s = j.dump();
+        lua_pushlstring(L, s.data(), s.size());
+        return 1;
+    } catch (const std::exception& e) {
+        lua_pushnil(L);
+        lua_pushstring(L, e.what());
+        return 2;
+    }
 }
 
 // hv.json.decode(string) -> value | nil,err
@@ -148,7 +169,7 @@ static int l_hv_json_decode(lua_State* L) {
         lua_pushstring(L, "json parse error");
         return 2;
     }
-    json_to_lua(L, j);
+    hv::hvlua_json_to_lua(L, j);
     return 1;
 }
 

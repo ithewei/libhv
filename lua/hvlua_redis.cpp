@@ -220,34 +220,49 @@ static int redis_do_command(lua_State* L, RedisCommand&& cmd) {
     st->done = false;
     st->nresults = 0;
 
-    box->client->command(cmd, [st, box](const RedisResult& result) {
-        // Client being destroyed (callback fires from ~AsyncRedisClient -> stop
-        // -> failPending inside the Lua __gc metamethod): never lua_resume.
-        if (box->destroyed) { hvlua_cancel(st->co); st->co = NULL; return; }
-        if (!st->yielded) {
-            // Synchronous completion: the coroutine has not yielded yet. Push
-            // results onto its stack and let redis_do_command return them; do
-            // NOT resume (it is still running). Release the unused suspend token.
-            st->done = true;
-            st->nresults = redis_push_result(st->L, result);
-            hvlua_cancel(st->co);
+    // NOTE: lua_yieldk never returns to this C++ frame (longjmp in a C-built
+    // Lua), so destructors of non-trivial locals in this frame are SKIPPED and
+    // would leak. Confine `cmd` (the RedisCommand this frame owns) and our local
+    // `st` ref to a scope that ends BEFORE the yield: the command callback holds
+    // its own `st` ref, and command() copies what it needs from cmd.
+    bool done;
+    int nresults;
+    {
+        RedisCommand local_cmd(std::move(cmd));  // owned here, destroyed at block end
+        box->client->command(local_cmd, [st, box](const RedisResult& result) {
+            // Client being destroyed (callback fires from ~AsyncRedisClient ->
+            // stop -> failPending inside the Lua __gc metamethod): never resume.
+            if (box->destroyed) { hvlua_cancel(st->co); st->co = NULL; return; }
+            if (!st->yielded) {
+                // Synchronous completion: coroutine hasn't yielded yet. Push
+                // results onto its stack; redis_do_command returns them. Do NOT
+                // resume (still running). Release the unused suspend token.
+                st->done = true;
+                st->nresults = redis_push_result(st->L, result);
+                hvlua_cancel(st->co);
+                st->co = NULL;
+                return;
+            }
+            // Async completion on the loop: resume the suspended coroutine.
+            lua_State* cur = hvlua_coroutine_state(st->co);
+            if (cur == NULL) { hvlua_cancel(st->co); st->co = NULL; return; }
+            int n = redis_push_result(cur, result);
+            HvLuaCoroutine* tok = st->co;
             st->co = NULL;
-            return;
-        }
-        // Async completion on the loop: resume the suspended coroutine.
-        lua_State* cur = hvlua_coroutine_state(st->co);
-        if (cur == NULL) { hvlua_cancel(st->co); st->co = NULL; return; }  // gone
-        int n = redis_push_result(cur, result);
-        HvLuaCoroutine* tok = st->co;
-        st->co = NULL;
-        hvlua_resume(tok, n);
-    });
-
-    if (st->done) {
-        // Completed synchronously: results are already on L. Return them now.
-        return st->nresults;
+            hvlua_resume(tok, n);
+        });
+        // Snapshot sync-completion state into POD locals, then mark yielded and
+        // drop this frame's `st` ref (and `local_cmd`) before the yield.
+        done = st->done;
+        nresults = st->nresults;
+        if (!done) st->yielded = true;
+        st.reset();
     }
-    st->yielded = true;
+
+    if (done) {
+        // Completed synchronously: results are already on L. Return them now.
+        return nresults;
+    }
     return lua_yieldk(L, 0, (lua_KContext)0, redis_cmd_k);
 }
 

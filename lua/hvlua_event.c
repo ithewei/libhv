@@ -136,7 +136,15 @@ static htimer_t* add_lua_timer(lua_State* L, uint32_t timeout_ms, uint32_t repea
     luaL_checktype(L, 2, LUA_TFUNCTION);
 
     HV_ALLOC_SIZEOF(lt);
-    lt->L = L;
+    // Store the per-loop MAIN lua_State, not the calling coroutine L: on_lua_timer
+    // later does lua_newthread(lt->L), and the calling coroutine may be collected
+    // before the timer fires (e.g. a timer registered inside another timer's
+    // callback — that callback coroutine is unref'd right after it returns),
+    // which would make lt->L a dangling pointer (UAF). The main state lives as
+    // long as the loop. (LUA_REGISTRYINDEX is shared across all threads of the
+    // state, so the fn ref below is valid regardless of which thread refs it.)
+    // Mirrors on_server_accept / on_udp_server_read which use hloop_lua_state().
+    lt->L = (lua_State*)hloop_lua_state(loop);
     lt->timer = NULL;
     lt->once = once;
     lt->in_callback = 0;
@@ -773,7 +781,21 @@ static void on_udp_read(hio_t* io, void* buf, int len) {
     LuaConn* c = (LuaConn*)hevent_userdata(io);
     lua_State* co;
     char addr[SOCKADDR_STRLEN];
-    if (c == NULL || c->co == NULL) return;
+    if (c == NULL) return;
+    // Synchronous completion: hio_read found buffered data and called us inline,
+    // before the coroutine yielded (same hazard as TCP on_conn_read). co is not
+    // set yet; push onto the running coroutine and let l_udp_recvfrom return the
+    // results directly instead of resuming.
+    if (c->reading_L) {
+        lua_pushlstring(c->reading_L, (const char*)buf, len);
+        addr[0] = '\0';
+        SOCKADDR_STR(hio_peeraddr(io), addr);
+        lua_pushstring(c->reading_L, addr);
+        c->read_done = 1;
+        c->read_nres = 2;
+        return;
+    }
+    if (c->co == NULL) return;
     co = hvlua_coroutine_state(c->co);
     if (co == NULL) { hvlua_cancel(c->co); c->co = NULL; return; }
     lua_pushlstring(co, (const char*)buf, len);
@@ -794,9 +816,25 @@ static int l_udp_recvfrom(lua_State* L) {
     if (c->closed || c->io == NULL) {
         lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
     }
+    // Arm the read callback and enter the "reading" window BEFORE hio_read:
+    // hio_read may invoke on_udp_read inline (buffered datagram / read_remain),
+    // and resuming the not-yet-yielded coroutine would be illegal. If it fires
+    // synchronously, on_udp_read pushes (data, peer) and sets read_done, and
+    // conn_end_read returns them directly instead of suspending. (Same fix as
+    // the TCP read path.)
     hio_setcb_read(c->io, on_udp_read);
-    c->co = hvlua_suspend(L);
+    c->reading_L = L;
+    c->read_done = 0;
+    c->read_nres = 0;
     hio_read(c->io);
+    c->reading_L = NULL;
+    if (c->read_done) {
+        return c->read_nres;   // data, peer already pushed on L
+    }
+    if (c->closed || c->io == NULL) {
+        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+    }
+    c->co = hvlua_suspend(L);
     return lua_yieldk(L, 0, (lua_KContext)0, recvfrom_k);
 }
 

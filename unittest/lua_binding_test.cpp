@@ -143,12 +143,63 @@ static void test_two_coroutines_interleave() {
     printf("  test_two_coroutines_interleave OK\n");
 }
 
+// Regression: hv.json.encode on a cyclic table must not crash (depth cap +
+// lua_checkstack); it returns a depth-truncated string, not a segfault.
+static void test_json_cyclic() {
+    run_script(
+        "hv.setTimeout(1, function()\n"
+        "  local t = {}; t.self = t\n"
+        "  local s, e = hv.json.encode(t)\n"
+        "  assert(type(s) == 'string' and #s > 0)\n"   // truncated, but produced
+        "  probe('cyclic-ok')\n"
+        "  hv.stop()\n"
+        "end)\n"
+    );
+    assert(g_probe == "cyclic-ok");
+    printf("  test_json_cyclic OK\n");
+}
+
+// Regression: hv.json.encode on non-UTF-8 bytes must return (nil, err) instead
+// of throwing an uncaught nlohmann exception that aborts the process.
+static void test_json_non_utf8() {
+    run_script(
+        "hv.setTimeout(1, function()\n"
+        "  local s, e = hv.json.encode({ x = '\\255\\254' })\n"
+        "  assert(s == nil and type(e) == 'string')\n"
+        "  probe('nonutf8-ok')\n"
+        "  hv.stop()\n"
+        "end)\n"
+    );
+    assert(g_probe == "nonutf8-ok");
+    printf("  test_json_non_utf8 OK\n");
+}
+
+// Regression: a timer registered inside another timer's callback must survive
+// after that callback's coroutine is GC'd (timer stores the per-loop main
+// state, not the calling coroutine). Force GC between fires.
+static void test_timer_registered_in_callback_gc() {
+    run_script(
+        "hv.setTimeout(20, function()\n"
+        "  hv.setTimeout(60, function() probe('inner') end)\n"
+        "end)\n"
+        "hv.setInterval(10, function() collectgarbage('collect') end)\n"
+        "hv.setTimeout(150, function() probe('done'); hv.stop() end)\n"
+    );
+    // Must reach both without crashing (pre-fix: UAF -> SIGSEGV, no 'inner').
+    assert(g_probe.find("inner") != std::string::npos);
+    assert(g_probe.find("done") != std::string::npos);
+    printf("  test_timer_registered_in_callback_gc OK\n");
+}
+
 int main() {
     test_core_json();
     test_set_timeout();
     test_interval_clear();
     test_sleep_coroutine();
     test_two_coroutines_interleave();
+    test_json_cyclic();
+    test_json_non_utf8();
+    test_timer_registered_in_callback_gc();
     printf("ALL lua_binding_test PASSED\n");
     return 0;
 }
