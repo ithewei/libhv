@@ -5,6 +5,7 @@ extern "C" {
 }
 
 #include "hvlua.h"
+#include "hvlua_util.h"   // hvlua_parse_reconnect
 
 #ifdef HVLUA_WITH_MQTT
 
@@ -229,26 +230,11 @@ static int l_mqtt_connect(lua_State* L) {
         if (keepalive > 0) box->client->keepalive = (unsigned short)keepalive;
         if (clean_session >= 0) box->client->clean_session = clean_session ? 1 : 0;
         // optional reconnect = { min_delay, max_delay, delay_policy, max_retry }
-        lua_getfield(L, 1, "reconnect");
-        if (lua_istable(L, -1)) {
-            reconn_setting_t reconn;
-            reconn_setting_init(&reconn);
-            lua_getfield(L, -1, "min_delay");
-            if (lua_isinteger(L, -1)) reconn.min_delay = (uint32_t)lua_tointeger(L, -1);
-            lua_pop(L, 1);
-            lua_getfield(L, -1, "max_delay");
-            if (lua_isinteger(L, -1)) reconn.max_delay = (uint32_t)lua_tointeger(L, -1);
-            lua_pop(L, 1);
-            lua_getfield(L, -1, "delay_policy");
-            if (lua_isinteger(L, -1)) reconn.delay_policy = (uint32_t)lua_tointeger(L, -1);
-            lua_pop(L, 1);
-            lua_getfield(L, -1, "max_retry");
-            if (lua_isinteger(L, -1)) reconn.max_retry_cnt = (uint32_t)lua_tointeger(L, -1);
-            lua_pop(L, 1);
+        reconn_setting_t reconn;
+        if (hvlua_parse_reconnect(L, 1, &reconn)) {
             mqtt_client_set_reconnect(box->client, &reconn);
             box->reconnect = true;
         }
-        lua_pop(L, 1);   // pop reconnect table (or nil)
     }   // ~loop / ~id / ~username / ~password run here, before the yield
 
     box->wait_co = hvlua_suspend(L);

@@ -5,6 +5,7 @@ extern "C" {
 }
 
 #include "hvlua.h"
+#include "hvlua_util.h"   // hvlua_parse_reconnect
 
 #ifdef HVLUA_WITH_HTTP
 
@@ -103,30 +104,6 @@ static int ws_connect_k(lua_State* L, int status, lua_KContext ctx) {
     return 2;                       // (nil, err)
 }
 
-// Parse an optional { reconnect = { min_delay, max_delay, delay_policy,
-// max_retry } } sub-table at opts_index into *out. Returns true if reconnect
-// was requested.
-static bool ws_parse_reconnect(lua_State* L, int opts_index, reconn_setting_t* out) {
-    if (!lua_istable(L, opts_index)) return false;
-    lua_getfield(L, opts_index, "reconnect");
-    if (!lua_istable(L, -1)) { lua_pop(L, 1); return false; }
-    reconn_setting_init(out);
-    lua_getfield(L, -1, "min_delay");
-    if (lua_isinteger(L, -1)) out->min_delay = (uint32_t)lua_tointeger(L, -1);
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "max_delay");
-    if (lua_isinteger(L, -1)) out->max_delay = (uint32_t)lua_tointeger(L, -1);
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "delay_policy");
-    if (lua_isinteger(L, -1)) out->delay_policy = (uint32_t)lua_tointeger(L, -1);
-    lua_pop(L, 1);
-    lua_getfield(L, -1, "max_retry");
-    if (lua_isinteger(L, -1)) out->max_retry_cnt = (uint32_t)lua_tointeger(L, -1);
-    lua_pop(L, 1);
-    lua_pop(L, 1);   // pop the reconnect table
-    return true;
-}
-
 // hv.ws.connect(url [, opts]) -> ws | nil, err
 // opts = { headers = {..}, ping_interval = ms, reconnect = {min_delay, max_delay,
 //          delay_policy, max_retry} }
@@ -168,7 +145,7 @@ static int l_ws_connect(lua_State* L) {
         if (lua_isinteger(L, -1)) box->client->setPingInterval((int)lua_tointeger(L, -1));
         lua_pop(L, 1);
         reconn_setting_t reconn;
-        if (ws_parse_reconnect(L, 2, &reconn)) {
+        if (hvlua_parse_reconnect(L, 2, &reconn)) {
             box->reconnect = true;
             box->client->setReconnect(&reconn);
         }
