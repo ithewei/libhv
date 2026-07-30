@@ -346,9 +346,13 @@ ifeq ($(WITH_LUA), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/http_lua_async_test unittest/http_lua_async_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 ifeq ($(WITH_HTTP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_http_test unittest/lua_http_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_ws_test unittest/lua_ws_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
+ifeq ($(WITH_MQTT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_MQTT $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Imqtt -o bin/lua_mqtt_test unittest/lua_mqtt_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 endif
 else
-	$(RM) bin/lua_binding_test bin/lua_io_test bin/http_lua_handler_test bin/http_lua_async_test bin/lua_http_test
+	$(RM) bin/lua_binding_test bin/lua_io_test bin/http_lua_handler_test bin/http_lua_async_test bin/lua_http_test bin/lua_ws_test bin/lua_mqtt_test
 endif
 ifeq ($(WITH_REDIS), yes)
 	$(MAKE) libhv
@@ -357,8 +361,11 @@ ifeq ($(WITH_REDIS), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_client_test unittest/redis_client_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_batch_test unittest/redis_batch_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_subscriber_test unittest/redis_subscriber_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
+ifeq ($(WITH_LUA), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_REDIS $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -Ilua -o bin/lua_redis_test unittest/lua_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
 else
-	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
+	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test bin/lua_redis_test
 endif
 else
 	$(RM) bin/tcpclient_dns_test

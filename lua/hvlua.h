@@ -97,8 +97,14 @@ void hvlua_open_event(lua_State* L);   // hvlua_event.c -> hv.setTimeout/sleep/r
 void hvlua_open_json(lua_State* L);    // hvlua_json.cpp -> hv.json (cpputil/, nlohmann)
 #ifdef HVLUA_WITH_HTTP
 void hvlua_open_http(lua_State* L);    // hvlua_http.cpp -> hv.http (http/client AsyncHttpClient)
+void hvlua_open_ws(lua_State* L);      // hvlua_ws.cpp   -> hv.ws (http/client WebSocketClient)
 #endif
-// future: hvlua_open_redis, hvlua_open_mqtt, ...
+#ifdef HVLUA_WITH_REDIS
+void hvlua_open_redis(lua_State* L);   // hvlua_redis.cpp -> hv.redis (redis AsyncRedisClient)
+#endif
+#ifdef HVLUA_WITH_MQTT
+void hvlua_open_mqtt(lua_State* L);    // hvlua_mqtt.cpp -> hv.mqtt (mqtt MqttClient)
+#endif
 
 END_EXTERN_C
 
