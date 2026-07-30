@@ -28,6 +28,7 @@ struct mqtt_client_s {
     unsigned char   ssl: 1; // Read Only
     unsigned char   alloced_ssl_ctx: 1; // intern
     unsigned char   connected : 1;
+    unsigned char   is_loop_owner: 1; // intern: 1 if this client created its own loop
     unsigned short  keepalive;
     int             ping_cnt;
     char client_id[64];

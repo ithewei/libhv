@@ -441,6 +441,10 @@ static void on_connect(hio_t* io) {
 }
 
 mqtt_client_t* mqtt_client_new(hloop_t* loop) {
+    // Own the loop only if we create it here (loop==NULL). When the caller
+    // supplies a loop, the caller owns its run/stop/free lifetime, so
+    // mqtt_client_run/stop must not drive or stop it (see those functions).
+    int is_loop_owner = (loop == NULL);
     if (loop == NULL) {
         loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
         if (loop == NULL) return NULL;
@@ -449,6 +453,7 @@ mqtt_client_t* mqtt_client_new(hloop_t* loop) {
     HV_ALLOC_SIZEOF(cli);
     if (cli == NULL) return NULL;
     cli->loop = loop;
+    cli->is_loop_owner = is_loop_owner;
     cli->protocol_version = MQTT_PROTOCOL_V311;
     cli->keepalive = DEFAULT_MQTT_KEEPALIVE;
     hmutex_init(&cli->mutex_);
@@ -484,11 +489,17 @@ void mqtt_client_free(mqtt_client_t* cli) {
 
 void mqtt_client_run (mqtt_client_t* cli) {
     if (!cli || !cli->loop) return;
+    // Only drive the loop we own. When the caller supplied the loop, they are
+    // responsible for running it (e.g. an existing IO thread / runtime loop);
+    // running it here would block or double-drive someone else's loop.
+    if (!cli->is_loop_owner) return;
     hloop_run(cli->loop);
 }
 
 void mqtt_client_stop(mqtt_client_t* cli) {
     if (!cli || !cli->loop) return;
+    // Only stop the loop we own; never stop a caller-supplied loop.
+    if (!cli->is_loop_owner) return;
     hloop_stop(cli->loop);
 }
 
