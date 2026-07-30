@@ -57,20 +57,21 @@ bool is_ipv6(const char* host) {
 }
 
 bool is_multicast_ipv4(const char* host) {
-    struct sockaddr_in addr;
-    if(inet_pton(AF_INET, host, &addr.sin_addr)){
-		return addr.sin_addr.s_net >> 4 == 0xE;
-	}
-	return 0;
+    unsigned char sin_addr[4]={0};
+    if(inet_pton(AF_INET, host, sin_addr)){
+        return sin_addr[0] >> 4 == 0xE;
+    }
+    return 0;
 }
 
 bool is_multicast_ipv6(const char* host) {
-    struct sockaddr_in6 addr;
-    if(inet_pton(AF_INET6, host, &addr.sin6_addr)){
-		return addr.sin6_addr.s6_addr[0] == 0xFF;
-	}
-	return 0;
+    unsigned char sin6_addr[16]={0};
+    if(inet_pton(AF_INET6, host, sin6_addr)){
+        return sin6_addr[0] == 0xFF;
+    }
+    return 0;
 }
+
 
 int ResolveAddr(const char* host, sockaddr_u* addr) {
 #ifdef OS_WIN
