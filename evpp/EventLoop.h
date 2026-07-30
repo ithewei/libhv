@@ -64,6 +64,9 @@ public:
         setStatus(kRunning);
         hloop_run(loop_);
         setStatus(kStopped);
+        if (ThreadLocalStorage::get(ThreadLocalStorage::EVENT_LOOP) == this) {
+            ThreadLocalStorage::set(ThreadLocalStorage::EVENT_LOOP, NULL);
+        }
         // An owned loop is created with HLOOP_FLAG_AUTO_FREE, so hloop_run() has
         // already freed the hloop_t by the time it returns. Drop the now-dangling
         // pointer so a later stop()/~EventLoop doesn't touch freed memory. This

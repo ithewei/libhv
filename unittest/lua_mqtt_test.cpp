@@ -19,6 +19,7 @@ extern "C" {
 }
 
 #include "hloop.h"
+#include "mqtt_client.h"
 #include "EventLoop.h"
 #include "hvlua.h"
 
@@ -33,7 +34,22 @@ static int l_probe(lua_State* L) {
     return 0;
 }
 
+static void test_owned_loop_run_then_free() {
+    mqtt_client_t* client = mqtt_client_new(NULL);
+    assert(client != NULL);
+    htimer_add(client->loop, [](htimer_t* timer) {
+        hloop_stop(hevent_loop(timer));
+    }, 1, 1);
+    mqtt_client_run(client);
+    assert(client->loop == NULL);
+    assert(client->io == NULL);
+    assert(client->timer == NULL);
+    mqtt_client_free(client);
+}
+
 int main() {
+    test_owned_loop_run_then_free();
+
     hv::EventLoopPtr loop = std::make_shared<hv::EventLoop>();
     lua_State* L = hvlua_state(loop->loop());
     assert(L != NULL);

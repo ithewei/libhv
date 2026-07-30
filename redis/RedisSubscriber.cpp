@@ -39,12 +39,20 @@ struct RedisSubscriber::Impl {
     };
 
     struct CleanupState {
+        enum Owner {
+            kPending,
+            kLoop,
+            kCancelled,
+        };
+
         std::mutex mutex;
         std::condition_variable cv;
+        std::atomic<int> owner;
         bool done;
 
         CleanupState()
-            : done(false) {}
+            : owner(kPending)
+            , done(false) {}
     };
 
     enum OperationType {
@@ -181,6 +189,10 @@ struct RedisSubscriber::Impl {
         }
         std::shared_ptr<CleanupState> state = std::make_shared<CleanupState>();
         self->loop()->queueInLoop([this, state]() {
+            int expected = CleanupState::kPending;
+            if (!state->owner.compare_exchange_strong(expected, CleanupState::kLoop)) {
+                return;
+            }
             cleanupInPlace();
             {
                 std::lock_guard<std::mutex> lock(state->mutex);
@@ -199,7 +211,13 @@ struct RedisSubscriber::Impl {
         }
         lock.unlock();
         if (!state->done) {
-            cleanupInPlace();
+            int expected = CleanupState::kPending;
+            if (state->owner.compare_exchange_strong(expected, CleanupState::kCancelled)) {
+                cleanupInPlace();
+            } else {
+                std::unique_lock<std::mutex> wait_lock(state->mutex);
+                state->cv.wait(wait_lock, [state]() { return state->done; });
+            }
         }
     }
 

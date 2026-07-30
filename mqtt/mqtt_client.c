@@ -71,10 +71,10 @@ static int mqtt_v5_skip_properties(unsigned char** pp, unsigned char* end) {
     unsigned char* p = *pp;
     int bytes = end - p;
     if (bytes <= 0) return 0;
-    int prop_len = (int)varint_decode(p, &bytes);
+    long long prop_len = varint_decode(p, &bytes);
     if (bytes <= 0) return 0;
     p += bytes;     // skip varint bytes
-    if (p + prop_len > end) return 0;
+    if (prop_len < 0 || prop_len > end - p) return 0;
     p += prop_len;  // skip properties data
     *pp = p;
     return 1;
@@ -494,6 +494,12 @@ void mqtt_client_run (mqtt_client_t* cli) {
     // running it here would block or double-drive someone else's loop.
     if (!cli->is_loop_owner) return;
     hloop_run(cli->loop);
+    // The owned loop uses HLOOP_FLAG_AUTO_FREE, so its IOs/timers and the loop
+    // itself are gone when hloop_run returns. Drop the stale non-owning handles
+    // before mqtt_client_free inspects them.
+    cli->loop = NULL;
+    cli->io = NULL;
+    cli->timer = NULL;
 }
 
 void mqtt_client_stop(mqtt_client_t* cli) {
