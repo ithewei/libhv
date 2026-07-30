@@ -261,7 +261,8 @@ static int l_hloop_stop(lua_State* L) {
 }
 
 // ============================================================================
-// TCP client: hv.connect(host, port [, timeout_ms]) -> conn | nil, err
+// TCP client: hv.tcpClient(host, port [, timeout_ms]) -> conn | nil, err
+//             (alias: hv.connect)
 //
 // conn is a userdata wrapping an hio_t that lives on the current loop (no evpp,
 // no extra thread). All callbacks fire on this loop thread, so we reuse the same
@@ -358,7 +359,7 @@ static int l_hv_connect(lua_State* L) {
     hio_t* io = hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) {
         lua_pushnil(L);
-        lua_pushstring(L, "hv.connect: create socket failed");
+        lua_pushstring(L, "hv.tcpClient: create socket failed");
         return 2;
     }
 
@@ -587,6 +588,7 @@ static int l_conn_gc(lua_State* L) {
 
 // ============================================================================
 // TCP server: hv.tcpServer(host, port, on_conn) -> true | nil, err
+//             (alias: hv.listen)
 //
 // on_conn(conn) runs in a fresh coroutine per accepted connection, so it can
 // use conn:read()/write() synchronously. All on the current loop thread.
@@ -782,18 +784,24 @@ static const luaL_Reg hloop_funcs[] = {
     { "clearTimer",  l_hloop_clearTimer  },
     { "sleep",       l_hloop_sleep       },
     { "resolveDns",  l_hloop_resolveDns  },
-    { "connect",     l_hv_connect        },
+    // Primary names mirror the C++ classes hv::TcpClient / TcpServer /
+    // UdpClient / UdpServer for a consistent 2x2 (client/server x tcp/udp).
+    { "tcpClient",   l_hv_connect        },
     { "tcpServer",   l_hv_tcpServer      },
     { "udpClient",   l_hv_udpClient      },
     { "udpServer",   l_hv_udpServer      },
+    // Aliases: connect/listen are idiomatic verbs kept for convenience.
+    { "connect",     l_hv_connect        },
+    { "listen",      l_hv_tcpServer      },
     { "run",         l_hloop_run         },
     { "stop",        l_hloop_stop        },
     { NULL, NULL }
 };
 
 // Register the event-loop primitives into the global "hv" table:
-//   hv.setTimeout / hv.setInterval / hv.clearTimer / hv.sleep /
-//   hv.resolveDns / hv.connect / hv.tcpServer / hv.run / hv.stop
+//   hv.setTimeout / hv.setInterval / hv.clearTimer / hv.sleep / hv.resolveDns /
+//   hv.tcpClient (alias hv.connect) / hv.tcpServer (alias hv.listen) /
+//   hv.udpClient / hv.udpServer / hv.run / hv.stop
 // These operate on the current thread's event loop.
 void hvlua_open_event(lua_State* L) {
     register_conn(L);
