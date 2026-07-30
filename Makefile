@@ -11,14 +11,6 @@ endif
 BUILD_SHARED ?= yes
 BUILD_STATIC ?= yes
 
-# http/server examples compile sources directly (not linking libhv), so when
-# WITH_LUA is on they must also include the lua/ binding sources that
-# HttpLuaHandler depends on (and http/client, which the lua hv.http binding uses).
-HTTP_SERVER_EXAMPLE_SRCDIRS = $(CORE_SRCDIRS) util cpputil evpp http http/server
-ifeq ($(WITH_LUA), yes)
-HTTP_SERVER_EXAMPLE_SRCDIRS += lua http/client
-endif
-
 LIBHV_SRCDIRS = $(CORE_SRCDIRS) util
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
 LIBHV_HEADERS += $(BASE_HEADERS) $(SSL_HEADERS) $(EVENT_HEADERS) $(UTIL_HEADERS)
@@ -220,7 +212,6 @@ tinyproxyd: prepare
 nmap: prepare libhv
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil examples/nmap" DEFINES="PRINT_DEBUG"
 
-ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_REDIS), yes)
 redis_client_example: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil evpp redis" SRCS="examples/redis_client_test.cpp"
@@ -228,14 +219,13 @@ redis_client_example: prepare
 redis_subscriber_example: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil evpp redis" SRCS="examples/redis_subscriber_test.cpp"
 endif
-endif
 
 wrk: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http" SRCS="examples/wrk.cpp"
 
 httpd: prepare
 	$(RM) examples/httpd/*.o
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client http/server examples/httpd"
+	$(MAKEF) TARGET=$@ SRCDIRS="$(LIBHV_SRCDIRS) util cpputil evpp http http/client http/server examples/httpd"
 
 consul: prepare libhv
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client examples/consul" DEFINES="PRINT_DEBUG"
@@ -248,13 +238,13 @@ wget: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client" SRCS="examples/wget.cpp"
 
 http_server_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS="$(HTTP_SERVER_EXAMPLE_SRCDIRS)" SRCS="examples/http_server_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS="$(LIBHV_SRCDIRS)" SRCS="examples/http_server_test.cpp"
 
 http_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client" SRCS="examples/http_client_test.cpp"
 
 websocket_server_test: prepare
-	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/server" SRCS="examples/websocket_server_test.cpp"
+	$(MAKEF) TARGET=$@ SRCDIRS="$(LIBHV_SRCDIRS) util cpputil evpp http http/server" SRCS="examples/websocket_server_test.cpp"
 
 websocket_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http http/client" SRCS="examples/websocket_client_test.cpp"
@@ -301,7 +291,7 @@ protorpc_server: prepare protorpc_protoc
 		SRCS="examples/protorpc/protorpc_server.cpp examples/protorpc/protorpc.c" \
 		LIBS="protobuf"
 
-unittest: prepare
+unittest: prepare libhv
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rbtree_test       unittest/rbtree_test.c        base/rbtree.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hbase_test        unittest/hbase_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
@@ -332,44 +322,33 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
-	$(MAKE) libhv
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_test      unittest/hdns_test.c      -Llib -lhv -pthread
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_benchmark unittest/hdns_benchmark.c -Llib -lhv -pthread
 ifeq ($(WITH_EVPP), yes)
-	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
-ifeq ($(WITH_LUA), yes)
-	$(MAKE) libhv
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_io_test unittest/lua_io_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/http_lua_async_test unittest/http_lua_async_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-ifeq ($(WITH_HTTP), yes)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_http_test unittest/lua_http_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_ws_test unittest/lua_ws_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-endif
-ifeq ($(WITH_MQTT), yes)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_MQTT $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Imqtt -o bin/lua_mqtt_test unittest/lua_mqtt_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
-endif
-else
-	$(RM) bin/lua_binding_test bin/lua_io_test bin/http_lua_handler_test bin/http_lua_async_test bin/lua_http_test bin/lua_ws_test bin/lua_mqtt_test
 endif
 ifeq ($(WITH_REDIS), yes)
-	$(MAKE) libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Iredis -o bin/redis_protocol_test unittest/redis_protocol_test.cpp redis/RedisMessage.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_async_client_test unittest/redis_async_client_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_client_test unittest/redis_client_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_batch_test unittest/redis_batch_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_subscriber_test unittest/redis_subscriber_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
+endif
 ifeq ($(WITH_LUA), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_io_test unittest/lua_io_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -o bin/http_script_handler_test unittest/http_script_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/http_lua_handler_test unittest/http_lua_handler_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+ifeq ($(WITH_HTTP), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_HTTP $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_http_test unittest/lua_http_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_HTTP $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Ihttp -Ihttp/server -Ihttp/client -o bin/lua_ws_test unittest/lua_ws_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
+ifeq ($(WITH_MQTT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_MQTT $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -Imqtt -o bin/lua_mqtt_test unittest/lua_mqtt_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
+ifeq ($(WITH_REDIS), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_REDIS $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -Ilua -o bin/lua_redis_test unittest/lua_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(LUA_LIBS)
 endif
-else
-	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test bin/lua_redis_test
-endif
-else
-	$(RM) bin/tcpclient_dns_test
-	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
 endif
 
 run-unittest: unittest

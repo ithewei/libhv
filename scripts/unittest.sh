@@ -38,11 +38,11 @@ fi
 if [ -x bin/lua_io_test ]; then
     bin/lua_io_test
 fi
+if [ -x bin/http_script_handler_test ]; then
+    bin/http_script_handler_test
+fi
 if [ -x bin/http_lua_handler_test ]; then
     bin/http_lua_handler_test
-fi
-if [ -x bin/http_lua_async_test ]; then
-    bin/http_lua_async_test
 fi
 if [ -x bin/lua_http_test ]; then
     bin/lua_http_test
