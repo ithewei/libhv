@@ -9,6 +9,7 @@ extern "C" {
 #ifdef HVLUA_WITH_REDIS
 
 #include <cctype>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -171,6 +172,33 @@ static bool build_command(lua_State* L, int first, RedisCommand* cmd) {
     return !cmd->empty();
 }
 
+// Tracks whether a command's completion callback fired synchronously (inline,
+// before the coroutine yields) vs asynchronously (later, on the loop).
+struct RedisCmdState {
+    HvLuaCoroutine* co;       // suspend token (async path)
+    lua_State*      L;        // the running coroutine (sync path pushes here)
+    bool            yielded;  // set true once we know the coroutine yielded
+    bool            done;     // callback fired
+    int             nresults; // results pushed (sync path)
+};
+
+// Push the (value) / (nil,err) results for a reply onto `st`'s coroutine stack.
+// Returns the number of values pushed.
+static int redis_push_result(lua_State* co, const RedisResult& result) {
+    if (result.code != 0) {
+        lua_pushnil(co);
+        lua_pushfstring(co, "hv.redis: request failed (%d)", result.code);
+        return 2;
+    }
+    if (result.reply.isError()) {
+        lua_pushnil(co);
+        lua_pushlstring(co, result.reply.str.data(), result.reply.str.size());
+        return 2;
+    }
+    reply_push(co, result.reply);
+    return 1;
+}
+
 // Shared implementation for r:command(...) and the sugar methods.
 static int redis_do_command(lua_State* L, RedisCommand&& cmd) {
     LuaRedisClient* box = (LuaRedisClient*)luaL_checkudata(L, 1, REDIS_CLIENT_MT);
@@ -180,31 +208,46 @@ static int redis_do_command(lua_State* L, RedisCommand&& cmd) {
         return 2;
     }
 
-    HvLuaCoroutine* co = hvlua_suspend(L);
-    box->client->command(cmd, [co, box](const RedisResult& result) {
-        // If the client is being destroyed (this callback fires synchronously
-        // from ~AsyncRedisClient -> stop -> failPending, which runs inside the
-        // Lua __gc metamethod), we must NOT lua_resume — that would re-enter the
-        // VM from within GC. Just release the suspend token (hvlua_cancel is
-        // __gc-safe: luaL_unref + free, no lua_resume).
-        if (box->destroyed) { hvlua_cancel(co); return; }
-        lua_State* cur = hvlua_coroutine_state(co);
-        if (cur == NULL) { hvlua_cancel(co); return; }  // coroutine gone
-        if (result.code != 0) {
-            lua_pushnil(cur);
-            lua_pushfstring(cur, "hv.redis: request failed (%d)", result.code);
-            hvlua_resume(co, 2);
+    // AsyncRedisClient::command() may invoke the callback SYNCHRONOUSLY (e.g.
+    // enqueue rejected because the loop is not running). If that happens after
+    // hvlua_suspend() but before lua_yieldk(), resuming the still-running
+    // coroutine is illegal. So track sync vs async completion and, on sync
+    // completion, return the results directly instead of yielding.
+    auto st = std::make_shared<RedisCmdState>();
+    st->co = hvlua_suspend(L);
+    st->L = L;
+    st->yielded = false;
+    st->done = false;
+    st->nresults = 0;
+
+    box->client->command(cmd, [st, box](const RedisResult& result) {
+        // Client being destroyed (callback fires from ~AsyncRedisClient -> stop
+        // -> failPending inside the Lua __gc metamethod): never lua_resume.
+        if (box->destroyed) { hvlua_cancel(st->co); st->co = NULL; return; }
+        if (!st->yielded) {
+            // Synchronous completion: the coroutine has not yielded yet. Push
+            // results onto its stack and let redis_do_command return them; do
+            // NOT resume (it is still running). Release the unused suspend token.
+            st->done = true;
+            st->nresults = redis_push_result(st->L, result);
+            hvlua_cancel(st->co);
+            st->co = NULL;
             return;
         }
-        if (result.reply.isError()) {
-            lua_pushnil(cur);
-            lua_pushlstring(cur, result.reply.str.data(), result.reply.str.size());
-            hvlua_resume(co, 2);
-            return;
-        }
-        reply_push(cur, result.reply);
-        hvlua_resume(co, 1);
+        // Async completion on the loop: resume the suspended coroutine.
+        lua_State* cur = hvlua_coroutine_state(st->co);
+        if (cur == NULL) { hvlua_cancel(st->co); st->co = NULL; return; }  // gone
+        int n = redis_push_result(cur, result);
+        HvLuaCoroutine* tok = st->co;
+        st->co = NULL;
+        hvlua_resume(tok, n);
     });
+
+    if (st->done) {
+        // Completed synchronously: results are already on L. Return them now.
+        return st->nresults;
+    }
+    st->yielded = true;
     return lua_yieldk(L, 0, (lua_KContext)0, redis_cmd_k);
 }
 

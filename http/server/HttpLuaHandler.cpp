@@ -312,7 +312,7 @@ static bool push_script_env(lua_State* L, const std::string& filepath,
     lua_pushvalue(L, -2);                   // chunk
     if (lua_pcall(L, 0, 0, 0) != LUA_OK) {  // run chunk to populate env
         std::string err = lua_tostring(L, -1) ? lua_tostring(L, -1) : "run failed";
-        lua_pop(L, 3);  // err, chunk, scripts
+        lua_pop(L, 4);  // err, env, chunk, scripts
         lua_pushstring(L, err.c_str());
         return false;
     }

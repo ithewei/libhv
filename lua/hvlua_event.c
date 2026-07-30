@@ -169,11 +169,22 @@ static int l_hloop_sleep(lua_State* L) {
     uint32_t ms = (uint32_t)luaL_checkinteger(L, 1);
     hloop_t* loop = hvlua_loop(L);
     SleepCtx* s;
+    htimer_t* timer;
+
+    // Create the timer BEFORE suspending: if it fails (NULL loop / out of
+    // resources) we must not deref NULL nor leave the coroutine suspended
+    // forever with nothing to wake it. Fail fast with (nil, err) instead.
+    timer = htimer_add(loop, on_sleep_timer, ms, 1);
+    if (timer == NULL) {
+        lua_pushnil(L);
+        lua_pushstring(L, "hv.sleep: create timer failed");
+        return 2;
+    }
 
     HV_ALLOC_SIZEOF(s);
     s->co = hvlua_suspend(L);
-    s->timer = htimer_add(loop, on_sleep_timer, ms, 1);
-    hevent_set_userdata(s->timer, s);
+    s->timer = timer;
+    hevent_set_userdata(timer, s);
 
     return lua_yieldk(L, 0, (lua_KContext)0, sleep_k);
 }
