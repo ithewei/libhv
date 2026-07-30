@@ -8,10 +8,13 @@
 #include <mutex>
 #include <utility>
 
-#include "TcpClient.h"
-
 namespace hv {
 
+// The AsyncRedisClient IS a TcpClient (see header). Impl keeps a back-pointer to
+// that TcpClient (`self`) and drives the RESP protocol through the inherited
+// base API: self->channel / self->send / self->isConnected / self->startConnect
+// / self->setReconnect. Connect/reconnect/DNS/loop-ownership all live in the
+// base, so there is no duplicated tcp_client member and no isLoopOwner logic here.
 struct AsyncRedisClient::Impl {
     struct PendingRequest {
         size_t expected_replies;
@@ -57,12 +60,10 @@ struct AsyncRedisClient::Impl {
     };
 
     AsyncRedisClient* self;
-    TcpClientEventLoopTmpl<SocketChannel> tcp_client;
     std::deque<std::shared_ptr<PendingRequest> > pending;
     RedisParser parser;
     std::string host;
     int port;
-    int connect_timeout_ms;
     int timeout_ms;
     std::string password;
     int db;
@@ -74,11 +75,9 @@ struct AsyncRedisClient::Impl {
     size_t handshake_index;
     std::vector<RedisCommand> handshake_commands;
 
-    Impl(AsyncRedisClient* client, const EventLoopPtr& loop)
+    explicit Impl(AsyncRedisClient* client)
         : self(client)
-        , tcp_client(loop)
         , port(6379)
-        , connect_timeout_ms(5000)
         , timeout_ms(5000)
         , db(0)
         , handshake_pending(false)
@@ -94,17 +93,20 @@ struct AsyncRedisClient::Impl {
     }
 
     bool acceptsRequests() {
-        if (!started || destroyed || stop_in_progress || !accept_requests || self->loop() == NULL || self->loop()->loop() == NULL) {
+        if (!started || destroyed || stop_in_progress || !accept_requests) {
             return false;
         }
-        if (!self->isLoopOwner() && !self->loop()->isRunning()) {
+        if (self->loop() == NULL || self->loop()->loop() == NULL) {
             return false;
         }
-        return true;
+        // The request is dispatched onto the loop; it can only be served if that
+        // loop is actually running (whether the client owns it or the caller
+        // supplied and started it).
+        return self->loop()->isRunning();
     }
 
     void initCallbacks() {
-        tcp_client.onConnection = [this](const SocketChannelPtr& channel) {
+        self->onConnection = [this](const SocketChannelPtr& channel) {
             if (destroyed) {
                 return;
             }
@@ -124,7 +126,7 @@ struct AsyncRedisClient::Impl {
             }
         };
 
-        tcp_client.onMessage = [this](const SocketChannelPtr&, Buffer* buf) {
+        self->onMessage = [this](const SocketChannelPtr&, Buffer* buf) {
             if (destroyed) {
                 return;
             }
@@ -139,56 +141,41 @@ struct AsyncRedisClient::Impl {
         };
     }
 
+    // Copy the redis target into the inherited TcpClient fields. For a numeric IP
+    // (or UDS) resolve the sockaddr up front; for a hostname leave remote_addr
+    // zeroed so the base startConnect() runs the non-blocking async DNS path.
     int applySettings() {
-        tcp_client.remote_host = host.empty() ? "127.0.0.1" : host;
-        tcp_client.remote_port = port;
-        tcp_client.connect_timeout = connect_timeout_ms;
-        memset(&tcp_client.remote_addr, 0, sizeof(tcp_client.remote_addr));
-        int ret = sockaddr_set_ipport(&tcp_client.remote_addr, tcp_client.remote_host.c_str(), tcp_client.remote_port);
-        if (ret != 0) {
-            return NABS(ret);
+        self->remote_host = host.empty() ? "127.0.0.1" : host;
+        self->remote_port = port;
+        memset(&self->remote_addr, 0, sizeof(self->remote_addr));
+        if (self->remote_port < 0 || is_ipaddr(self->remote_host.c_str())) {
+            int ret = sockaddr_set_ipport(&self->remote_addr, self->remote_host.c_str(), self->remote_port);
+            if (ret != 0) {
+                return NABS(ret);
+            }
         }
         return 0;
     }
 
-    int startConnectInLoop() {
-        if (!accept_requests || destroyed || self->loop() == NULL || self->loop()->loop() == NULL) {
-            return ERR_CONNECT;
-        }
-        if (!self->isLoopOwner() && !self->loop()->isRunning()) {
-            return ERR_CONNECT;
-        }
-        int ret = applySettings();
-        if (ret != 0) {
-            notifyError(ret);
-            return ret;
-        }
-        ret = tcp_client.startConnect();
-        if (ret != 0) {
-            notifyError(ret);
-        }
-        return ret;
-    }
-
     void clearCallbacks() {
-        tcp_client.onConnection = NULL;
-        tcp_client.onMessage = NULL;
-        tcp_client.onWriteComplete = NULL;
-        if (tcp_client.channel) {
-            tcp_client.channel->onconnect = NULL;
-            tcp_client.channel->onread = NULL;
-            tcp_client.channel->onwrite = NULL;
-            tcp_client.channel->onclose = NULL;
+        self->onConnection = NULL;
+        self->onMessage = NULL;
+        self->onWriteComplete = NULL;
+        if (self->channel) {
+            self->channel->onconnect = NULL;
+            self->channel->onread = NULL;
+            self->channel->onwrite = NULL;
+            self->channel->onclose = NULL;
         }
     }
 
     void cleanupInPlace() {
-        tcp_client.setReconnect(NULL);
+        self->setReconnect(NULL);
         failPending(ERR_CONNECT);
         clearProtocolState();
         clearCallbacks();
-        if (tcp_client.channel && !tcp_client.channel->isClosed()) {
-            tcp_client.channel->close();
+        if (self->channel && !self->channel->isClosed()) {
+            self->channel->close();
         }
     }
 
@@ -274,11 +261,11 @@ struct AsyncRedisClient::Impl {
         }
         pending.push_back(request);
         armTimeout(request);
-        if (tcp_client.isConnected() && !handshake_pending) {
+        if (self->isConnected() && !handshake_pending) {
             flushPending();
         }
         else if (started && !handshake_pending) {
-            tcp_client.start();
+            self->startConnect();
         }
         return 0;
     }
@@ -304,7 +291,7 @@ struct AsyncRedisClient::Impl {
             finishHandshake();
             return;
         }
-        int ret = tcp_client.send(RedisEncodeCommand(handshake_commands[index]));
+        int ret = self->send(RedisEncodeCommand(handshake_commands[index]));
         if (ret < 0) {
             handleClientError(ret);
             return;
@@ -325,9 +312,9 @@ struct AsyncRedisClient::Impl {
     }
 
     void flushPending() {
-        if (!tcp_client.isConnected()) {
+        if (!self->isConnected()) {
             if (started) {
-                tcp_client.start();
+                self->startConnect();
             }
             return;
         }
@@ -336,7 +323,7 @@ struct AsyncRedisClient::Impl {
             if (request->sent) {
                 continue;
             }
-            int ret = tcp_client.send(request->payload);
+            int ret = self->send(request->payload);
             if (ret < 0) {
                 handleClientError(ret);
                 return;
@@ -385,7 +372,7 @@ struct AsyncRedisClient::Impl {
             // endless reconnect + re-auth storm (TcpClient resets its retry
             // counter on every successful TCP connect). Disable reconnect before
             // closing so the failure is reported once and the client stays down.
-            tcp_client.setReconnect(NULL);
+            self->setReconnect(NULL);
             handleClientError(ERR_RESPONSE);
             return;
         }
@@ -420,8 +407,8 @@ struct AsyncRedisClient::Impl {
         notifyError(code);
         failPending(code);
         clearProtocolState();
-        if (tcp_client.channel && !tcp_client.channel->isClosed()) {
-            tcp_client.channel->close();
+        if (self->channel && !self->channel->isClosed()) {
+            self->channel->close();
         }
     }
 
@@ -441,8 +428,10 @@ struct AsyncRedisClient::Impl {
 };
 
 AsyncRedisClient::AsyncRedisClient(EventLoopPtr loop)
-    : EventLoopThread(loop)
-    , impl_(std::make_shared<Impl>(this, EventLoopThread::loop())) {
+    : TcpClientTmpl<SocketChannel>(loop)
+    , impl_(std::make_shared<Impl>(this)) {
+    // preserve the historical redis default connect timeout (base default differs)
+    setConnectTimeout(5000);
     impl_->initCallbacks();
 }
 
@@ -466,16 +455,8 @@ void AsyncRedisClient::setDb(int db) {
     impl_->db = db;
 }
 
-void AsyncRedisClient::setConnectTimeout(int ms) {
-    impl_->connect_timeout_ms = ms;
-}
-
 void AsyncRedisClient::setTimeout(int ms) {
     impl_->timeout_ms = ms;
-}
-
-void AsyncRedisClient::setReconnect(reconn_setting_t* setting) {
-    impl_->tcp_client.setReconnect(setting);
 }
 
 void AsyncRedisClient::start(bool wait_threads_started) {
@@ -483,27 +464,16 @@ void AsyncRedisClient::start(bool wait_threads_started) {
     impl_->stop_in_progress = false;
     impl_->started = true;
     impl_->accept_requests = true;
-    if (!isLoopOwner()) {
-        if (!loop() || !loop()->loop() || !loop()->isRunning()) {
-            impl_->started = false;
-            impl_->accept_requests = false;
-            impl_->notifyError(ERR_CONNECT);
-            return;
-        }
-        loop()->runInLoop([this]() {
-            impl_->startConnectInLoop();
-        });
+    int ret = impl_->applySettings();
+    if (ret != 0) {
+        impl_->started = false;
+        impl_->accept_requests = false;
+        impl_->notifyError(ret);
         return;
     }
-    if (isRunning()) {
-        loop()->runInLoop([this]() {
-            impl_->startConnectInLoop();
-        });
-        return;
-    }
-    EventLoopThread::start(wait_threads_started, [this]() {
-        return impl_->startConnectInLoop();
-    });
+    // Delegate connect/thread/reconnect to the base. startConnect() runs on the
+    // loop and wires channel callbacks into self->onConnection / onMessage.
+    TcpClientTmpl<SocketChannel>::start(wait_threads_started);
 }
 
 void AsyncRedisClient::stop(bool wait_threads_stopped) {
@@ -511,33 +481,25 @@ void AsyncRedisClient::stop(bool wait_threads_stopped) {
     impl_->started = false;
     impl_->destroyed = true;
     impl_->stop_in_progress = true;
-    if (!loop()) {
-        impl_->cleanupInPlace();
-        impl_->stop_in_progress = false;
-        return;
-    }
-    if (!isLoopOwner()) {
+    // Fail any in-flight requests and detach protocol callbacks on the loop
+    // thread before the base tears down the socket / loop.
+    if (loop() && loop()->loop()) {
         if (loop()->isRunning()) {
             impl_->runCleanupOnLoopAndWait();
         }
         else {
             impl_->cleanupInPlace();
         }
-        impl_->stop_in_progress = false;
-        return;
-    }
-    if (loop()->isRunning()) {
-        impl_->runCleanupOnLoopAndWait();
     }
     else {
         impl_->cleanupInPlace();
     }
-    EventLoopThread::stop(wait_threads_stopped);
+    TcpClientTmpl<SocketChannel>::stop(wait_threads_stopped);
     impl_->stop_in_progress = false;
 }
 
 bool AsyncRedisClient::isConnected() const {
-    return impl_->tcp_client.channel && impl_->tcp_client.channel->isConnected();
+    return channel && channel->isConnected();
 }
 
 bool AsyncRedisClient::isStarted() const {

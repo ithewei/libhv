@@ -10,10 +10,14 @@
 #include <vector>
 
 #include "RedisMessage.h"
-#include "TcpClient.h"
 
 namespace hv {
 
+// The RedisSubscriber IS a TcpClient (see header). Impl keeps a back-pointer to
+// that TcpClient (`self`) and drives the RESP subscribe protocol through the
+// inherited base API: self->channel / self->send / self->isConnected /
+// self->startConnect / self->setReconnect. Connect/reconnect/DNS/loop-ownership
+// all live in the base, so there is no duplicated tcp_client member here.
 struct RedisSubscriber::Impl {
     struct EnqueueState {
         enum Owner {
@@ -51,7 +55,6 @@ struct RedisSubscriber::Impl {
     };
 
     RedisSubscriber* self;
-    TcpClientEventLoopTmpl<SocketChannel> tcp_client;
     RedisParser parser;
     std::string host;
     int port;
@@ -67,9 +70,8 @@ struct RedisSubscriber::Impl {
     std::set<std::string> channels;
     std::set<std::string> patterns;
 
-    Impl(RedisSubscriber* subscriber, const EventLoopPtr& loop)
+    explicit Impl(RedisSubscriber* subscriber)
         : self(subscriber)
-        , tcp_client(loop)
         , port(6379)
         , db(0)
         , handshake_pending(false)
@@ -85,17 +87,23 @@ struct RedisSubscriber::Impl {
     }
 
     bool acceptsRequests() {
-        if (!started || destroyed || stop_in_progress || !accept_requests || self->loop() == NULL || self->loop()->loop() == NULL) {
+        if (!started || destroyed || stop_in_progress || !accept_requests) {
             return false;
         }
-        if (!self->isLoopOwner() && !self->loop()->isRunning()) {
+        if (self->loop() == NULL || self->loop()->loop() == NULL) {
             return false;
         }
-        return true;
+        return self->loop()->isRunning();
     }
 
     void initCallbacks() {
-        tcp_client.onConnection = [this](const SocketChannelPtr& channel) {
+        // Wire the base (TcpClient) transport callbacks. RedisSubscriber also
+        // declares a public onMessage(channel, message) for pub/sub delivery,
+        // which HIDES the base onMessage(channelPtr, Buffer*); route through a
+        // base-typed pointer so we set the transport callback, not the
+        // user-facing one.
+        TcpClientEventLoopTmpl<SocketChannel>* tcp = self;
+        tcp->onConnection = [this](const SocketChannelPtr& channel) {
             if (destroyed) {
                 return;
             }
@@ -110,7 +118,7 @@ struct RedisSubscriber::Impl {
             }
         };
 
-        tcp_client.onMessage = [this](const SocketChannelPtr&, Buffer* buf) {
+        tcp->onMessage = [this](const SocketChannelPtr&, Buffer* buf) {
             if (destroyed) {
                 return;
             }
@@ -125,54 +133,44 @@ struct RedisSubscriber::Impl {
         };
     }
 
+    // Copy the redis target into the inherited TcpClient fields. For a numeric IP
+    // (or UDS) resolve the sockaddr up front; for a hostname leave remote_addr
+    // zeroed so the base startConnect() runs the non-blocking async DNS path.
     int applySettings() {
-        tcp_client.remote_host = host.empty() ? "127.0.0.1" : host;
-        tcp_client.remote_port = port;
-        memset(&tcp_client.remote_addr, 0, sizeof(tcp_client.remote_addr));
-        int ret = sockaddr_set_ipport(&tcp_client.remote_addr, tcp_client.remote_host.c_str(), tcp_client.remote_port);
-        if (ret != 0) {
-            return NABS(ret);
+        self->remote_host = host.empty() ? "127.0.0.1" : host;
+        self->remote_port = port;
+        memset(&self->remote_addr, 0, sizeof(self->remote_addr));
+        if (self->remote_port < 0 || is_ipaddr(self->remote_host.c_str())) {
+            int ret = sockaddr_set_ipport(&self->remote_addr, self->remote_host.c_str(), self->remote_port);
+            if (ret != 0) {
+                return NABS(ret);
+            }
         }
         return 0;
     }
 
-    int startConnectInLoop() {
-        if (!accept_requests || destroyed || self->loop() == NULL || self->loop()->loop() == NULL) {
-            return ERR_CONNECT;
-        }
-        if (!self->isLoopOwner() && !self->loop()->isRunning()) {
-            return ERR_CONNECT;
-        }
-        int ret = applySettings();
-        if (ret != 0) {
-            notifyError(ret);
-            return ret;
-        }
-        ret = tcp_client.startConnect();
-        if (ret != 0) {
-            notifyError(ret);
-        }
-        return ret;
-    }
-
     void clearCallbacks() {
-        tcp_client.onConnection = NULL;
-        tcp_client.onMessage = NULL;
-        tcp_client.onWriteComplete = NULL;
-        if (tcp_client.channel) {
-            tcp_client.channel->onconnect = NULL;
-            tcp_client.channel->onread = NULL;
-            tcp_client.channel->onwrite = NULL;
-            tcp_client.channel->onclose = NULL;
+        // Clear the base transport callbacks via a base-typed pointer (see
+        // initCallbacks): self->onMessage would resolve to the hiding pub/sub
+        // callback, not the base one.
+        TcpClientEventLoopTmpl<SocketChannel>* tcp = self;
+        tcp->onConnection = NULL;
+        tcp->onMessage = NULL;
+        tcp->onWriteComplete = NULL;
+        if (self->channel) {
+            self->channel->onconnect = NULL;
+            self->channel->onread = NULL;
+            self->channel->onwrite = NULL;
+            self->channel->onclose = NULL;
         }
     }
 
     void cleanupInPlace() {
-        tcp_client.setReconnect(NULL);
+        self->setReconnect(NULL);
         clearProtocolState();
         clearCallbacks();
-        if (tcp_client.channel && !tcp_client.channel->isClosed()) {
-            tcp_client.channel->close();
+        if (self->channel && !self->channel->isClosed()) {
+            self->channel->close();
         }
     }
 
@@ -278,7 +276,7 @@ struct RedisSubscriber::Impl {
             if (channels.erase(name) == 0) {
                 return 0;
             }
-            if (tcp_client.isConnected() && !handshake_pending) {
+            if (self->isConnected() && !handshake_pending) {
                 command = RedisCommand{"UNSUBSCRIBE", name};
             }
             break;
@@ -286,17 +284,17 @@ struct RedisSubscriber::Impl {
             if (patterns.erase(name) == 0) {
                 return 0;
             }
-            if (tcp_client.isConnected() && !handshake_pending) {
+            if (self->isConnected() && !handshake_pending) {
                 command = RedisCommand{"PUNSUBSCRIBE", name};
             }
             break;
         }
 
-        if (!command.empty() && tcp_client.isConnected() && !handshake_pending) {
+        if (!command.empty() && self->isConnected() && !handshake_pending) {
             return sendCommand(command);
         }
-        if (!tcp_client.isConnected() && started && !handshake_pending) {
-            tcp_client.start();
+        if (!self->isConnected() && started && !handshake_pending) {
+            self->startConnect();
         }
         return 0;
     }
@@ -331,7 +329,7 @@ struct RedisSubscriber::Impl {
     }
 
     int sendCommand(const RedisCommand& command) {
-        int ret = tcp_client.send(RedisEncodeCommand(command));
+        int ret = self->send(RedisEncodeCommand(command));
         if (ret < 0) {
             handleClientError(ret);
             return ret;
@@ -359,7 +357,7 @@ struct RedisSubscriber::Impl {
 
     void handleHandshakeReply(const RedisReply& reply) {
         if (reply.isError()) {
-            tcp_client.setReconnect(NULL);
+            self->setReconnect(NULL);
             handleClientError(ERR_RESPONSE);
             return;
         }
@@ -461,8 +459,8 @@ struct RedisSubscriber::Impl {
     void handleClientError(int code) {
         notifyError(code);
         clearProtocolState();
-        if (tcp_client.channel && !tcp_client.channel->isClosed()) {
-            tcp_client.channel->close();
+        if (self->channel && !self->channel->isClosed()) {
+            self->channel->close();
         }
     }
 
@@ -481,8 +479,8 @@ struct RedisSubscriber::Impl {
 };
 
 RedisSubscriber::RedisSubscriber(EventLoopPtr loop)
-    : EventLoopThread(loop)
-    , impl_(std::make_shared<Impl>(this, EventLoopThread::loop())) {
+    : TcpClientTmpl<SocketChannel>(loop)
+    , impl_(std::make_shared<Impl>(this)) {
     impl_->initCallbacks();
 }
 
@@ -506,36 +504,19 @@ void RedisSubscriber::setDb(int db) {
     impl_->db = db;
 }
 
-void RedisSubscriber::setReconnect(reconn_setting_t* setting) {
-    impl_->tcp_client.setReconnect(setting);
-}
-
 void RedisSubscriber::start(bool wait_threads_started) {
     impl_->destroyed = false;
     impl_->stop_in_progress = false;
     impl_->started = true;
     impl_->accept_requests = true;
-    if (!isLoopOwner()) {
-        if (!loop() || !loop()->loop() || !loop()->isRunning()) {
-            impl_->started = false;
-            impl_->accept_requests = false;
-            impl_->notifyError(ERR_CONNECT);
-            return;
-        }
-        loop()->runInLoop([this]() {
-            impl_->startConnectInLoop();
-        });
+    int ret = impl_->applySettings();
+    if (ret != 0) {
+        impl_->started = false;
+        impl_->accept_requests = false;
+        impl_->notifyError(ret);
         return;
     }
-    if (isRunning()) {
-        loop()->runInLoop([this]() {
-            impl_->startConnectInLoop();
-        });
-        return;
-    }
-    EventLoopThread::start(wait_threads_started, [this]() {
-        return impl_->startConnectInLoop();
-    });
+    TcpClientTmpl<SocketChannel>::start(wait_threads_started);
 }
 
 void RedisSubscriber::stop(bool wait_threads_stopped) {
@@ -543,28 +524,18 @@ void RedisSubscriber::stop(bool wait_threads_stopped) {
     impl_->started = false;
     impl_->destroyed = true;
     impl_->stop_in_progress = true;
-    if (!loop()) {
-        impl_->cleanupInPlace();
-        impl_->stop_in_progress = false;
-        return;
-    }
-    if (!isLoopOwner()) {
+    if (loop() && loop()->loop()) {
         if (loop()->isRunning()) {
             impl_->runCleanupOnLoopAndWait();
         }
         else {
             impl_->cleanupInPlace();
         }
-        impl_->stop_in_progress = false;
-        return;
-    }
-    if (loop()->isRunning()) {
-        impl_->runCleanupOnLoopAndWait();
     }
     else {
         impl_->cleanupInPlace();
     }
-    EventLoopThread::stop(wait_threads_stopped);
+    TcpClientTmpl<SocketChannel>::stop(wait_threads_stopped);
     impl_->stop_in_progress = false;
 }
 
