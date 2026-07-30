@@ -34,12 +34,21 @@ static const char* REDIS_CLIENT_MT = "hv.redis.client.mt";
 
 struct LuaRedisClient {
     AsyncRedisClient* client;
+    // Set true by __gc before deleting the client. An in-flight command's
+    // completion callback checks this: destroying the client runs
+    // ~AsyncRedisClient -> stop(true) -> failPending on THIS (loop) thread, which
+    // fires the pending callbacks synchronously from inside __gc. Resuming a
+    // coroutine (lua_resume) from within a __gc metamethod is illegal, so when
+    // destroyed we only release the suspend token (hvlua_cancel is __gc-safe: it
+    // does luaL_unref + free, no lua_resume) and skip the resume.
+    bool destroyed;
 };
 
 static int redis_client_gc(lua_State* L) {
     LuaRedisClient* box = (LuaRedisClient*)luaL_checkudata(L, 1, REDIS_CLIENT_MT);
     if (box && box->client) {
-        delete box->client;   // external loop (not owner): does NOT stop the shared loop
+        box->destroyed = true;   // neutralize in-flight callbacks before teardown
+        delete box->client;      // external loop (not owner): does NOT stop the shared loop
         box->client = NULL;
     }
     return 0;
@@ -115,6 +124,7 @@ static int l_redis_new(lua_State* L) {
     }
 
     LuaRedisClient* box = (LuaRedisClient*)lua_newuserdata(L, sizeof(LuaRedisClient));
+    box->destroyed = false;
     box->client = new AsyncRedisClient(loop);   // bound to current loop, not owner
     box->client->setHost(host);
     box->client->setPort(port);
@@ -171,7 +181,13 @@ static int redis_do_command(lua_State* L, RedisCommand&& cmd) {
     }
 
     HvLuaCoroutine* co = hvlua_suspend(L);
-    box->client->command(cmd, [co](const RedisResult& result) {
+    box->client->command(cmd, [co, box](const RedisResult& result) {
+        // If the client is being destroyed (this callback fires synchronously
+        // from ~AsyncRedisClient -> stop -> failPending, which runs inside the
+        // Lua __gc metamethod), we must NOT lua_resume — that would re-enter the
+        // VM from within GC. Just release the suspend token (hvlua_cancel is
+        // __gc-safe: luaL_unref + free, no lua_resume).
+        if (box->destroyed) { hvlua_cancel(co); return; }
         lua_State* cur = hvlua_coroutine_state(co);
         if (cur == NULL) { hvlua_cancel(co); return; }  // coroutine gone
         if (result.code != 0) {

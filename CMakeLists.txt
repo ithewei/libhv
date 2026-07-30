@@ -191,6 +191,19 @@ if(WITH_LUA)
     else()
         set(LIBS ${LIBS} lua)
     endif()
+    # lua bindings that wrap higher-level modules are conditionally compiled on
+    # HVLUA_WITH_* (kept in sync with Makefile.in): enabled only when both WITH_LUA
+    # and the underlying module are on. Without these, the http/redis/ws/mqtt
+    # binding bodies are #ifdef'd out and hv.http/redis/ws/mqtt silently become nil.
+    if(WITH_HTTP)
+        add_definitions(-DHVLUA_WITH_HTTP)
+    endif()
+    if(WITH_REDIS)
+        add_definitions(-DHVLUA_WITH_REDIS)
+    endif()
+    if(WITH_MQTT)
+        add_definitions(-DHVLUA_WITH_MQTT)
+    endif()
 endif()
 
 if(WIN32 OR MINGW)
