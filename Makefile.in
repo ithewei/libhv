@@ -22,6 +22,7 @@
 # LIBS="opencv_core opencv_highgui"
 #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 -include config.mk
+-include Makefile.vars
 
 # VARIABLES
 TARGET ?= test
@@ -158,6 +159,11 @@ endif
 
 ifeq ($(USE_MULTIMAP), yes)
 	CPPFLAGS += -DUSE_MULTIMAP
+endif
+
+ifeq ($(WITH_LUA), yes)
+	CPPFLAGS += -DWITH_LUA $(LUA_CFLAGS)
+	LDFLAGS += $(LUA_LIBS)
 endif
 
 CPPFLAGS += $(addprefix -D, $(DEFINES))

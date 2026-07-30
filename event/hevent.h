@@ -66,9 +66,14 @@ struct hloop_s {
     int                         eventfds[2];
     event_queue                 custom_events;
     hmutex_t                    custom_events_mutex;
+    // async dns resolver (event/hdns.c), created lazily, freed in hloop_cleanup
+    void*                       dns_resolver;
 };
 
 uint64_t hloop_next_event_id();
+
+// async dns resolver (event/hdns.c): free per-loop resolver, called in hloop_cleanup.
+void hdns_resolver_free(hloop_t* loop);
 
 struct hidle_s {
     HEVENT_FIELDS

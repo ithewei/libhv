@@ -36,6 +36,7 @@ public:
         }
         connectionNum = 0;
         nextTimerID = 0;
+        nextDnsID = 0;
         setStatus(kInitialized);
     }
 
@@ -153,6 +154,34 @@ public:
         return hloop_tid(loop_);
     }
 
+    // DNS interfaces: resolveDns, cancelDns (mirror setTimer/killTimer).
+    // resolveDns returns a use-after-free-proof DnsID: the EventLoop keeps a
+    // DnsID -> DnsQuery map, and a stale id (completed/cancelled) makes
+    // cancelDns() a safe no-op. @cb runs in the loop thread.
+    // NOTE: must be called from the loop thread.
+    DnsID resolveDns(const char* host, DnsCallback cb, const hdns_setting_t* opt = NULL) {
+        if (loop_ == NULL) return INVALID_DNS_ID;
+        assertInLoopThread();
+        DnsID dnsID = generateDnsID();
+        hdns_t* q = hdns_resolve_ex(loop_, host, opt, onDnsResolved, this);
+        if (q == NULL) return INVALID_DNS_ID;
+        // stash the DnsID in the query's event_id so completion can find us.
+        hevent_set_id(q, dnsID);
+        dns_queries[dnsID] = std::make_shared<DnsQuery>(q, std::move(cb));
+        return dnsID;
+    }
+
+    // cancelDns thread-safe
+    void cancelDns(DnsID dnsID) {
+        runInLoop([dnsID, this]() {
+            auto iter = dns_queries.find(dnsID);
+            if (iter != dns_queries.end()) {
+                if (iter->second->query) hdns_cancel(iter->second->query);
+                dns_queries.erase(iter);
+            }
+        });
+    }
+
     bool isInLoopThread() {
         if (loop_ == NULL) return false;
         return hv_gettid() == hloop_tid(loop_);
@@ -196,6 +225,11 @@ private:
         return (((TimerID)tid() & 0xFFFFFFFF) << 32) | ++nextTimerID;
     }
 
+    DnsID generateDnsID() {
+        // start at 1; 0 == INVALID_DNS_ID. 64-bit monotonic, never reused.
+        return ++nextDnsID;
+    }
+
     static void onTimer(htimer_t* htimer) {
         EventLoop* loop = (EventLoop*)hevent_userdata(htimer);
 
@@ -228,6 +262,22 @@ private:
         if (ev && ev->cb) ev->cb(ev.get());
     }
 
+    // C hdns completion callback (runs in loop thread). userdata == EventLoop*.
+    // The DnsID rode along in the query's event_id (set in resolveDns), so we
+    // recover it from the handle, deliver to the C++ callback, and erase the
+    // map entry. Erase BEFORE invoking the user callback so a re-entrant
+    // cancelDns() for this id safely no-ops. The hdns_t is freed by the C
+    // resolver right after this returns; we never touch it afterwards.
+    static void onDnsResolved(hdns_t* query, const hdns_result_t* result, void* userdata) {
+        EventLoop* loop = (EventLoop*)userdata;
+        DnsID dnsID = (DnsID)hevent_id(query);
+        auto iter = loop->dns_queries.find(dnsID);
+        if (iter == loop->dns_queries.end()) return;
+        DnsCallback cb = std::move(iter->second->cb);
+        loop->dns_queries.erase(iter);
+        if (cb) cb(result->status, result->naddrs, result->addrs);
+    }
+
 public:
     std::atomic<uint32_t>       connectionNum;  // for LB_LeastConnections
 private:
@@ -237,6 +287,8 @@ private:
     std::queue<EventPtr>        customEvents;   // GUAREDE_BY(mutex_)
     std::map<TimerID, TimerPtr> timers;
     std::atomic<TimerID>        nextTimerID;
+    std::map<DnsID, DnsQueryPtr> dns_queries;
+    std::atomic<DnsID>          nextDnsID;
 };
 
 typedef std::shared_ptr<EventLoop> EventLoopPtr;

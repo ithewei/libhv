@@ -12,6 +12,7 @@ list(APPEND EXAMPLES
     udp_echo_server
     udp_proxy_server
     socks5_proxy_server
+    host
     multi-acceptor-processes
     multi-acceptor-threads
     one-acceptor-multi-workers
@@ -59,6 +60,9 @@ target_link_libraries(udp_proxy_server ${HV_LIBRARIES})
 
 add_executable(socks5_proxy_server socks5_proxy_server.c)
 target_link_libraries(socks5_proxy_server ${HV_LIBRARIES})
+
+add_executable(host host.c)
+target_link_libraries(host ${HV_LIBRARIES})
 
 add_executable(multi-acceptor-processes multi-thread/multi-acceptor-processes.c)
 target_link_libraries(multi-acceptor-processes ${HV_LIBRARIES})

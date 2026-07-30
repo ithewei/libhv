@@ -22,6 +22,7 @@ public:
         fd_ = -1;
         id_ = 0;
         ctx_ = NULL;
+        error_ = 0;
         status = CLOSED;
         if (io) {
             fd_ = hio_fd(io);
@@ -56,7 +57,13 @@ public:
     hio_t*      io() { return io_; }
     int         fd() { return fd_; }
     uint32_t    id() { return id_; }
-    int error() { return hio_error(io_); }
+    // Returns the failure reason. An explicitly-set error (setError, e.g. a DNS
+    // resolve failure before any io exists) takes precedence; otherwise the
+    // io-layer error is returned. Null-safe: a NULL-io channel returns error_.
+    int error() { return error_ ? error_ : (io_ ? hio_error(io_) : 0); }
+    // Set an upper-layer error reason (e.g. ERR_DNS_RESOLVE) to be surfaced via
+    // error(). Useful when there is no io_ to carry the error.
+    void setError(int err) { error_ = err; }
 
     // context
     void* context() {
@@ -194,6 +201,7 @@ public:
     int         fd_;
     uint32_t    id_;
     void*       ctx_;
+    int         error_;     // upper-layer error (e.g. ERR_DNS_RESOLVE); see error()
     enum Status {
         OPENED,
         CONNECTING,

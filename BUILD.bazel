@@ -294,6 +294,7 @@ SSL_HEADERS = [
 EVENT_HEADERS = [
     "event/hloop.h",
     "event/nlog.h",
+    "event/hdns.h",
 ]
 
 UTIL_HEADERS = [

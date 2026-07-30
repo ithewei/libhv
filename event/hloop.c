@@ -360,6 +360,10 @@ static void hloop_cleanup(hloop_t* loop) {
         loop->pendings[i] = NULL;
     }
 
+    // async dns resolver
+    printd("cleanup dns_resolver...\n");
+    hdns_resolver_free(loop);
+
     // ios
     printd("cleanup ios...\n");
     for (int i = 0; i < loop->ios.maxsize; ++i) {
