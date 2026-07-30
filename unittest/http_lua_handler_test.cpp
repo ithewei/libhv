@@ -160,8 +160,13 @@ int main() {
     // HttpLuaHandler runs on the IO thread's per-loop lua_State, obtained via
     // currentThreadEventLoop. Bind an EventLoop to this thread's TLS so the
     // handler can create/reuse its lua_State (these scripts finish synchronously).
-    hv::EventLoop loop;
-    hv::ThreadLocalStorage::set(hv::ThreadLocalStorage::EVENT_LOOP, &loop);
+    // Use make_shared (not a stack object) so that if a script ever reaches a
+    // client binding (hv.http/redis/ws/mqtt -> currentThreadEventLoopPtr ->
+    // shared_from_this()), it resolves to a real EventLoopPtr instead of the
+    // bad_weak_ptr fallback — matching the other lua tests and avoiding a future
+    // "silently no shared loop" trap.
+    hv::EventLoopPtr loop = std::make_shared<hv::EventLoop>();
+    hv::ThreadLocalStorage::set(hv::ThreadLocalStorage::EVENT_LOOP, loop.get());
 
     test_text_response();
     test_json_response();
