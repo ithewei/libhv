@@ -25,8 +25,9 @@ namespace hv {
 // converted to null instead of recursing.
 nlohmann::json hvlua_lua_to_json(lua_State* L, int index, int depth = 0);
 
-// Push `j` onto the Lua stack as the corresponding Lua value.
-void hvlua_json_to_lua(lua_State* L, const nlohmann::json& j);
+// Push `j` onto the Lua stack as the corresponding Lua value. Returns false
+// without changing the stack if nesting exceeds the limit or stack growth fails.
+bool hvlua_json_to_lua(lua_State* L, const nlohmann::json& j, int depth = 0);
 
 } // namespace hv
 

@@ -50,7 +50,6 @@ struct LuaMqttClient {
     mqtt_client_t*  client;
     MqttInbox       inbox;
     HvLuaCoroutine* wait_co;   // coroutine waiting in connect() or recv(), or NULL
-    bool            connected;
     bool            closed;
     bool            connecting;  // wait_co holds a connect() waiter (vs recv())
     bool            reconnect;   // auto-reconnect enabled
@@ -97,7 +96,6 @@ static void on_mqtt(mqtt_client_t* cli, int type) {
     if (box == NULL) return;
     switch (type) {
     case MQTT_TYPE_CONNACK:
-        box->connected = true;
         box->closed = false;   // reset for a (re)established session
         if (box->wait_co && box->connecting) {
             lua_State* co = hvlua_coroutine_state(box->wait_co);
@@ -120,7 +118,6 @@ static void on_mqtt(mqtt_client_t* cli, int type) {
     }
     case MQTT_TYPE_DISCONNECT:
         box->closed = true;
-        box->connected = false;
         if (box->wait_co) {
             lua_State* co = hvlua_coroutine_state(box->wait_co);
             if (co == NULL) { hvlua_cancel(box->wait_co); box->wait_co = NULL; return; }
@@ -207,7 +204,6 @@ static int l_mqtt_connect(lua_State* L) {
         box = (LuaMqttClient*)lua_newuserdata(L, sizeof(LuaMqttClient));
         new (&box->inbox) MqttInbox();
         box->wait_co = NULL;
-        box->connected = false;
         box->closed = false;
         box->connecting = true;
         box->reconnect = false;
@@ -255,11 +251,17 @@ static int mqtt_recv_k(lua_State* L, int status, lua_KContext ctx) {
     return lua_gettop(L) >= 2 && lua_isnil(L, -2) ? 2 : 1;
 }
 
+static int mqtt_push_closed(lua_State* L, const LuaMqttClient* box) {
+    lua_pushnil(L);
+    lua_pushstring(L, box && box->reconnect ? "reconnecting" : "closed");
+    return 2;
+}
+
 // m:recv() -> { topic=, payload=, qos= } | nil, err  (coroutine-synchronous)
 static int l_mqtt_recv(lua_State* L) {
     LuaMqttClient* box = (LuaMqttClient*)luaL_checkudata(L, 1, MQTT_CLIENT_MT);
     if (box == NULL || box->client == NULL) {
-        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+        return mqtt_push_closed(L, box);
     }
     if (box->wait_co != NULL) {
         lua_pushnil(L); lua_pushstring(L, "hv.mqtt: recv already pending"); return 2;
@@ -271,7 +273,7 @@ static int l_mqtt_recv(lua_State* L) {
         return 1;
     }
     if (box->closed) {
-        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+        return mqtt_push_closed(L, box);
     }
     box->connecting = false;
     box->wait_co = hvlua_suspend(L);
@@ -287,7 +289,7 @@ static int l_mqtt_publish(lua_State* L) {
     int qos = (int)luaL_optinteger(L, 4, 0);
     int retain = (int)luaL_optinteger(L, 5, 0);
     if (box == NULL || box->client == NULL || box->closed) {
-        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+        return mqtt_push_closed(L, box);
     }
     mqtt_message_t msg;
     memset(&msg, 0, sizeof(msg));
@@ -309,7 +311,7 @@ static int l_mqtt_subscribe(lua_State* L) {
     const char* topic = luaL_checkstring(L, 2);
     int qos = (int)luaL_optinteger(L, 3, 0);
     if (box == NULL || box->client == NULL || box->closed) {
-        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+        return mqtt_push_closed(L, box);
     }
     int mid = mqtt_client_subscribe(box->client, topic, qos);
     if (mid < 0) {
@@ -324,7 +326,7 @@ static int l_mqtt_unsubscribe(lua_State* L) {
     LuaMqttClient* box = (LuaMqttClient*)luaL_checkudata(L, 1, MQTT_CLIENT_MT);
     const char* topic = luaL_checkstring(L, 2);
     if (box == NULL || box->client == NULL || box->closed) {
-        lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
+        return mqtt_push_closed(L, box);
     }
     int mid = mqtt_client_unsubscribe(box->client, topic);
     if (mid < 0) {

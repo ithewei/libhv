@@ -200,8 +200,9 @@ static int redis_push_result(lua_State* co, const RedisResult& result) {
     return 1;
 }
 
-// Shared implementation for r:command(...) and the sugar methods.
-static int redis_do_command(lua_State* L, RedisCommand&& cmd) {
+// Start a command and return its synchronous result count, or 0 when the
+// coroutine must yield. The caller owns `cmd` and destroys it before yielding.
+static int redis_start_command(lua_State* L, const RedisCommand& cmd) {
     LuaRedisClient* box = (LuaRedisClient*)luaL_checkudata(L, 1, REDIS_CLIENT_MT);
     if (box == NULL || box->client == NULL) {
         lua_pushnil(L);
@@ -221,81 +222,72 @@ static int redis_do_command(lua_State* L, RedisCommand&& cmd) {
     st->done = false;
     st->nresults = 0;
 
-    // NOTE: lua_yieldk never returns to this C++ frame (longjmp in a C-built
-    // Lua), so destructors of non-trivial locals in this frame are SKIPPED and
-    // would leak. Confine `cmd` (the RedisCommand this frame owns) and our local
-    // `st` ref to a scope that ends BEFORE the yield: the command callback holds
-    // its own `st` ref, and command() copies what it needs from cmd.
-    bool done;
-    int nresults;
-    {
-        RedisCommand local_cmd(std::move(cmd));  // owned here, destroyed at block end
-        box->client->command(local_cmd, [st, box](const RedisResult& result) {
-            // Client being destroyed (callback fires from ~AsyncRedisClient ->
-            // stop -> failPending inside the Lua __gc metamethod): never resume.
-            if (box->destroyed) { hvlua_cancel(st->co); st->co = NULL; return; }
-            if (!st->yielded) {
-                // Synchronous completion: coroutine hasn't yielded yet. Push
-                // results onto its stack; redis_do_command returns them. Do NOT
-                // resume (still running). Release the unused suspend token.
-                st->done = true;
-                st->nresults = redis_push_result(st->L, result);
-                hvlua_cancel(st->co);
-                st->co = NULL;
-                return;
-            }
-            // Async completion on the loop: resume the suspended coroutine.
-            lua_State* cur = hvlua_coroutine_state(st->co);
-            if (cur == NULL) { hvlua_cancel(st->co); st->co = NULL; return; }
-            int n = redis_push_result(cur, result);
-            HvLuaCoroutine* tok = st->co;
+    box->client->command(cmd, [st, box](const RedisResult& result) {
+        // Client being destroyed (callback fires from ~AsyncRedisClient ->
+        // stop -> failPending inside the Lua __gc metamethod): never resume.
+        if (box->destroyed) { hvlua_cancel(st->co); st->co = NULL; return; }
+        if (!st->yielded) {
+            // Synchronous completion: coroutine hasn't yielded yet. Push
+            // results onto its stack; the caller returns them without yielding.
+            st->done = true;
+            st->nresults = redis_push_result(st->L, result);
+            hvlua_cancel(st->co);
             st->co = NULL;
-            hvlua_resume(tok, n);
-        });
-        // Snapshot sync-completion state into POD locals, then mark yielded and
-        // drop this frame's `st` ref (and `local_cmd`) before the yield.
-        done = st->done;
-        nresults = st->nresults;
-        if (!done) st->yielded = true;
-        st.reset();
-    }
+            return;
+        }
+        // Async completion on the loop: resume the suspended coroutine.
+        lua_State* cur = hvlua_coroutine_state(st->co);
+        if (cur == NULL) { hvlua_cancel(st->co); st->co = NULL; return; }
+        int n = redis_push_result(cur, result);
+        HvLuaCoroutine* tok = st->co;
+        st->co = NULL;
+        hvlua_resume(tok, n);
+    });
 
-    if (done) {
-        // Completed synchronously: results are already on L. Return them now.
-        return nresults;
-    }
-    return lua_yieldk(L, 0, (lua_KContext)0, redis_cmd_k);
+    int nresults = st->nresults;
+    if (!st->done) st->yielded = true;
+    return st->done ? nresults : 0;
 }
 
 // r:command("GET","k") | r:command({"GET","k"})
 static int l_redis_command(lua_State* L) {
-    RedisCommand cmd;
-    if (!build_command(L, 2, &cmd)) {
-        lua_pushnil(L);
-        lua_pushstring(L, "hv.redis: empty or invalid command");
-        return 2;
+    int nresults;
+    {
+        RedisCommand cmd;
+        if (!build_command(L, 2, &cmd)) {
+            lua_pushnil(L);
+            lua_pushstring(L, "hv.redis: empty or invalid command");
+            return 2;
+        }
+        nresults = redis_start_command(L, cmd);
     }
-    return redis_do_command(L, std::move(cmd));
+    if (nresults != 0) return nresults;
+    return lua_yieldk(L, 0, (lua_KContext)0, redis_cmd_k);
 }
 
 // Sugar: r:<verb>(args...) == r:command("<VERB>", args...). The verb string is
 // carried as an upvalue set when the method is registered (see redis_methods).
 static int l_redis_verb(lua_State* L) {
     const char* verb = lua_tostring(L, lua_upvalueindex(1));
-    RedisCommand cmd;
-    cmd.emplace_back(verb);
-    int top = lua_gettop(L);
-    for (int i = 2; i <= top; ++i) {
-        size_t len = 0;
-        const char* s = lua_tolstring(L, i, &len);
-        if (s == NULL) {
-            lua_pushnil(L);
-            lua_pushstring(L, "hv.redis: invalid argument");
-            return 2;
+    int nresults;
+    {
+        RedisCommand cmd;
+        cmd.emplace_back(verb);
+        int top = lua_gettop(L);
+        for (int i = 2; i <= top; ++i) {
+            size_t len = 0;
+            const char* s = lua_tolstring(L, i, &len);
+            if (s == NULL) {
+                lua_pushnil(L);
+                lua_pushstring(L, "hv.redis: invalid argument");
+                return 2;
+            }
+            cmd.emplace_back(s, len);
         }
-        cmd.emplace_back(s, len);
+        nresults = redis_start_command(L, cmd);
     }
-    return redis_do_command(L, std::move(cmd));
+    if (nresults != 0) return nresults;
+    return lua_yieldk(L, 0, (lua_KContext)0, redis_cmd_k);
 }
 
 // verb sugar methods, registered as closures carrying the uppercase verb.

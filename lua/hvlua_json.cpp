@@ -93,50 +93,59 @@ json hvlua_lua_to_json(lua_State* L, int index, int depth) {
     }
 }
 
-void hvlua_json_to_lua(lua_State* L, const json& j) {
+static bool json_to_lua(lua_State* L, const json& j, int depth) {
     switch (j.type()) {
     case json::value_t::null:
         lua_pushnil(L);
-        break;
+        return true;
     case json::value_t::boolean:
         lua_pushboolean(L, j.get<bool>());
-        break;
+        return true;
     case json::value_t::number_integer:
         lua_pushinteger(L, (lua_Integer)j.get<int64_t>());
-        break;
+        return true;
     case json::value_t::number_unsigned:
         lua_pushinteger(L, (lua_Integer)j.get<uint64_t>());
-        break;
+        return true;
     case json::value_t::number_float:
         lua_pushnumber(L, j.get<double>());
-        break;
+        return true;
     case json::value_t::string: {
         const std::string& s = j.get_ref<const std::string&>();
         lua_pushlstring(L, s.data(), s.size());
-        break;
+        return true;
     }
     case json::value_t::array: {
+        if (depth >= HVLUA_JSON_MAX_DEPTH || !lua_checkstack(L, 4)) return false;
         lua_createtable(L, (int)j.size(), 0);
         int i = 1;
         for (const auto& item : j) {
-            hvlua_json_to_lua(L, item);
+            if (!json_to_lua(L, item, depth + 1)) return false;
             lua_seti(L, -2, i++);
         }
-        break;
+        return true;
     }
     case json::value_t::object: {
+        if (depth >= HVLUA_JSON_MAX_DEPTH || !lua_checkstack(L, 4)) return false;
         lua_createtable(L, 0, (int)j.size());
         for (auto it = j.begin(); it != j.end(); ++it) {
             lua_pushlstring(L, it.key().data(), it.key().size());
-            hvlua_json_to_lua(L, it.value());
+            if (!json_to_lua(L, it.value(), depth + 1)) return false;
             lua_settable(L, -3);
         }
-        break;
+        return true;
     }
     default:
         lua_pushnil(L);
-        break;
+        return true;
     }
+}
+
+bool hvlua_json_to_lua(lua_State* L, const json& j, int depth) {
+    int top = lua_gettop(L);
+    if (json_to_lua(L, j, depth)) return true;
+    lua_settop(L, top);
+    return false;
 }
 
 } // namespace hv
@@ -169,7 +178,11 @@ static int l_hv_json_decode(lua_State* L) {
         lua_pushstring(L, "json parse error");
         return 2;
     }
-    hv::hvlua_json_to_lua(L, j);
+    if (!hv::hvlua_json_to_lua(L, j)) {
+        lua_pushnil(L);
+        lua_pushstring(L, "json too deep");
+        return 2;
+    }
     return 1;
 }
 

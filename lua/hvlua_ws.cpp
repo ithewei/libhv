@@ -109,38 +109,29 @@ static int ws_connect_k(lua_State* L, int status, lua_KContext ctx) {
 //          delay_policy, max_retry} }
 static int l_ws_connect(lua_State* L) {
     const char* url = luaL_checkstring(L, 1);
-    EventLoopPtr loop = currentThreadEventLoopPtr;
-    if (!loop) {
-        lua_pushnil(L);
-        lua_pushstring(L, "hv.ws: no shared event loop on this thread");
-        return 2;
-    }
-
-    // userdata carries the client + inbox; placement-new the non-POD members.
-    LuaWsClient* box = (LuaWsClient*)lua_newuserdata(L, sizeof(LuaWsClient));
-    new (&box->inbox) WsInbox();
-    box->recv_co = NULL;
-    box->connected = false;
-    box->reconnect = false;
-    box->opened_once = false;
-    box->client = new WebSocketClient(loop);   // bound to current loop, not owner
-    luaL_setmetatable(L, WS_CLIENT_MT);
-    lua_replace(L, 1);              // move ws userdata to slot 1 for ws_connect_k
-
-    // opts (arg 2): headers sub-table, ping_interval, reconnect sub-table.
-    http_headers headers = DefaultHeaders;
-    if (lua_istable(L, 2)) {
-        lua_getfield(L, 2, "headers");
-        if (lua_istable(L, -1)) {
+    LuaWsClient* box = NULL;
+    {
+        EventLoopPtr loop = currentThreadEventLoopPtr;
+        if (!loop) {
             lua_pushnil(L);
-            while (lua_next(L, -2) != 0) {
-                if (lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TSTRING) {
-                    headers[lua_tostring(L, -2)] = lua_tostring(L, -1);
-                }
-                lua_pop(L, 1);
-            }
+            lua_pushstring(L, "hv.ws: no shared event loop on this thread");
+            return 2;
         }
-        lua_pop(L, 1);   // pop headers (or nil)
+
+        // userdata carries the client + inbox; placement-new the non-POD members.
+        box = (LuaWsClient*)lua_newuserdata(L, sizeof(LuaWsClient));
+        new (&box->inbox) WsInbox();
+        box->recv_co = NULL;
+        box->connected = false;
+        box->reconnect = false;
+        box->opened_once = false;
+        box->client = new WebSocketClient(loop);   // bound to current loop, not owner
+        luaL_setmetatable(L, WS_CLIENT_MT);
+        lua_replace(L, 1);              // move ws userdata to slot 1 for ws_connect_k
+    }   // ~loop runs here, before the yield
+
+    // Parse headers later in the scope that ends before lua_yieldk.
+    if (lua_istable(L, 2)) {
         lua_getfield(L, 2, "ping_interval");
         if (lua_isinteger(L, -1)) box->client->setPingInterval((int)lua_tointeger(L, -1));
         lua_pop(L, 1);
@@ -165,8 +156,8 @@ static int l_ws_connect(lua_State* L) {
             lua_pushboolean(co, 1);     // success marker for ws_connect_k
             hvlua_resume(tok, 1);
         }
-        // A reconnect's onopen does not resume anything: a recv() waiter (if any)
-        // stays parked and is woken by the next onmessage.
+        // A reconnect's onopen does not resume anything; new recv() calls wait
+        // for the next message.
     };
     box->client->onmessage = [box](const std::string& msg) {
         box->inbox.push_back(msg);

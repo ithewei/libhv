@@ -335,8 +335,18 @@ static int l_hloop_run(lua_State* L) {
     return 0;
 }
 
+static void on_hloop_stop_timer(htimer_t* timer) {
+    hloop_stop(hevent_loop(timer));
+}
+
 static int l_hloop_stop(lua_State* L) {
-    hloop_stop(hvlua_loop(L));
+    hloop_t* loop = hvlua_loop(L);
+    hloop_status_e status = hloop_status(loop);
+    if (status == HLOOP_STATUS_RUNNING || status == HLOOP_STATUS_PAUSE) {
+        hloop_stop(loop);
+    } else {
+        htimer_add(loop, on_hloop_stop_timer, 1, 1);
+    }
     return 0;
 }
 

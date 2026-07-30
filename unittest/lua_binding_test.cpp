@@ -174,6 +174,35 @@ static void test_json_non_utf8() {
     printf("  test_json_non_utf8 OK\n");
 }
 
+static void test_json_decode_too_deep() {
+    run_script(
+        "local s = string.rep('[', 80)..'0'..string.rep(']', 80)\n"
+        "local v, e = hv.json.decode(s)\n"
+        "assert(v == nil and e == 'json too deep')\n"
+        "probe('deep-json-ok')\n"
+    );
+    assert(g_probe == "deep-json-ok");
+    printf("  test_json_decode_too_deep OK\n");
+}
+
+static void test_stop_before_run() {
+    g_probe.clear();
+    hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
+    assert(loop != NULL);
+    lua_State* L = hv::hvlua_state(loop);
+    assert(L != NULL);
+    lua_pushcfunction(L, l_probe);
+    lua_setglobal(L, "probe");
+
+    int ret = hv::hvlua_dostring(loop, "probe('before-stop'); hv.stop()");
+    assert(ret == 0);
+    assert(hloop_nactives(loop) > 0);
+    hloop_run(loop);
+
+    assert(g_probe == "before-stop");
+    printf("  test_stop_before_run OK\n");
+}
+
 // Regression: a timer registered inside another timer's callback must survive
 // after that callback's coroutine is GC'd (timer stores the per-loop main
 // state, not the calling coroutine). Force GC between fires.
@@ -199,6 +228,8 @@ int main() {
     test_two_coroutines_interleave();
     test_json_cyclic();
     test_json_non_utf8();
+    test_stop_before_run();
+    test_json_decode_too_deep();
     test_timer_registered_in_callback_gc();
     printf("ALL lua_binding_test PASSED\n");
     return 0;
