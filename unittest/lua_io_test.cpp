@@ -120,10 +120,28 @@ static void test_udp_echo() {
     printf("  test_udp_echo OK\n");
 }
 
+static void test_invalid_read_and_unpack_options() {
+    run_script(
+        "hv.setTimeout(1, function()\n"
+        "  local sock = hv.udpClient('127.0.0.1', 1)\n"
+        "  assert(not pcall(function() sock:readbytes(-1) end))\n"
+        "  assert(not pcall(function() sock:setUnpack({mode='fixed', fixed_length=0}) end))\n"
+        "  assert(not pcall(function() sock:setUnpack({mode='delimiter', delimiter=''}) end))\n"
+        "  assert(not pcall(function() sock:setUnpack({mode='length_field', body_offset=1, length_field_offset=1, length_field_bytes=4}) end))\n"
+        "  sock:close()\n"
+        "  probe('invalid-ok')\n"
+        "  hv.stop()\n"
+        "end)\n"
+    );
+    assert(g_probe == "invalid-ok");
+    printf("  test_invalid_read_and_unpack_options OK\n");
+}
+
 int main() {
     test_tcp_echo();
     test_tcp_unpack();
     test_udp_echo();
+    test_invalid_read_and_unpack_options();
     printf("ALL lua_io_test PASSED\n");
     return 0;
 }

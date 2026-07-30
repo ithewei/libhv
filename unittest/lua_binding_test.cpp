@@ -26,6 +26,7 @@ extern "C" {
 }
 
 #include "hloop.h"
+#include "hbase.h"
 #include "hvlua.h"
 
 // A probe table the scripts write to, so C can assert what happened.
@@ -203,6 +204,36 @@ static void test_stop_before_run() {
     printf("  test_stop_before_run OK\n");
 }
 
+static void test_run_is_safe_noop() {
+    run_script(
+        "hv.run()\n"
+        "probe('run-ok')\n"
+    );
+    assert(g_probe == "run-ok");
+    printf("  test_run_is_safe_noop OK\n");
+}
+
+static long run_script_alloc_delta(const char* code) {
+    long alloc = hv_alloc_cnt();
+    long freed = hv_free_cnt();
+    hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
+    assert(loop != NULL);
+    assert(hv::hvlua_dostring(loop, code) == 0);
+    hloop_run(loop);
+    return (hv_alloc_cnt() - alloc) - (hv_free_cnt() - freed);
+}
+
+static void test_pending_async_cleanup() {
+    long baseline = run_script_alloc_delta("hv.stop()");
+    long pending = run_script_alloc_delta(
+        "for i=1,100 do hv.setInterval(60000,function() end) end\n"
+        "for i=1,100 do hv.setTimeout(1,function() hv.sleep(60000) end) end\n"
+        "hv.setTimeout(30,function() hv.stop() end)\n"
+    );
+    assert(pending == baseline);
+    printf("  test_pending_async_cleanup OK\n");
+}
+
 // Regression: a timer registered inside another timer's callback must survive
 // after that callback's coroutine is GC'd (timer stores the per-loop main
 // state, not the calling coroutine). Force GC between fires.
@@ -229,7 +260,9 @@ int main() {
     test_json_cyclic();
     test_json_non_utf8();
     test_stop_before_run();
+    test_run_is_safe_noop();
     test_json_decode_too_deep();
+    test_pending_async_cleanup();
     test_timer_registered_in_callback_gc();
     printf("ALL lua_binding_test PASSED\n");
     return 0;

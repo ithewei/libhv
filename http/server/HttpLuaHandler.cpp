@@ -303,8 +303,11 @@ static void on_task_done(void* ud, bool ok, lua_State* co) {
     bool async = task->async;
     delete task;
 
+    if (co == NULL) {
+        return;
+    }
     if (!ok) {
-        const char* msg = co ? lua_tostring(co, -1) : NULL;
+        const char* msg = lua_tostring(co, -1);
         std::string err = msg ? msg : "lua handler error";
         hloge("[lua] http handler error: %s", err.c_str());
         ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;

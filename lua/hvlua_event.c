@@ -7,6 +7,7 @@
 #include <string.h>   // memset / memcpy / strcmp
 
 #include "hbase.h"   // HV_ALLOC / HV_FREE
+#include "hevent.h"  // MAX_READ_BUFSIZE
 #include "hloop.h"
 #include "hlog.h"
 #include "hdns.h"     // async DNS is part of the event/ layer (hv.resolveDns)
@@ -23,6 +24,7 @@
 typedef struct LuaTimer {
     lua_State* L;      // per-loop main state
     htimer_t*  timer;
+    HvLuaCleanup* cleanup;
     int        fn_ref; // LUA_NOREF when released
     int        once;
     int        in_callback;
@@ -83,6 +85,8 @@ static int lua_timer_reg_has(lua_State* L, htimer_t* timer) {
 }
 
 static void lua_timer_free(LuaTimer* lt) {
+    hvlua_cleanup_del(lt->cleanup);
+    lt->cleanup = NULL;
     // Unregister the handle so a later clearTimer on this (soon-freed) timer is
     // a safe no-op, and detach the timer's back-pointer to lt.
     if (lt->timer) {
@@ -91,6 +95,12 @@ static void lua_timer_free(LuaTimer* lt) {
     }
     lua_timer_release_ref(lt);
     HV_FREE(lt);
+}
+
+static void lua_timer_cleanup(void* userdata) {
+    LuaTimer* lt = (LuaTimer*)userdata;
+    lt->cleanup = NULL;
+    lua_timer_free(lt);
 }
 
 static void on_lua_timer(htimer_t* timer) {
@@ -146,6 +156,7 @@ static htimer_t* add_lua_timer(lua_State* L, uint32_t timeout_ms, uint32_t repea
     // Mirrors on_server_accept / on_udp_server_read which use hloop_lua_state().
     lt->L = (lua_State*)hloop_lua_state(loop);
     lt->timer = NULL;
+    lt->cleanup = NULL;
     lt->once = once;
     lt->in_callback = 0;
     lt->dead = 0;
@@ -160,6 +171,7 @@ static htimer_t* add_lua_timer(lua_State* L, uint32_t timeout_ms, uint32_t repea
     }
     hevent_set_userdata(timer, lt);
     lt->timer = timer;
+    lt->cleanup = hvlua_cleanup_add(L, lua_timer_cleanup, lt);
     lua_timer_reg_add(L, timer);   // mark handle live for clearTimer validation
     return timer;
 }
@@ -216,11 +228,22 @@ static int l_hloop_clearTimer(lua_State* L) {
 typedef struct SleepCtx {
     HvLuaCoroutine* co;
     htimer_t*       timer;
+    HvLuaCleanup*   cleanup;
 } SleepCtx;
+
+static void sleep_cleanup(void* userdata) {
+    SleepCtx* s = (SleepCtx*)userdata;
+    s->cleanup = NULL;
+    if (s->timer) hevent_set_userdata(s->timer, NULL);
+    hvlua_cancel(s->co);
+    HV_FREE(s);
+}
 
 static void on_sleep_timer(htimer_t* timer) {
     SleepCtx* s = (SleepCtx*)hevent_userdata(timer);
     HvLuaCoroutine* co = s->co;
+    hvlua_cleanup_del(s->cleanup);
+    s->cleanup = NULL;
     HV_FREE(s);
     // resume the sleeping coroutine with no results
     hvlua_resume(co, 0);
@@ -252,6 +275,7 @@ static int l_hloop_sleep(lua_State* L) {
     HV_ALLOC_SIZEOF(s);
     s->co = hvlua_suspend(L);
     s->timer = timer;
+    s->cleanup = hvlua_cleanup_add(L, sleep_cleanup, s);
     hevent_set_userdata(timer, s);
 
     return lua_yieldk(L, 0, (lua_KContext)0, sleep_k);
@@ -266,13 +290,23 @@ static int l_hloop_sleep(lua_State* L) {
 
 typedef struct DnsCtx {
     HvLuaCoroutine* co;
+    HvLuaCleanup* cleanup;
 } DnsCtx;
+
+static void dns_cleanup(void* userdata) {
+    DnsCtx* d = (DnsCtx*)userdata;
+    d->cleanup = NULL;
+    hvlua_cancel(d->co);
+    HV_FREE(d);
+}
 
 static void on_dns_resolved(hdns_t* query, const hdns_result_t* result, void* userdata) {
     DnsCtx* d = (DnsCtx*)userdata;
     HvLuaCoroutine* co = d->co;
     lua_State* L;
     (void)query;
+    hvlua_cleanup_del(d->cleanup);
+    d->cleanup = NULL;
     HV_FREE(d);
 
     L = hvlua_coroutine_state(co);
@@ -314,12 +348,14 @@ static int l_hloop_resolveDns(lua_State* L) {
 
     HV_ALLOC_SIZEOF(d);
     d->co = hvlua_suspend(L);
+    d->cleanup = hvlua_cleanup_add(L, dns_cleanup, d);
 
     q = hdns_resolve(loop, host, on_dns_resolved, d);
     if (q == NULL) {
         // Immediate failure before yielding: release the token and return
         // nil,err inline (the coroutine keeps running, no yield happened).
         hvlua_cancel(d->co);
+        hvlua_cleanup_del(d->cleanup);
         HV_FREE(d);
         lua_pushnil(L);
         lua_pushstring(L, "dns resolve: failed to start query");
@@ -331,7 +367,7 @@ static int l_hloop_resolveDns(lua_State* L) {
 
 // hv.run() / hv.stop()
 static int l_hloop_run(lua_State* L) {
-    hloop_run(hvlua_loop(L));
+    (void)L;
     return 0;
 }
 
@@ -556,10 +592,15 @@ static int l_conn_read(lua_State* L) {
 // conn:readbytes(n) -> exactly n bytes (hio_read_until_length)
 static int l_conn_readbytes(lua_State* L) {
     LuaConn* c = lua_check_conn(L);
-    unsigned int n = (unsigned int)luaL_checkinteger(L, 2);
+    lua_Integer value = luaL_checkinteger(L, 2);
+    unsigned int n;
     if (c->closed || c->io == NULL) {
         lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
     }
+    if (value <= 0 || (lua_Unsigned)value > MAX_READ_BUFSIZE) {
+        return luaL_error(L, "conn:readbytes length must be between 1 and %u", MAX_READ_BUFSIZE);
+    }
+    n = (unsigned int)value;
     conn_begin_read(L, c);
     hio_read_until_length(c->io, n);
     return conn_end_read(L, c);
@@ -604,6 +645,7 @@ static int l_conn_readline(lua_State* L) {
 static int l_conn_setUnpack(lua_State* L) {
     LuaConn* c = lua_check_conn(L);
     const char* mode;
+    lua_Integer value;
     if (c->io == NULL) {
         lua_pushnil(L); lua_pushstring(L, "closed"); return 2;
     }
@@ -616,7 +658,13 @@ static int l_conn_setUnpack(lua_State* L) {
     c->unpack->package_max_length = DEFAULT_PACKAGE_MAX_LENGTH;
 
     lua_getfield(L, 2, "package_max_length");
-    if (lua_isinteger(L, -1)) c->unpack->package_max_length = (unsigned int)lua_tointeger(L, -1);
+    if (lua_isinteger(L, -1)) {
+        value = lua_tointeger(L, -1);
+        if (value <= 0 || (lua_Unsigned)value > MAX_READ_BUFSIZE) {
+            return luaL_error(L, "conn:setUnpack: invalid package_max_length");
+        }
+        c->unpack->package_max_length = (unsigned int)value;
+    }
     lua_pop(L, 1);
 
     lua_getfield(L, 2, "mode");
@@ -628,7 +676,11 @@ static int l_conn_setUnpack(lua_State* L) {
     } else if (strcmp(mode, "fixed") == 0) {
         c->unpack->mode = UNPACK_BY_FIXED_LENGTH;
         lua_getfield(L, 2, "fixed_length");
-        c->unpack->fixed_length = (unsigned int)luaL_optinteger(L, -1, 0);
+        value = luaL_optinteger(L, -1, 0);
+        if (value <= 0 || (lua_Unsigned)value > c->unpack->package_max_length) {
+            return luaL_error(L, "conn:setUnpack: invalid fixed_length");
+        }
+        c->unpack->fixed_length = (unsigned int)value;
         lua_pop(L, 1);
     } else if (strcmp(mode, "delimiter") == 0) {
         size_t dlen = 0;
@@ -636,24 +688,43 @@ static int l_conn_setUnpack(lua_State* L) {
         c->unpack->mode = UNPACK_BY_DELIMITER;
         lua_getfield(L, 2, "delimiter");
         delim = luaL_optlstring(L, -1, "", &dlen);
-        if (dlen > PACKAGE_MAX_DELIMITER_BYTES) dlen = PACKAGE_MAX_DELIMITER_BYTES;
+        if (dlen == 0 || dlen > PACKAGE_MAX_DELIMITER_BYTES) {
+            return luaL_error(L, "conn:setUnpack: delimiter must be 1..%u bytes", PACKAGE_MAX_DELIMITER_BYTES);
+        }
         memcpy(c->unpack->delimiter, delim, dlen);
         c->unpack->delimiter_bytes = (unsigned short)dlen;
         lua_pop(L, 1);
     } else if (strcmp(mode, "length_field") == 0) {
         const char* coding;
+        lua_Integer body_offset;
+        lua_Integer field_offset;
+        lua_Integer field_bytes;
         c->unpack->mode = UNPACK_BY_LENGTH_FIELD;
         lua_getfield(L, 2, "body_offset");
-        c->unpack->body_offset = (unsigned short)luaL_optinteger(L, -1, 0);
+        body_offset = luaL_optinteger(L, -1, 0);
         lua_pop(L, 1);
         lua_getfield(L, 2, "length_field_offset");
-        c->unpack->length_field_offset = (unsigned short)luaL_optinteger(L, -1, 0);
+        field_offset = luaL_optinteger(L, -1, 0);
         lua_pop(L, 1);
         lua_getfield(L, 2, "length_field_bytes");
-        c->unpack->length_field_bytes = (unsigned short)luaL_optinteger(L, -1, 0);
+        field_bytes = luaL_optinteger(L, -1, 0);
         lua_pop(L, 1);
+        if (body_offset <= 0 || body_offset > UINT16_MAX ||
+            field_offset < 0 || field_offset > UINT16_MAX ||
+            field_bytes <= 0 || field_bytes > 8 ||
+            body_offset < field_offset + field_bytes ||
+            (lua_Unsigned)body_offset > c->unpack->package_max_length) {
+            return luaL_error(L, "conn:setUnpack: invalid length_field layout");
+        }
+        c->unpack->body_offset = (unsigned short)body_offset;
+        c->unpack->length_field_offset = (unsigned short)field_offset;
+        c->unpack->length_field_bytes = (unsigned short)field_bytes;
         lua_getfield(L, 2, "length_adjustment");
-        c->unpack->length_adjustment = (short)luaL_optinteger(L, -1, 0);
+        value = luaL_optinteger(L, -1, 0);
+        if (value < INT16_MIN || value > INT16_MAX) {
+            return luaL_error(L, "conn:setUnpack: invalid length_adjustment");
+        }
+        c->unpack->length_adjustment = (short)value;
         lua_pop(L, 1);
         lua_getfield(L, 2, "length_field_coding");
         coding = luaL_optstring(L, -1, "be");

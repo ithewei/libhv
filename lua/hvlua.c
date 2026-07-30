@@ -14,9 +14,14 @@
 // A suspended coroutine is kept alive by an int ref into the registry (the
 // lua_State* thread object). The token stores that ref plus a valid flag so a
 // stale resume (loop teardown, double resume) is a safe no-op.
+typedef struct HvLuaStateCtx HvLuaStateCtx;
+
 struct HvLuaCoroutine {
     lua_State* L;      // the coroutine thread
     int        ref;    // luaL_ref of the thread in the registry, LUA_NOREF if freed
+    HvLuaStateCtx* owner;
+    struct HvLuaCoroutine* prev;
+    struct HvLuaCoroutine* next;
 };
 
 // A "task" is a top-level coroutine with a C completion callback. The task
@@ -27,7 +32,69 @@ typedef struct HvLuaTask {
     hvlua_done_cb on_done;
     void*         ud;
     int           thread_ref;  // keeps the coroutine alive between resumes
+    HvLuaStateCtx* owner;
+    struct HvLuaTask* prev;
+    struct HvLuaTask* next;
 } HvLuaTask;
+
+struct HvLuaCleanup {
+    hvlua_cleanup_cb cb;
+    void* userdata;
+    HvLuaStateCtx* owner;
+    struct HvLuaCleanup* prev;
+    struct HvLuaCleanup* next;
+};
+
+struct HvLuaStateCtx {
+    HvLuaCoroutine* coroutines;
+    HvLuaTask* tasks;
+    HvLuaCleanup* cleanups;
+    int closing;
+};
+
+static char s_state_ctx_key;
+
+static HvLuaStateCtx* state_ctx(lua_State* L) {
+    HvLuaStateCtx* ctx;
+    lua_rawgetp(L, LUA_REGISTRYINDEX, &s_state_ctx_key);
+    ctx = (HvLuaStateCtx*)lua_touserdata(L, -1);
+    lua_pop(L, 1);
+    return ctx;
+}
+
+static void coroutine_link(HvLuaStateCtx* ctx, HvLuaCoroutine* co) {
+    co->owner = ctx;
+    co->prev = NULL;
+    co->next = ctx->coroutines;
+    if (co->next) co->next->prev = co;
+    ctx->coroutines = co;
+}
+
+static void coroutine_unlink(HvLuaCoroutine* co) {
+    HvLuaStateCtx* ctx = co->owner;
+    if (ctx == NULL) return;
+    if (co->prev) co->prev->next = co->next;
+    else ctx->coroutines = co->next;
+    if (co->next) co->next->prev = co->prev;
+    co->owner = NULL;
+}
+
+static void task_link(HvLuaStateCtx* ctx, HvLuaTask* task) {
+    task->owner = ctx;
+    task->prev = NULL;
+    task->next = ctx->tasks;
+    if (task->next) task->next->prev = task;
+    ctx->tasks = task;
+}
+
+static void task_unlink(HvLuaTask* task) {
+    HvLuaStateCtx* ctx = task->owner;
+    if (ctx == NULL) return;
+    if (task->prev) task->prev->next = task->next;
+    else ctx->tasks = task->next;
+    if (task->next) task->next->prev = task->prev;
+    task->owner = NULL;
+}
 
 // registry[co] = lightuserdata(task)   (NULL entry == not a task / finished)
 static HvLuaTask* task_get(lua_State* co) {
@@ -70,6 +137,7 @@ static int hvlua_task_step(lua_State* co, int nresults) {
     if (task == NULL) return 1;
     task_set(co, NULL);  // erase before callback so a re-entrant step no-ops
     if (task->on_done) task->on_done(task->ud, status == LUA_OK, co);
+    task_unlink(task);
     luaL_unref(co, LUA_REGISTRYINDEX, task->thread_ref);
     HV_FREE(task);
     return 1;
@@ -91,6 +159,7 @@ int hvlua_start_task(lua_State* L, int nargs, hvlua_done_cb on_done, void* ud) {
     task->on_done = on_done;
     task->ud = ud;
     task->thread_ref = thread_ref;
+    task_link(state_ctx(L), task);
     task_set(co, task);
 
     // Use the return value instead of re-reading `co`: if it finished
@@ -109,6 +178,7 @@ HvLuaCoroutine* hvlua_suspend(lua_State* L) {
     co->L = L;
     lua_pushthread(L);              // push the running thread onto its own stack
     co->ref = luaL_ref(L, LUA_REGISTRYINDEX); // pops it, stores ref in registry
+    coroutine_link(state_ctx(L), co);
     return co;
 }
 
@@ -119,10 +189,11 @@ lua_State* hvlua_coroutine_state(HvLuaCoroutine* co) {
 
 void hvlua_cancel(HvLuaCoroutine* co) {
     if (co == NULL) return;
-    if (co->ref != LUA_NOREF) {
+    if (co->ref != LUA_NOREF && (co->owner == NULL || !co->owner->closing)) {
         luaL_unref(co->L, LUA_REGISTRYINDEX, co->ref);
         co->ref = LUA_NOREF;
     }
+    coroutine_unlink(co);
     HV_FREE(co);
 }
 
@@ -140,6 +211,7 @@ void hvlua_resume(HvLuaCoroutine* co, int nresults) {
     // resume can't double-free. Task tracking keeps its own ref, so the
     // coroutine stays alive across this transition.
     co->ref = LUA_NOREF;
+    coroutine_unlink(co);
     HV_FREE(co);
 
     // Drive the coroutine; hvlua_task_step fires on_done if it finishes and is
@@ -163,17 +235,84 @@ void hvlua_resume(HvLuaCoroutine* co, int nresults) {
     luaL_unref(L, LUA_REGISTRYINDEX, ref);
 }
 
+HvLuaCleanup* hvlua_cleanup_add(lua_State* L, hvlua_cleanup_cb cb, void* userdata) {
+    HvLuaStateCtx* ctx = state_ctx(L);
+    HvLuaCleanup* cleanup;
+    if (ctx == NULL || cb == NULL) return NULL;
+    HV_ALLOC_SIZEOF(cleanup);
+    cleanup->cb = cb;
+    cleanup->userdata = userdata;
+    cleanup->owner = ctx;
+    cleanup->prev = NULL;
+    cleanup->next = ctx->cleanups;
+    if (cleanup->next) cleanup->next->prev = cleanup;
+    ctx->cleanups = cleanup;
+    return cleanup;
+}
+
+void hvlua_cleanup_del(HvLuaCleanup* cleanup) {
+    HvLuaStateCtx* ctx;
+    if (cleanup == NULL) return;
+    ctx = cleanup->owner;
+    if (ctx) {
+        if (cleanup->prev) cleanup->prev->next = cleanup->next;
+        else ctx->cleanups = cleanup->next;
+        if (cleanup->next) cleanup->next->prev = cleanup->prev;
+    }
+    HV_FREE(cleanup);
+}
+
 // ---------------------------------------------------------------------------
 // per-loop lua_State
 // ---------------------------------------------------------------------------
 
 static void hvlua_state_dtor(void* L) {
-    if (L) lua_close((lua_State*)L);
+    lua_State* state = (lua_State*)L;
+    HvLuaStateCtx* ctx;
+    if (state == NULL) return;
+    ctx = state_ctx(state);
+    if (ctx == NULL) {
+        lua_close(state);
+        return;
+    }
+    ctx->closing = 1;
+    while (ctx->cleanups) {
+        HvLuaCleanup* cleanup = ctx->cleanups;
+        hvlua_cleanup_cb cb = cleanup->cb;
+        void* userdata = cleanup->userdata;
+        ctx->cleanups = cleanup->next;
+        if (ctx->cleanups) ctx->cleanups->prev = NULL;
+        cleanup->owner = NULL;
+        HV_FREE(cleanup);
+        cb(userdata);
+    }
+    while (ctx->tasks) {
+        HvLuaTask* task = ctx->tasks;
+        ctx->tasks = task->next;
+        if (task->on_done) task->on_done(task->ud, false, NULL);
+        task->owner = NULL;
+        HV_FREE(task);
+    }
+    lua_close(state);
+    while (ctx->coroutines) {
+        HvLuaCoroutine* co = ctx->coroutines;
+        ctx->coroutines = co->next;
+        HV_FREE(co);
+    }
+    HV_FREE(ctx);
 }
 
 static lua_State* hvlua_new_state(hloop_t* loop) {
     lua_State* L = luaL_newstate();
+    HvLuaStateCtx* ctx;
     if (L == NULL) return NULL;
+    HV_ALLOC_SIZEOF(ctx);
+    if (ctx == NULL) {
+        lua_close(L);
+        return NULL;
+    }
+    lua_pushlightuserdata(L, ctx);
+    lua_rawsetp(L, LUA_REGISTRYINDEX, &s_state_ctx_key);
     luaL_openlibs(L);
 
     // Stash the owning hloop_t* in the registry so bindings can reach the loop.

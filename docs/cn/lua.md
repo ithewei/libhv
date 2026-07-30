@@ -72,7 +72,7 @@ hv.clearTimer(id)
 
 hv.sleep(1000)               -- 协程同步：挂起当前协程 1000ms，loop 不阻塞
 
-hv.run()                     -- 运行当前 loop（独立运行时用；HTTP handler 内不需要）
+hv.run()                     -- 兼容保留；loop 由宿主自动驱动，无需调用
 hv.stop()                    -- 停止当前 loop
 ```
 

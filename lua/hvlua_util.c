@@ -20,6 +20,11 @@ int hvlua_parse_reconnect(lua_State* L, int table_index, reconn_setting_t* out) 
     lua_getfield(L, -1, "max_retry");
     if (lua_isinteger(L, -1)) out->max_retry_cnt = (uint32_t)lua_tointeger(L, -1);
     lua_pop(L, 1);
+    if (out->min_delay == 0) out->min_delay = 1;
+    if (out->max_delay < out->min_delay) out->max_delay = out->min_delay;
+    if (out->delay_policy > 1 && out->delay_policy > UINT32_MAX / out->min_delay) {
+        out->delay_policy = DEFAULT_RECONNECT_DELAY_POLICY;
+    }
     lua_pop(L, 1);   // pop the reconnect sub-table
     return 1;
 }

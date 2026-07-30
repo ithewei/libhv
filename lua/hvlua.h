@@ -25,6 +25,8 @@ typedef struct lua_State lua_State;
 
 // Opaque suspend token (see hvlua_suspend).
 typedef struct HvLuaCoroutine HvLuaCoroutine;
+typedef struct HvLuaCleanup HvLuaCleanup;
+typedef void (*hvlua_cleanup_cb)(void* userdata);
 
 // Task completion callback: ok = true on normal finish; on error ok = false and
 // the error message is on top of `co`'s stack.
@@ -82,6 +84,11 @@ void hvlua_cancel(HvLuaCoroutine* co);
 // The coroutine's lua_State (to push results before hvlua_resume). NULL if stale.
 lua_State* hvlua_coroutine_state(HvLuaCoroutine* co);
 
+// Track heap state owned by an async operation. The callback runs if the
+// lua_State closes before normal completion; normal completion removes it.
+HvLuaCleanup* hvlua_cleanup_add(lua_State* L, hvlua_cleanup_cb cb, void* userdata);
+void hvlua_cleanup_del(HvLuaCleanup* cleanup);
+
 // Recover the owning hloop_t* for a lua_State (stashed at state creation).
 hloop_t* hvlua_loop(lua_State* L);
 
@@ -130,6 +137,8 @@ namespace hv {
     using ::hvlua_resume;
     using ::hvlua_cancel;
     using ::hvlua_coroutine_state;
+    using ::hvlua_cleanup_add;
+    using ::hvlua_cleanup_del;
     using ::hvlua_loop;
     using ::hvlua_start_task;
 }
