@@ -23,6 +23,19 @@ public:
         // own teardown. Exposed to subclasses via isLoopOwner() so the
         // "own loop -> stop it / external loop -> leave it" decision lives in
         // one place instead of a duplicated flag in every client/server class.
+        //
+        // CONTRACT (external loop): when an external loop is supplied, the
+        // caller must have it already running (loop->run() on its own thread, or
+        // published as this thread's running loop) BEFORE calling start(). This
+        // is the normal usage (HttpServer IO loop, EventLoopThreadPool loop, the
+        // Lua runtime loop obtained via currentThreadEventLoopPtr — which is only
+        // non-NULL on an already-running loop thread). If instead an external,
+        // not-yet-running loop is passed and start() is called, start() falls
+        // back to spinning its OWN worker thread to drive that loop (see start()
+        // below); stop() then joins that thread (thread_ != NULL) and does stop
+        // the loop. That fallback is intentional and safe (used by
+        // redis_async_client_test), NOT a bug — but it is not the intended path
+        // for a loop the caller means to keep using elsewhere.
         is_loop_owner_ = (loop == NULL);
         loop_ = loop ? loop : std::make_shared<EventLoop>();
         setStatus(kInitialized);
@@ -55,6 +68,10 @@ public:
     // @param wait_thread_started: if ture this method will block until loop_thread started.
     // @param pre: This functor will be executed when loop_thread started.
     // @param post:This Functor will be executed when loop_thread stopped.
+    // NOTE: if isRunning() is already true (the common case for an external loop
+    // per the constructor's CONTRACT), start() is a no-op below and the loop is
+    // driven by whoever already runs it. Only a not-yet-running loop reaches the
+    // thread_ spin-up here (own loop, or the intentional external-loop fallback).
     void start(bool wait_thread_started = true,
                Functor pre = Functor(),
                Functor post = Functor()) {
