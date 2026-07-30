@@ -103,6 +103,7 @@ public:
         res->Reset();
         parsed = res;
         http_parser_init(&parser, HTTP_RESPONSE);
+        state = HP_START_REQ_OR_RES;
         url.clear();
         header_field.clear();
         header_value.clear();

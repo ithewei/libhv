@@ -30,6 +30,7 @@ modules:
   --with-http-client    compile http client module?     (DEFAULT: $WITH_HTTP_CLIENT)
   --with-http-server    compile http server module?     (DEFAULT: $WITH_HTTP_SERVER)
   --with-mqtt           compile mqtt module?            (DEFAULT: $WITH_MQTT)
+  --with-redis          compile redis module?           (DEFAULT: $WITH_REDIS)
 
 features:
   --enable-uds          enable Unix Domain Socket?      (DEFAULT: $ENABLE_UDS)

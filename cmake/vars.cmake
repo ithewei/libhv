@@ -68,6 +68,15 @@ set(EVPP_HEADERS
     evpp/UdpServer.h
 )
 
+set(REDIS_HEADERS
+    redis/RedisMessage.h
+    redis/AsyncRedisClient.h
+    redis/RedisClient.h
+    redis/RedisPipeline.h
+    redis/RedisTransaction.h
+    redis/RedisSubscriber.h
+)
+
 set(PROTOCOL_HEADERS
     protocol/icmp.h
     protocol/dns.h

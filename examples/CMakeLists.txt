@@ -107,6 +107,18 @@ if(WITH_EVPP)
     target_link_libraries(nmap ${HV_LIBRARIES})
 
     list(APPEND EXAMPLES hmain_test nmap)
+
+    if(WITH_REDIS)
+        include_directories(../redis)
+
+        add_executable(redis_client_example redis_client_test.cpp)
+        target_link_libraries(redis_client_example ${HV_LIBRARIES})
+
+        add_executable(redis_subscriber_example redis_subscriber_test.cpp)
+        target_link_libraries(redis_subscriber_example ${HV_LIBRARIES})
+
+        list(APPEND EXAMPLES redis_client_example redis_subscriber_example)
+    endif()
 if(WITH_HTTP)
     include_directories(../http)
 

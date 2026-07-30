@@ -250,7 +250,7 @@ public:
 
     int subscribe(const char* topic, int qos = 0, MqttCallback ack_cb = NULL) {
         int mid = mqtt_client_subscribe(client, topic, qos);
-        if (qos > 0 && mid >= 0 && ack_cb) {
+        if (mid >= 0 && ack_cb) {
             setAckCallback(mid, ack_cb);
         }
         return mid;

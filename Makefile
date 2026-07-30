@@ -2,7 +2,7 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp protocol http http/client http/server mqtt
+ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt
 CORE_SRCDIRS=. base ssl event
 ifeq ($(WITH_KCP), yes)
 CORE_SRCDIRS += event/kcp
@@ -23,6 +23,11 @@ endif
 ifeq ($(WITH_EVPP), yes)
 LIBHV_HEADERS += $(CPPUTIL_HEADERS) $(EVPP_HEADERS)
 LIBHV_SRCDIRS += cpputil evpp
+
+ifeq ($(WITH_REDIS), yes)
+LIBHV_HEADERS += $(REDIS_HEADERS)
+LIBHV_SRCDIRS += redis
+endif
 
 ifeq ($(WITH_HTTP), yes)
 LIBHV_HEADERS += $(HTTP_HEADERS)
@@ -71,6 +76,9 @@ EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
 
 ifeq ($(WITH_EVPP), yes)
 EXAMPLES += nmap
+ifeq ($(WITH_REDIS), yes)
+EXAMPLES += redis_client_example redis_subscriber_example
+endif
 ifeq ($(WITH_HTTP), yes)
 EXAMPLES += wrk
 ifeq ($(WITH_HTTP_SERVER), yes)
@@ -185,6 +193,16 @@ tinyproxyd: prepare
 nmap: prepare libhv
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil examples/nmap" DEFINES="PRINT_DEBUG"
 
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_REDIS), yes)
+redis_client_example: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil evpp redis" SRCS="examples/redis_client_test.cpp"
+
+redis_subscriber_example: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil evpp redis" SRCS="examples/redis_subscriber_test.cpp"
+endif
+endif
+
 wrk: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util cpputil evpp http" SRCS="examples/wrk.cpp"
 
@@ -287,6 +305,20 @@ unittest: prepare
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_REDIS), yes)
+	$(MAKE) libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Iredis -o bin/redis_protocol_test unittest/redis_protocol_test.cpp redis/RedisMessage.cpp
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_async_client_test unittest/redis_async_client_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_client_test unittest/redis_client_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_batch_test unittest/redis_batch_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_subscriber_test unittest/redis_subscriber_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
+else
+	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
+endif
+else
+	$(RM) bin/redis_protocol_test bin/redis_async_client_test bin/redis_client_test bin/redis_batch_test bin/redis_subscriber_test
+endif
 
 run-unittest: unittest
 	bash scripts/unittest.sh
