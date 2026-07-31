@@ -184,6 +184,7 @@ HvLuaCoroutine* hvlua_suspend(lua_State* L) {
 
 lua_State* hvlua_coroutine_state(HvLuaCoroutine* co) {
     if (co == NULL || co->ref == LUA_NOREF) return NULL;
+    if (co->owner && co->owner->closing) return NULL;
     return co->L;
 }
 
@@ -201,6 +202,10 @@ void hvlua_resume(HvLuaCoroutine* co, int nresults) {
     lua_State* L;
     int ref;
     if (co == NULL) return;
+    if (co->owner && co->owner->closing) {
+        hvlua_cancel(co);
+        return;
+    }
     if (co->ref == LUA_NOREF) {  // stale: already resumed/freed
         HV_FREE(co);
         return;
