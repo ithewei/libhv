@@ -162,7 +162,6 @@ public:
     UdpClientTmpl(EventLoopPtr loop = NULL)
         : EventLoopThread(loop)
         , UdpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
-        , is_loop_owner(loop == NULL)
     {}
     virtual ~UdpClientTmpl() {
         stop(true);
@@ -182,16 +181,12 @@ public:
     }
 
     // stop thread-safe
-    // NOTE: When constructed with an external loop, this closes the socket but does not stop that loop.
+    // NOTE: When constructed with an external loop, this only closes the socket;
+    // EventLoopThread::stop() will not stop a loop this client does not own.
     void stop(bool wait_threads_stopped = true) {
         UdpClientEventLoopTmpl<TSocketChannel>::closesocket();
-        if (is_loop_owner) {
-            EventLoopThread::stop(wait_threads_stopped);
-        }
+        EventLoopThread::stop(wait_threads_stopped);
     }
-
-private:
-    bool is_loop_owner;
 };
 
 typedef UdpClientTmpl<SocketChannel> UdpClient;

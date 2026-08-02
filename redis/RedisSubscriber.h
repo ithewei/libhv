@@ -5,13 +5,14 @@
 #include <memory>
 #include <string>
 
-#include "herr.h"
-
-#include "EventLoopThread.h"
+#include "TcpClient.h"
 
 namespace hv {
 
-class HV_EXPORT RedisSubscriber : private EventLoopThread {
+// RedisSubscriber implements the Redis pub/sub client on top of TcpClient: it
+// reuses the base connect/reconnect/DNS/loop-ownership machinery (start/stop/
+// setReconnect are inherited) and only adds the RESP subscribe protocol layer.
+class HV_EXPORT RedisSubscriber : public TcpClientTmpl<SocketChannel> {
 public:
     RedisSubscriber(EventLoopPtr loop = NULL);
     ~RedisSubscriber();
@@ -20,7 +21,7 @@ public:
     void setPort(int port);
     void setAuth(const std::string& password);
     void setDb(int db);
-    void setReconnect(reconn_setting_t* setting);
+    // setReconnect is inherited from TcpClient.
 
     void start(bool wait_threads_started = true);
     void stop(bool wait_threads_stopped = true);

@@ -68,6 +68,10 @@ struct hloop_s {
     hmutex_t                    custom_events_mutex;
     // async dns resolver (event/hdns.c), created lazily, freed in hloop_cleanup
     void*                       dns_resolver;
+    // per-loop lua_State (lua/), stored as opaque void* so the C core stays
+    // lua-free. Set via hloop_set_lua_state with a destructor; freed in hloop_cleanup.
+    void*                       lua_state;
+    void                        (*lua_state_dtor)(void* lua_state);
 };
 
 uint64_t hloop_next_event_id();

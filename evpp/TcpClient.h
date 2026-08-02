@@ -411,7 +411,6 @@ public:
     TcpClientTmpl(EventLoopPtr loop = NULL)
         : EventLoopThread(loop)
         , TcpClientEventLoopTmpl<TSocketChannel>(EventLoopThread::loop())
-        , is_loop_owner(loop == NULL)
     {}
     virtual ~TcpClientTmpl() {
         stop(true);
@@ -434,16 +433,12 @@ public:
     }
 
     // stop thread-safe
-    // NOTE: When constructed with an external loop, this only closes the socket and does not stop that loop.
+    // NOTE: When constructed with an external loop, this only closes the socket;
+    // EventLoopThread::stop() will not stop a loop this client does not own.
     void stop(bool wait_threads_stopped = true) {
         TcpClientEventLoopTmpl<TSocketChannel>::closesocket();
-        if (is_loop_owner) {
-            EventLoopThread::stop(wait_threads_stopped);
-        }
+        EventLoopThread::stop(wait_threads_stopped);
     }
-
-private:
-    bool is_loop_owner;
 };
 
 typedef TcpClientTmpl<SocketChannel> TcpClient;

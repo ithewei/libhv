@@ -6,15 +6,15 @@
 - rudp: KCP
 - evpp: c++ EventLoop interface similar to muduo and evpp
 - http client/server: include https http1/x http2
+- http server sync/async/ctx/state/script handlers
 - websocket client/server
 - mqtt client
 - redis client
 - async DNS
-- http lua handler
+- lua binding
 
 ## Plan
 
-- lua binding
 - js binding
 - hrpc = libhv + protobuf
 - rudp: FEC, ARQ, UDT, QUIC

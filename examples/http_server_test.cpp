@@ -96,6 +96,7 @@ int main(int argc, char** argv) {
     // curl -v "http://ip:port/lua/hello?id=42"
     router.GET("/lua/hello", HttpScriptHandler("examples/scripts/hello.lua"));
     // curl -v "http://ip:port/script/hello?id=42"
+    // curl -v "http://ip:port/script/async?host=example.com"  (coroutine sync-style async)
     router.Script("/script/", "examples/scripts");
 #endif
 
