@@ -71,10 +71,10 @@ static int mqtt_v5_skip_properties(unsigned char** pp, unsigned char* end) {
     unsigned char* p = *pp;
     int bytes = end - p;
     if (bytes <= 0) return 0;
-    int prop_len = (int)varint_decode(p, &bytes);
+    long long prop_len = varint_decode(p, &bytes);
     if (bytes <= 0) return 0;
     p += bytes;     // skip varint bytes
-    if (p + prop_len > end) return 0;
+    if (prop_len < 0 || prop_len > end - p) return 0;
     p += prop_len;  // skip properties data
     *pp = p;
     return 1;
@@ -441,6 +441,10 @@ static void on_connect(hio_t* io) {
 }
 
 mqtt_client_t* mqtt_client_new(hloop_t* loop) {
+    // Own the loop only if we create it here (loop==NULL). When the caller
+    // supplies a loop, the caller owns its run/stop/free lifetime, so
+    // mqtt_client_run/stop must not drive or stop it (see those functions).
+    int is_loop_owner = (loop == NULL);
     if (loop == NULL) {
         loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
         if (loop == NULL) return NULL;
@@ -449,6 +453,7 @@ mqtt_client_t* mqtt_client_new(hloop_t* loop) {
     HV_ALLOC_SIZEOF(cli);
     if (cli == NULL) return NULL;
     cli->loop = loop;
+    cli->is_loop_owner = is_loop_owner;
     cli->protocol_version = MQTT_PROTOCOL_V311;
     cli->keepalive = DEFAULT_MQTT_KEEPALIVE;
     hmutex_init(&cli->mutex_);
@@ -457,6 +462,21 @@ mqtt_client_t* mqtt_client_new(hloop_t* loop) {
 
 void mqtt_client_free(mqtt_client_t* cli) {
     if (!cli) return;
+    // Tear down the io and timer BEFORE freeing cli. They were registered on the
+    // loop with hevent_set_userdata(..., cli); if left armed, a later on_close /
+    // connect_timeout_cb / reconnect_timer_cb would dereference the freed cli
+    // (use-after-free). Detach their back-pointers and close/delete them first.
+    if (cli->timer) {
+        hevent_set_userdata(cli->timer, NULL);
+        htimer_del(cli->timer);
+        cli->timer = NULL;
+    }
+    if (cli->io) {
+        hevent_set_userdata(cli->io, NULL);
+        hio_setcb_close(cli->io, NULL);  // no on_close callback into freed cli
+        hio_close(cli->io);
+        cli->io = NULL;
+    }
     hmutex_destroy(&cli->mutex_);
     if (cli->ssl_ctx && cli->alloced_ssl_ctx) {
         hssl_ctx_free(cli->ssl_ctx);
@@ -469,11 +489,23 @@ void mqtt_client_free(mqtt_client_t* cli) {
 
 void mqtt_client_run (mqtt_client_t* cli) {
     if (!cli || !cli->loop) return;
+    // Only drive the loop we own. When the caller supplied the loop, they are
+    // responsible for running it (e.g. an existing IO thread / runtime loop);
+    // running it here would block or double-drive someone else's loop.
+    if (!cli->is_loop_owner) return;
     hloop_run(cli->loop);
+    // The owned loop uses HLOOP_FLAG_AUTO_FREE, so its IOs/timers and the loop
+    // itself are gone when hloop_run returns. Drop the stale non-owning handles
+    // before mqtt_client_free inspects them.
+    cli->loop = NULL;
+    cli->io = NULL;
+    cli->timer = NULL;
 }
 
 void mqtt_client_stop(mqtt_client_t* cli) {
     if (!cli || !cli->loop) return;
+    // Only stop the loop we own; never stop a caller-supplied loop.
+    if (!cli->is_loop_owner) return;
     hloop_stop(cli->loop);
 }
 

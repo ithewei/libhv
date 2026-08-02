@@ -236,7 +236,17 @@ int parse_multipart(const std::string& str, MultiPart& mp, const char* boundary)
 
 std::string dump_json(const hv::Json& json, int indent) {
     if (json.empty()) return "";
-    return json.dump(indent);
+    // json.dump throws (e.g. type_error.316 on non-UTF-8 bytes) for otherwise
+    // valid values built from arbitrary input. Catch it so a bad value can't
+    // abort the process — e.g. an HTTP handler putting untrusted bytes into the
+    // response JSON would otherwise be a remote DoS. On error return an empty
+    // body rather than throwing (mirrors parse_json's try/catch below).
+    try {
+        return json.dump(indent);
+    }
+    catch (const std::exception&) {
+        return "";
+    }
 }
 
 int parse_json(const char* str, hv::Json& json, std::string& errmsg) {

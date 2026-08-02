@@ -175,6 +175,14 @@ HV_EXPORT uint32_t hloop_nactives(hloop_t* loop);
 HV_EXPORT void  hloop_set_userdata(hloop_t* loop, void* userdata);
 HV_EXPORT void* hloop_userdata(hloop_t* loop);
 
+// per-loop lua_State (used by the lua/ binding layer).
+// The C core treats it as an opaque pointer and never depends on lua.
+// @dtor: optional destructor invoked on this pointer in hloop_cleanup
+//        (e.g. a wrapper around lua_close). Replacing an existing lua_state
+//        does NOT call the previous dtor; the caller manages that.
+HV_EXPORT void  hloop_set_lua_state(hloop_t* loop, void* lua_state, void (*dtor)(void* lua_state));
+HV_EXPORT void* hloop_lua_state(hloop_t* loop);
+
 // custom_event
 /*
  * hevent_t ev;

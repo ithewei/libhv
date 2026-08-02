@@ -6,9 +6,7 @@
 #include <string>
 #include <vector>
 
-#include "herr.h"
-
-#include "EventLoopThread.h"
+#include "TcpClient.h"
 #include "RedisMessage.h"
 
 namespace hv {
@@ -16,7 +14,11 @@ namespace hv {
 using RedisCallback = std::function<void(const RedisResult&)>;
 using RedisRepliesCallback = std::function<void(int, const std::vector<RedisReply>&)>;
 
-class HV_EXPORT AsyncRedisClient : private EventLoopThread {
+// AsyncRedisClient is a coroutine-free async Redis client built directly on
+// TcpClient: it reuses the base connect/reconnect/DNS/loop-ownership machinery
+// (start/stop/setReconnect/setConnectTimeout are inherited) and only adds the
+// RESP protocol layer (handshake, request pipelining, reply dispatch).
+class HV_EXPORT AsyncRedisClient : public TcpClientTmpl<SocketChannel> {
 public:
     AsyncRedisClient(EventLoopPtr loop = NULL);
     ~AsyncRedisClient();
@@ -25,10 +27,11 @@ public:
     void setPort(int port);
     void setAuth(const std::string& password);
     void setDb(int db);
-    void setConnectTimeout(int ms);
+    // per-request reply timeout (ms); connect timeout / reconnect are inherited
+    // from TcpClient (setConnectTimeout / setReconnect).
     void setTimeout(int ms);
-    void setReconnect(reconn_setting_t* setting);
 
+    // start/stop thread-safe; delegate to TcpClient after (re)setting redis state.
     void start(bool wait_threads_started = true);
     void stop(bool wait_threads_stopped = true);
 

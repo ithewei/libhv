@@ -17,6 +17,10 @@ extern "C" {
 #include "hstring.h"
 #include "htime.h"
 
+#include "EventLoop.h"
+#include "hvlua.h"
+#include "hvlua_json.h"   // shared lua<->json conversion (single implementation)
+
 namespace hv {
 
 namespace {
@@ -106,85 +110,12 @@ static int lua_ctx_text(lua_State* L) {
     return 1;
 }
 
-static Json lua_to_json(lua_State* L, int index);
-
-static Json lua_table_to_json(lua_State* L, int index) {
-    index = lua_absindex(L, index);
-    bool is_array = true;
-    lua_Integer max_index = 0;
-    size_t count = 0;
-
-    lua_pushnil(L);
-    while (lua_next(L, index) != 0) {
-        ++count;
-        if (lua_type(L, -2) == LUA_TNUMBER && lua_isinteger(L, -2)) {
-            lua_Integer k = lua_tointeger(L, -2);
-            if (k <= 0) {
-                is_array = false;
-            } else if (k > max_index) {
-                max_index = k;
-            }
-        } else {
-            is_array = false;
-        }
-        lua_pop(L, 1);
-    }
-
-    if (is_array && (lua_Integer)count == max_index) {
-        Json j = Json::array();
-        for (lua_Integer i = 1; i <= max_index; ++i) {
-            lua_geti(L, index, i);
-            j.push_back(lua_to_json(L, -1));
-            lua_pop(L, 1);
-        }
-        return j;
-    }
-
-    Json j = Json::object();
-    lua_pushnil(L);
-    while (lua_next(L, index) != 0) {
-        std::string key;
-        if (lua_type(L, -2) == LUA_TSTRING) {
-            size_t len = 0;
-            const char* s = lua_tolstring(L, -2, &len);
-            key.assign(s, len);
-        } else if (lua_type(L, -2) == LUA_TNUMBER) {
-            key = hv::to_string((int64_t)lua_tointeger(L, -2));
-        }
-        if (!key.empty()) {
-            j[key] = lua_to_json(L, -1);
-        }
-        lua_pop(L, 1);
-    }
-    return j;
-}
-
-static Json lua_to_json(lua_State* L, int index) {
-    switch (lua_type(L, index)) {
-    case LUA_TNIL:
-        return nullptr;
-    case LUA_TBOOLEAN:
-        return lua_toboolean(L, index) != 0;
-    case LUA_TNUMBER:
-        if (lua_isinteger(L, index)) {
-            return (int64_t)lua_tointeger(L, index);
-        }
-        return lua_tonumber(L, index);
-    case LUA_TSTRING: {
-        size_t len = 0;
-        const char* s = lua_tolstring(L, index, &len);
-        return std::string(s, len);
-    }
-    case LUA_TTABLE:
-        return lua_table_to_json(L, index);
-    default:
-        return nullptr;
-    }
-}
+// lua <-> json conversion (incl. the cyclic-table depth guard) is shared via
+// hvlua_json.h: hv::hvlua_lua_to_json. Do not duplicate it here.
 
 static int lua_ctx_json(lua_State* L) {
     LuaHttpContext* holder = lua_check_ctx(L);
-    Json j = lua_to_json(L, 2);
+    Json j = hvlua_lua_to_json(L, 2);
     holder->ctx->response->Json(j);
     lua_pushinteger(L, holder->ctx->response->status_code);
     return 1;
@@ -202,25 +133,6 @@ static void lua_push_ctx(lua_State* L, const HttpContextPtr& ctx) {
     ((LuaHttpContext*)storage)->ctx = ctx;
     luaL_getmetatable(L, LUA_CTX_META);
     lua_setmetatable(L, -2);
-}
-
-static int lua_hv_log(lua_State* L) {
-    int n = lua_gettop(L);
-    std::string line;
-    for (int i = 1; i <= n; ++i) {
-        size_t len = 0;
-        const char* s = luaL_tolstring(L, i, &len);
-        if (i > 1) line += "\t";
-        line.append(s, len);
-        lua_pop(L, 1);
-    }
-    hlogi("[lua] %s", line.c_str());
-    return 0;
-}
-
-static int lua_hv_now(lua_State* L) {
-    lua_pushinteger(L, (lua_Integer)time(NULL));
-    return 1;
 }
 
 static void register_ctx(lua_State* L) {
@@ -254,15 +166,6 @@ static void register_ctx(lua_State* L) {
     lua_pop(L, 1);
 }
 
-static void register_hv(lua_State* L) {
-    lua_newtable(L);
-    lua_pushcfunction(L, lua_hv_log);
-    lua_setfield(L, -2, "log");
-    lua_pushcfunction(L, lua_hv_now);
-    lua_setfield(L, -2, "now");
-    lua_setglobal(L, "hv");
-}
-
 static time_t file_mtime(const std::string& filepath) {
     struct stat st;
     if (stat(filepath.c_str(), &st) != 0) {
@@ -271,155 +174,221 @@ static time_t file_mtime(const std::string& filepath) {
     return st.st_mtime;
 }
 
+// Per-loop script cache: a registry table "hv.lua_http_scripts" mapping
+// filepath -> { env = <table>, mtime = <int> }. Each script is loaded into its
+// own environment table (its globals), so multiple scripts on one lua_State do
+// not clobber each other's handle/get/post functions.
+static const char* SCRIPTS_REG = "hv.lua_http_scripts";
+
+// Push (loading/reloading as needed) the script's env table onto L.
+// Returns true with the env table on the stack top, or false with an error
+// message on top.
+static bool push_script_env(lua_State* L, const std::string& filepath,
+                            const HttpLuaHandlerOptions& options) {
+    time_t mtime = file_mtime(filepath);
+    if (mtime == 0) {
+        lua_pushstring(L, strerror(errno));
+        return false;
+    }
+
+    // registry[SCRIPTS_REG] (create if missing)
+    lua_getfield(L, LUA_REGISTRYINDEX, SCRIPTS_REG);
+    if (!lua_istable(L, -1)) {
+        lua_pop(L, 1);
+        lua_newtable(L);
+        lua_pushvalue(L, -1);
+        lua_setfield(L, LUA_REGISTRYINDEX, SCRIPTS_REG);
+    }
+    // scripts[filepath]
+    lua_getfield(L, -1, filepath.c_str());
+    if (lua_istable(L, -1)) {
+        lua_getfield(L, -1, "mtime");
+        time_t cached = (time_t)lua_tointeger(L, -1);
+        lua_pop(L, 1);
+        if (!options.reload_on_change || cached == mtime) {
+            lua_getfield(L, -1, "env");     // -> scripts, entry, env
+            lua_remove(L, -2);              // -> scripts, env
+            lua_remove(L, -2);              // -> env
+            return true;
+        }
+    }
+    lua_pop(L, 1);  // pop entry (nil or stale); stack: scripts
+
+    // Load the chunk.
+    if (luaL_loadfile(L, filepath.c_str()) != LUA_OK) {
+        std::string err = lua_tostring(L, -1) ? lua_tostring(L, -1) : "load failed";
+        lua_pop(L, 2);  // chunk err + scripts
+        lua_pushstring(L, err.c_str());
+        return false;
+    }
+    // New environment table with an __index to _G so scripts can use globals
+    // (hloop, hv, print, ...) while their own defs stay isolated.
+    lua_newtable(L);                        // env
+    lua_newtable(L);                        // metatable
+    lua_pushglobaltable(L);
+    lua_setfield(L, -2, "__index");
+    lua_setmetatable(L, -2);                // setmetatable(env, {__index=_G})
+    // set the chunk's _ENV upvalue to env (Lua 5.2+: first upvalue)
+    lua_pushvalue(L, -1);                   // env copy
+#if LUA_VERSION_NUM >= 502
+    const char* upname = lua_setupvalue(L, -3, 1); // chunk's _ENV = env
+    if (upname == NULL) lua_pop(L, 1);
+#else
+    lua_setfenv(L, -3);
+#endif
+    // stack: scripts, chunk, env
+    lua_pushvalue(L, -2);                   // chunk
+    if (lua_pcall(L, 0, 0, 0) != LUA_OK) {  // run chunk to populate env
+        std::string err = lua_tostring(L, -1) ? lua_tostring(L, -1) : "run failed";
+        lua_pop(L, 4);  // err, env, chunk, scripts
+        lua_pushstring(L, err.c_str());
+        return false;
+    }
+    // stack: scripts, chunk, env
+    lua_remove(L, -2);                      // scripts, env
+
+    // Cache: scripts[filepath] = { env = env, mtime = mtime }
+    lua_newtable(L);                        // entry
+    lua_pushvalue(L, -2);                   // env
+    lua_setfield(L, -2, "env");
+    lua_pushinteger(L, (lua_Integer)mtime);
+    lua_setfield(L, -2, "mtime");
+    lua_setfield(L, -3, filepath.c_str());  // scripts[filepath] = entry
+    // stack: scripts, env
+    lua_remove(L, -2);                      // env
+    return true;
+}
+
+// Resolve the handler function for this request from the script env: prefer a
+// per-method function (get/post/...), else handle. Pushes the function on L, or
+// pushes nil if none found. Consumes nothing (env stays where it was).
+static bool push_handler_fn(lua_State* L, int env_index, http_method method) {
+    std::string name = http_method_str(method);
+    tolower(name);
+    lua_getfield(L, env_index, name.c_str());
+    if (lua_isfunction(L, -1)) return true;
+    lua_pop(L, 1);
+    lua_getfield(L, env_index, "handle");
+    if (lua_isfunction(L, -1)) return true;
+    lua_pop(L, 1);
+    return false;
+}
+
+// Build the HTTP response from the coroutine's return value (top of `co`).
+static void apply_result(lua_State* co, const HttpContextPtr& ctx) {
+    if (lua_isinteger(co, -1)) {
+        int status = (int)lua_tointeger(co, -1);
+        if (ctx->response->status_code == HTTP_STATUS_OK) {
+            ctx->response->status_code = (http_status)status;
+        }
+    } else if (lua_isstring(co, -1)) {
+        size_t len = 0;
+        const char* s = lua_tolstring(co, -1, &len);
+        ctx->response->String(std::string(s, len));
+    } else if (lua_istable(co, -1)) {
+        Json j = hvlua_lua_to_json(co, -1);
+        ctx->response->Json(j);
+    }
+}
+
+// Task completion state shared between operator() and on_task_done.
+struct LuaHttpTask {
+    HttpContextPtr ctx;
+    bool async;      // set true once operator() knows the coroutine yielded
+};
+
+static void on_task_done(void* ud, bool ok, lua_State* co) {
+    LuaHttpTask* task = (LuaHttpTask*)ud;
+    HttpContextPtr ctx = task->ctx;
+    bool async = task->async;
+    delete task;
+
+    if (co == NULL) {
+        return;
+    }
+    if (!ok) {
+        const char* msg = lua_tostring(co, -1);
+        std::string err = msg ? msg : "lua handler error";
+        hloge("[lua] http handler error: %s", err.c_str());
+        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        if (ctx->response->body.empty()) ctx->response->String(err);
+    } else if (co) {
+        apply_result(co, ctx);
+    }
+
+    // For the async (yielded) path, the normal HttpHandler flow already
+    // returned NEXT, so we must flush the response ourselves now.
+    if (async) {
+        ctx->send();
+    }
+}
+
 } // namespace
 
 HttpLuaHandler::HttpLuaHandler(const char* filepath, const HttpLuaHandlerOptions& options)
     : filepath_(filepath ? filepath : "")
-    , options_(options)
-    , L_(NULL)
-    , mtime_(0) {
-}
-
-HttpLuaHandler::HttpLuaHandler(const HttpLuaHandler& rhs)
-    : filepath_(rhs.filepath_)
-    , options_(rhs.options_)
-    , L_(NULL)
-    , mtime_(0) {
-}
-
-HttpLuaHandler& HttpLuaHandler::operator=(const HttpLuaHandler& rhs) {
-    if (this == &rhs) return *this;
-    std::lock_guard<std::mutex> lock(mutex_);
-    closeLocked();
-    filepath_ = rhs.filepath_;
-    options_ = rhs.options_;
-    mtime_ = 0;
-    last_error_.clear();
-    return *this;
-}
-
-HttpLuaHandler::~HttpLuaHandler() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    closeLocked();
-}
-
-std::string HttpLuaHandler::lastError() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return last_error_;
-}
-
-void HttpLuaHandler::setErrorLocked(const std::string& error) {
-    last_error_ = error;
-}
-
-void HttpLuaHandler::closeLocked() {
-    if (L_) {
-        lua_close(L_);
-        L_ = NULL;
-    }
-}
-
-bool HttpLuaHandler::loadLocked(time_t mtime) {
-    lua_State* L = luaL_newstate();
-    if (L == NULL) {
-        setErrorLocked("luaL_newstate failed");
-        return false;
-    }
-
-    luaL_openlibs(L);
-    register_ctx(L);
-    register_hv(L);
-
-    if (luaL_loadfile(L, filepath_.c_str()) != LUA_OK || lua_pcall(L, 0, 0, 0) != LUA_OK) {
-        std::string error = lua_tostring(L, -1) ? lua_tostring(L, -1) : "load script failed";
-        lua_close(L);
-        setErrorLocked(error);
-        hloge("load lua script %s failed: %s", filepath_.c_str(), error.c_str());
-        return false;
-    }
-
-    lua_getglobal(L, "handle");
-    if (!lua_isfunction(L, -1)) {
-        lua_close(L);
-        setErrorLocked("global handle(ctx) is not a function");
-        hloge("load lua script %s failed: handle(ctx) not found", filepath_.c_str());
-        return false;
-    }
-    lua_pop(L, 1);
-
-    closeLocked();
-    L_ = L;
-    mtime_ = mtime;
-    last_error_.clear();
-    return true;
-}
-
-bool HttpLuaHandler::reloadIfNeeded() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    time_t mtime = file_mtime(filepath_);
-    if (mtime == 0) {
-        setErrorLocked(strerror(errno));
-        return L_ != NULL;
-    }
-    if (L_ != NULL && (!options_.reload_on_change || mtime == mtime_)) {
-        return true;
-    }
-    return loadLocked(mtime) || L_ != NULL;
-}
-
-int HttpLuaHandler::callLocked(const HttpContextPtr& ctx) {
-    std::string handler_name = http_method_str(ctx->request->method);
-    tolower(handler_name);
-    lua_getglobal(L_, handler_name.c_str());
-    if (!lua_isfunction(L_, -1)) {
-        lua_pop(L_, 1);
-        lua_getglobal(L_, "handle");
-    }
-    lua_push_ctx(L_, ctx);
-    if (lua_pcall(L_, 1, 1, 0) != LUA_OK) {
-        std::string error = lua_tostring(L_, -1) ? lua_tostring(L_, -1) : "call handle failed";
-        lua_pop(L_, 1);
-        setErrorLocked(error);
-        hloge("call lua script %s failed: %s", filepath_.c_str(), error.c_str());
-        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        ctx->response->String(error);
-        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
-    }
-
-    int status = ctx->response->status_code;
-    if (lua_isinteger(L_, -1)) {
-        status = (int)lua_tointeger(L_, -1);
-        if (ctx->response->status_code == HTTP_STATUS_OK) {
-            ctx->response->status_code = (http_status)status;
-        }
-    } else if (lua_isstring(L_, -1)) {
-        size_t len = 0;
-        const char* s = lua_tolstring(L_, -1, &len);
-        ctx->response->String(std::string(s, len));
-        status = ctx->response->status_code;
-    } else if (lua_istable(L_, -1)) {
-        Json j = lua_to_json(L_, -1);
-        ctx->response->Json(j);
-        status = ctx->response->status_code;
-    }
-    lua_pop(L_, 1);
-    return status;
+    , options_(options) {
 }
 
 int HttpLuaHandler::operator()(const HttpContextPtr& ctx) {
     if (!ctx || !ctx->response || !ctx->request) {
         return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }
-    if (!reloadIfNeeded()) {
-        std::lock_guard<std::mutex> lock(mutex_);
+
+    EventLoop* loop = currentThreadEventLoop;
+    if (loop == NULL) {
         ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        ctx->response->String(last_error_);
+        ctx->response->String("lua handler: no event loop on this thread");
         return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
-    return callLocked(ctx);
+    lua_State* L = hvlua_state(loop->loop());
+    if (L == NULL) {
+        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        ctx->response->String("lua handler: failed to create lua state");
+        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+    }
+
+    // Ensure the HttpContext metatable is registered on this per-loop state.
+    register_ctx(L);
+
+    // Load/reload the script; on failure return 500 with the error.
+    if (!push_script_env(L, filepath_, options_)) {
+        std::string err = lua_tostring(L, -1) ? lua_tostring(L, -1) : "load error";
+        lua_pop(L, 1);
+        hloge("load lua script %s failed: %s", filepath_.c_str(), err.c_str());
+        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        ctx->response->String(err);
+        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+    }
+    // stack: env
+    if (!push_handler_fn(L, -1, ctx->request->method)) {
+        lua_pop(L, 1);  // env
+        hloge("lua script %s: no handler (get/post/.../handle)", filepath_.c_str());
+        ctx->response->status_code = HTTP_STATUS_NOT_IMPLEMENTED;
+        ctx->response->String("no lua handler function");
+        return HTTP_STATUS_NOT_IMPLEMENTED;
+    }
+    // stack: env, fn
+    lua_remove(L, -2);  // stack: fn
+    lua_push_ctx(L, ctx);  // stack: fn, ctx  (the handler's single argument)
+
+    LuaHttpTask* task = new LuaHttpTask();
+    task->ctx = ctx;
+    task->async = false;
+
+    // Run fn(ctx) in a coroutine. If it finishes synchronously, on_task_done
+    // runs now (async=false) and builds the response; we return the status so
+    // the normal HttpHandler flow sends it. If it yields, we return NEXT and
+    // the response is flushed later in on_task_done (async=true).
+    int finished = hvlua_start_task(L, 1, on_task_done, task);
+    if (finished) {
+        return ctx->response->status_code;
+    }
+    task->async = true;
+    return HTTP_STATUS_NEXT;  // 0: response completed asynchronously
 }
 
 } // namespace hv
 
 #endif // WITH_LUA
+

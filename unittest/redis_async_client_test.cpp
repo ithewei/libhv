@@ -274,25 +274,56 @@ static void test_external_loop_stopped_request_completes_once() {
     assert(ret == ERR_CONNECT || ret == 0);
 }
 
-static void test_external_loop_not_running_rejects_start_and_command() {
+// Under the unified TcpClient model, a client constructed with an external loop
+// that is not yet running drives that loop on its OWN worker thread when started
+// (matching TcpClientTmpl / WebSocketClient), instead of the old redis-specific
+// ERR_CONNECT rejection. start(true) blocks until that thread's loop is running,
+// so the subsequent command() is served normally.
+static void test_external_loop_not_running_is_driven_by_own_thread() {
+    FakeRedisServer server;
+    server.setCommandHandler([](const RedisCommand& cmd) {
+        RedisReply reply;
+        if (cmd[0] == "PING") {
+            reply.type = REDIS_REPLY_STRING;
+            reply.str = "PONG";
+        }
+        else {
+            reply.type = REDIS_REPLY_ERROR;
+            reply.str = "ERR unsupported";
+        }
+        return reply;
+    });
+    server.start();
+
     EventLoopPtr loop = std::make_shared<EventLoop>();
     AsyncRedisClient client(loop);
+    client.setHost("127.0.0.1");
+    client.setPort(server.port());
+    client.start(true);  // spins its own thread to run the external loop
 
-    int error_code = 0;
-    client.onError = [&](int code) {
-        error_code = code;
-    };
-    client.start(false);
-    assert(error_code == ERR_CONNECT);
+    std::mutex mutex;
+    std::condition_variable cv;
+    bool done = false;
+    RedisResult result;
 
-    int callback_count = 0;
-    int ret = client.command(RedisCommand{"PING"}, [&](const RedisResult& result) {
-        ++callback_count;
-        assert(result.code == ERR_CONNECT);
+    int ret = client.command(RedisCommand{"PING"}, [&](const RedisResult& redis_result) {
+        std::lock_guard<std::mutex> lock(mutex);
+        result = redis_result;
+        done = true;
+        cv.notify_one();
     });
+    assert(ret == 0);
 
-    assert(ret == ERR_CONNECT);
-    assert(callback_count == 1);
+    {
+        std::unique_lock<std::mutex> lock(mutex);
+        bool completed = cv.wait_for(lock, std::chrono::seconds(3), [&done]() { return done; });
+        assert(completed);
+    }
+    assert(result.code == 0);
+    assert(result.reply.asString() == "PONG");
+
+    client.stop(true);
+    server.stop();
 }
 
 static void test_external_loop_running_without_start_rejects_command() {
@@ -381,7 +412,7 @@ int main() {
     test_external_loop_mode_can_start_and_command();
     test_external_loop_stopped_rejects_command();
     test_external_loop_stopped_request_completes_once();
-    test_external_loop_not_running_rejects_start_and_command();
+    test_external_loop_not_running_is_driven_by_own_thread();
     test_external_loop_running_without_start_rejects_command();
     test_close_after_reply_fails_pending_once();
     return 0;

@@ -364,6 +364,14 @@ static void hloop_cleanup(hloop_t* loop) {
     printd("cleanup dns_resolver...\n");
     hdns_resolver_free(loop);
 
+    // per-loop lua_State (opaque; destructor supplied by lua/ layer)
+    if (loop->lua_state && loop->lua_state_dtor) {
+        printd("cleanup lua_state...\n");
+        loop->lua_state_dtor(loop->lua_state);
+    }
+    loop->lua_state = NULL;
+    loop->lua_state_dtor = NULL;
+
     // ios
     printd("cleanup ios...\n");
     for (int i = 0; i < loop->ios.maxsize; ++i) {
@@ -600,6 +608,15 @@ void  hloop_set_userdata(hloop_t* loop, void* userdata) {
 
 void* hloop_userdata(hloop_t* loop) {
     return loop->userdata;
+}
+
+void hloop_set_lua_state(hloop_t* loop, void* lua_state, void (*dtor)(void* lua_state)) {
+    loop->lua_state = lua_state;
+    loop->lua_state_dtor = dtor;
+}
+
+void* hloop_lua_state(hloop_t* loop) {
+    return loop->lua_state;
 }
 
 static hloop_t* s_signal_loop = NULL;

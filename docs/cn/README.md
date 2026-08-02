@@ -5,6 +5,10 @@
 - [hbase: 基础函数](hbase.md)
 - [hlog:  日志](hlog.md)
 
+## lua接口
+
+- [Lua Binding: hv.* Lua 绑定](lua.md)
+
 ## c++接口
 
 - [class EventLoop: 事件循环类](EventLoop.md)

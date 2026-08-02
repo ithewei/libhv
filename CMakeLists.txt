@@ -191,6 +191,19 @@ if(WITH_LUA)
     else()
         set(LIBS ${LIBS} lua)
     endif()
+    # lua bindings that wrap higher-level modules are conditionally compiled on
+    # HVLUA_WITH_* (kept in sync with Makefile.in): enabled only when both WITH_LUA
+    # and the underlying module are on. Without these, the http/redis/ws/mqtt
+    # binding bodies are #ifdef'd out and hv.http/redis/ws/mqtt silently become nil.
+    if(WITH_EVPP AND WITH_HTTP AND WITH_HTTP_CLIENT)
+        add_definitions(-DHVLUA_WITH_HTTP)
+    endif()
+    if(WITH_EVPP AND WITH_REDIS)
+        add_definitions(-DHVLUA_WITH_REDIS)
+    endif()
+    if(WITH_EVPP AND WITH_MQTT)
+        add_definitions(-DHVLUA_WITH_MQTT)
+    endif()
 endif()
 
 if(WIN32 OR MINGW)
@@ -234,6 +247,15 @@ set(LIBHV_HEADERS ${LIBHV_HEADERS} ${BASE_HEADERS} ${SSL_HEADERS} ${EVENT_HEADER
 if(WITH_PROTOCOL)
     set(LIBHV_HEADERS ${LIBHV_HEADERS} ${PROTOCOL_HEADERS})
     set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} protocol)
+endif()
+
+if(WITH_LUA)
+    set(LIBHV_HEADERS ${LIBHV_HEADERS} lua/hvlua.h lua/hvlua_json.h lua/hvlua_util.h)
+    set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} lua)
+    if(NOT WITH_EVPP)
+        set(LIBHV_HEADERS ${LIBHV_HEADERS} ${CPPUTIL_HEADERS})
+        set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} cpputil)
+    endif()
 endif()
 
 if(WITH_EVPP)

@@ -16,6 +16,15 @@ WebSocketClient::WebSocketClient(EventLoopPtr loop)
 }
 
 WebSocketClient::~WebSocketClient() {
+    // Detach the channel's close callback before teardown. ~TcpClientTmpl (base)
+    // and the channel dtor run ~Channel -> close() -> the onclose lambda, which
+    // was set to [this]{ notifyDisconnectThenReconnect(); } and captures this
+    // TcpClient. During destruction (e.g. a Lua __gc dropping a still-open ws)
+    // that would touch a partially-destroyed object (UAF). Clearing onclose makes
+    // Channel::on_close a no-op (mirrors AsyncHttpClient::~AsyncHttpClient).
+    if (channel) {
+        channel->onclose = NULL;
+    }
     stop();
 }
 

@@ -252,6 +252,28 @@ int parse_confile(const char* confile) {
         }
     }
 
+    // script (Lua)
+    // [script] maps a URL prefix to a directory of scripts, e.g.
+    //   /script/ => examples/lua/
+    // A request to /script/foo runs examples/lua/foo.lua's handle(ctx).
+    // HttpService::Script is only available when built with WITH_LUA.
+#ifdef WITH_LUA
+    auto script_keys = ini.GetKeys("script");
+    for (const auto& script_key : script_keys) {
+        if (script_key.empty() || script_key[0] != '/') continue;
+        str = ini.GetValue(script_key, "script");
+        if (str.empty()) continue;
+        const std::string& path = script_key;
+        std::string script_dir = hv::ltrim(str, "> ");
+        hlogi("script %s => %s", path.c_str(), script_dir.c_str());
+        g_http_service.Script(path.c_str(), script_dir.c_str());
+    }
+#else
+    if (!ini.GetKeys("script").empty()) {
+        hlogw("[script] section ignored: httpd was built without WITH_LUA");
+    }
+#endif
+
     hlogi("parse_confile('%s') OK", confile);
     return 0;
 }
