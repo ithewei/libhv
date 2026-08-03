@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package hv.rpc;
+
+// RPC envelope carried in the Value of a REQUEST/RESPONSE TLV frame.
+message RpcMessage {
+    uint64 id      = 1;   // request/response correlation id
+    string method  = 2;   // "package.Service.Method"
+    int32  status  = 3;   // 0=OK, non-zero=error code (response only)
+    string message = 4;   // error description (response only)
+    bytes  payload = 5;   // serialized user request/response message
+}

@@ -9,7 +9,8 @@
 ├── mqtt/                   MQTT发布订阅示例
 ├── multi-thread/           多线程网络编程示例
 ├── nmap/                   网络扫描工具
-├── protorpc/               protobuf RPC示例
+├── protorpc/               protobuf RPC示例（手写协议头+裸unpack+手写router，教学用）
+├── rpc/                     hrpc示例（TLV+protobuf+protoc-gen-hrpc自动生成stub）
 ├── curl.cpp                HTTP请求工具
 ├── hloop_test.c            事件循环测试代码
 ├── hmain_test.cpp          命令行程序示例代码

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package calc;
+
+message AddRequest {
+    int64 a = 1;
+    int64 b = 2;
+}
+
+message AddReply {
+    int64 result = 1;
+}
+
+service Calc {
+    rpc Add (AddRequest) returns (AddReply);
+    rpc Sub (AddRequest) returns (AddReply);
+}

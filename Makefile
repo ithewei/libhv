@@ -297,6 +297,33 @@ protorpc_server: prepare protorpc_protoc
 		SRCS="examples/protorpc/protorpc_server.cpp examples/protorpc/protorpc.c" \
 		LIBS="protobuf"
 
+# hrpc: TLV-based RPC (rpc/) + protoc-gen-hrpc codegen. Requires protobuf.
+# Override PROTOBUF_PREFIX if protobuf is not under /usr/local (e.g. homebrew: /opt/homebrew).
+# Modern protobuf/abseil headers require C++17, so hrpc sources build at c++17.
+PROTOBUF_PREFIX ?= /usr/local
+HRPC_CXXFLAGS ?= -O2 -fPIC -std=c++17
+hrpc: hrpc_calc_client hrpc_calc_server
+
+hrpc_plugin:
+	bash rpc/protoc-gen-hrpc/build.sh
+
+hrpc_protoc: hrpc_plugin
+	bash examples/rpc/protoc.sh
+
+hrpc_calc_client: prepare hrpc_protoc
+	$(RM) examples/rpc/*.o rpc/*.o
+	$(MAKEF) TARGET=$@ CXXFLAGS="$(HRPC_CXXFLAGS)" SRCDIRS="$(CORE_SRCDIRS) cpputil evpp" \
+		SRCS="examples/rpc/rpc_calc_client.cpp examples/rpc/calc.pb.cc rpc/rpc.pb.cc" \
+		INCDIRS="rpc examples/rpc $(PROTOBUF_PREFIX)/include" LIBDIRS="$(PROTOBUF_PREFIX)/lib" LIBS="protobuf"
+
+hrpc_calc_server: prepare hrpc_protoc
+	$(RM) examples/rpc/*.o rpc/*.o
+	$(MAKEF) TARGET=$@ CXXFLAGS="$(HRPC_CXXFLAGS)" SRCDIRS="$(CORE_SRCDIRS) cpputil evpp" \
+		SRCS="examples/rpc/rpc_calc_server.cpp examples/rpc/calc.pb.cc rpc/rpc.pb.cc" \
+		INCDIRS="rpc examples/rpc $(PROTOBUF_PREFIX)/include" LIBDIRS="$(PROTOBUF_PREFIX)/lib" LIBS="protobuf"
+
+
+
 unittest: prepare libhv
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rbtree_test       unittest/rbtree_test.c        base/rbtree.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hbase_test        unittest/hbase_test.c         base/hbase.c
@@ -324,6 +351,7 @@ unittest: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/objectpool_test   unittest/objectpool_test.cpp  -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -Ihttp/server         -o bin/http_router_test  unittest/http_router_test.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Ievpp -Icpputil -Ihttp -Ihttp/client -Ihttp/server -o bin/sizeof_test unittest/sizeof_test.cpp
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Issl -Ievpp -o bin/tlv_test unittest/tlv_test.cpp
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c  base/hsocket.c base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
