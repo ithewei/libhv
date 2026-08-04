@@ -166,7 +166,12 @@ private:
         if (msgtype != HRPC_RESPONSE) return;
 
         RpcMessage resp;
-        if (!resp.ParseFromArray(tlv.value(), (int)tlv.length())) return;
+        if (!resp.ParseFromArray(tlv.value(), (int)tlv.length())) {
+            // malformed envelope: the stream is out of sync, close so onConnection
+            // fails all in-flight calls promptly instead of waiting for timeouts.
+            if (channel) channel->close();
+            return;
+        }
 
         CallContextPtr ctx;
         {

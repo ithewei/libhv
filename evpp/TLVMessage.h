@@ -31,6 +31,14 @@ typedef struct tlv_setting_s {
 // Max Value length representable by the framing length field (unpacker is 32-bit).
 #define TLV_LENGTH_FIELD_MAX_BYTES  4
 
+// Clamp length_bytes to what the framing unpacker supports, so the codec
+// (TLVMessage pack/unpack) and the unpacker always agree on the width.
+static inline void tlv_setting_normalize(tlv_setting_t* setting) {
+    if (setting->length_bytes > TLV_LENGTH_FIELD_MAX_BYTES) {
+        setting->length_bytes = TLV_LENGTH_FIELD_MAX_BYTES;
+    }
+}
+
 // Fill an unpack_setting_t (UNPACK_BY_LENGTH_FIELD) derived from a tlv_setting_t.
 // length_bytes is clamped to TLV_LENGTH_FIELD_MAX_BYTES because the underlying
 // unpacker cannot frame wider length fields (see event/unpack.c body_len is uint32).

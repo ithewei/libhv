@@ -60,7 +60,12 @@ private:
         if (msgtype != HRPC_REQUEST) return;
 
         RpcMessage req;
-        if (!req.ParseFromArray(tlv.value(), (int)tlv.length())) return;
+        if (!req.ParseFromArray(tlv.value(), (int)tlv.length())) {
+            // malformed envelope: the stream is out of sync, close so the peer's
+            // in-flight calls fail promptly instead of waiting for a timeout.
+            channel->close();
+            return;
+        }
 
         RpcMessage resp;
         resp.set_id(req.id());

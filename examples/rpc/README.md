@@ -61,4 +61,3 @@ protoc --plugin=protoc-gen-hrpc=<plugin> --cpp_out=. --hrpc_out=. calc.proto
 ```
 
 3. Server 继承生成的 `CalcService` 实现纯虚方法；Client 用生成的 `CalcStub` 调用（同步或异步）。
-</content>

@@ -233,5 +233,3 @@ protoc --plugin=protoc-gen-hrpc=./protoc-gen-hrpc \
 **第一版包含**：unary RPC、同步 + 异步调用、service/method 路由、错误传递、超时、心跳（PING/PONG）、优雅关闭（CLOSE）、断线重连。
 
 **暂不包含（后续）**：streaming（server/client/bidi stream）、TLS（后续复用 libhv ssl 层）、Lua 绑定。
-</content>
-</invoke>

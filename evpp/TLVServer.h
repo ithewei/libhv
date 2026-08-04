@@ -29,8 +29,10 @@ public:
     }
 
     // NOTE: call before start(). Reconfigures both the TLV codec and the unpacker.
+    // length_bytes is clamped (framing unpacker is 32-bit) so codec and framing agree.
     void setTLV(const tlv_setting_t* setting) {
         tlv_setting_ = *setting;
+        tlv_setting_normalize(&tlv_setting_);
         // The base setUnpack copies the value into its own storage, so a local is fine.
         unpack_setting_t unpack;
         tlv_unpack_setting(&unpack, &tlv_setting_);
