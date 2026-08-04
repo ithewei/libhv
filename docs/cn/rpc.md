@@ -142,6 +142,10 @@ public:
 
 `RpcService` 是 codegen 生成的服务基类，内部持有 `method -> handler` 表并向 `RpcServer` 注册。收到 REQUEST 帧后，`RpcServer` 解析信封、按 `method` 路由到对应 service，执行后把结果打包成 RESPONSE 帧回写。
 
+> **线程约束（重要）**
+> - `registerService()` 必须在 `start()` **之前**调用：method 表在 IO 线程无锁读取，start 后再注册是数据竞争。
+> - service 方法**同步运行在连接所属的 IO 线程**上，同一连接的所有调用串行执行。慢 handler 会阻塞该 IO 线程上的其它连接。重活请交给自己的工作线程/线程池处理后再回复。
+
 ### RpcClient
 
 ```cpp

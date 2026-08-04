@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    CalcStub stub(&client);
+    calc::CalcStub stub(&client);
 
     // sync call
     {

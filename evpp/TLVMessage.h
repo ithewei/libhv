@@ -31,9 +31,14 @@ typedef struct tlv_setting_s {
 // Max Value length representable by the framing length field (unpacker is 32-bit).
 #define TLV_LENGTH_FIELD_MAX_BYTES  4
 
-// Clamp length_bytes to what the framing unpacker supports, so the codec
-// (TLVMessage pack/unpack) and the unpacker always agree on the width.
+// Clamp T/L widths to what the codec and framing unpacker support:
+//  - type_bytes to TLV_TYPE_MAX_BYTES (the Type buffer is a fixed byte array);
+//    without this, pack/unpack would memcpy past type_[8] -> out-of-bounds.
+//  - length_bytes to TLV_LENGTH_FIELD_MAX_BYTES (the unpacker length field is 32-bit).
 static inline void tlv_setting_normalize(tlv_setting_t* setting) {
+    if (setting->type_bytes > TLV_TYPE_MAX_BYTES) {
+        setting->type_bytes = TLV_TYPE_MAX_BYTES;
+    }
     if (setting->length_bytes > TLV_LENGTH_FIELD_MAX_BYTES) {
         setting->length_bytes = TLV_LENGTH_FIELD_MAX_BYTES;
     }
@@ -115,6 +120,12 @@ public:
     void setValue(const std::string& data) { value_ = data; }
 
     // ---- Codec ----
+    // A setting is usable by the codec only if T/L widths fit the buffers.
+    static bool valid(const tlv_setting_t* setting) {
+        return setting->type_bytes <= TLV_TYPE_MAX_BYTES
+            && setting->length_bytes <= TLV_LENGTH_FIELD_MAX_BYTES;
+    }
+
     // Max Value length representable by a length field of length_bytes.
     static uint64_t maxValueLen(const tlv_setting_t* setting) {
         return (setting->length_bytes >= 8) ? UINT64_MAX
@@ -122,8 +133,9 @@ public:
     }
 
     // Full frame size for the current value under setting; <0 if it can't be
-    // represented (value too big for length_bytes, or frame exceeds INT_MAX).
+    // represented (bad setting, value too big for length_bytes, or > INT_MAX).
     int packSize(const tlv_setting_t* setting) const {
+        if (!valid(setting)) return -1;
         if (value_.size() > maxValueLen(setting)) return -1;
         uint64_t total = (uint64_t)setting->type_bytes + setting->length_bytes + value_.size();
         if (total > 0x7FFFFFFF) return -1;
@@ -150,6 +162,7 @@ public:
 
     // Parse [T|L|V] from buf; Value is copied out. Returns full frame length, or <0.
     int unpack(const void* buf, int len, const tlv_setting_t* setting) {
+        if (!valid(setting)) return -1;   // reject out-of-range T/L widths (no overrun)
         int head = setting->type_bytes + setting->length_bytes;
         if (!buf || len < head) return -1;
         const unsigned char* p = (const unsigned char*)buf;

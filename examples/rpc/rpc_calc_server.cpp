@@ -13,7 +13,7 @@
 
 using namespace hv;
 
-class CalcServiceImpl : public CalcService {
+class CalcServiceImpl : public calc::CalcService {
 public:
     rpc::RpcStatus Add(const calc::AddRequest& req, calc::AddReply* resp) override {
         resp->set_result(req.a() + req.b());

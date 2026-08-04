@@ -89,8 +89,10 @@ static void test_value_too_big() {
     printf("  value too big rejected: OK\n");
 }
 
-// I1: length_bytes > 4 is clamped for the framing unpacker (32-bit length field).
-static void test_length_clamp() {
+// I1: T/L widths beyond limits are clamped by tlv_setting_normalize, and the
+// codec rejects an out-of-range setting instead of overrunning type_[8].
+static void test_width_clamp() {
+    // length_bytes > 4 clamps for the framing unpacker (32-bit length field)
     tlv_setting_t s;
     s.type_bytes = 4;
     s.length_bytes = 8;
@@ -98,7 +100,26 @@ static void test_length_clamp() {
     tlv_unpack_setting(&u, &s);
     assert(u.length_field_bytes == TLV_LENGTH_FIELD_MAX_BYTES);   // clamped to 4
     assert(u.body_offset == 4 + TLV_LENGTH_FIELD_MAX_BYTES);
-    printf("  length_bytes clamp: OK\n");
+
+    // tlv_setting_normalize clamps BOTH type_bytes and length_bytes
+    tlv_setting_t bad;
+    bad.type_bytes = 64;      // > TLV_TYPE_MAX_BYTES
+    bad.length_bytes = 16;    // > TLV_LENGTH_FIELD_MAX_BYTES
+    tlv_setting_normalize(&bad);
+    assert(bad.type_bytes == TLV_TYPE_MAX_BYTES);
+    assert(bad.length_bytes == TLV_LENGTH_FIELD_MAX_BYTES);
+
+    // codec must reject an un-normalized out-of-range setting (no overrun / no crash)
+    tlv_setting_t oversize;
+    oversize.type_bytes = 64;
+    oversize.length_bytes = 4;
+    TLVMessage tlv;
+    tlv.setValue("x", 1);
+    char buf[128];
+    assert(tlv.packSize(&oversize) < 0);
+    assert(tlv.pack(buf, sizeof(buf), &oversize) < 0);
+    assert(tlv.unpack(buf, sizeof(buf), &oversize) < 0);
+    printf("  width clamp + oversize rejected: OK\n");
 }
 
 int main() {
@@ -109,11 +130,12 @@ int main() {
         s.type_bytes = 2; s.length_bytes = 2; s.big_endian = true; test_roundtrip(s);
         s.type_bytes = 1; s.length_bytes = 4; test_roundtrip(s);
         s.type_bytes = 0; s.length_bytes = 4; test_roundtrip(s); // LV only
+        s.type_bytes = 8; s.length_bytes = 4; test_roundtrip(s); // T=8 (hrpc uses this)
     }
     test_type_slicing();
     test_short_buffer();
     test_value_too_big();
-    test_length_clamp();
+    test_width_clamp();
     printf("ALL PASS\n");
     return 0;
 }
