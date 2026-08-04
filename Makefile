@@ -145,17 +145,48 @@ endif
 	$(CP) $(LIBHV_HEADERS) include/hv
 	@echo "make libhv done."
 
+# hrpc = TLV + protobuf, built as a separate library so libhv stays protobuf-free.
+# Requires protobuf; override PROTOBUF_PREFIX if not under /usr/local (homebrew: /opt/homebrew).
+# Modern protobuf/abseil headers require C++17.
+PROTOBUF_PREFIX ?= /usr/local
+HRPC_CXXFLAGS ?= -O2 -fPIC -std=c++17
+libhrpc: libhv
+	bash rpc/protoc-gen-hrpc/build.sh
+	protoc --cpp_out=rpc -Irpc rpc/rpc.proto
+	$(MKDIR) lib
+ifeq ($(BUILD_SHARED), yes)
+	$(MAKEF) TARGET=$@ TARGET_TYPE="SHARED" CXXFLAGS="$(HRPC_CXXFLAGS)" SRCDIRS="rpc" \
+		INCDIRS=". base ssl event cpputil evpp rpc $(PROTOBUF_PREFIX)/include" \
+		LIBDIRS="lib $(PROTOBUF_PREFIX)/lib" LIBS="hv protobuf"
+endif
+ifeq ($(BUILD_STATIC), yes)
+	$(MAKEF) TARGET=$@ TARGET_TYPE="STATIC" CXXFLAGS="$(HRPC_CXXFLAGS)" SRCDIRS="rpc" \
+		INCDIRS=". base ssl event cpputil evpp rpc $(PROTOBUF_PREFIX)/include"
+endif
+	$(MKDIR) include/hv/rpc
+	$(CP) $(RPC_HEADERS) rpc/rpc.pb.h include/hv/rpc
+	@echo "make libhrpc done."
+
 install:
 	$(MKDIR) $(INSTALL_INCDIR)
 	$(MKDIR) $(INSTALL_LIBDIR)
 	$(CP) include/hv/* $(INSTALL_INCDIR)
 	$(CP) lib/libhv.*  $(INSTALL_LIBDIR)
+ifeq ($(WITH_RPC), yes)
+	$(MKDIR) $(INSTALL_INCDIR)/rpc
+	$(CP) include/hv/rpc/* $(INSTALL_INCDIR)/rpc
+	$(CP) lib/libhrpc.*    $(INSTALL_LIBDIR)
+	$(MKDIR) $(PREFIX)/bin
+	$(CP) rpc/protoc-gen-hrpc/protoc-gen-hrpc $(PREFIX)/bin
+endif
 	$(LDCONFIG)
 	@echo "make install done."
 
 uninstall: clean
 	$(RM) $(PREFIX)/include/hv
 	$(RM) $(PREFIX)/lib/libhv.*
+	$(RM) $(PREFIX)/lib/libhrpc.*
+	$(RM) $(PREFIX)/bin/protoc-gen-hrpc
 	@echo "make uninstall done."
 
 hmain_test: prepare
@@ -297,30 +328,27 @@ protorpc_server: prepare protorpc_protoc
 		SRCS="examples/protorpc/protorpc_server.cpp examples/protorpc/protorpc.c" \
 		LIBS="protobuf"
 
-# hrpc: TLV-based RPC (rpc/) + protoc-gen-hrpc codegen. Requires protobuf.
-# Override PROTOBUF_PREFIX if protobuf is not under /usr/local (e.g. homebrew: /opt/homebrew).
-# Modern protobuf/abseil headers require C++17, so hrpc sources build at c++17.
-PROTOBUF_PREFIX ?= /usr/local
-HRPC_CXXFLAGS ?= -O2 -fPIC -std=c++17
+# hrpc examples: build libhrpc (TLV + protobuf RPC library), then link the
+# calc example against it -- exactly how a downstream user consumes hrpc.
+# Override PROTOBUF_PREFIX if protobuf is not under /usr/local (homebrew: /opt/homebrew).
 hrpc: hrpc_calc_client hrpc_calc_server
 
-hrpc_plugin:
-	bash rpc/protoc-gen-hrpc/build.sh
-
-hrpc_protoc: hrpc_plugin
+hrpc_calc_protoc: libhrpc
 	bash examples/rpc/protoc.sh
 
-hrpc_calc_client: prepare hrpc_protoc
-	$(RM) examples/rpc/*.o rpc/*.o
-	$(MAKEF) TARGET=$@ CXXFLAGS="$(HRPC_CXXFLAGS)" SRCDIRS="$(CORE_SRCDIRS) cpputil evpp" \
-		SRCS="examples/rpc/rpc_calc_client.cpp examples/rpc/calc.pb.cc rpc/rpc.pb.cc" \
-		INCDIRS="rpc examples/rpc $(PROTOBUF_PREFIX)/include" LIBDIRS="$(PROTOBUF_PREFIX)/lib" LIBS="protobuf"
+hrpc_calc_client: prepare hrpc_calc_protoc
+	$(RM) examples/rpc/*.o
+	$(MAKEF) TARGET=$@ CXXFLAGS="$(HRPC_CXXFLAGS)" SRCDIRS="include/hv/rpc" \
+		SRCS="examples/rpc/rpc_calc_client.cpp examples/rpc/calc.pb.cc" \
+		INCDIRS="include/hv include/hv/rpc examples/rpc $(PROTOBUF_PREFIX)/include" \
+		LIBDIRS="lib $(PROTOBUF_PREFIX)/lib" LIBS="hrpc hv protobuf"
 
-hrpc_calc_server: prepare hrpc_protoc
-	$(RM) examples/rpc/*.o rpc/*.o
-	$(MAKEF) TARGET=$@ CXXFLAGS="$(HRPC_CXXFLAGS)" SRCDIRS="$(CORE_SRCDIRS) cpputil evpp" \
-		SRCS="examples/rpc/rpc_calc_server.cpp examples/rpc/calc.pb.cc rpc/rpc.pb.cc" \
-		INCDIRS="rpc examples/rpc $(PROTOBUF_PREFIX)/include" LIBDIRS="$(PROTOBUF_PREFIX)/lib" LIBS="protobuf"
+hrpc_calc_server: prepare hrpc_calc_protoc
+	$(RM) examples/rpc/*.o
+	$(MAKEF) TARGET=$@ CXXFLAGS="$(HRPC_CXXFLAGS)" SRCDIRS="include/hv/rpc" \
+		SRCS="examples/rpc/rpc_calc_server.cpp examples/rpc/calc.pb.cc" \
+		INCDIRS="include/hv include/hv/rpc examples/rpc $(PROTOBUF_PREFIX)/include" \
+		LIBDIRS="lib $(PROTOBUF_PREFIX)/lib" LIBS="hrpc hv protobuf"
 
 
 

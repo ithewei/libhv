@@ -19,21 +19,21 @@ make hrpc PROTOBUF_PREFIX=/opt/homebrew
 ```
 
 `make hrpc` 会依次：
-1. 编译插件 `rpc/protoc-gen-hrpc/protoc-gen-hrpc`（`build.sh`，用 pkg-config 解析 protobuf/abseil 依赖）；
-2. 生成 `rpc/rpc.pb.*` 与 `examples/rpc/calc.pb.*` + `examples/rpc/calc.hrpc.h`（`examples/rpc/protoc.sh`）；
-3. 编译 `bin/hrpc_calc_server`、`bin/hrpc_calc_client`。
+1. 构建 `libhrpc`（`make libhrpc`：编译 protoc-gen-hrpc 插件、生成信封 `rpc.pb.*`、编译 RpcClient/RpcServer 成库）；
+2. 用插件生成 `examples/rpc/calc.pb.*` + `calc.hrpc.h`（`examples/rpc/protoc.sh`）；
+3. 编译 `bin/hrpc_calc_server`、`bin/hrpc_calc_client`，**链接 `-lhrpc -lhv -lprotobuf`**。
 
 ### CMake
 
-hrpc 示例默认不构建，用 `-DBUILD_RPC_EXAMPLES=ON` 开启（会 `find_package(Protobuf)` 并在构建期编译插件、生成 stub）：
+hrpc 默认不构建，用 `-DWITH_RPC=ON` 开启（`find_package(Protobuf)`，构建 libhrpc + 插件 + 示例）：
 
 ```bash
-cmake .. -DBUILD_EXAMPLES=ON -DBUILD_RPC_EXAMPLES=ON \
+cmake .. -DWITH_RPC=ON -DBUILD_EXAMPLES=ON \
          -DCMAKE_PREFIX_PATH=/opt/homebrew   # homebrew 环境
-cmake --build . --target hrpc_calc_server hrpc_calc_client
+cmake --build . --target hrpc hrpc_calc_server hrpc_calc_client
 ```
 
-现代 protobuf/abseil 头要求 C++17，故 hrpc 相关源码以 C++17 编译（TLV 三件套本身仍是 C++11、随 evpp 编译）。
+现代 protobuf/abseil 头要求 C++17，故 libhrpc 及示例以 C++17 编译（libhv/TLV 仍是 C++11）。
 
 ## 运行
 

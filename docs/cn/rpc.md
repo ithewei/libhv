@@ -217,14 +217,47 @@ protoc --plugin=protoc-gen-hrpc=./protoc-gen-hrpc \
 
 ---
 
-## 五、构建
+## 五、构建与使用
 
-- TLV 三件套（`evpp/TLVMessage.h` + `TLV{Channel,Client,Server}.h`）不依赖 protobuf，随 evpp 一起编译安装，可被其它二进制协议独立复用。
-- RPC 层依赖 protobuf（`libprotobuf`）与生成代码，作为可选示例构建，不进主库：
-  - Makefile：`make hrpc PROTOBUF_PREFIX=/opt/homebrew`
-  - CMake：`cmake .. -DBUILD_RPC_EXAMPLES=ON`（`find_package(Protobuf)` 后构建插件、生成 stub、编译示例）
-- `protoc-gen-hrpc` 插件依赖 `libprotoc`，单独构建，不进主库。
-- 现代 protobuf/abseil 头要求 C++17，故 RPC 层源码以 C++17 编译；TLV 三件套本身仍是 C++11。
+hrpc 依赖 protobuf，因此**单独编译成 `libhrpc`**，让 `libhv` 本身保持零 protobuf 依赖。三者关系：
+
+```
+用户代码 (含 protoc-gen-hrpc 生成的 xxx.hrpc.h)
+   → libhrpc (RpcClient/RpcServer + rpc.pb 信封)   依赖 protobuf
+   → libhv   (TLV 三件套 + evpp + event...)          零 protobuf
+```
+
+- **TLV 三件套**（`evpp/TLVMessage.h` + `TLV{Channel,Client,Server}.h`）不依赖 protobuf，随 evpp 一起编译安装（`include/hv/`），可被其它二进制协议独立复用。
+- **libhrpc**（可选，默认关）：`RpcClient.cpp`/`RpcServer.cpp` + 信封 `rpc.pb.cc`，链接 libhv + protobuf。头文件安装到 **`include/hv/rpc/`**。
+- **protoc-gen-hrpc** 插件安装到 `bin/`，用户用它生成 service stub。
+- 现代 protobuf/abseil 头要求 C++17，故 libhrpc 以 C++17 编译；libhv/TLV 仍是 C++11。
+
+### 编译 libhrpc
+
+```bash
+# Makefile (homebrew 环境指定 protobuf 前缀)
+./configure --with-rpc
+make libhv && make libhrpc PROTOBUF_PREFIX=/opt/homebrew
+sudo make install WITH_RPC=yes   # 安装 libhrpc + include/hv/rpc + bin/protoc-gen-hrpc
+
+# CMake
+cmake .. -DWITH_RPC=ON -DCMAKE_PREFIX_PATH=/opt/homebrew
+cmake --build . --target hrpc
+```
+
+### 用户使用（基于发布产物）
+
+```bash
+# 1. 用安装的插件生成 stub
+protoc --plugin=protoc-gen-hrpc=$(which protoc-gen-hrpc) \
+       --cpp_out=. --hrpc_out=. myservice.proto
+# 2. 编译链接: -lhrpc -lhv -lprotobuf
+g++ -std=c++17 myapp.cpp myservice.pb.cc \
+    -I<prefix>/include/hv -I<prefix>/include/hv/rpc \
+    -lhrpc -lhv -lprotobuf
+```
+
+代码里 `#include <hv/rpc/RpcClient.h>` + `#include "myservice.hrpc.h"` 即可。
 
 ---
 
