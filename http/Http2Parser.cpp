@@ -205,13 +205,19 @@ void Http2Parser::prepareSendBody() {
     send_off = 0;
     const char* content = (const char*)submited->Content();
     size_t content_length = submited->ContentLength();
-    if (is_grpc && content_length > 0) {
+    if (is_grpc) {
+        // gRPC always carries a length-prefixed message, even for an empty
+        // payload (e.g. google.protobuf.Empty). Emitting the 5-byte header also
+        // keeps send_len > 0 so a data_provider is attached and the stream stays
+        // open for the grpc-status trailer.
         grpc_message_hd msghd;
         msghd.flags = 0;
         msghd.length = (unsigned int)content_length;
         send_body.resize(GRPC_MESSAGE_HDLEN + content_length);
         grpc_message_hd_pack(&msghd, (unsigned char*)&send_body[0]);
-        memcpy(&send_body[GRPC_MESSAGE_HDLEN], content, content_length);
+        if (content_length > 0) {
+            memcpy(&send_body[GRPC_MESSAGE_HDLEN], content, content_length);
+        }
         send_buf = send_body.data();
         send_len = send_body.size();
     } else {

@@ -369,6 +369,7 @@ connect:
             bool is_h2 = (alpn && alpn_len == 2 && memcmp(alpn, "h2", 2) == 0);
             if (!is_h2) {
                 req->http_major = 1;
+                req->http_minor = 1;  // HTTP/1.1, not 1.0 (keep-alive semantics)
                 cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, HTTP_V1));
             }
         }
