@@ -359,18 +359,27 @@ connect:
         }
         CHECK_TIMEOUT
 #ifdef WITH_OPENSSL
-        // If we intended HTTP/2 but the TLS peer did not negotiate "h2" via
-        // ALPN, fall back to HTTP/1.1 so we don't run an h2 parser over an
-        // http/1.1 response. (Only meaningful for https; h2c prior-knowledge
-        // over plaintext keeps http_major==2.)
+        // Reconcile the parser with the ALPN protocol actually negotiated on
+        // this (re)connect. For an intended-h2 https request: use an h2 parser
+        // iff the peer selected "h2", otherwise HTTP/1.1. Correcting in BOTH
+        // directions matters when one http_client_t is reused across hosts --
+        // a stale V1 parser (from a previous non-h2 host) must be upgraded back
+        // to h2 for an h2 host, and vice versa.
         if (https && req->http_major == 2 && cli->ssl) {
             unsigned int alpn_len = 0;
             const char* alpn = hssl_ssl_alpn_selected(cli->ssl, &alpn_len);
             bool is_h2 = (alpn && alpn_len == 2 && memcmp(alpn, "h2", 2) == 0);
-            if (!is_h2) {
+            int want_major = is_h2 ? 2 : 1;
+            if (want_major == 1) {
+                // fall back to HTTP/1.1 (not 1.0: keep-alive semantics)
                 req->http_major = 1;
-                req->http_minor = 1;  // HTTP/1.1, not 1.0 (keep-alive semantics)
-                cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, HTTP_V1));
+                req->http_minor = 1;
+            }
+            // rebuild the parser if it doesn't match the negotiated version
+            if (cli->parser == NULL || cli->http_version != want_major) {
+                cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT,
+                    (http_version)(want_major == 2 ? HTTP_V2 : HTTP_V1)));
+                cli->http_version = want_major;
             }
         }
 #endif

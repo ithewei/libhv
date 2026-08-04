@@ -56,10 +56,16 @@ static ssize_t data_source_read_callback(nghttp2_session *session,
     }
     if (hp->send_off >= hp->send_len) {
         *data_flags |= NGHTTP2_DATA_FLAG_EOF;
-        // gRPC carries the status in trailing HEADERS, so keep the stream open
-        // for the trailer; otherwise nghttp2 sets END_STREAM here.
+        // gRPC carries the status in a trailing HEADERS frame. Keep the stream
+        // open (NO_END_STREAM) and submit the trailer HERE -- nghttp2 requires
+        // the trailer be submitted only after EOF+NO_END_STREAM is set on the
+        // final DATA (submit_trailer may be called from this callback). Doing it
+        // earlier (right after submit_response) makes nghttp2 end the stream with
+        // the trailer and drop the not-yet-produced DATA.
         if (hp->is_grpc && hp->type == HTTP_SERVER) {
             *data_flags |= NGHTTP2_DATA_FLAG_NO_END_STREAM;
+            nghttp2_nv nv = make_nv("grpc-status", "0");
+            nghttp2_submit_trailer(session, stream_id, &nv, 1);
         }
     }
     return (ssize_t)n;
@@ -125,7 +131,9 @@ int Http2Parser::FeedRecvData(const char* data, size_t len) {
         return (int)ret;
     }
     if ((size_t)ret != len) {
-        error = (int)ret;
+        // mem_recv normally consumes all input; a short consume is a protocol
+        // error. Record a real error code (not the byte count) for GetError().
+        error = NGHTTP2_ERR_PROTO;
     }
     return (int)ret;
 }
@@ -283,12 +291,8 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
         error = ret;
         return -1;
     }
-    // gRPC status travels in a trailing HEADERS frame (grpc-status) with
-    // END_STREAM; the data_provider kept the stream open (NO_END_STREAM).
-    if (is_grpc && type == HTTP_SERVER) {
-        nghttp2_nv nv = make_nv("grpc-status", "0");
-        nghttp2_submit_trailer(session, stream_id, &nv, 1);
-    }
+    // NOTE: for gRPC the grpc-status trailer is submitted inside the data
+    // provider read callback (after EOF+NO_END_STREAM), per nghttp2's contract.
     return 0;
 }
 

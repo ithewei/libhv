@@ -3,6 +3,10 @@
 namespace hv {
 
 int HttpResponseWriter::EndHeaders(const char* key /* = NULL */, const char* value /* = NULL */) {
+    // Streaming/incremental HTTP/1 serialization can't produce h2 frames; over
+    // h2 only a one-shot response (End/WriteResponse) is supported. Reject here
+    // instead of writing raw HTTP/1 bytes into the h2 frame stream.
+    if (isHttp2()) return -1;
     if (state != SEND_BEGIN) return -1;
     if (key && value) {
         response->SetHeader(key, value);
@@ -19,6 +23,7 @@ int HttpResponseWriter::EndHeaders(const char* key /* = NULL */, const char* val
 }
 
 int HttpResponseWriter::WriteChunked(const char* buf, int len /* = -1 */) {
+    if (isHttp2()) return -1;   // chunked is HTTP/1-only; not supported over h2
     int ret = 0;
     if (len == -1) len = strlen(buf);
     if (state == SEND_BEGIN) {
@@ -71,6 +76,7 @@ int HttpResponseWriter::WriteResponse(HttpResponse* resp) {
 }
 
 int HttpResponseWriter::SSEvent(const std::string& data, const char* event /* = "message" */) {
+    if (isHttp2()) return -1;   // SSE is a streaming HTTP/1 pattern; not supported over h2
     if (state == SEND_BEGIN) {
         EndHeaders("Content-Type", "text/event-stream");
     }

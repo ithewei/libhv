@@ -85,15 +85,23 @@ bool HttpHandler::Init(int http_version) {
             // Async handlers run on a worker thread but the nghttp2 session is
             // not thread-safe, so the writer posts the h2 response submit back
             // to this io's loop thread (hloop_post_event is thread-safe).
+            // Capture hio_id too: a fd (hence hio_t*) can be reused by a new
+            // connection after close, so verify the id still matches before
+            // touching the handler, otherwise a late post could send this
+            // response over a different connection.
             hio_t* hio = io;
-            writer->onhttp2response = [hio]() {
+            uint32_t hid = hio_id(io);
+            writer->onhttp2response = [hio, hid]() {
                 hloop_t* loop = hevent_loop(hio);
                 hevent_t ev;
                 memset(&ev, 0, sizeof(ev));
                 ev.loop = loop;
                 ev.userdata = hio;
+                ev.event_id = hid;   // carry the captured hio id for validation
                 ev.cb = [](hevent_t* ev) {
                     hio_t* io = (hio_t*)ev->userdata;
+                    // stale post: fd was reused by another connection after close
+                    if (hio_id(io) != ev->event_id) return;
                     // handler is stored as the io userdata; NULL after close.
                     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
                     if (handler && handler->parser) {
