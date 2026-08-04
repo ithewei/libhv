@@ -12,11 +12,11 @@
 - redis client
 - async DNS
 - lua binding
+- hrpc = libhv + protobuf
 
 ## Plan
 
 - js binding
-- hrpc = libhv + protobuf
 - rudp: FEC, ARQ, UDT, QUIC
 - coroutine
 - cppsocket.io

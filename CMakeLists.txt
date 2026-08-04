@@ -18,6 +18,7 @@ option(WITH_HTTP_SERVER "compile http/server" ON)
 option(WITH_HTTP_CLIENT "compile http/client" ON)
 option(WITH_MQTT "compile mqtt" OFF)
 option(WITH_REDIS "compile redis" OFF)
+option(WITH_RPC "compile hrpc (libhrpc, needs protobuf)" OFF)
 
 option(ENABLE_UDS "Unix Domain Socket" OFF)
 option(USE_MULTIMAP "MultiMap" OFF)
@@ -341,6 +342,12 @@ endif()
 
 install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
 install(EXPORT libhvConfig DESTINATION lib/cmake/libhv)
+
+# hrpc: TLV + protobuf RPC, built as a separate library (libhrpc) so libhv
+# stays protobuf-free. See rpc/CMakeLists.txt. Must precede examples (they link hrpc).
+if(WITH_RPC)
+    add_subdirectory(rpc)
+endif()
 
 if(BUILD_SHARED)
     set(HV_LIBRARIES hv CACHE INTERNAL "link hv libraries")

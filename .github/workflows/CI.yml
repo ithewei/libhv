@@ -19,9 +19,11 @@ jobs:
       - name: build
         run: |
           sudo apt update
-          sudo apt install libssl-dev libnghttp2-dev liblua5.4-dev
-          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua
+          sudo apt install libssl-dev libnghttp2-dev liblua5.4-dev libprotobuf-dev libprotoc-dev protobuf-compiler
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua --with-rpc
           make libhv evpp
+          # hrpc = separate libhrpc (needs protobuf); apt installs protobuf under /usr
+          make libhrpc hrpc PROTOBUF_PREFIX=/usr
 
       - name: test
         run: |

@@ -67,6 +67,10 @@ set(EVPP_HEADERS
     evpp/TcpServer.h
     evpp/UdpClient.h
     evpp/UdpServer.h
+    evpp/TLVMessage.h
+    evpp/TLVChannel.h
+    evpp/TLVClient.h
+    evpp/TLVServer.h
 )
 
 set(REDIS_HEADERS

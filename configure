@@ -31,6 +31,7 @@ modules:
   --with-http-server    compile http server module?     (DEFAULT: $WITH_HTTP_SERVER)
   --with-mqtt           compile mqtt module?            (DEFAULT: $WITH_MQTT)
   --with-redis          compile redis module?           (DEFAULT: $WITH_REDIS)
+  --with-rpc            compile hrpc (libhrpc, needs protobuf)? (DEFAULT: $WITH_RPC)
   --with-lua            compile lua module?             (DEFAULT: $WITH_LUA)
 
 features:
