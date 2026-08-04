@@ -57,6 +57,13 @@ int HttpResponseWriter::WriteResponse(HttpResponse* resp) {
         response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
         return 0;
     }
+    // HTTP/2: submit via the handler's nghttp2 session (see End()).
+    if (isHttp2()) {
+        if (resp != response.get()) *response = *resp;
+        end = SEND_END;
+        onhttp2response();
+        return (int)response->body.size();
+    }
     bool is_dump_headers = state == SEND_BEGIN ? true : false;
     std::string msg = resp->Dump(is_dump_headers, true);
     state = SEND_BODY;
@@ -82,6 +89,18 @@ int HttpResponseWriter::End(const char* buf /* = NULL */, int len /* = -1 */) {
 
     if (!isConnected()) {
         return -1;
+    }
+
+    // HTTP/2: the writer can't produce h2 frames. Collect the full body into
+    // response and hand it to the handler's nghttp2 session (on the IO loop).
+    // Streaming methods (WriteChunked/SSE) are not supported over h2.
+    if (isHttp2()) {
+        if (buf) {
+            if (len == -1) len = strlen(buf);
+            response->body.append(buf, len);
+        }
+        onhttp2response();
+        return (int)response->body.size();
     }
 
     int ret = 0;
