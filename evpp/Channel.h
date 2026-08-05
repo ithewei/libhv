@@ -210,8 +210,14 @@ public:
         CLOSED,
     };
     std::atomic<Status>          status;
+    // NOTE: The Buffer* passed to onread/onwrite is only a read-only VIEW over
+    // libhv's internal IO buffer -- it does NOT own the memory. Do not call
+    // mutating methods (resize/copy) on it: they call hv_realloc on a pointer
+    // Buffer does not own and will corrupt memory / crash. To keep the data,
+    // copy it out into your own buffer (e.g. std::string(buf->data(), buf->size())).
     std::function<void(Buffer*)> onread;
     // NOTE: Use Channel::isWriteComplete in onwrite callback to determine whether all data has been written.
+    // See the onread note above: the Buffer* here is also a non-owning view; do not resize/copy it in place.
     std::function<void(Buffer*)> onwrite;
     std::function<void()>        onclose;
     std::shared_ptr<void>        contextPtr_;
