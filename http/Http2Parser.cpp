@@ -64,8 +64,20 @@ static ssize_t data_source_read_callback(nghttp2_session *session,
         // the trailer and drop the not-yet-produced DATA.
         if (hp->is_grpc && hp->type == HTTP_SERVER) {
             *data_flags |= NGHTTP2_DATA_FLAG_NO_END_STREAM;
-            nghttp2_nv nv = make_nv("grpc-status", "0");
-            nghttp2_submit_trailer(session, stream_id, &nv, 1);
+            // grpc-status defaults to 0 (OK); the handler may override it (and
+            // add grpc-message) via resp->headers. nghttp2 copies name/value,
+            // and submited outlives the stream, so c_str() is safe here.
+            HttpResponse* res = (HttpResponse*)hp->submited;
+            auto it = res->headers.find("grpc-status");
+            const char* status = (it != res->headers.end()) ? it->second.c_str() : "0";
+            nghttp2_nv nvs[2];
+            int n = 0;
+            nvs[n++] = make_nv("grpc-status", status);
+            auto mit = res->headers.find("grpc-message");
+            if (mit != res->headers.end()) {
+                nvs[n++] = make_nv("grpc-message", mit->second.c_str());
+            }
+            nghttp2_submit_trailer(session, stream_id, nvs, n);
         }
     }
     return (ssize_t)n;
@@ -269,6 +281,10 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
         }
         if (name == "content-length") {
             // HTTP2 have frame_hd.length
+            continue;
+        }
+        if (name == "grpc-status" || name == "grpc-message") {
+            // trailer-only fields, emitted in the data_provider read callback
             continue;
         }
         nvs.push_back(make_nv2(name.c_str(), value, name.size(), header.second.size()));

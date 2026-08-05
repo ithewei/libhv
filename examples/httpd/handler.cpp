@@ -154,10 +154,15 @@ int Handler::grpc(HttpRequest* req, HttpResponse* resp) {
     }
     // parse protobuf
     // ParseFromString(req->body);
-    // resp->content_type = APPLICATION_GRPC;
+    resp->content_type = APPLICATION_GRPC;
     // serailize protobuf
     // resp->body = SerializeAsString(xxx);
-    response_status(resp, 0, "OK");
+    // gRPC carries the RPC result in the trailing grpc-status (0 = OK); the
+    // HTTP :status stays 200. To report an error, set grpc-status (see the
+    // GRPC_STATUS_* codes in base/herr.h) and optionally grpc-message:
+    //   resp->headers["grpc-status"]  = "5";               // NOT_FOUND
+    //   resp->headers["grpc-message"] = "user not found";  // optional, ASCII
+    resp->headers["grpc-status"] = "0";
     return 200;
 }
 
