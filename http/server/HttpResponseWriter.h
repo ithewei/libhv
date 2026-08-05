@@ -22,7 +22,7 @@ public:
     // one-shot response (End / WriteResponse) is funneled through this hook,
     // which submits the response via the handler's nghttp2 session on the IO
     // loop thread. Streaming (WriteChunked/SSE) over h2 is not supported.
-    std::function<void()> onhttp2response;
+    std::function<void()> submitHttp2Response;
 
     HttpResponseWriter(hio_t* io, const HttpResponsePtr& resp)
         : SocketChannel(io)
@@ -32,7 +32,7 @@ public:
     {}
     ~HttpResponseWriter() {}
 
-    bool isHttp2() const { return (bool)onhttp2response; }
+    bool isHttp2() const { return (bool)submitHttp2Response; }
 
     // Begin -> End
     // Begin -> WriteResponse -> End

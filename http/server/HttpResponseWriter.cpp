@@ -66,7 +66,7 @@ int HttpResponseWriter::WriteResponse(HttpResponse* resp) {
     if (isHttp2()) {
         if (resp != response.get()) *response = *resp;
         end = SEND_END;
-        onhttp2response();
+        submitHttp2Response();
         return (int)response->body.size();
     }
     bool is_dump_headers = state == SEND_BEGIN ? true : false;
@@ -105,7 +105,7 @@ int HttpResponseWriter::End(const char* buf /* = NULL */, int len /* = -1 */) {
             if (len == -1) len = strlen(buf);
             response->body.append(buf, len);
         }
-        onhttp2response();
+        submitHttp2Response();
         return (int)response->body.size();
     }
 

@@ -91,7 +91,7 @@ bool HttpHandler::Init(int http_version) {
             // response over a different connection.
             hio_t* hio = io;
             uint32_t hid = hio_id(io);
-            writer->onhttp2response = [hio, hid]() {
+            writer->submitHttp2Response = [hio, hid]() {
                 hloop_t* loop = hevent_loop(hio);
                 hevent_t ev;
                 memset(&ev, 0, sizeof(ev));
