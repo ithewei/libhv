@@ -31,7 +31,7 @@ public:
         reconn_timer_id = INVALID_TIMER_ID;
         dns_id = INVALID_DNS_ID;
         reconn_success_cnt_ = 0;
-        last_reconn_retries_ = 0;
+        reconn_retry_cnt_ = 0;
     }
 
     virtual ~TcpClientEventLoopTmpl() {
@@ -265,13 +265,12 @@ public:
                 channel->setUnpack(unpack_setting);
             }
             channel->startRead();
-            // A non-zero cur_retry_cnt here means this connection was driven by
-            // auto-reconnect (reconn_setting_can_retry() bumped it before each
-            // attempt). Snapshot the stats before reconn_setting is reset below,
-            // so they stay valid for the whole connection lifetime (onConnection,
-            // and subclass callbacks that fire later such as WebSocketClient::onopen).
-            if (reconn_setting && reconn_setting->cur_retry_cnt > 0) {
-                last_reconn_retries_ = reconn_setting->cur_retry_cnt;
+            // reconn_retry_cnt_ > 0 means this connection was driven by
+            // auto-reconnect (set in startReconnect when the attempt was
+            // scheduled). Count the success here; do NOT touch reconn_retry_cnt_
+            // so isReconnect()/reconnectRetries() stay valid for the whole
+            // connection lifetime, including WebSocketClient::onopen.
+            if (reconn_retry_cnt_ > 0) {
                 ++reconn_success_cnt_;
             }
             if (onConnection) {
@@ -301,6 +300,10 @@ public:
         loop_->assertInLoopThread();
         if (!reconn_setting) return -1;
         if (!reconn_setting_can_retry(reconn_setting)) return -2;
+        // A reconnect attempt is being scheduled: record it now (not only on
+        // success) so isReconnect()/reconnectRetries() are correct even while
+        // the reconnect loop is still failing (e.g. read in onclose).
+        reconn_retry_cnt_ = reconn_setting->cur_retry_cnt;
         uint32_t delay = reconn_setting_calc_delay(reconn_setting);
         hlogi("reconnect... cnt=%d, delay=%d", reconn_setting->cur_retry_cnt, reconn_setting->cur_delay);
         reconn_timer_id = loop_->setTimeout(delay, [this](TimerID timerID){
@@ -359,7 +362,7 @@ public:
             // (Reconfiguring with a non-NULL setting keeps the counts, since
             // that is usually just tuning delay/retry, not a fresh start.)
             reconn_success_cnt_ = 0;
-            last_reconn_retries_ = 0;
+            reconn_retry_cnt_ = 0;
             return;
         }
         if (reconn_setting == NULL) {
@@ -367,27 +370,31 @@ public:
         }
         *reconn_setting = *setting;
     }
-    // Reconnect stats. All are latched at connect time and remain valid for the
-    // whole connection lifetime -- including callbacks that fire later than
-    // onConnection (e.g. WebSocketClient::onopen, after the HTTP upgrade).
-    // They reset to 0 when auto-reconnect is disabled via setReconnect(NULL)
-    // (which closesocket() also does).
+    // Reconnect stats. Updated when an auto-reconnect attempt is scheduled (not
+    // only when it succeeds), so they are correct in every callback -- including
+    // onclose during a still-failing reconnect loop, and callbacks that fire
+    // later than onConnection (e.g. WebSocketClient::onopen, after the HTTP
+    // upgrade). They reset to 0 when auto-reconnect is disabled via
+    // setReconnect(NULL) (which closesocket() also does) or on a fresh start().
     //
-    // isReconnect():           whether the current connection came from
-    //                          auto-reconnect (vs the first connect).
+    // isReconnect():           whether a reconnect cycle has been entered, i.e.
+    //                          the current/last connection attempt was driven by
+    //                          auto-reconnect (true in onclose while retrying and
+    //                          in onopen after a reconnect succeeds).
+    // reconnectRetries():      attempts made in the current reconnect cycle
+    //                          (1 on the first retry, 2 on the next...); mirrors
+    //                          reconn_setting->cur_retry_cnt but survives the
+    //                          reset that happens once a connection succeeds.
     // reconnectSuccessCount(): how many times auto-reconnect has succeeded so
     //                          far (1 on the first reconnect, 2 on the next...).
-    // lastReconnectRetries():  how many failed attempts preceded the current
-    //                          (re)connection, i.e. reconn_setting->cur_retry_cnt
-    //                          captured before it was reset on success.
     bool isReconnect() {
-        return reconn_success_cnt_ > 0;
+        return reconn_retry_cnt_ > 0;
+    }
+    uint32_t reconnectRetries() {
+        return reconn_retry_cnt_;
     }
     uint32_t reconnectSuccessCount() {
         return reconn_success_cnt_;
-    }
-    uint32_t lastReconnectRetries() {
-        return last_reconn_retries_;
     }
 
     void setUnpack(unpack_setting_t* setting) {
@@ -439,7 +446,7 @@ private:
     TimerID         reconn_timer_id;
     DnsID           dns_id;
     uint32_t        reconn_success_cnt_;   // # of successful auto-reconnects (latched)
-    uint32_t        last_reconn_retries_;  // failed attempts before the current connect
+    uint32_t        reconn_retry_cnt_;     // attempts in the current reconnect cycle
 };
 
 template<class TSocketChannel = SocketChannel>
