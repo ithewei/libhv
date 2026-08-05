@@ -30,6 +30,8 @@ public:
         unpack_setting = NULL;
         reconn_timer_id = INVALID_TIMER_ID;
         dns_id = INVALID_DNS_ID;
+        reconn_success_cnt_ = 0;
+        last_reconn_retries_ = 0;
     }
 
     virtual ~TcpClientEventLoopTmpl() {
@@ -263,6 +265,15 @@ public:
                 channel->setUnpack(unpack_setting);
             }
             channel->startRead();
+            // A non-zero cur_retry_cnt here means this connection was driven by
+            // auto-reconnect (reconn_setting_can_retry() bumped it before each
+            // attempt). Snapshot the stats before reconn_setting is reset below,
+            // so they stay valid for the whole connection lifetime (onConnection,
+            // and subclass callbacks that fire later such as WebSocketClient::onopen).
+            if (reconn_setting && reconn_setting->cur_retry_cnt > 0) {
+                last_reconn_retries_ = reconn_setting->cur_retry_cnt;
+                ++reconn_success_cnt_;
+            }
             if (onConnection) {
                 onConnection(channel);
             }
@@ -343,6 +354,12 @@ public:
         if (setting == NULL) {
             cancelReconnectTimer();
             HV_FREE(reconn_setting);
+            // Disabling auto-reconnect ends the reconnect lifecycle, so clear
+            // the stats. This also covers closesocket(), which calls this.
+            // (Reconfiguring with a non-NULL setting keeps the counts, since
+            // that is usually just tuning delay/retry, not a fresh start.)
+            reconn_success_cnt_ = 0;
+            last_reconn_retries_ = 0;
             return;
         }
         if (reconn_setting == NULL) {
@@ -350,8 +367,27 @@ public:
         }
         *reconn_setting = *setting;
     }
+    // Reconnect stats. All are latched at connect time and remain valid for the
+    // whole connection lifetime -- including callbacks that fire later than
+    // onConnection (e.g. WebSocketClient::onopen, after the HTTP upgrade).
+    // They reset to 0 when auto-reconnect is disabled via setReconnect(NULL)
+    // (which closesocket() also does).
+    //
+    // isReconnect():           whether the current connection came from
+    //                          auto-reconnect (vs the first connect).
+    // reconnectSuccessCount(): how many times auto-reconnect has succeeded so
+    //                          far (1 on the first reconnect, 2 on the next...).
+    // lastReconnectRetries():  how many failed attempts preceded the current
+    //                          (re)connection, i.e. reconn_setting->cur_retry_cnt
+    //                          captured before it was reset on success.
     bool isReconnect() {
-        return reconn_setting && reconn_setting->cur_retry_cnt > 0;
+        return reconn_success_cnt_ > 0;
+    }
+    uint32_t reconnectSuccessCount() {
+        return reconn_success_cnt_;
+    }
+    uint32_t lastReconnectRetries() {
+        return last_reconn_retries_;
     }
 
     void setUnpack(unpack_setting_t* setting) {
@@ -399,10 +435,11 @@ private:
         }
     }
 
-private:
     EventLoopPtr    loop_;
     TimerID         reconn_timer_id;
     DnsID           dns_id;
+    uint32_t        reconn_success_cnt_;   // # of successful auto-reconnects (latched)
+    uint32_t        last_reconn_retries_;  // failed attempts before the current connect
 };
 
 template<class TSocketChannel = SocketChannel>
