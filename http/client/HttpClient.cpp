@@ -22,7 +22,8 @@ using namespace hv;
 struct http_client_s {
     std::string  host;
     int          port;
-    int          https;
+    unsigned char https;         // 0/1
+    unsigned char http_version;  // intended HTTP version for the next connect (1 or 2)
     int          timeout; // s
     http_headers headers;
     // http_proxy
@@ -43,7 +44,6 @@ struct http_client_s {
     hssl_t          ssl;
     hssl_ctx_t      ssl_ctx;
     bool            alloced_ssl_ctx;
-    int             http_version;   // intended HTTP version for the next connect (1 or 2)
     HttpParserPtr   parser;
     // for async
     std::mutex                              mutex_;
@@ -94,7 +94,7 @@ http_client_t* http_client_new(const char* host, int port, int https) {
     http_client_t* cli = new http_client_t;
     if (host) cli->host = host;
     cli->port = port;
-    cli->https = https;
+    cli->https = https ? 1 : 0;
     cli->headers["Connection"] = "keep-alive";
     return cli;
 }
