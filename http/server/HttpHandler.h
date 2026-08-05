@@ -116,7 +116,7 @@ public:
 
     int SendHttpResponse(bool submit = true);
     // HTTP/2: flush nghttp2's queued frames (ACKs, WINDOW_UPDATE, deferred DATA)
-    int flushHttp2Send();
+    int flushHttp2();
     int SendHttpStatusResponse(http_status status_code);
 
     // HTTP2

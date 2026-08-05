@@ -791,7 +791,7 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
         // control until the peer's WINDOW_UPDATE just arrived. Without this a
         // response body larger than the stream window (64KB) would stall.
         if (protocol == HttpHandler::HTTP_V2) {
-            flushHttp2Send();
+            flushHttp2();
         }
         break;
     case HttpHandler::WEBSOCKET:
@@ -928,7 +928,7 @@ int HttpHandler::SendHttpResponse(bool submit) {
 // Flush any frames nghttp2 has queued (ACKs, WINDOW_UPDATE, flow-controlled
 // DATA). Drives the parser directly (no HttpHandler send-state machine) so it
 // is safe to call from the recv path. HTTP/2 only.
-int HttpHandler::flushHttp2Send() {
+int HttpHandler::flushHttp2() {
     if (!io || !parser) return 0;
     char* data = NULL;
     size_t len = 0, total_len = 0;
