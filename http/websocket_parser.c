@@ -142,7 +142,8 @@ size_t websocket_parser_execute(websocket_parser *parser, const websocket_parser
                 break;
             case s_body:
                 if(parser->require) {
-                    if(p + parser->require <= end) {
+                    // size_t-safe check: `p + require` can overflow/wrap for a huge require.
+                    if(parser->require <= (size_t)(end - p)) {
                         EMIT_DATA_CB(frame_body, p, parser->require);
                         p += parser->require;
                         parser->require = 0;
