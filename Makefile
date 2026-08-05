@@ -441,6 +441,7 @@ evpp: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/TcpClientEventLoop_test  evpp/TcpClientEventLoop_test.cpp  -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/UdpServer_test           evpp/UdpServer_test.cpp           -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/UdpClient_test           evpp/UdpClient_test.cpp           -Llib -lhv -pthread
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/UdpMulticast_test        evpp/UdpMulticast_test.cpp        -Llib -lhv -pthread
 
 # UNIX only
 webbench: prepare

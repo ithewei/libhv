@@ -210,6 +210,81 @@ HV_INLINE int udp_broadcast(int sockfd, int on DEFAULT(1)) {
     return setsockopt(sockfd, SOL_SOCKET, SO_BROADCAST, (const char*)&on, sizeof(int));
 }
 
+// Some platforms spell the IPv6 group options IPV6_JOIN_GROUP/IPV6_LEAVE_GROUP,
+// others IPV6_ADD_MEMBERSHIP/IPV6_DROP_MEMBERSHIP; they are the same option.
+#if !defined(IPV6_ADD_MEMBERSHIP) && defined(IPV6_JOIN_GROUP)
+#define IPV6_ADD_MEMBERSHIP     IPV6_JOIN_GROUP
+#endif
+#if !defined(IPV6_DROP_MEMBERSHIP) && defined(IPV6_LEAVE_GROUP)
+#define IPV6_DROP_MEMBERSHIP    IPV6_LEAVE_GROUP
+#endif
+
+// UDP multicast: join/leave a multicast group.
+// v4: local_host is the local interface IPv4 address (NULL/"0.0.0.0" = any).
+// v6: ifindex is the interface index (0 = default), see if_nametoindex().
+HV_INLINE int udp_multicast_join4(int sockfd, const char* group, const char* local_host DEFAULT(NULL)) {
+    struct ip_mreq mreq;
+    memset(&mreq, 0, sizeof(mreq));
+    mreq.imr_multiaddr.s_addr = inet_addr(group);
+    mreq.imr_interface.s_addr = (local_host && *local_host) ? inet_addr(local_host) : htonl(INADDR_ANY);
+    return setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+}
+HV_INLINE int udp_multicast_leave4(int sockfd, const char* group, const char* local_host DEFAULT(NULL)) {
+    struct ip_mreq mreq;
+    memset(&mreq, 0, sizeof(mreq));
+    mreq.imr_multiaddr.s_addr = inet_addr(group);
+    mreq.imr_interface.s_addr = (local_host && *local_host) ? inet_addr(local_host) : htonl(INADDR_ANY);
+    return setsockopt(sockfd, IPPROTO_IP, IP_DROP_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+}
+HV_INLINE int udp_multicast_join6(int sockfd, const char* group, unsigned int ifindex DEFAULT(0)) {
+    struct ipv6_mreq mreq;
+    memset(&mreq, 0, sizeof(mreq));
+    if (inet_pton(AF_INET6, group, &mreq.ipv6mr_multiaddr) != 1) return -1;
+    mreq.ipv6mr_interface = ifindex;
+    return setsockopt(sockfd, IPPROTO_IPV6, IPV6_ADD_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+}
+HV_INLINE int udp_multicast_leave6(int sockfd, const char* group, unsigned int ifindex DEFAULT(0)) {
+    struct ipv6_mreq mreq;
+    memset(&mreq, 0, sizeof(mreq));
+    if (inet_pton(AF_INET6, group, &mreq.ipv6mr_multiaddr) != 1) return -1;
+    mreq.ipv6mr_interface = ifindex;
+    return setsockopt(sockfd, IPPROTO_IPV6, IPV6_DROP_MEMBERSHIP, (const char*)&mreq, sizeof(mreq));
+}
+
+// Family-agnostic multicast join/leave: dispatches to the v4/v6 variant by
+// detecting an IPv6 group address (contains ':'). For IPv4 groups, local_iface
+// is the local interface IPv4 address (NULL/"0.0.0.0" = any); it is ignored for
+// IPv6 groups (which use the default interface, ifindex 0).
+HV_INLINE int udp_multicast_join(int sockfd, const char* group, const char* local_iface DEFAULT(NULL)) {
+    if (strchr(group, ':')) return udp_multicast_join6(sockfd, group, 0);
+    return udp_multicast_join4(sockfd, group, local_iface);
+}
+HV_INLINE int udp_multicast_leave(int sockfd, const char* group, const char* local_iface DEFAULT(NULL)) {
+    if (strchr(group, ':')) return udp_multicast_leave6(sockfd, group, 0);
+    return udp_multicast_leave4(sockfd, group, local_iface);
+}
+
+// UDP multicast sender options.
+// udp_multicast_set_if4: choose the local interface (by IPv4 address) that
+//   outgoing multicast datagrams egress from.
+// udp_multicast_set_ttl: multicast hop limit (1 = same subnet, default OS is 1).
+// udp_multicast_set_loop: whether the sender also receives its own datagrams
+//   on the same host (on = 1, off = 0).
+HV_INLINE int udp_multicast_set_if4(int sockfd, const char* local_iface) {
+    struct in_addr addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.s_addr = (local_iface && *local_iface) ? inet_addr(local_iface) : htonl(INADDR_ANY);
+    return setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_IF, (const char*)&addr, sizeof(addr));
+}
+HV_INLINE int udp_multicast_set_ttl(int sockfd, int ttl) {
+    unsigned char v = (unsigned char)ttl;
+    return setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_TTL, (const char*)&v, sizeof(v));
+}
+HV_INLINE int udp_multicast_set_loop(int sockfd, int on DEFAULT(1)) {
+    unsigned char v = (unsigned char)on;
+    return setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, (const char*)&v, sizeof(v));
+}
+
 HV_INLINE int ip_v6only(int sockfd, int on DEFAULT(1)) {
 #ifdef IPV6_V6ONLY
     return setsockopt(sockfd, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&on, sizeof(int));
