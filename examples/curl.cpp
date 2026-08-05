@@ -271,7 +271,9 @@ int main(int argc, char* argv[]) {
             }
         } else if (state == HP_BODY) {
             if (data && size) {
-                printf("%.*s", (int)size, data);
+                // write raw bytes (body may be binary, e.g. an image, so it can
+                // contain NUL -- printf("%s") would truncate at the first NUL).
+                fwrite(data, 1, size, stdout);
                 // This program no need to save data to body.
                 // res->body.append(data, size);
             }
