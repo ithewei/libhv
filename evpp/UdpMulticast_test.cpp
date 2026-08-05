@@ -57,7 +57,7 @@ static int run_send(const char* group, int port, const char* iface) {
         return -20;
     }
     if (iface) udp_multicast_set_if4(sockfd, iface);
-    udp_multicast_set_loop(sockfd, 1);  // let same-host receivers get our datagrams
+    udp_multicast_set_loop4(sockfd, 1);  // let same-host receivers get our datagrams
     cli->start();
     printf("send: type a line to multicast to %s:%d ('quit' to exit)\n", group, port);
     std::string line;
