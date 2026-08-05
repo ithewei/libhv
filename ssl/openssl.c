@@ -213,7 +213,7 @@ int hssl_set_alpn_protos(hssl_t ssl, const unsigned char* protos, unsigned int p
 
 // Return the ALPN protocol negotiated on this connection (e.g. "h2"), or NULL.
 // Caller must not free the returned pointer; it is owned by the SSL object.
-const char* hssl_ssl_alpn_selected(hssl_t ssl, unsigned int* len) {
+const char* hssl_get_alpn_proto(hssl_t ssl, unsigned int* len) {
     const unsigned char* proto = NULL;
     unsigned int proto_len = 0;
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation

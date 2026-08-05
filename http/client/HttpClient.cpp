@@ -368,7 +368,7 @@ connect:
         // to h2 for an h2 host, and vice versa.
         if (https && req->http_major == 2 && cli->ssl) {
             unsigned int alpn_len = 0;
-            const char* alpn = hssl_ssl_alpn_selected(cli->ssl, &alpn_len);
+            const char* alpn = hssl_get_alpn_proto(cli->ssl, &alpn_len);
             bool is_h2 = (alpn && alpn_len == 2 && memcmp(alpn, "h2", 2) == 0);
             int want_major = is_h2 ? 2 : 1;
             if (want_major == 1) {
