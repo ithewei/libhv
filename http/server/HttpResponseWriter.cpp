@@ -3,6 +3,10 @@
 namespace hv {
 
 int HttpResponseWriter::EndHeaders(const char* key /* = NULL */, const char* value /* = NULL */) {
+    // Streaming/incremental HTTP/1 serialization can't produce h2 frames; over
+    // h2 only a one-shot response (End/WriteResponse) is supported. Reject here
+    // instead of writing raw HTTP/1 bytes into the h2 frame stream.
+    if (isHttp2()) return -1;
     if (state != SEND_BEGIN) return -1;
     if (key && value) {
         response->SetHeader(key, value);
@@ -19,6 +23,7 @@ int HttpResponseWriter::EndHeaders(const char* key /* = NULL */, const char* val
 }
 
 int HttpResponseWriter::WriteChunked(const char* buf, int len /* = -1 */) {
+    if (isHttp2()) return -1;   // chunked is HTTP/1-only; not supported over h2
     int ret = 0;
     if (len == -1) len = strlen(buf);
     if (state == SEND_BEGIN) {
@@ -57,6 +62,13 @@ int HttpResponseWriter::WriteResponse(HttpResponse* resp) {
         response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
         return 0;
     }
+    // HTTP/2: submit via the handler's nghttp2 session (see End()).
+    if (isHttp2()) {
+        if (resp != response.get()) *response = *resp;
+        end = SEND_END;
+        submitHttp2Response();
+        return (int)response->body.size();
+    }
     bool is_dump_headers = state == SEND_BEGIN ? true : false;
     std::string msg = resp->Dump(is_dump_headers, true);
     state = SEND_BODY;
@@ -64,6 +76,7 @@ int HttpResponseWriter::WriteResponse(HttpResponse* resp) {
 }
 
 int HttpResponseWriter::SSEvent(const std::string& data, const char* event /* = "message" */) {
+    if (isHttp2()) return -1;   // SSE is a streaming HTTP/1 pattern; not supported over h2
     if (state == SEND_BEGIN) {
         EndHeaders("Content-Type", "text/event-stream");
     }
@@ -82,6 +95,18 @@ int HttpResponseWriter::End(const char* buf /* = NULL */, int len /* = -1 */) {
 
     if (!isConnected()) {
         return -1;
+    }
+
+    // HTTP/2: the writer can't produce h2 frames. Collect the full body into
+    // response and hand it to the handler's nghttp2 session (on the IO loop).
+    // Streaming methods (WriteChunked/SSE) are not supported over h2.
+    if (isHttp2()) {
+        if (buf) {
+            if (len == -1) len = strlen(buf);
+            response->body.append(buf, len);
+        }
+        submitHttp2Response();
+        return (int)response->body.size();
     }
 
     int ret = 0;

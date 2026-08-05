@@ -145,6 +145,16 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
             channel->close();
             return;
         }
+        // HTTP2: flush frames nghttp2 queued while consuming input (SETTINGS/
+        // PING ACK, WINDOW_UPDATE, and request-body DATA deferred by flow
+        // control until the peer's WINDOW_UPDATE arrived).
+        if (ctx->task->req->http_major == 2 && ctx->parser->WantSend()) {
+            char* sdata = NULL;
+            size_t slen = 0;
+            while (ctx->parser->GetSendData(&sdata, &slen) > 0) {
+                if (sdata && slen) channel->write(sdata, slen);
+            }
+        }
         if (ctx->parser->IsComplete()) {
             auto& req = ctx->task->req;
             auto& resp = ctx->resp;

@@ -22,7 +22,8 @@ using namespace hv;
 struct http_client_s {
     std::string  host;
     int          port;
-    int          https;
+    unsigned char https;         // 0/1
+    unsigned char http_version;  // intended HTTP version for the next connect (1 or 2)
     int          timeout; // s
     http_headers headers;
     // http_proxy
@@ -63,6 +64,7 @@ struct http_client_s {
         ssl = NULL;
         ssl_ctx = NULL;
         alloced_ssl_ctx = false;
+        http_version = 1;
     }
 
     ~http_client_s() {
@@ -92,7 +94,7 @@ http_client_t* http_client_new(const char* host, int port, int https) {
     http_client_t* cli = new http_client_t;
     if (host) cli->host = host;
     cli->port = port;
-    cli->https = https;
+    cli->https = https ? 1 : 0;
     cli->headers["Connection"] = "keep-alive";
     return cli;
 }
@@ -242,6 +244,17 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
         if (!is_ipaddr(host)) {
             hssl_set_sni_hostname(cli->ssl, host);
         }
+#ifdef WITH_OPENSSL
+        // Offer ALPN "h2" only when HTTP/2 is intended, so an h2-capable server
+        // negotiates it (real https servers require ALPN, not prior-knowledge).
+        // Set it per-connection on the SSL object (not the shared ctx), so it
+        // works with any ctx source (user/global/allocated) and never leaks h2
+        // into other clients or http/1.1 requests.
+        if (cli->http_version == 2) {
+            static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1";
+            hssl_set_alpn_protos(cli->ssl, s_alpn_protos, sizeof(s_alpn_protos) - 1);
+        }
+#endif
         unsigned int elapsed = gettick_ms() - start_time;
         int ssl_timeout = blocktime - (int)elapsed;
         if (ssl_timeout <= 0) {
@@ -339,12 +352,38 @@ static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* 
     if (connfd <= 0 || cli->host != req->host || cli->port != req->port) {
         cli->host = req->host;
         cli->port = req->port;
+        cli->http_version = req->http_major;  // gates the ALPN "h2" offer in connect
 connect:
         connfd = http_client_connect(cli, req->host.c_str(), req->port, https, connect_timeout);
         if (connfd < 0) {
             return connfd;
         }
         CHECK_TIMEOUT
+#ifdef WITH_OPENSSL
+        // Reconcile the parser with the ALPN protocol actually negotiated on
+        // this (re)connect. For an intended-h2 https request: use an h2 parser
+        // iff the peer selected "h2", otherwise HTTP/1.1. Correcting in BOTH
+        // directions matters when one http_client_t is reused across hosts --
+        // a stale V1 parser (from a previous non-h2 host) must be upgraded back
+        // to h2 for an h2 host, and vice versa.
+        if (https && req->http_major == 2 && cli->ssl) {
+            unsigned int alpn_len = 0;
+            const char* alpn = hssl_get_alpn_proto(cli->ssl, &alpn_len);
+            bool is_h2 = (alpn && alpn_len == 2 && memcmp(alpn, "h2", 2) == 0);
+            int want_major = is_h2 ? 2 : 1;
+            if (want_major == 1) {
+                // fall back to HTTP/1.1 (not 1.0: keep-alive semantics)
+                req->http_major = 1;
+                req->http_minor = 1;
+            }
+            // rebuild the parser if it doesn't match the negotiated version
+            if (cli->parser == NULL || cli->http_version != want_major) {
+                cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT,
+                    (http_version)(want_major == 2 ? HTTP_V2 : HTTP_V1)));
+                cli->http_version = want_major;
+            }
+        }
+#endif
     }
 
     cli->parser->SubmitRequest(req);
@@ -404,6 +443,24 @@ recv:
         int nparse = cli->parser->FeedRecvData(recvbuf, nrecv);
         if (nparse != nrecv) {
             return ERR_PARSE;
+        }
+        // HTTP2: flush frames nghttp2 queued while consuming this input --
+        // WINDOW_UPDATE (as we consume the response body), SETTINGS/PING ACK,
+        // and request-body DATA that was deferred by flow control. Drain inline
+        // (must NOT jump back to the `send:` label, which would re-run
+        // InitResponse and wipe the accumulated response body).
+        if (req->http_major == 2) {
+            char* sdata = NULL;
+            size_t slen = 0;
+            while (cli->parser->GetSendData(&sdata, &slen) > 0) {
+                if (req->cancel) goto disconnect;
+                total_nsend = 0;
+                while (total_nsend < (int)slen) {
+                    nsend = http_client_send_data(cli, sdata + total_nsend, slen - total_nsend);
+                    if (nsend <= 0) goto disconnect;
+                    total_nsend += nsend;
+                }
+            }
         }
     } while(!cli->parser->IsComplete());
 

@@ -81,6 +81,39 @@ bool HttpHandler::Init(int http_version) {
         tid = hloop_tid(loop);
         writer = std::make_shared<HttpResponseWriter>(io, resp);
         writer->status = hv::SocketChannel::CONNECTED;
+        if (protocol == HTTP_V2) {
+            // Async handlers run on a worker thread but the nghttp2 session is
+            // not thread-safe, so the writer posts the h2 response submit back
+            // to this io's loop thread (hloop_post_event is thread-safe).
+            // Capture hio_id too: a fd (hence hio_t*) can be reused by a new
+            // connection after close, so verify the id still matches before
+            // touching the handler, otherwise a late post could send this
+            // response over a different connection.
+            hio_t* hio = io;
+            uint32_t hid = hio_id(io);
+            writer->submitHttp2Response = [hio, hid]() {
+                hloop_t* loop = hevent_loop(hio);
+                hevent_t ev;
+                memset(&ev, 0, sizeof(ev));
+                ev.loop = loop;
+                ev.userdata = hio;
+                ev.event_id = hid;   // carry the captured hio id for validation
+                ev.cb = [](hevent_t* ev) {
+                    hio_t* io = (hio_t*)ev->userdata;
+                    // stale post: fd was reused by another connection after close
+                    if (hio_id(io) != ev->event_id) return;
+                    // handler is stored as the io userdata; NULL after close.
+                    HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
+                    if (handler && handler->parser) {
+                        // async left state at HANDLE_CONTINUE; move to WANT_SEND
+                        // so GetSendData drives the h2 send instead of bailing.
+                        handler->state = WANT_SEND;
+                        handler->SendHttpResponse();
+                    }
+                };
+                hloop_post_event(loop, &ev);
+            };
+        }
     } else {
         pid = hv_getpid();
         tid = hv_gettid();
@@ -752,6 +785,19 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
             hloge("[%s:%d] http parse error: %s", ip, port, parser->StrError(parser->GetError()));
             error = ERR_PARSE;
             return -1;
+        }
+        // HTTP2: flush frames nghttp2 queued while consuming this input --
+        // SETTINGS/PING ACK, WINDOW_UPDATE, and DATA that was deferred by flow
+        // control until the peer's WINDOW_UPDATE just arrived. Without this a
+        // response body larger than the stream window (64KB) would stall.
+        // Drives the parser directly (not the send-state machine) so it is safe
+        // on the recv path.
+        if (protocol == HttpHandler::HTTP_V2 && io && parser) {
+            char* sdata = NULL;
+            size_t slen = 0;
+            while (parser->GetSendData(&sdata, &slen) > 0) {
+                if (sdata && slen) hio_write(io, sdata, slen);
+            }
         }
         break;
     case HttpHandler::WEBSOCKET:

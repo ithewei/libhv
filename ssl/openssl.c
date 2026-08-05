@@ -188,16 +188,39 @@ static int hssl_ctx_alpn_select_cb(SSL *ssl,
 
 int hssl_ctx_set_alpn_protos(hssl_ctx_t ssl_ctx, const unsigned char* protos, unsigned int protos_len) {
     int ret = -1;
-    // printf("hssl_ctx_set_alpn_protos(%.*s:%u)\n", protos_len, protos, protos_len);
+    // Server-side ALPN: select from the client's offer against this list.
+    // protos is ALPN wire format (length-prefixed) and must be NUL-terminated,
+    // because the select callback derives its length via strlen (the OpenSSL
+    // select-cb API passes no length).
+    (void)protos_len;
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
-    // for HSSL_CLIENT
-    // ret = SSL_CTX_set_alpn_protos((SSL_CTX*)ssl_ctx, (const unsigned char*)protos, protos_len);
-
-    // for HSSL_SERVER
     SSL_CTX_set_alpn_select_cb((SSL_CTX*)ssl_ctx, hssl_ctx_alpn_select_cb, (void*)protos);
     ret = 0;
 #endif
     return ret;
+}
+
+// Client-side ALPN, set per-connection on the SSL object (not the shared ctx),
+// so offering "h2" for one request never leaks into other clients / requests.
+int hssl_set_alpn_protos(hssl_t ssl, const unsigned char* protos, unsigned int protos_len) {
+    int ret = -1;
+#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
+    // returns 0 on success, non-zero on failure (bad wire format, etc.)
+    ret = SSL_set_alpn_protos((SSL*)ssl, protos, protos_len) == 0 ? 0 : -1;
+#endif
+    return ret;
+}
+
+// Return the ALPN protocol negotiated on this connection (e.g. "h2"), or NULL.
+// Caller must not free the returned pointer; it is owned by the SSL object.
+const char* hssl_get_alpn_proto(hssl_t ssl, unsigned int* len) {
+    const unsigned char* proto = NULL;
+    unsigned int proto_len = 0;
+#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
+    SSL_get0_alpn_selected((SSL*)ssl, &proto, &proto_len);
+#endif
+    if (len) *len = proto_len;
+    return (const char*)proto;
 }
 
 #endif // WITH_OPENSSL
