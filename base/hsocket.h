@@ -300,8 +300,6 @@ HV_INLINE int udp_multicast_leave(int sockfd, const char* group, const char* loc
     return udp_multicast_leave4(sockfd, group, local_iface);
 }
 
-#endif // HV_HAVE_MULTICAST
-
 // UDP multicast sender options. Each is guarded with #ifdef and returns -1 when
 // the option is unavailable on the platform.
 // _if:   choose the local egress interface. v4 takes the interface IPv4 address
@@ -382,6 +380,8 @@ HV_INLINE int udp_multicast_set_loop(int sockfd, int on DEFAULT(1)) {
     if (ss.ss_family == AF_INET6) return udp_multicast_set_loop6(sockfd, on);
     return udp_multicast_set_loop4(sockfd, on);
 }
+
+#endif // HV_HAVE_MULTICAST
 
 HV_INLINE int ip_v6only(int sockfd, int on DEFAULT(1)) {
 #ifdef IPV6_V6ONLY
