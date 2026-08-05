@@ -790,8 +790,14 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
         // SETTINGS/PING ACK, WINDOW_UPDATE, and DATA that was deferred by flow
         // control until the peer's WINDOW_UPDATE just arrived. Without this a
         // response body larger than the stream window (64KB) would stall.
-        if (protocol == HttpHandler::HTTP_V2) {
-            flushHttp2();
+        // Drives the parser directly (not the send-state machine) so it is safe
+        // on the recv path.
+        if (protocol == HttpHandler::HTTP_V2 && io && parser) {
+            char* sdata = NULL;
+            size_t slen = 0;
+            while (parser->GetSendData(&sdata, &slen) > 0) {
+                if (sdata && slen) hio_write(io, sdata, slen);
+            }
         }
         break;
     case HttpHandler::WEBSOCKET:
@@ -917,22 +923,6 @@ int HttpHandler::SendHttpResponse(bool submit) {
     if (submit) parser->SubmitResponse(resp.get());
     while (GetSendData(&data, &len)) {
         // printf("GetSendData %d\n", (int)len);
-        if (data && len) {
-            hio_write(io, data, len);
-            total_len += len;
-        }
-    }
-    return total_len;
-}
-
-// Flush any frames nghttp2 has queued (ACKs, WINDOW_UPDATE, flow-controlled
-// DATA). Drives the parser directly (no HttpHandler send-state machine) so it
-// is safe to call from the recv path. HTTP/2 only.
-int HttpHandler::flushHttp2() {
-    if (!io || !parser) return 0;
-    char* data = NULL;
-    size_t len = 0, total_len = 0;
-    while (parser->GetSendData(&data, &len) > 0) {
         if (data && len) {
             hio_write(io, data, len);
             total_len += len;
