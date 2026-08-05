@@ -254,6 +254,12 @@ else
 ifeq ($(LINK_RT), )
 	LDFLAGS += -lrt
 endif
+	# Some platforms (e.g. 32-bit ARM / Raspberry Pi) need -latomic for 64-bit
+	# atomics; only link it when the toolchain accepts it. See issue #384.
+	LINK_ATOMIC=$(shell echo "int main(){return 0;}" | $(CC) -x c - -latomic 2>&1)
+ifeq ($(LINK_ATOMIC), )
+	LDFLAGS += -latomic
+endif
 endif
 endif
 

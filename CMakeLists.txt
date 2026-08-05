@@ -224,6 +224,12 @@ elseif(UNIX AND NOT MINGW)
     if(RT_LIBRARY)
         set(LIBS ${LIBS} rt)
     endif()
+    # Some platforms (e.g. 32-bit ARM / Raspberry Pi) need libatomic for
+    # 64-bit atomics; link it only when available. See issue #384.
+    find_library(ATOMIC_LIBRARY atomic)
+    if(ATOMIC_LIBRARY)
+        set(LIBS ${LIBS} atomic)
+    endif()
 endif()
 
 if(APPLE)
