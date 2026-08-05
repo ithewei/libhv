@@ -236,16 +236,6 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
             closesocket(connfd);
             return NABS(ERR_NEW_SSL_CTX);
         }
-#ifdef WITH_OPENSSL
-        // Offer ALPN "h2" only when HTTP/2 is intended, so an h2-capable server
-        // negotiates it (real https servers require ALPN, not prior-knowledge).
-        // Must NOT offer h2 for an http/1.1 request: the server might select h2
-        // while we run an http/1.1 parser. Only mutate a ctx we allocated.
-        if (cli->http_version == 2 && cli->alloced_ssl_ctx) {
-            static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1";
-            hssl_ctx_set_alpn_protos(ssl_ctx, s_alpn_protos, sizeof(s_alpn_protos) - 1);
-        }
-#endif
         cli->ssl = hssl_new(ssl_ctx, connfd);
         if (cli->ssl == NULL) {
             closesocket(connfd);
@@ -254,6 +244,17 @@ int http_client_connect(http_client_t* cli, const char* host, int port, int http
         if (!is_ipaddr(host)) {
             hssl_set_sni_hostname(cli->ssl, host);
         }
+#ifdef WITH_OPENSSL
+        // Offer ALPN "h2" only when HTTP/2 is intended, so an h2-capable server
+        // negotiates it (real https servers require ALPN, not prior-knowledge).
+        // Set it per-connection on the SSL object (not the shared ctx), so it
+        // works with any ctx source (user/global/allocated) and never leaks h2
+        // into other clients or http/1.1 requests.
+        if (cli->http_version == 2) {
+            static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1";
+            hssl_set_alpn_protos(cli->ssl, s_alpn_protos, sizeof(s_alpn_protos) - 1);
+        }
+#endif
         unsigned int elapsed = gettick_ms() - start_time;
         int ssl_timeout = blocktime - (int)elapsed;
         if (ssl_timeout <= 0) {

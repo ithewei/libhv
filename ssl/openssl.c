@@ -188,17 +188,25 @@ static int hssl_ctx_alpn_select_cb(SSL *ssl,
 
 int hssl_ctx_set_alpn_protos(hssl_ctx_t ssl_ctx, const unsigned char* protos, unsigned int protos_len) {
     int ret = -1;
-    // protos is ALPN wire format: length-prefixed, e.g. "\x02h2\x08http/1.1".
-    // NOTE: it must also be NUL-terminated, because the server select callback
-    // derives its length via strlen (SSL_CTX_set_alpn_select_cb passes no length).
+    // Server-side ALPN: select from the client's offer against this list.
+    // protos is ALPN wire format (length-prefixed) and must be NUL-terminated,
+    // because the select callback derives its length via strlen (the OpenSSL
+    // select-cb API passes no length).
+    (void)protos_len;
 #ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
-    // client: offer this ALPN list to the server (returns non-zero on failure)
-    if (SSL_CTX_set_alpn_protos((SSL_CTX*)ssl_ctx, protos, protos_len) != 0) {
-        return -1;
-    }
-    // server: select from the client's offer against this list
     SSL_CTX_set_alpn_select_cb((SSL_CTX*)ssl_ctx, hssl_ctx_alpn_select_cb, (void*)protos);
     ret = 0;
+#endif
+    return ret;
+}
+
+// Client-side ALPN, set per-connection on the SSL object (not the shared ctx),
+// so offering "h2" for one request never leaks into other clients / requests.
+int hssl_set_alpn_protos(hssl_t ssl, const unsigned char* protos, unsigned int protos_len) {
+    int ret = -1;
+#ifdef TLSEXT_TYPE_application_layer_protocol_negotiation
+    // returns 0 on success, non-zero on failure (bad wire format, etc.)
+    ret = SSL_set_alpn_protos((SSL*)ssl, protos, protos_len) == 0 ? 0 : -1;
 #endif
     return ret;
 }

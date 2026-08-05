@@ -84,6 +84,8 @@ HV_EXPORT int hssl_set_sni_hostname(hssl_t ssl, const char* hostname);
 
 #ifdef WITH_OPENSSL
 HV_EXPORT int hssl_ctx_set_alpn_protos(hssl_ctx_t ssl_ctx, const unsigned char* protos, unsigned int protos_len);
+// Client-side ALPN, set per-connection on the SSL object (not the shared ctx).
+HV_EXPORT int hssl_set_alpn_protos(hssl_t ssl, const unsigned char* protos, unsigned int protos_len);
 // Returns the negotiated ALPN protocol (e.g. "h2"), not NUL-terminated; *len set. NULL if none.
 HV_EXPORT const char* hssl_ssl_alpn_selected(hssl_t ssl, unsigned int* len);
 #endif
