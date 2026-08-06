@@ -152,11 +152,10 @@ public:
     // start(":8080")
     // start("0.0.0.0:8080")
     // start("[::]:8080")
-    // @return actual http port on success (OS-assigned when port=0), negative on error
+    // NOTE: when started with port=0, the OS-assigned port is available in
+    // this->port / this->https_port after start() returns.
     int start(const char* ip_port = NULL) {
-        int ret = run(ip_port, false);
-        if (ret != 0) return ret;
-        return this->port;
+        return run(ip_port, false);
     }
 
     int stop() {

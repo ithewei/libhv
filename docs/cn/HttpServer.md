@@ -34,7 +34,7 @@ class HttpServer {
     // 占用当前线程运行
     int run(bool wait = true);
 
-    // 不占用当前线程运行，返回实际监听的HTTP端口号（port=0时为OS分配的端口）
+    // 不占用当前线程运行（port=0 时，OS 分配的端口在 start() 后可通过 port/https_port 读取）
     int start();
 
     // 停止服务
