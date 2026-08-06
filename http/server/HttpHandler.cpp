@@ -549,7 +549,7 @@ postprocessor:
         }
     }
 
-    if (writer && writer->state != hv::HttpResponseWriter::SEND_BEGIN) {
+    if (writer && !writer->isBegin()) {
         status_code = HTTP_STATUS_NEXT;
     }
     if (status_code == HTTP_STATUS_NEXT) {
@@ -777,6 +777,18 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
     case HttpHandler::HTTP_V1:
     case HttpHandler::HTTP_V2:
         if (state != WANT_RECV) {
+            // A new request arrived on this connection before the previous one
+            // finished. Reset() reuses the same req/resp objects, so if an async
+            // handler on another thread is still producing/sending the previous
+            // response (writer not yet End()ed), resetting here races that thread
+            // and can crash. In that case reject the pipelined/early data and let
+            // the caller close the connection. Otherwise (response already sent)
+            // it is safe to reset for the next keep-alive request.
+            if (writer && !writer->isEnd()) {
+                hloge("[%s:%d] new request while previous async response is still in flight", ip, port);
+                error = ERR_REQUEST;
+                return -1;
+            }
             Reset();
         }
         nfeed = parser->FeedRecvData(data, len);
