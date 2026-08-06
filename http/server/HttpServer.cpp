@@ -4,6 +4,7 @@
 #include "herr.h"
 #include "hlog.h"
 #include "htime.h"
+#include "hsocket.h"
 
 #include "EventLoop.h"
 using namespace hv;
@@ -178,15 +179,35 @@ static void WINAPI loop_thread_stdcall(void* userdata) {
  */
 int http_server_run(http_server_t* server, int wait) {
     // http_port
-    if (server->port > 0) {
+    if (server->port >= 0) {
         server->listenfd[0] = Listen(server->port, server->host);
         if (server->listenfd[0] < 0) return server->listenfd[0];
+        if (server->port == 0) {
+            // port=0: OS auto-assigned a free port, retrieve the actual port
+            sockaddr_u localaddr;
+            socklen_t addrlen = sizeof(localaddr);
+            if (getsockname(server->listenfd[0], &localaddr.sa, &addrlen) == 0) {
+                server->port = sockaddr_port(&localaddr);
+            } else {
+                hloge("getsockname failed: %s", strerror(errno));
+            }
+        }
         hlogi("http server listening on %s:%d", server->host, server->port);
     }
     // https_port
-    if (server->https_port > 0 && HV_WITH_SSL) {
+    if (server->https_port >= 0 && HV_WITH_SSL) {
         server->listenfd[1] = Listen(server->https_port, server->host);
         if (server->listenfd[1] < 0) return server->listenfd[1];
+        if (server->https_port == 0) {
+            // https_port=0: OS auto-assigned a free port, retrieve the actual port
+            sockaddr_u localaddr;
+            socklen_t addrlen = sizeof(localaddr);
+            if (getsockname(server->listenfd[1], &localaddr.sa, &addrlen) == 0) {
+                server->https_port = sockaddr_port(&localaddr);
+            } else {
+                hloge("getsockname failed: %s", strerror(errno));
+            }
+        }
         hlogi("https server listening on %s:%d", server->host, server->https_port);
     }
     // SSL_CTX

@@ -129,7 +129,7 @@ int parse_confile(const char* confile) {
     if (HV_WITH_SSL) {
         g_http_server.https_port = ini.Get<int>("https_port");
     }
-    if (g_http_server.port == 0 && g_http_server.https_port == 0) {
+    if (g_http_server.port < 0 && g_http_server.https_port < 0) {
         printf("Please config listen port!\n");
         exit(-10);
     }

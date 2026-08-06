@@ -40,7 +40,7 @@ typedef struct http_server_s {
         // https_port = DEFAULT_HTTPS_PORT;
         // port = 8080;
         // https_port = 8443;
-        port = https_port = 0;
+        port = https_port = -1;
         http_version = 1;
         worker_processes = 0;
         worker_threads = 0;
@@ -102,7 +102,7 @@ public:
         if (host) strcpy(this->host, host);
     }
 
-    void setPort(int port = 0, int ssl_port = 0) {
+    void setPort(int port = 0, int ssl_port = -1) {
         if (port >= 0) this->port = port;
         if (ssl_port >= 0) this->https_port = ssl_port;
     }
@@ -149,6 +149,11 @@ public:
         return http_server_run(this, wait);
     }
 
+    // start(":8080")
+    // start("0.0.0.0:8080")
+    // start("[::]:8080")
+    // NOTE: when started with port=0, the OS-assigned port is available in
+    // this->port / this->https_port after start() returns.
     int start(const char* ip_port = NULL) {
         return run(ip_port, false);
     }
