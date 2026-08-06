@@ -10,7 +10,7 @@
 #include "hstring.h"
 #include "LRUCache.h"
 
-#define HTTP_HEADER_MAX_LENGTH      1024        // 1K
+#define HTTP_HEADER_MAX_LENGTH      4096        // 4K
 #define FILE_CACHE_MAX_NUM          100
 #define FILE_CACHE_MAX_SIZE         (1 << 22)   // 4M
 
@@ -48,11 +48,16 @@ typedef struct file_cache_s {
         filebuf.len = filesize;
     }
 
-    void prepend_header(const char* header, int len) {
-        if (len > HTTP_HEADER_MAX_LENGTH) return;
+    // Prepend the response header into the space reserved before filebuf so the
+    // header + file content can be sent as one buffer (httpbuf). Returns false
+    // if the header does not fit the reserved space; the caller must then send
+    // the header and filebuf separately (filebuf stays intact either way).
+    bool prepend_header(const char* header, int len) {
+        if (len > HTTP_HEADER_MAX_LENGTH) return false;
         httpbuf.base = filebuf.base - len;
         httpbuf.len = len + filebuf.len;
         memcpy(httpbuf.base, header, len);
+        return true;
     }
 } file_cache_t;
 
