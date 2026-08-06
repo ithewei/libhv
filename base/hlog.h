@@ -100,6 +100,8 @@ HV_EXPORT void logger_set_level_by_str(logger_t* logger, const char* level);
  * %Z us
  * %l First character of level
  * %L All characters of level
+ * %p pid (process id)
+ * %t tid (thread id)
  * %s message
  * %% %
  */

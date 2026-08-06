@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <time.h>
 
 //#include "hmutex.h"
@@ -24,6 +25,30 @@
 #define hmutex_destroy      pthread_mutex_destroy
 #define hmutex_lock         pthread_mutex_lock
 #define hmutex_unlock       pthread_mutex_unlock
+#endif
+
+// Self-contained pid/tid for the %p/%t format specifiers. hlog is meant to be
+// usable standalone (only depending on hexport.h), so we don't pull in
+// hthread.h/hplatform.h here; instead inline the platform primitives, using
+// the headers already included above (windows.h / pthread.h).
+#ifdef _WIN32
+#define hlog_getpid()   (long)GetCurrentProcessId()
+#define hlog_gettid()   (long)GetCurrentThreadId()
+#else
+#include <unistd.h>         // for getpid
+#define hlog_getpid()   (long)getpid()
+#if defined(__linux__)
+#include <sys/syscall.h>    // for SYS_gettid
+static inline long hlog_gettid() { return (long)syscall(SYS_gettid); }
+#elif defined(__APPLE__)
+static inline long hlog_gettid() {
+    uint64_t tid = 0;
+    pthread_threadid_np(NULL, &tid);
+    return (long)tid;
+}
+#else
+#define hlog_gettid()   (long)pthread_self()
+#endif
 #endif
 
 //#include "htime.h"
@@ -477,6 +502,12 @@ int logger_print(logger_t* logger, int level, const char* fmt, ...) {
                     for (int i = 0; i < 5; ++i) {
                         buf[len++] = plevel[i];
                     }
+                    break;
+                case 'p':
+                    len += snprintf(buf + len, bufsize - len, "%ld", hlog_getpid());
+                    break;
+                case 't':
+                    len += snprintf(buf + len, bufsize - len, "%ld", hlog_gettid());
                     break;
                 case 's':
                 {
