@@ -34,6 +34,12 @@ public:
 
     bool isHttp2() const { return (bool)submitHttp2Response; }
 
+    // isBegin(): nothing has been written yet (still at SEND_BEGIN).
+    // isEnd():   the response has been fully handed off, i.e. End() was called
+    //            (End() is the terminal call in every usage sequence below).
+    bool isBegin() const { return state == SEND_BEGIN; }
+    bool isEnd() const { return end == SEND_END; }
+
     // Begin -> End
     // Begin -> WriteResponse -> End
     // Begin -> WriteStatus -> WriteHeader -> WriteBody -> End
