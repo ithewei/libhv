@@ -3,6 +3,11 @@ cmake_policy(SET CMP0077 NEW)
 
 project(hv VERSION 1.3.4)
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+set(LIBHV_FIND_DEPENDENCY_OPENSSL FALSE)
+
 option(BUILD_SHARED "build shared library" ON)
 option(BUILD_STATIC "build static library" ON)
 
@@ -161,6 +166,7 @@ if(WITH_OPENSSL)
     find_package(OpenSSL)
     if(OpenSSL_FOUND)
         set(LIBS ${LIBS} OpenSSL::SSL OpenSSL::Crypto)
+        set(LIBHV_FIND_DEPENDENCY_OPENSSL ON)
     else()
         set(LIBS ${LIBS} ssl crypto)
     endif()
@@ -315,13 +321,13 @@ if(BUILD_SHARED)
     add_library(hv SHARED ${LIBHV_SRCS})
     target_compile_definitions(hv PRIVATE HV_DYNAMICLIB)
     target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS}
-        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
-    target_link_libraries(hv ${LIBS})
+        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    target_link_libraries(hv PUBLIC ${LIBS})
     install(TARGETS hv
-        EXPORT libhvConfig
-        ARCHIVE DESTINATION lib
-        LIBRARY DESTINATION lib
-        RUNTIME DESTINATION bin)
+        EXPORT libhvTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
     add_custom_target(libhv DEPENDS hv)
 endif()
 
@@ -329,25 +335,43 @@ if(BUILD_STATIC)
     add_library(hv_static STATIC ${LIBHV_SRCS})
     target_compile_definitions(hv_static PUBLIC HV_STATICLIB)
     target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS}
-        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
-    target_link_libraries(hv_static ${LIBS})
+        INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    target_link_libraries(hv_static PUBLIC ${LIBS})
     if(NOT (WIN32 AND BUILD_SHARED))
         set_target_properties(hv_static PROPERTIES OUTPUT_NAME hv)
     endif()
     install(TARGETS hv_static
-        EXPORT libhvConfig
-        ARCHIVE DESTINATION lib)
+        EXPORT libhvTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
     add_custom_target(libhv_static DEPENDS hv_static)
 endif()
 
 if(WIN32 AND NOT MINGW)
     if(BUILD_SHARED)
-        install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}> DESTINATION bin OPTIONAL)
+        install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}> DESTINATION ${CMAKE_INSTALL_BINDIR} OPTIONAL)
     endif()
 endif()
 
-install(FILES ${LIBHV_HEADERS} DESTINATION include/hv)
-install(EXPORT libhvConfig DESTINATION lib/cmake/libhv)
+install(FILES ${LIBHV_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hv)
+
+set(LIBHV_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/libhv)
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/libhvConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/libhvConfig.cmake
+    INSTALL_DESTINATION ${LIBHV_INSTALL_CMAKEDIR}
+    PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/libhvConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/libhvConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/libhvConfigVersion.cmake
+    DESTINATION ${LIBHV_INSTALL_CMAKEDIR})
+install(EXPORT libhvTargets
+    NAMESPACE libhv::
+    FILE libhvTargets.cmake
+    DESTINATION ${LIBHV_INSTALL_CMAKEDIR})
 
 # hrpc: TLV + protobuf RPC, built as a separate library (libhrpc) so libhv
 # stays protobuf-free. See rpc/CMakeLists.txt. Must precede examples (they link hrpc).

@@ -1,0 +1,47 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+if(@LIBHV_FIND_DEPENDENCY_OPENSSL@)
+    find_dependency(OpenSSL)
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/libhvTargets.cmake")
+
+if(TARGET libhv::hv)
+    set(libhv_LIBRARY libhv::hv)
+elseif(TARGET libhv::hv_static)
+    set(libhv_LIBRARY libhv::hv_static)
+endif()
+
+if(TARGET libhv::hv_static)
+    set(libhv_STATIC_LIBRARY libhv::hv_static)
+endif()
+
+if(NOT TARGET libhv AND DEFINED libhv_LIBRARY)
+    add_library(libhv INTERFACE IMPORTED)
+    set_target_properties(libhv PROPERTIES INTERFACE_LINK_LIBRARIES "${libhv_LIBRARY}")
+endif()
+
+if(NOT TARGET hv AND DEFINED libhv_LIBRARY)
+    add_library(hv INTERFACE IMPORTED)
+    set_target_properties(hv PROPERTIES INTERFACE_LINK_LIBRARIES "${libhv_LIBRARY}")
+endif()
+
+if(NOT TARGET hv_static AND TARGET libhv::hv_static)
+    add_library(hv_static INTERFACE IMPORTED)
+    set_target_properties(hv_static PROPERTIES INTERFACE_LINK_LIBRARIES libhv::hv_static)
+endif()
+
+set_and_check(libhv_INCLUDE_DIRS "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+set(LIBHV_INCLUDE_DIRS "${libhv_INCLUDE_DIRS}")
+set(LIBHV_LIBRARY "${libhv_LIBRARY}")
+set(LIBHV_STATIC_LIBRARY "${libhv_STATIC_LIBRARY}")
+set(LIBHV_LIBRARIES "${libhv_LIBRARY}")
+set(libhv_LIBRARIES "${libhv_LIBRARY}")
+
+check_required_components(libhv)
+if(NOT DEFINED libhv_FOUND)
+    set(libhv_FOUND TRUE)
+endif()
+set(LIBHV_FOUND "${libhv_FOUND}")
