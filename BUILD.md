@@ -20,6 +20,20 @@ mkdir build
 cd build
 cmake .. -DWITH_OPENSSL=ON
 cmake --build .
+cmake --install .
+```
+
+External CMake projects can consume an installed libhv package:
+```cmake
+find_package(libhv CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE libhv::hv)
+```
+
+If libhv is built and installed as static-only, link `libhv::hv_static` instead.
+To smoke-test the installed package:
+```bash
+cmake -S tests/cmake/find_package -B build-find-package-test -DCMAKE_PREFIX_PATH=/path/to/libhv/install
+cmake --build build-find-package-test
 ```
 
 ## bazel
