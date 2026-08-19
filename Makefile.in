@@ -129,6 +129,17 @@ ifeq ($(ALL_SRCS), )
 	ALL_SRCS = $(wildcard *.c *.cc *.cpp)
 endif
 override SRCS += $(filter-out %_test.c %_test.cc %_test.cpp, $(ALL_SRCS))
+ifeq ($(filter clean,$(MAKECMDGOALS)),)
+ifneq ($(WITH_LUA), yes)
+override SRCS := $(filter-out %/HttpLuaHandler.cpp HttpLuaHandler.cpp, $(SRCS))
+endif
+ifneq ($(WITH_JS), yes)
+override SRCS := $(filter-out %/HttpJsHandler.cpp HttpJsHandler.cpp, $(SRCS))
+endif
+ifeq ($(filter yes,$(WITH_LUA) $(WITH_JS)),)
+override SRCS := $(filter-out %/HttpScriptHandler.cpp HttpScriptHandler.cpp, $(SRCS))
+endif
+endif
 # OBJS += $(patsubst %.c, %.o, $(SRCS))
 # OBJS += $(patsubst %.cc, %.o, $(SRCS))
 # OBJS += $(patsubst %.cpp, %.o, $(SRCS))
@@ -181,6 +192,28 @@ endif
 ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_MQTT), yes)
 	CPPFLAGS += -DHVLUA_WITH_MQTT
+endif
+endif
+endif
+
+ifeq ($(WITH_JS), yes)
+	CPPFLAGS += -DWITH_JS $(JS_CFLAGS)
+	LDFLAGS += $(JS_LIBS)
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_HTTP), yes)
+ifeq ($(WITH_HTTP_CLIENT), yes)
+	CPPFLAGS += -DHVJS_WITH_HTTP
+endif
+endif
+endif
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_REDIS), yes)
+	CPPFLAGS += -DHVJS_WITH_REDIS
+endif
+endif
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_MQTT), yes)
+	CPPFLAGS += -DHVJS_WITH_MQTT
 endif
 endif
 endif

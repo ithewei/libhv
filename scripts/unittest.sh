@@ -47,6 +47,18 @@ fi
 if [ -x bin/http_lua_handler_test ]; then
     bin/http_lua_handler_test
 fi
+if [ -x bin/http_js_handler_test ]; then
+    bin/http_js_handler_test || exit $?
+fi
+if [ -x bin/http_js_redis_test ]; then
+    bin/http_js_redis_test || exit $?
+fi
+if [ -x bin/http_js_ws_test ]; then
+    bin/http_js_ws_test || exit $?
+fi
+if [ -x bin/http_js_mqtt_test ]; then
+    bin/http_js_mqtt_test || exit $?
+fi
 if [ -x bin/lua_http_test ]; then
     bin/lua_http_test
 fi

@@ -5,10 +5,10 @@
  */
 
 #include "HttpServer.h"
-#include "hthread.h"    // import hv_gettid
-#include "hasync.h"     // import hv::async
+#include "hthread.h" // import hv_gettid
+#include "hasync.h"  // import hv::async
 
-#ifdef WITH_LUA
+#if defined(WITH_LUA) || defined(WITH_JS)
 #include "HttpScriptHandler.h"
 #endif
 
@@ -55,9 +55,7 @@ int main(int argc, char** argv) {
 
     /* API handlers */
     // curl -v http://ip:port/ping
-    router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
-        return resp->String("pong");
-    });
+    router.GET("/ping", [](HttpRequest* req, HttpResponse* resp) { return resp->String("pong"); });
 
     // curl -v http://ip:port/data
     router.GET("/data", [](HttpRequest* req, HttpResponse* resp) {
@@ -66,9 +64,7 @@ int main(int argc, char** argv) {
     });
 
     // curl -v http://ip:port/paths
-    router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
-        return resp->Json(router.Paths());
-    });
+    router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) { return resp->Json(router.Paths()); });
 
     // curl -v http://ip:port/get?env=1
     router.GET("/get", [](const HttpContextPtr& ctx) {
@@ -81,9 +77,7 @@ int main(int argc, char** argv) {
     });
 
     // curl -v http://ip:port/echo -d "hello,world!"
-    router.POST("/echo", [](const HttpContextPtr& ctx) {
-        return ctx->send(ctx->body(), ctx->type());
-    });
+    router.POST("/echo", [](const HttpContextPtr& ctx) { return ctx->send(ctx->body(), ctx->type()); });
 
     // curl -v http://ip:port/user/123
     router.GET("/user/{id}", [](const HttpContextPtr& ctx) {
@@ -95,8 +89,14 @@ int main(int argc, char** argv) {
 #ifdef WITH_LUA
     // curl -v "http://ip:port/lua/hello?id=42"
     router.GET("/lua/hello", HttpScriptHandler("examples/scripts/hello.lua"));
+#endif
+#ifdef WITH_JS
+    // curl -v "http://ip:port/js/hello?id=42"
+    router.GET("/js/hello", HttpScriptHandler("examples/scripts/hello.js"));
+#endif
+#if defined(WITH_LUA) || defined(WITH_JS)
     // curl -v "http://ip:port/script/hello?id=42"
-    // curl -v "http://ip:port/script/async?host=example.com"  (coroutine sync-style async)
+    // curl -v "http://ip:port/script/async?host=example.com"  (sync-style async)
     router.Script("/script/", "examples/scripts");
 #endif
 
@@ -111,9 +111,7 @@ int main(int argc, char** argv) {
 
     // curl -v http://ip:port/close
     // Test HTTP_STATUS_CLOSE: closes connection without sending any response
-    router.GET("/close", [](HttpRequest* req, HttpResponse* resp) {
-        return HTTP_STATUS_CLOSE;
-    });
+    router.GET("/close", [](HttpRequest* req, HttpResponse* resp) { return HTTP_STATUS_CLOSE; });
 
     // middleware
     router.AllowCORS();
@@ -146,7 +144,8 @@ int main(int argc, char** argv) {
     server.start();
 
     // press Enter to stop
-    while (getchar() != '\n');
+    while (getchar() != '\n')
+        ;
     hv::async::cleanup();
     return 0;
 }

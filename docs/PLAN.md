@@ -12,6 +12,7 @@
 - redis client
 - async DNS
 - lua binding
+- http js script handler
 - hrpc = libhv + protobuf
 
 ## Plan

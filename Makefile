@@ -49,8 +49,14 @@ endif
 ifeq ($(WITH_HTTP_SERVER), yes)
 LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
+ifneq ($(filter yes,$(WITH_LUA) $(WITH_JS)),)
+LIBHV_HEADERS += http/server/HttpScriptHandler.h
+endif
 ifeq ($(WITH_LUA), yes)
-LIBHV_HEADERS += http/server/HttpScriptHandler.h http/server/HttpLuaHandler.h
+LIBHV_HEADERS += http/server/HttpLuaHandler.h
+endif
+ifeq ($(WITH_JS), yes)
+LIBHV_HEADERS += http/server/HttpJsHandler.h
 endif
 endif
 
@@ -421,6 +427,24 @@ ifeq ($(WITH_MQTT), yes)
 endif
 ifeq ($(WITH_REDIS), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_REDIS $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -Ilua -o bin/lua_redis_test unittest/lua_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
+endif
+endif
+ifeq ($(WITH_JS), yes)
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_HTTP), yes)
+ifeq ($(WITH_HTTP_SERVER), yes)
+ifeq ($(WITH_HTTP_CLIENT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -o bin/http_js_handler_test unittest/http_js_handler_test.cpp -Llib -lhv -pthread $(JS_LIBS)
+ifeq ($(WITH_REDIS), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP -DHVJS_WITH_REDIS $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -Iredis -o bin/http_js_redis_test unittest/http_js_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(JS_LIBS)
+endif
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -o bin/http_js_ws_test unittest/http_js_ws_test.cpp -Llib -lhv -pthread $(JS_LIBS)
+ifeq ($(WITH_MQTT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP -DHVJS_WITH_MQTT $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -Imqtt -o bin/http_js_mqtt_test unittest/http_js_mqtt_test.cpp -Llib -lhv -pthread $(JS_LIBS)
+endif
+endif
+endif
 endif
 endif
 endif

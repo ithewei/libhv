@@ -352,10 +352,10 @@ struct AsyncRedisClient::Impl {
 
     void failPending(int code) {
         while (!pending.empty()) {
-            const std::shared_ptr<PendingRequest>& request = pending.front();
+            std::shared_ptr<PendingRequest> request = pending.front();
+            pending.pop_front();
             cancelTimeout(request);
             invokeRequestCallback(request, code);
-            pending.pop_front();
         }
     }
 
@@ -411,14 +411,14 @@ struct AsyncRedisClient::Impl {
             handleClientError(ERR_RESPONSE);
             return;
         }
-        const std::shared_ptr<PendingRequest>& request = pending.front();
+        std::shared_ptr<PendingRequest> request = pending.front();
         request->replies.push_back(reply);
         if (request->replies.size() < request->expected_replies) {
             return;
         }
+        pending.pop_front();
         cancelTimeout(request);
         invokeRequestCallback(request, 0);
-        pending.pop_front();
     }
 
     void handleClientError(int code) {

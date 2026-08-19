@@ -133,6 +133,31 @@ set(HTTP_LUA_UNITTEST_TARGETS ${HTTP_LUA_UNITTEST_TARGETS} lua_redis_test)
 endif()
 endif()
 
+if(WITH_JS AND WITH_EVPP AND WITH_HTTP AND WITH_HTTP_SERVER AND WITH_HTTP_CLIENT)
+add_executable(http_js_handler_test http_js_handler_test.cpp)
+target_include_directories(http_js_handler_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server ../http/client)
+target_link_libraries(http_js_handler_test ${HV_LIBRARIES})
+set(HTTP_JS_UNITTEST_TARGETS http_js_handler_test)
+if(WITH_REDIS)
+add_executable(http_js_redis_test http_js_redis_test.cpp redis_test_server.cpp)
+target_include_directories(http_js_redis_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server ../http/client ../redis)
+target_link_libraries(http_js_redis_test ${HV_LIBRARIES})
+set(HTTP_JS_UNITTEST_TARGETS ${HTTP_JS_UNITTEST_TARGETS} http_js_redis_test)
+endif()
+if(WITH_HTTP_CLIENT)
+add_executable(http_js_ws_test http_js_ws_test.cpp)
+target_include_directories(http_js_ws_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server ../http/client)
+target_link_libraries(http_js_ws_test ${HV_LIBRARIES})
+set(HTTP_JS_UNITTEST_TARGETS ${HTTP_JS_UNITTEST_TARGETS} http_js_ws_test)
+endif()
+if(WITH_MQTT)
+add_executable(http_js_mqtt_test http_js_mqtt_test.cpp)
+target_include_directories(http_js_mqtt_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server ../http/client ../mqtt)
+target_link_libraries(http_js_mqtt_test ${HV_LIBRARIES})
+set(HTTP_JS_UNITTEST_TARGETS ${HTTP_JS_UNITTEST_TARGETS} http_js_mqtt_test)
+endif()
+endif()
+
 # ------event: async dns------
 add_executable(hdns_test hdns_test.c)
 target_include_directories(hdns_test PRIVATE .. ../base ../ssl ../event)
@@ -199,6 +224,7 @@ add_custom_target(unittest DEPENDS
     sendmail
     http_router_test
     ${HTTP_LUA_UNITTEST_TARGETS}
+    ${HTTP_JS_UNITTEST_TARGETS}
     hdns_test
     hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}

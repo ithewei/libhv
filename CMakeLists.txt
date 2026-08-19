@@ -36,6 +36,7 @@ option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
 
 option(WITH_LUA "with lua library" OFF)
+option(WITH_JS "with quickjs library" OFF)
 
 option(WITH_KCP "compile event/kcp" OFF)
 
@@ -213,6 +214,49 @@ if(WITH_LUA)
     endif()
 endif()
 
+if(WITH_JS)
+    add_definitions(-DWITH_JS)
+    find_path(QUICKJS_INCLUDE_DIR
+        NAMES quickjs.h
+        HINTS
+            ${QUICKJS_ROOT}/include/quickjs
+            ${QUICKJS_ROOT}/include
+            /opt/homebrew/opt/quickjs/include/quickjs
+            /opt/homebrew/opt/quickjs/include
+            /usr/local/opt/quickjs/include/quickjs
+            /usr/local/opt/quickjs/include
+            /usr/local/include/quickjs
+            /usr/local/include
+            /usr/include/quickjs
+            /usr/include)
+    find_library(QUICKJS_LIBRARY
+        NAMES quickjs libquickjs
+        HINTS
+            ${QUICKJS_ROOT}/lib/quickjs
+            ${QUICKJS_ROOT}/lib
+            /opt/homebrew/opt/quickjs/lib/quickjs
+            /opt/homebrew/opt/quickjs/lib
+            /usr/local/opt/quickjs/lib/quickjs
+            /usr/local/opt/quickjs/lib
+            /usr/local/lib/quickjs
+            /usr/local/lib
+            /usr/lib)
+    if(NOT QUICKJS_INCLUDE_DIR OR NOT QUICKJS_LIBRARY)
+        message(FATAL_ERROR "WITH_JS requires QuickJS. Set QUICKJS_ROOT or QUICKJS_INCLUDE_DIR and QUICKJS_LIBRARY.")
+    endif()
+    include_directories(${QUICKJS_INCLUDE_DIR})
+    set(LIBS ${LIBS} ${QUICKJS_LIBRARY})
+    if(WITH_EVPP AND WITH_HTTP AND WITH_HTTP_CLIENT)
+        add_definitions(-DHVJS_WITH_HTTP)
+    endif()
+    if(WITH_EVPP AND WITH_REDIS)
+        add_definitions(-DHVJS_WITH_REDIS)
+    endif()
+    if(WITH_EVPP AND WITH_MQTT)
+        add_definitions(-DHVJS_WITH_MQTT)
+    endif()
+endif()
+
 if(WIN32 OR MINGW)
     add_definitions(-DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0600)
     set(LIBS ${LIBS} secur32 crypt32 winmm iphlpapi ws2_32)
@@ -286,8 +330,14 @@ if(WITH_EVPP)
         endif()
         if(WITH_HTTP_SERVER)
             set(LIBHV_HEADERS ${LIBHV_HEADERS} ${HTTP_SERVER_HEADERS})
+            if(WITH_LUA OR WITH_JS)
+                set(LIBHV_HEADERS ${LIBHV_HEADERS} http/server/HttpScriptHandler.h)
+            endif()
             if(WITH_LUA)
-                set(LIBHV_HEADERS ${LIBHV_HEADERS} http/server/HttpScriptHandler.h http/server/HttpLuaHandler.h)
+                set(LIBHV_HEADERS ${LIBHV_HEADERS} http/server/HttpLuaHandler.h)
+            endif()
+            if(WITH_JS)
+                set(LIBHV_HEADERS ${LIBHV_HEADERS} http/server/HttpJsHandler.h)
             endif()
             set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} http/server)
         endif()
@@ -308,6 +358,15 @@ if(WITH_MQTT)
 endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
+if(NOT WITH_LUA)
+    list(FILTER LIBHV_SRCS EXCLUDE REGEX "(^|/)HttpLuaHandler\\.cpp$")
+endif()
+if(NOT WITH_JS)
+    list(FILTER LIBHV_SRCS EXCLUDE REGEX "(^|/)HttpJsHandler\\.cpp$")
+endif()
+if(NOT WITH_LUA AND NOT WITH_JS)
+    list(FILTER LIBHV_SRCS EXCLUDE REGEX "(^|/)HttpScriptHandler\\.cpp$")
+endif()
 if(WIN32)
     set(CMAKE_RC_FLAGS_DEBUG -D_DEBUG)
     configure_file(${PROJECT_SOURCE_DIR}/${PROJECT_NAME}.rc.in ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.rc)

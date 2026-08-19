@@ -1,7 +1,7 @@
 #include "HttpService.h"
 #include "HttpMiddleware.h"
 #include "HttpRouter.h"
-#ifdef WITH_LUA
+#if defined(WITH_LUA) || defined(WITH_JS)
 #include "HttpScriptHandler.h"
 #include "hpath.h"
 #include "hstring.h"
@@ -115,7 +115,7 @@ std::string HttpService::GetStaticFilepath(const char* path) {
     return filepath;
 }
 
-#ifdef WITH_LUA
+#if defined(WITH_LUA) || defined(WITH_JS)
 void HttpService::Script(const char* path, const char* script_dir) {
     std::string route_path(path ? path : "");
     if (route_path.empty()) return;
@@ -147,7 +147,27 @@ void HttpService::Script(const char* path, const char* script_dir) {
         }
         std::string script = HPath::join(root, name);
         if (HPath::suffixname(script).empty()) {
-            script += ".lua";
+            std::string base_script = script;
+            script.clear();
+#if defined(WITH_LUA) && defined(WITH_JS)
+            std::string lua_script = base_script + ".lua";
+            if (HPath::exists(lua_script.c_str())) {
+                script = lua_script;
+            }
+            if (script.empty()) {
+                std::string js_script = base_script + ".js";
+                if (HPath::exists(js_script.c_str())) {
+                    script = js_script;
+                }
+            }
+            if (script.empty()) {
+                script = lua_script;
+            }
+#elif defined(WITH_LUA)
+            script = base_script + ".lua";
+#else
+            script = base_script + ".js";
+#endif
         }
 
         HttpScriptHandlerPtr script_handler;
