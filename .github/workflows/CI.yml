@@ -20,10 +20,16 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libssl-dev libnghttp2-dev liblua5.4-dev libprotobuf-dev libprotoc-dev protobuf-compiler quickjs libquickjs
-          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua --with-js --with-rpc
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua --with-rpc
           make libhv evpp
           # hrpc = separate libhrpc (needs protobuf); apt installs protobuf under /usr
           make libhrpc hrpc PROTOBUF_PREFIX=/usr
+          # Ubuntu packages libquickjs as a non-PIC static library, so JS is
+          # covered in a static libhv build instead of linking it into libhv.so.
+          make clean
+          rm -f lib/libhv.so lib/libhv.so.*
+          ./configure --disable-shared --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua --with-js --with-rpc
+          make libhv evpp
 
       - name: test
         run: |
