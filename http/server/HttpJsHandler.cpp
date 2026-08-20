@@ -15,6 +15,7 @@
 #include "hlog.h"
 #include "hpath.h"
 #include "hstring.h"
+#include "htime.h"
 #include "hvjs.h"
 
 namespace hv {
@@ -164,6 +165,13 @@ static void http_js_task_finish(hv::js::HvJsTask* task, JSValue result) {
     task_finish(static_cast<JsHttpTask*>(task), result);
 }
 
+static void close_task(JsHttpTask* task, const char* reason) {
+    task->closing = true;
+    hv::js::hvjs_task_cancel_ops(task, reason);
+    hv::js::hvjs_task_cancel_timeout(task);
+    hv::js::hvjs_task_unref(task);
+}
+
 static bool load_file(const std::string& filepath, std::string* out, std::string* err) {
     HFile file;
     if (file.open(filepath.c_str(), "rb") != 0) {
@@ -234,25 +242,28 @@ static bool apply_result(JSContext* js, JSValueConst value, const HttpContextPtr
 static void task_finish(JsHttpTask* task, JSValue result) {
     if (task->finished) return;
     task->finished = true;
+    hv::js::hvjs_task_cancel_timeout(task);
     if (!task->error.empty()) {
         hloge("[js] http handler error: %s", task->error.c_str());
         task->ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        task->ctx->response->String(task->error);
+        task->ctx->response->String("javascript handler error");
     }
     else if (task->promise_rejected) {
         std::string err = hv::js::hvjs_to_string(task->js, result);
         hloge("[js] http handler rejected: %s", err.c_str());
         task->ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        task->ctx->response->String(err);
+        task->ctx->response->String("javascript handler error");
     }
     else {
         std::string err;
         if (!apply_result(task->js, result, task->ctx, &err)) {
             hloge("[js] http handler error: %s", err.c_str());
             task->ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-            task->ctx->response->String(err);
+            task->ctx->response->String("javascript handler error");
         }
     }
+    task->closing = true;
+    hv::js::hvjs_task_cancel_ops(task, "javascript task finished");
     JS_FreeValue(task->js, result);
     if (task->async) {
         task->ctx->send();
@@ -321,15 +332,6 @@ int HttpJsHandler::operator()(const HttpContextPtr& ctx) {
     JsHttpTask* task = new JsHttpTask();
     task->ctx = ctx;
     task->finish = http_js_task_finish;
-    task->rt = JS_NewRuntime();
-    task->js = task->rt ? JS_NewContext(task->rt) : NULL;
-    if (task->rt == NULL || task->js == NULL) {
-        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        ctx->response->String("js handler: failed to create quickjs runtime");
-        hv::js::hvjs_task_unref(task);
-        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
-    }
-    JS_SetContextOpaque(task->js, task);
     if (ctx->writer && ctx->writer->io()) {
         task->loop = hevent_loop(ctx->writer->io());
     }
@@ -350,63 +352,91 @@ int HttpJsHandler::operator()(const HttpContextPtr& ctx) {
         return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }
 
-    JSValue global = JS_GetGlobalObject(task->js);
-    JS_SetPropertyStr(task->js, global, "require", JS_NewCFunction(task->js, hv::js::hvjs_require, "require", 1));
-
-    JSValue eval = JS_Eval(task->js, code.c_str(), code.size(), filepath_.c_str(), JS_EVAL_TYPE_GLOBAL);
-    if (JS_IsException(eval)) {
-        std::string msg = hv::js::hvjs_exception_string(task->js);
-        JS_FreeValue(task->js, global);
+    hv::js::HvJsRuntimeOptions runtime_options;
+    runtime_options.memory_limit = options_.memory_limit;
+    runtime_options.stack_size = options_.stack_size;
+    hv::js::hvjs_task_set_runtime(task, hv::js::hvjs_runtime(task->loop, runtime_options));
+    task->js = task->runtime ? JS_NewContext(task->runtime->rt) : NULL;
+    if (task->runtime == NULL || task->js == NULL) {
         ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        ctx->response->String(msg);
-        hv::js::hvjs_task_unref(task);
+        ctx->response->String("js handler: failed to create quickjs runtime");
+        close_task(task, "javascript handler error");
         return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }
-    JS_FreeValue(task->js, eval);
-
-    JSValue fn;
-    if (!push_handler_fn(task->js, global, ctx->request->method, &fn)) {
-        JS_FreeValue(task->js, global);
-        ctx->response->status_code = HTTP_STATUS_NOT_IMPLEMENTED;
-        ctx->response->String("no js handler function");
-        hv::js::hvjs_task_unref(task);
-        return HTTP_STATUS_NOT_IMPLEMENTED;
+    JS_SetContextOpaque(task->js, task);
+    task->timeout_ms = options_.timeout_ms;
+    task->start_hrtime = gethrtime_us();
+    if (!hv::js::hvjs_task_start_timeout(task, options_.timeout_ms)) {
+        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        ctx->response->String("js handler: failed to create timeout timer");
+        close_task(task, "javascript handler error");
+        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }
 
-    JSValue js_ctx = js_new_ctx(task->js, ctx);
-    JSValue ret = JS_Call(task->js, fn, JS_UNDEFINED, 1, &js_ctx);
-    JS_FreeValue(task->js, js_ctx);
-    JS_FreeValue(task->js, fn);
-    if (JS_IsException(ret)) {
-        std::string msg = hv::js::hvjs_exception_string(task->js);
+    {
+        hv::js::HvJsTaskScope scope(task);
+        JSValue global = JS_GetGlobalObject(task->js);
+        JS_SetPropertyStr(task->js, global, "require", JS_NewCFunction(task->js, hv::js::hvjs_require, "require", 1));
+
+        JSValue eval = JS_Eval(task->js, code.c_str(), code.size(), filepath_.c_str(), JS_EVAL_TYPE_GLOBAL);
+        if (JS_IsException(eval)) {
+            std::string msg = hv::js::hvjs_exception_string(task->js);
+            hloge("[js] eval %s failed: %s", filepath_.c_str(), msg.c_str());
+            JS_FreeValue(task->js, global);
+            ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+            ctx->response->String("javascript handler error");
+            close_task(task, "javascript handler error");
+            return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        }
+        JS_FreeValue(task->js, eval);
+
+        JSValue fn;
+        if (!push_handler_fn(task->js, global, ctx->request->method, &fn)) {
+            JS_FreeValue(task->js, global);
+            ctx->response->status_code = HTTP_STATUS_NOT_IMPLEMENTED;
+            ctx->response->String("no js handler function");
+            close_task(task, "javascript handler error");
+            return HTTP_STATUS_NOT_IMPLEMENTED;
+        }
+
+        JSValue js_ctx = js_new_ctx(task->js, ctx);
+        JSValue ret = JS_Call(task->js, fn, JS_UNDEFINED, 1, &js_ctx);
+        JS_FreeValue(task->js, js_ctx);
+        JS_FreeValue(task->js, fn);
+        if (JS_IsException(ret)) {
+            std::string msg = hv::js::hvjs_exception_string(task->js);
+            hloge("[js] handler %s failed: %s", filepath_.c_str(), msg.c_str());
+            JS_FreeValue(task->js, global);
+            JS_FreeValue(task->js, ret);
+            ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+            ctx->response->String("javascript handler error");
+            close_task(task, "javascript handler error");
+            return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        }
+
+        JSValue promise_ctor = JS_GetPropertyStr(task->js, global, "Promise");
+        JSValue promise_resolve = JS_GetPropertyStr(task->js, promise_ctor, "resolve");
         JS_FreeValue(task->js, global);
+        JSValue promise_arg = ret;
+        task->promise = JS_Call(task->js, promise_resolve, promise_ctor, 1, &promise_arg);
+        JS_FreeValue(task->js, promise_resolve);
+        JS_FreeValue(task->js, promise_ctor);
         JS_FreeValue(task->js, ret);
-        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        ctx->response->String(msg);
-        hv::js::hvjs_task_unref(task);
-        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
-    }
-
-    JSValue promise_ctor = JS_GetPropertyStr(task->js, global, "Promise");
-    JSValue promise_resolve = JS_GetPropertyStr(task->js, promise_ctor, "resolve");
-    JS_FreeValue(task->js, global);
-    JSValue promise_arg = ret;
-    task->promise = JS_Call(task->js, promise_resolve, promise_ctor, 1, &promise_arg);
-    JS_FreeValue(task->js, promise_resolve);
-    JS_FreeValue(task->js, promise_ctor);
-    JS_FreeValue(task->js, ret);
-    if (JS_IsException(task->promise)) {
-        std::string msg = hv::js::hvjs_exception_string(task->js);
-        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        ctx->response->String(msg);
-        hv::js::hvjs_task_unref(task);
-        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
-    }
-    if (!hv::js::hvjs_watch_promise(task, &err)) {
-        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        ctx->response->String(err);
-        hv::js::hvjs_task_unref(task);
-        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        if (JS_IsException(task->promise)) {
+            std::string msg = hv::js::hvjs_exception_string(task->js);
+            hloge("[js] Promise.resolve %s failed: %s", filepath_.c_str(), msg.c_str());
+            ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+            ctx->response->String("javascript handler error");
+            close_task(task, "javascript handler error");
+            return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        }
+        if (!hv::js::hvjs_watch_promise(task, &err)) {
+            hloge("[js] watch promise %s failed: %s", filepath_.c_str(), err.c_str());
+            ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+            ctx->response->String("javascript handler error");
+            close_task(task, "javascript handler error");
+            return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        }
     }
 
     hv::js::hvjs_task_ref(task);
@@ -415,12 +445,11 @@ int HttpJsHandler::operator()(const HttpContextPtr& ctx) {
     int status = ctx->response->status_code;
     if (!finished) {
         task->async = true;
+        hv::js::hvjs_task_unref(task);
+        return HTTP_STATUS_NEXT;
     }
     hv::js::hvjs_task_unref(task);
-    if (finished) {
-        return status;
-    }
-    return HTTP_STATUS_NEXT;
+    return status;
 }
 
 } // namespace hv

@@ -31,6 +31,7 @@ endif
 
 ifeq ($(WITH_JS), yes)
 ifeq ($(WITH_EVPP), yes)
+LIBHV_HEADERS += $(JS_HEADERS)
 LIBHV_SRCDIRS += js
 endif
 endif
@@ -246,7 +247,7 @@ hvlua: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/hvlua examples/hvlua.cpp -Llib -lhv -pthread $(LUA_LIBS)
 
 hvjs: prepare libhv
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ijs -o bin/hvjs examples/hvjs.cpp -Llib -lhv -pthread $(JS_LIBS)
+	$(MAKEF) TARGET=$@ SRCDIRS="$(LIBHV_SRCDIRS)" SRCS="examples/hvjs.cpp"
 
 multi-acceptor-processes: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/multi-thread/multi-acceptor-processes.c"
@@ -449,13 +450,13 @@ ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_HTTP), yes)
 ifeq ($(WITH_HTTP_SERVER), yes)
 ifeq ($(WITH_HTTP_CLIENT), yes)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -o bin/http_js_handler_test unittest/http_js_handler_test.cpp -Llib -lhv -pthread $(JS_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ijs -Ihttp -Ihttp/server -Ihttp/client -o bin/http_js_handler_test unittest/http_js_handler_test.cpp -Llib -lhv -pthread $(LDFLAGS) $(JS_LIBS)
 ifeq ($(WITH_REDIS), yes)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP -DHVJS_WITH_REDIS $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -Iredis -o bin/http_js_redis_test unittest/http_js_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(JS_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP -DHVJS_WITH_REDIS $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -Iredis -o bin/http_js_redis_test unittest/http_js_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(LDFLAGS) $(JS_LIBS)
 endif
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -o bin/http_js_ws_test unittest/http_js_ws_test.cpp -Llib -lhv -pthread $(JS_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -o bin/http_js_ws_test unittest/http_js_ws_test.cpp -Llib -lhv -pthread $(LDFLAGS) $(JS_LIBS)
 ifeq ($(WITH_MQTT), yes)
-	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP -DHVJS_WITH_MQTT $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -Imqtt -o bin/http_js_mqtt_test unittest/http_js_mqtt_test.cpp -Llib -lhv -pthread $(JS_LIBS)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP -DHVJS_WITH_MQTT $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -Imqtt -o bin/http_js_mqtt_test unittest/http_js_mqtt_test.cpp -Llib -lhv -pthread $(LDFLAGS) $(JS_LIBS)
 endif
 endif
 endif

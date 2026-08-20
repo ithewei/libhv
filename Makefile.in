@@ -129,7 +129,7 @@ ifeq ($(ALL_SRCS), )
 	ALL_SRCS = $(wildcard *.c *.cc *.cpp)
 endif
 override SRCS += $(filter-out %_test.c %_test.cc %_test.cpp, $(ALL_SRCS))
-ifeq ($(filter clean,$(MAKECMDGOALS)),)
+ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(WITH_LUA), yes)
 override SRCS := $(filter-out %/HttpLuaHandler.cpp HttpLuaHandler.cpp, $(SRCS))
 endif

@@ -167,12 +167,17 @@ JSValue js_redis_command(JSContext* js, JSValueConst this_val, int argc, JSValue
     JSValue promise = hvjs_new_promise<HvJsRedisCommand>(js, task, &op);
     if (JS_IsException(promise)) return promise;
     op->redis = box->state;
-    task->in_call = true;
-    int ret = state->client->command(cmd, [op](const RedisResult& result) { js_redis_resolve_result(op, result); });
+    std::shared_ptr<HvJsPromiseOp*> handle = op->handle;
+    ++task->in_call;
+    int ret = state->client->command(cmd, [handle](const RedisResult& result) {
+        HvJsPromiseOp* op = handle ? *handle : NULL;
+        if (op == NULL) return;
+        js_redis_resolve_result(static_cast<HvJsRedisCommand*>(op), result);
+    });
     if (ret != 0) {
         hvjs_promise_reject(op, "hv.redis: request failed");
     }
-    task->in_call = false;
+    --task->in_call;
     hvjs_finish_deferred_op(op);
     return promise;
 }

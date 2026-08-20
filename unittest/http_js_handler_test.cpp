@@ -23,6 +23,7 @@
 #include "HttpServer.h"
 #include "HttpService.h"
 #include "HttpScriptHandler.h"
+#include "hvjs.h"
 #include "requests.h"
 
 #define CHECK(expr)                                                                    \
@@ -45,6 +46,14 @@ static std::string write_script(const char* name, const char* content) {
 }
 
 int main() {
+    hloop_t* loop = hloop_new(0);
+    hv::js::HvJsRuntimeOptions runtime_options;
+    hv::js::HvJsRuntime* runtime1 = hv::js::hvjs_runtime(loop, runtime_options);
+    hv::js::HvJsRuntime* runtime2 = hv::js::hvjs_runtime(loop, runtime_options);
+    CHECK(runtime1 != NULL);
+    CHECK(runtime1 == runtime2);
+    hloop_free(&loop);
+
     std::string script = write_script("sleep.js", "const hv = require('hv');\n"
                                                   "const http = require('hv/http');\n"
                                                   "async function get(ctx) {\n"
@@ -61,6 +70,12 @@ int main() {
                                                               "  data.self = data;\n"
                                                               "  return data;\n"
                                                               "}\n");
+    std::string pending_script = write_script("pending.js", "function get(ctx) {\n"
+                                                            "  return new Promise(function() {});\n"
+                                                            "}\n");
+    std::string spin_script = write_script("spin.js", "function get(ctx) {\n"
+                                                      "  while (true) {}\n"
+                                                      "}\n");
 
     HttpService service;
     service.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
@@ -71,6 +86,10 @@ int main() {
     service.GET("/sleep", hv::HttpScriptHandler(script.c_str()));
     service.GET("/direct", hv::HttpJsHandler(direct_script.c_str()));
     service.GET("/circular", hv::HttpJsHandler(circular_script.c_str()));
+    hv::HttpJsHandlerOptions timeout_options;
+    timeout_options.timeout_ms = 100;
+    service.GET("/pending", hv::HttpJsHandler(pending_script.c_str(), timeout_options));
+    service.GET("/spin", hv::HttpJsHandler(spin_script.c_str(), timeout_options));
 
     hv::HttpServer server(&service);
     server.setThreadNum(1);
@@ -118,11 +137,22 @@ int main() {
     char circular_url[128];
     snprintf(circular_url, sizeof(circular_url), "http://127.0.0.1:%d/circular", server_port);
     auto circular_resp = requests::get(circular_url);
+    char pending_url[128];
+    snprintf(pending_url, sizeof(pending_url), "http://127.0.0.1:%d/pending", server_port);
+    uint64_t pending_start = gettimeofday_ms();
+    auto pending_resp = requests::get(pending_url);
+    uint64_t pending_elapsed = gettimeofday_ms() - pending_start;
+    char spin_url[128];
+    snprintf(spin_url, sizeof(spin_url), "http://127.0.0.1:%d/spin", server_port);
+    uint64_t spin_start = gettimeofday_ms();
+    auto spin_resp = requests::get(spin_url);
+    uint64_t spin_elapsed = gettimeofday_ms() - spin_start;
 
     server.stop();
     hv_msleep(100);
 
-    printf("ok_count=%d/%d elapsed=%llums (each handler awaits 300ms)\n", ok_count.load(), N, (unsigned long long)elapsed);
+    printf("ok_count=%d/%d elapsed=%llums pending=%llums spin=%llums\n",
+           ok_count.load(), N, (unsigned long long)elapsed, (unsigned long long)pending_elapsed, (unsigned long long)spin_elapsed);
     CHECK(ok_count.load() == N);
     CHECK(elapsed < 1200);
     CHECK(direct_resp != NULL);
@@ -131,7 +161,15 @@ int main() {
     CHECK(direct_resp->GetHeader("X-From") == "js");
     CHECK(circular_resp != NULL);
     CHECK(circular_resp->status_code == 500);
-    CHECK(circular_resp->body.find("circular") != std::string::npos);
+    CHECK(circular_resp->body == "javascript handler error");
+    CHECK(pending_resp != NULL);
+    CHECK(pending_resp->status_code == 500);
+    CHECK(pending_resp->body == "javascript handler error");
+    CHECK(pending_elapsed < 1000);
+    CHECK(spin_resp != NULL);
+    CHECK(spin_resp->status_code == 500);
+    CHECK(spin_resp->body == "javascript handler error");
+    CHECK(spin_elapsed < 1000);
     printf("ALL http_js_handler_test PASSED\n");
     return 0;
 }

@@ -5,7 +5,7 @@ const hv = require("hv");
 const wsmod = require("hv/ws");
 
 const url = arg[1] || "ws://127.0.0.1:8888/";
-const ws = await wsmod.connect(url);
+const ws = await wsmod.connect(url, { timeout: 3000, ping_interval: 3000 });
 
 hv.log("connected to", url);
 ws.send("hello from js");

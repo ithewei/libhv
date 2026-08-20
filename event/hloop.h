@@ -183,6 +183,13 @@ HV_EXPORT void* hloop_userdata(hloop_t* loop);
 HV_EXPORT void  hloop_set_lua_state(hloop_t* loop, void* lua_state, void (*dtor)(void* lua_state));
 HV_EXPORT void* hloop_lua_state(hloop_t* loop);
 
+// per-loop JS runtime (used by the js/ binding layer).
+// The C core treats it as an opaque pointer and never depends on QuickJS.
+// @dtor: optional destructor invoked on this pointer in hloop_cleanup.
+// Replacing an existing js_runtime does NOT call the previous dtor; the caller manages that.
+HV_EXPORT void  hloop_set_js_runtime(hloop_t* loop, void* js_runtime, void (*dtor)(void* js_runtime));
+HV_EXPORT void* hloop_js_runtime(hloop_t* loop);
+
 // custom_event
 /*
  * hevent_t ev;
