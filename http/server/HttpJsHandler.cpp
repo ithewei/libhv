@@ -239,7 +239,7 @@ static void task_finish(JsHttpTask* task, JSValue result) {
         task->ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
         task->ctx->response->String(task->error);
     }
-    else if (!JS_IsUndefined(task->promise) && JS_PromiseState(task->js, task->promise) == JS_PROMISE_REJECTED) {
+    else if (task->promise_rejected) {
         std::string err = hv::js::hvjs_to_string(task->js, result);
         hloge("[js] http handler rejected: %s", err.c_str());
         task->ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
@@ -399,6 +399,12 @@ int HttpJsHandler::operator()(const HttpContextPtr& ctx) {
         std::string msg = hv::js::hvjs_exception_string(task->js);
         ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
         ctx->response->String(msg);
+        hv::js::hvjs_task_unref(task);
+        return HTTP_STATUS_INTERNAL_SERVER_ERROR;
+    }
+    if (!hv::js::hvjs_watch_promise(task, &err)) {
+        ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
+        ctx->response->String(err);
         hv::js::hvjs_task_unref(task);
         return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }

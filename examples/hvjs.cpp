@@ -74,7 +74,7 @@ static void finish(hv::js::HvJsTask* base, JSValue result) {
         fprintf(stderr, "hvjs: %s\n", task->error.c_str());
         task->exit_code = 1;
     }
-    else if (!JS_IsUndefined(task->promise) && JS_PromiseState(task->js, task->promise) == JS_PROMISE_REJECTED) {
+    else if (task->promise_rejected) {
         std::string err = hv::js::hvjs_to_string(task->js, result);
         fprintf(stderr, "hvjs: %s\n", err.c_str());
         task->exit_code = 1;
@@ -149,6 +149,12 @@ int main(int argc, char** argv) {
     JS_FreeValue(task->js, eval);
     if (JS_IsException(task->promise)) {
         std::string err = hv::js::hvjs_exception_string(task->js);
+        fprintf(stderr, "hvjs: %s\n", err.c_str());
+        hv::js::hvjs_task_unref(task);
+        return 1;
+    }
+    std::string err;
+    if (!hv::js::hvjs_watch_promise(task, &err)) {
         fprintf(stderr, "hvjs: %s\n", err.c_str());
         hv::js::hvjs_task_unref(task);
         return 1;

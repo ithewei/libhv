@@ -19,6 +19,9 @@ struct HV_EXPORT HvJsTask {
     hloop_t* loop;
     EventLoopPtr loop_ptr;
     JSValue promise;
+    JSValue promise_result;
+    bool promise_settled;
+    bool promise_rejected;
     bool finished;
     bool in_call;
     bool closing;
@@ -44,6 +47,7 @@ struct HV_EXPORT HvJsPromiseOp {
 HV_EXPORT void hvjs_task_ref(HvJsTask* task);
 HV_EXPORT void hvjs_task_unref(HvJsTask* task);
 HV_EXPORT void hvjs_schedule_drain(HvJsTask* task);
+HV_EXPORT bool hvjs_watch_promise(HvJsTask* task, std::string* err = NULL);
 HV_EXPORT void hvjs_drain_jobs(HvJsTask* task);
 
 template <typename T> JSValue hvjs_new_promise(JSContext* js, HvJsTask* task, T** out) {

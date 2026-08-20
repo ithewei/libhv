@@ -23,6 +23,9 @@ struct HvJsSleep : public HvJsPromiseOp {
 
 struct HvJsImmediatePromise : public HvJsPromiseOp {};
 
+static JSClassID s_task_ref_class_id;
+static std::once_flag s_task_ref_class_once;
+
 std::mutex& js_class_id_mutex() {
     static std::mutex mutex;
     return mutex;
@@ -74,6 +77,38 @@ void promise_complete(HvJsPromiseOp* op, JSValue value, bool ok) {
 void sleep_timer_cb(htimer_t* timer) {
     HvJsSleep* sleep = (HvJsSleep*)hevent_userdata(timer);
     hvjs_promise_resolve(sleep, JS_UNDEFINED);
+}
+
+void register_task_ref_class(JSContext* js) {
+    std::call_once(s_task_ref_class_once, []() { hvjs_new_class_id(&s_task_ref_class_id); });
+    JSRuntime* rt = JS_GetRuntime(js);
+    if (!JS_IsRegisteredClass(rt, s_task_ref_class_id)) {
+        JSClassDef def;
+        memset(&def, 0, sizeof(def));
+        def.class_name = "hv.js.task";
+        JS_NewClass(rt, s_task_ref_class_id, &def);
+    }
+}
+
+JSValue new_task_ref_value(JSContext* js, HvJsTask* task) {
+    register_task_ref_class(js);
+    JSValue obj = JS_NewObjectClass(js, s_task_ref_class_id);
+    if (JS_IsException(obj)) return obj;
+    JS_SetOpaque(obj, task);
+    return obj;
+}
+
+JSValue promise_settle_cb(JSContext* js, JSValueConst this_val, int argc, JSValueConst* argv, int magic, JSValue* func_data) {
+    (void)this_val;
+    if (argc < 1) return JS_UNDEFINED;
+    HvJsTask* task = (HvJsTask*)JS_GetOpaque(func_data[0], s_task_ref_class_id);
+    if (task == NULL || task->closing || task->promise_settled) {
+        return JS_UNDEFINED;
+    }
+    task->promise_result = JS_DupValue(js, argv[0]);
+    task->promise_rejected = magic != 0;
+    task->promise_settled = true;
+    return JS_UNDEFINED;
 }
 
 JSValue js_hv_sleep(JSContext* js, JSValueConst this_val, int argc, JSValueConst* argv) {
@@ -136,7 +171,9 @@ JSValue require_hv(JSContext* js) {
 
 } // namespace
 
-HvJsTask::HvJsTask() : rt(NULL), js(NULL), loop(NULL), promise(JS_UNDEFINED), finished(false), in_call(false), closing(false), refcount(1), finish(NULL) {}
+HvJsTask::HvJsTask()
+    : rt(NULL), js(NULL), loop(NULL), promise(JS_UNDEFINED), promise_result(JS_UNDEFINED), promise_settled(false), promise_rejected(false), finished(false),
+      in_call(false), closing(false), refcount(1), finish(NULL) {}
 
 HvJsTask::~HvJsTask() {}
 
@@ -151,6 +188,10 @@ void hvjs_task_ref(HvJsTask* task) {
 void hvjs_task_unref(HvJsTask* task) {
     if (--task->refcount != 0) return;
     task->closing = true;
+    if (!JS_IsUndefined(task->promise_result)) {
+        JS_FreeValue(task->js, task->promise_result);
+        task->promise_result = JS_UNDEFINED;
+    }
     if (!JS_IsUndefined(task->promise)) {
         JS_FreeValue(task->js, task->promise);
         task->promise = JS_UNDEFINED;
@@ -191,6 +232,51 @@ void hvjs_schedule_drain(HvJsTask* task) {
     }
 }
 
+bool hvjs_watch_promise(HvJsTask* task, std::string* err) {
+    if (task == NULL || task->js == NULL || JS_IsUndefined(task->promise)) return false;
+    JSContext* js = task->js;
+    JSValue then = JS_GetPropertyStr(js, task->promise, "then");
+    if (JS_IsException(then)) {
+        if (err) *err = hvjs_exception_string(js);
+        return false;
+    }
+    if (!JS_IsFunction(js, then)) {
+        JS_FreeValue(js, then);
+        if (err) *err = "javascript result is not thenable";
+        return false;
+    }
+
+    JSValue task_ref = new_task_ref_value(js, task);
+    if (JS_IsException(task_ref)) {
+        JS_FreeValue(js, then);
+        if (err) *err = hvjs_exception_string(js);
+        return false;
+    }
+    JSValue on_fulfilled = JS_NewCFunctionData(js, promise_settle_cb, 1, 0, 1, &task_ref);
+    JSValue on_rejected = JS_NewCFunctionData(js, promise_settle_cb, 1, 1, 1, &task_ref);
+    if (JS_IsException(on_fulfilled) || JS_IsException(on_rejected)) {
+        if (err) *err = hvjs_exception_string(js);
+        JS_FreeValue(js, on_fulfilled);
+        JS_FreeValue(js, on_rejected);
+        JS_FreeValue(js, task_ref);
+        JS_FreeValue(js, then);
+        return false;
+    }
+    JSValue args[2] = {on_fulfilled, on_rejected};
+    JSValue ret = JS_Call(js, then, task->promise, 2, args);
+    JS_FreeValue(js, on_fulfilled);
+    JS_FreeValue(js, on_rejected);
+    JS_FreeValue(js, task_ref);
+    JS_FreeValue(js, then);
+    if (JS_IsException(ret)) {
+        if (err) *err = hvjs_exception_string(js);
+        JS_FreeValue(js, ret);
+        return false;
+    }
+    JS_FreeValue(js, ret);
+    return true;
+}
+
 void hvjs_drain_jobs(HvJsTask* task) {
     JSContext* job_ctx = NULL;
     while (JS_IsJobPending(task->rt)) {
@@ -200,20 +286,18 @@ void hvjs_drain_jobs(HvJsTask* task) {
             break;
         }
     }
-    if (!task->finished && !JS_IsUndefined(task->promise)) {
-        JSPromiseStateEnum state = JS_PromiseState(task->js, task->promise);
-        if (state != JS_PROMISE_PENDING) {
-            JSValue value = JS_PromiseResult(task->js, task->promise);
-            if (task->finish) {
-                task->finish(task, value);
-            }
-            else {
-                JS_FreeValue(task->js, value);
-                task->finished = true;
-                hvjs_task_unref(task);
-            }
-            return;
+    if (!task->finished && task->promise_settled) {
+        JSValue value = task->promise_result;
+        task->promise_result = JS_UNDEFINED;
+        if (task->finish) {
+            task->finish(task, value);
         }
+        else {
+            JS_FreeValue(task->js, value);
+            task->finished = true;
+            hvjs_task_unref(task);
+        }
+        return;
     }
     if (!task->error.empty()) {
         if (task->finish) {
