@@ -133,6 +133,16 @@ if(WITH_EVPP)
 
         list(APPEND EXAMPLES hvlua)
     endif()
+
+    if(WITH_JS)
+        include_directories(../js)
+
+        # hvjs: standalone QuickJS runtime on top of libhv's event loop
+        add_executable(hvjs hvjs.cpp)
+        target_link_libraries(hvjs ${HV_LIBRARIES})
+
+        list(APPEND EXAMPLES hvjs)
+    endif()
 if(WITH_HTTP)
     include_directories(../http)
 

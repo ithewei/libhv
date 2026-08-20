@@ -2,7 +2,7 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt
+ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt js
 CORE_SRCDIRS=. base ssl event
 ifeq ($(WITH_KCP), yes)
 CORE_SRCDIRS += event/kcp
@@ -26,6 +26,12 @@ LIBHV_SRCDIRS += lua
 ifneq ($(WITH_EVPP), yes)
 LIBHV_HEADERS += $(CPPUTIL_HEADERS)
 LIBHV_SRCDIRS += cpputil
+endif
+endif
+
+ifeq ($(WITH_JS), yes)
+ifeq ($(WITH_EVPP), yes)
+LIBHV_SRCDIRS += js
 endif
 endif
 
@@ -119,6 +125,11 @@ endif
 ifeq ($(WITH_LUA), yes)
 ifeq ($(WITH_EVPP), yes)
 EXAMPLES += hvlua
+endif
+endif
+ifeq ($(WITH_JS), yes)
+ifeq ($(WITH_EVPP), yes)
+EXAMPLES += hvjs
 endif
 endif
 
@@ -233,6 +244,9 @@ host: prepare
 
 hvlua: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/hvlua examples/hvlua.cpp -Llib -lhv -pthread $(LUA_LIBS)
+
+hvjs: prepare libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ijs -o bin/hvjs examples/hvjs.cpp -Llib -lhv -pthread $(JS_LIBS)
 
 multi-acceptor-processes: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/multi-thread/multi-acceptor-processes.c"

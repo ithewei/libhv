@@ -240,6 +240,7 @@ if(WITH_JS)
             /usr/local/opt/quickjs/lib
             /usr/local/lib/quickjs
             /usr/local/lib
+            /usr/lib/quickjs
             /usr/lib)
     if(NOT QUICKJS_INCLUDE_DIR OR NOT QUICKJS_LIBRARY)
         message(FATAL_ERROR "WITH_JS requires QuickJS. Set QUICKJS_ROOT or QUICKJS_INCLUDE_DIR and QUICKJS_LIBRARY.")
@@ -287,7 +288,7 @@ if(APPLE)
 endif()
 
 # see Makefile
-set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt)
+set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt js)
 set(CORE_SRCDIRS . base ssl event)
 if(WIN32 OR MINGW)
     if(WITH_WEPOLL)
@@ -318,6 +319,9 @@ endif()
 if(WITH_EVPP)
     set(LIBHV_HEADERS ${LIBHV_HEADERS} ${CPPUTIL_HEADERS} ${EVPP_HEADERS})
     set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} cpputil evpp)
+    if(WITH_JS)
+        set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} js)
+    endif()
     if(WITH_REDIS)
         set(LIBHV_HEADERS ${LIBHV_HEADERS} ${REDIS_HEADERS})
         set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} redis)

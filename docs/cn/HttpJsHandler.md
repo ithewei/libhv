@@ -224,3 +224,11 @@ make http_server_test WITH_JS=yes WITH_HTTP=yes
 bin/http_server_test 8080
 curl "http://127.0.0.1:8080/script/hello?id=42"
 ```
+
+也可以直接使用 `hvjs` 运行独立脚本示例：
+
+```bash
+make hvjs WITH_JS=yes WITH_HTTP=yes WITH_REDIS=yes WITH_MQTT=yes
+bin/hvjs examples/js/sleep.js
+bin/hvjs examples/js/http_client.js http://127.0.0.1:8080/ping
+```
