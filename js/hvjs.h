@@ -80,6 +80,16 @@ struct HV_EXPORT HvJsPromiseOp {
 
 HV_EXPORT HvJsRuntime* hvjs_runtime(hloop_t* loop);
 
+// Run a script on `loop` using the per-loop QuickJS runtime and a fresh
+// JSContext. The script body is wrapped in an async function, so top-level
+// await is supported. Global `require`, `print`, and `arg` are installed.
+// @return 1 if the script finished synchronously, 0 if it is pending on async
+// work and the caller should run the loop, <0 on setup/load/runtime error.
+// `exit_code`, if provided, is set to 1 when the script rejects or times out.
+HV_EXPORT int hvjs_dofile(hloop_t* loop, const char* filepath, int argc = 0, char** argv = NULL, int* exit_code = NULL);
+HV_EXPORT int hvjs_dostring(hloop_t* loop, const char* code, const char* filename = "<input>", int argc = 0, char** argv = NULL,
+                            int* exit_code = NULL);
+
 HV_EXPORT void hvjs_task_set_runtime(HvJsTask* task, HvJsRuntime* runtime);
 HV_EXPORT void hvjs_task_ref(HvJsTask* task);
 HV_EXPORT void hvjs_task_unref(HvJsTask* task);

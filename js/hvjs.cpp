@@ -5,8 +5,10 @@
 #include <algorithm>
 #include <string.h>
 
+#include <stdio.h>
 #include <mutex>
 
+#include "hfile.h"
 #include "hlog.h"
 #include "htime.h"
 #include "hversion.h"
@@ -26,11 +28,18 @@ struct HvJsSleep : public HvJsPromiseOp {
 
 struct HvJsImmediatePromise : public HvJsPromiseOp {};
 
+struct HvJsScriptTask : public HvJsTask {
+    int* exit_code;
+
+    HvJsScriptTask() : exit_code(NULL) {}
+};
+
 static JSClassID s_task_ref_class_id;
 static std::once_flag s_task_ref_class_once;
 
 const size_t DEFAULT_JS_MEMORY_LIMIT = 64 * 1024 * 1024;
 const size_t DEFAULT_JS_STACK_SIZE = 1024 * 1024;
+const int DEFAULT_JS_TASK_TIMEOUT = 30000;
 
 void delete_op(HvJsPromiseOp* op);
 
@@ -320,6 +329,64 @@ JSValue js_hv_log(JSContext* js, JSValueConst this_val, int argc, JSValueConst* 
     return JS_UNDEFINED;
 }
 
+JSValue js_print(JSContext* js, JSValueConst this_val, int argc, JSValueConst* argv) {
+    (void)this_val;
+    for (int i = 0; i < argc; ++i) {
+        if (i != 0) fputc(' ', stdout);
+        std::string s = hvjs_to_string(js, argv[i]);
+        fputs(s.c_str(), stdout);
+    }
+    fputc('\n', stdout);
+    return JS_UNDEFINED;
+}
+
+void set_script_args(JSContext* js, int argc, char** argv) {
+    JSValue arr = JS_NewArray(js);
+    for (int i = 1; i < argc; ++i) {
+        JS_SetPropertyUint32(js, arr, i - 1, JS_NewString(js, argv[i]));
+    }
+    JSValue global = JS_GetGlobalObject(js);
+    JS_SetPropertyStr(js, global, "arg", arr);
+    JS_FreeValue(js, global);
+}
+
+void script_finish(HvJsTask* base, JSValue result) {
+    HvJsScriptTask* task = static_cast<HvJsScriptTask*>(base);
+    if (task->finished) return;
+    task->finished = true;
+    if (!task->error.empty()) {
+        hloge("[js] script error: %s", task->error.c_str());
+        if (task->exit_code) *task->exit_code = 1;
+    }
+    else if (task->promise_rejected) {
+        std::string err = hvjs_to_string(task->js, result);
+        hloge("[js] script rejected: %s", err.c_str());
+        task->error = err.empty() ? "javascript rejection" : err;
+        if (task->exit_code) *task->exit_code = 1;
+    }
+    JS_FreeValue(task->js, result);
+    hvjs_task_cancel_timeout(task);
+    if (task->loop_ptr && task->loop_ptr->isRunning()) {
+        task->loop_ptr->stop();
+    }
+    else if (task->loop && hloop_status(task->loop) == HLOOP_STATUS_RUNNING) {
+        hloop_stop(task->loop);
+    }
+    hvjs_task_unref(task);
+}
+
+bool load_file(const char* filepath, std::string* out) {
+    HFile file;
+    if (file.open(filepath, "rb") != 0) {
+        return false;
+    }
+    size_t size = hv_filesize(filepath);
+    out->resize(size);
+    if (size == 0) return true;
+    int nread = file.read(&(*out)[0], (int)size);
+    return nread >= 0 && (size_t)nread == size;
+}
+
 JSValue require_hv(JSContext* js) {
     JSValue hv = JS_NewObject(js);
     JS_SetPropertyStr(js, hv, "version", JS_NewCFunction(js, js_hv_version, "version", 0));
@@ -329,6 +396,104 @@ JSValue require_hv(JSContext* js) {
 }
 
 } // namespace
+
+int hvjs_dostring(hloop_t* loop, const char* code, const char* filename, int argc, char** argv, int* exit_code) {
+    if (loop == NULL || code == NULL) return -1;
+
+    HvJsScriptTask* task = new HvJsScriptTask();
+    task->exit_code = exit_code;
+    task->loop = loop;
+    task->loop_ptr = currentThreadEventLoopPtr;
+    if (task->loop_ptr == NULL) {
+        EventLoop* current_loop = currentThreadEventLoop;
+        if (current_loop && current_loop->loop() == loop) {
+            task->loop_ptr = current_loop->shared_from_this();
+        }
+    }
+    task->finish = script_finish;
+    hvjs_task_set_runtime(task, hvjs_runtime(loop));
+    task->js = task->runtime ? JS_NewContext(task->runtime->rt) : NULL;
+    if (task->runtime == NULL || task->js == NULL) {
+        hloge("[js] failed to create quickjs runtime");
+        hvjs_task_unref(task);
+        return -1;
+    }
+    JS_SetContextOpaque(task->js, task);
+    task->timeout_ms = DEFAULT_JS_TASK_TIMEOUT;
+    task->start_hrtime = gethrtime_us();
+    if (!hvjs_task_start_timeout(task, task->timeout_ms)) {
+        hloge("[js] failed to create timeout timer");
+        hvjs_task_unref(task);
+        return -1;
+    }
+    set_script_args(task->js, argc, argv);
+
+    std::string err;
+    {
+        HvJsTaskScope scope(task);
+        JSValue global = JS_GetGlobalObject(task->js);
+        JS_SetPropertyStr(task->js, global, "require", JS_NewCFunction(task->js, hvjs_require, "require", 1));
+        JS_SetPropertyStr(task->js, global, "print", JS_NewCFunction(task->js, js_print, "print", 1));
+
+        std::string wrapped = "(async function(){\n";
+        wrapped += code;
+        wrapped += "\n})()";
+        JSValue eval = JS_Eval(task->js, wrapped.c_str(), wrapped.size(), filename ? filename : "<input>", JS_EVAL_TYPE_GLOBAL);
+        if (JS_IsException(eval)) {
+            err = hvjs_exception_string(task->js);
+            JS_FreeValue(task->js, global);
+            hloge("[js] eval %s failed: %s", filename ? filename : "<input>", err.c_str());
+            task->closing = true;
+            hvjs_task_cancel_ops(task, "javascript script error");
+            hvjs_task_cancel_timeout(task);
+            hvjs_task_unref(task);
+            return -1;
+        }
+
+        JSValue promise_ctor = JS_GetPropertyStr(task->js, global, "Promise");
+        JSValue promise_resolve = JS_GetPropertyStr(task->js, promise_ctor, "resolve");
+        JS_FreeValue(task->js, global);
+        JSValue promise_arg = eval;
+        task->promise = JS_Call(task->js, promise_resolve, promise_ctor, 1, &promise_arg);
+        JS_FreeValue(task->js, promise_resolve);
+        JS_FreeValue(task->js, promise_ctor);
+        JS_FreeValue(task->js, eval);
+        if (JS_IsException(task->promise)) {
+            err = hvjs_exception_string(task->js);
+            hloge("[js] Promise.resolve %s failed: %s", filename ? filename : "<input>", err.c_str());
+            task->closing = true;
+            hvjs_task_cancel_ops(task, "javascript script error");
+            hvjs_task_cancel_timeout(task);
+            hvjs_task_unref(task);
+            return -1;
+        }
+        if (!hvjs_watch_promise(task, &err)) {
+            hloge("[js] watch promise %s failed: %s", filename ? filename : "<input>", err.c_str());
+            task->closing = true;
+            hvjs_task_cancel_ops(task, "javascript script error");
+            hvjs_task_cancel_timeout(task);
+            hvjs_task_unref(task);
+            return -1;
+        }
+    }
+
+    hvjs_task_ref(task);
+    hvjs_drain_jobs(task);
+    bool finished = task->finished;
+    bool ok = task->error.empty() && !task->promise_rejected;
+    hvjs_task_unref(task);
+    return finished ? (ok ? 1 : -1) : 0;
+}
+
+int hvjs_dofile(hloop_t* loop, const char* filepath, int argc, char** argv, int* exit_code) {
+    if (filepath == NULL) return -1;
+    std::string code;
+    if (!load_file(filepath, &code)) {
+        hloge("[js] failed to read %s", filepath);
+        return -1;
+    }
+    return hvjs_dostring(loop, code.c_str(), filepath, argc, argv, exit_code);
+}
 
 HvJsRuntime::HvJsRuntime() : rt(NULL), current_task(NULL), tasks() {}
 
