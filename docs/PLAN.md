@@ -13,7 +13,6 @@
 - async DNS
 - lua binding
 - js binding
-- http js script handler
 - hrpc = libhv + protobuf
 
 ## Plan

@@ -124,6 +124,12 @@ set(MQTT_HEADERS
     mqtt/mqtt_client.h
 )
 
+set(LUA_HEADERS
+    lua/hvlua.h
+    lua/hvlua_util.h
+    lua/hvlua_json.h
+)
+
 set(JS_HEADERS
     js/hvjs.h
 )

@@ -316,7 +316,7 @@ if(WITH_PROTOCOL)
 endif()
 
 if(WITH_LUA)
-    set(LIBHV_HEADERS ${LIBHV_HEADERS} lua/hvlua.h lua/hvlua_json.h lua/hvlua_util.h)
+    set(LIBHV_HEADERS ${LIBHV_HEADERS} ${LUA_HEADERS})
     set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} lua)
     if(NOT WITH_EVPP)
         set(LIBHV_HEADERS ${LIBHV_HEADERS} ${CPPUTIL_HEADERS})

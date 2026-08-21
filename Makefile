@@ -21,7 +21,7 @@ LIBHV_SRCDIRS += protocol
 endif
 
 ifeq ($(WITH_LUA), yes)
-LIBHV_HEADERS += lua/hvlua.h lua/hvlua_json.h lua/hvlua_util.h
+LIBHV_HEADERS += $(LUA_HEADERS)
 LIBHV_SRCDIRS += lua
 ifneq ($(WITH_EVPP), yes)
 LIBHV_HEADERS += $(CPPUTIL_HEADERS)

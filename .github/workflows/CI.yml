@@ -16,10 +16,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: build
+      - name: build-quickjs
         run: |
-          sudo apt update
-          sudo apt install libssl-dev libnghttp2-dev liblua5.4-dev libprotobuf-dev libprotoc-dev protobuf-compiler
           QUICKJS_COMMIT=04be246001599f5995fa2f2d8c91a0f198d3f34c
           rm -rf /tmp/quickjs
           git init -q /tmp/quickjs
@@ -31,14 +29,22 @@ jobs:
           sudo mkdir -p /usr/local/include/quickjs /usr/local/lib/quickjs
           sudo install -m644 /tmp/quickjs/quickjs.h /tmp/quickjs/quickjs-libc.h /usr/local/include/quickjs/
           sudo install -m644 /tmp/quickjs/libquickjs.a /usr/local/lib/quickjs/
+
+      - name: build
+        run: |
+          sudo apt update
+          sudo apt install libssl-dev libnghttp2-dev libprotobuf-dev libprotoc-dev protobuf-compiler liblua5.4-dev
           export QUICKJS_ROOT=/usr/local
-          echo "QUICKJS_ROOT=/usr/local" >> $GITHUB_ENV
-          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua --with-rpc --with-js
-          make libhv hvjs evpp unittest
-          bin/hvjs examples/js/sleep.js
-          make run-unittest
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-rpc --with-lua --with-js
+          make libhv evpp unittest
           # hrpc = separate libhrpc (needs protobuf); apt installs protobuf under /usr
           make libhrpc hrpc PROTOBUF_PREFIX=/usr
+          # hvlua = libhv + lua binding
+          make hvlua
+          bin/hvlua examples/lua/sleep.lua
+          # hvjs = libhv + js binding
+          make hvjs
+          bin/hvjs examples/js/sleep.js
 
       - name: test
         run: |
