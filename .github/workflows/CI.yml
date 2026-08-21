@@ -29,12 +29,13 @@ jobs:
           sudo mkdir -p /usr/local/include/quickjs /usr/local/lib/quickjs
           sudo install -m644 /tmp/quickjs/quickjs.h /tmp/quickjs/quickjs-libc.h /usr/local/include/quickjs/
           sudo install -m644 /tmp/quickjs/libquickjs.a /usr/local/lib/quickjs/
+          echo "QUICKJS_ROOT=/usr/local" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/lib:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
 
       - name: build
         run: |
           sudo apt update
           sudo apt install libssl-dev libnghttp2-dev libprotobuf-dev libprotoc-dev protobuf-compiler liblua5.4-dev
-          export QUICKJS_ROOT=/usr/local
           ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-rpc --with-lua --with-js
           make libhv evpp unittest
           # hrpc = separate libhrpc (needs protobuf); apt installs protobuf under /usr
