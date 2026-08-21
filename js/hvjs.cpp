@@ -402,11 +402,11 @@ void hvjs_task_unref(HvJsTask* task) {
         }
     }
     finish_deferred_ops(task);
-    if (!JS_IsUndefined(task->promise_result)) {
+    if (task->js && !JS_IsUndefined(task->promise_result)) {
         JS_FreeValue(task->js, task->promise_result);
         task->promise_result = JS_UNDEFINED;
     }
-    if (!JS_IsUndefined(task->promise)) {
+    if (task->js && !JS_IsUndefined(task->promise)) {
         JS_FreeValue(task->js, task->promise);
         task->promise = JS_UNDEFINED;
     }
@@ -469,9 +469,7 @@ bool hvjs_task_start_timeout(HvJsTask* task, int timeout_ms) {
 void hvjs_task_cancel_timeout(HvJsTask* task) {
     if (task == NULL) return;
     if (task->timeout_timer_id != INVALID_TIMER_ID && task->loop_ptr) {
-        if (task->loop_ptr->isRunning()) {
-            task->loop_ptr->killTimer(task->timeout_timer_id);
-        }
+        task->loop_ptr->killTimer(task->timeout_timer_id);
         task->timeout_timer_id = INVALID_TIMER_ID;
         hvjs_task_unref(task);
     }
