@@ -19,18 +19,24 @@ jobs:
       - name: build
         run: |
           sudo apt update
-          sudo apt install libssl-dev libnghttp2-dev liblua5.4-dev libprotobuf-dev libprotoc-dev protobuf-compiler quickjs libquickjs
-          # Ubuntu packages libquickjs as a non-PIC static library, so JS is
-          # covered in a static libhv build instead of linking it into libhv.so.
-          make clean
-          ./configure --disable-shared --with-http --with-mqtt --with-redis --with-js
-          make libhv hvjs unittest
+          sudo apt install libssl-dev libnghttp2-dev liblua5.4-dev libprotobuf-dev libprotoc-dev protobuf-compiler
+          QUICKJS_COMMIT=04be246001599f5995fa2f2d8c91a0f198d3f34c
+          rm -rf /tmp/quickjs
+          git init -q /tmp/quickjs
+          git -C /tmp/quickjs remote add origin https://github.com/bellard/quickjs.git
+          git -C /tmp/quickjs fetch -q --depth 1 origin ${QUICKJS_COMMIT}
+          git -C /tmp/quickjs checkout -q FETCH_HEAD
+          printf '\nCFLAGS_OPT+=-fPIC\n' >> /tmp/quickjs/Makefile
+          make -C /tmp/quickjs libquickjs.a -j$(nproc)
+          sudo mkdir -p /usr/local/include/quickjs /usr/local/lib/quickjs
+          sudo install -m644 /tmp/quickjs/quickjs.h /tmp/quickjs/quickjs-libc.h /usr/local/include/quickjs/
+          sudo install -m644 /tmp/quickjs/libquickjs.a /usr/local/lib/quickjs/
+          export QUICKJS_ROOT=/usr/local
+          echo "QUICKJS_ROOT=/usr/local" >> $GITHUB_ENV
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua --with-rpc --with-js
+          make libhv hvjs evpp unittest
           bin/hvjs examples/js/sleep.js
           make run-unittest
-          make clean
-          rm -f bin/hvjs bin/http_js_handler_test bin/http_js_redis_test bin/http_js_ws_test bin/http_js_mqtt_test
-          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua --with-rpc
-          make libhv evpp
           # hrpc = separate libhrpc (needs protobuf); apt installs protobuf under /usr
           make libhrpc hrpc PROTOBUF_PREFIX=/usr
 
