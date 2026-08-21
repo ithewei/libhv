@@ -117,8 +117,7 @@ int main(int argc, char** argv) {
     task->loop_ptr = loop;
     task->loop = loop->loop();
     task->finish = finish;
-    hv::js::HvJsRuntimeOptions runtime_options;
-    hv::js::hvjs_task_set_runtime(task, hv::js::hvjs_runtime(task->loop, runtime_options));
+    hv::js::hvjs_task_set_runtime(task, hv::js::hvjs_runtime(task->loop));
     task->js = task->runtime ? JS_NewContext(task->runtime->rt) : NULL;
     if (task->runtime == NULL || task->js == NULL) {
         fprintf(stderr, "hvjs: failed to create quickjs runtime\n");

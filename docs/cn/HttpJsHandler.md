@@ -89,12 +89,10 @@ async function get(ctx) {
 HttpJsHandlerOptions options;
 options.reload_on_change = true;
 options.timeout_ms = 30000;              // 单个 HTTP 请求的墙钟预算，0 表示不限制
-options.memory_limit = 64 * 1024 * 1024; // 每个 event loop 复用的 QuickJS runtime 内存上限，0 表示不限制
-options.stack_size = 1024 * 1024;        // QuickJS 栈上限，0 表示不限制
 router.GET("/hello", HttpJsHandler("scripts/hello.js", options));
 ```
 
-`memory_limit` 和 `stack_size` 作用在每个 event loop 复用的 QuickJS runtime 上；同一个 loop 上第一次创建 JS runtime 时生效。
+JS runtime 使用内置的内存和栈限制；v1 暂不暴露运行时限制配置。
 
 ## 目录映射
 

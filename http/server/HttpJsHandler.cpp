@@ -352,10 +352,7 @@ int HttpJsHandler::operator()(const HttpContextPtr& ctx) {
         return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }
 
-    hv::js::HvJsRuntimeOptions runtime_options;
-    runtime_options.memory_limit = options_.memory_limit;
-    runtime_options.stack_size = options_.stack_size;
-    hv::js::hvjs_task_set_runtime(task, hv::js::hvjs_runtime(task->loop, runtime_options));
+    hv::js::hvjs_task_set_runtime(task, hv::js::hvjs_runtime(task->loop));
     task->js = task->runtime ? JS_NewContext(task->runtime->rt) : NULL;
     if (task->runtime == NULL || task->js == NULL) {
         ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;

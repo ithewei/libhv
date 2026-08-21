@@ -1,8 +1,6 @@
 #ifndef HV_HTTP_JS_HANDLER_H_
 #define HV_HTTP_JS_HANDLER_H_
 
-#include <stddef.h>
-
 #include <memory>
 #include <string>
 
@@ -13,15 +11,11 @@ namespace hv {
 
 struct HV_EXPORT HttpJsHandlerOptions {
     bool reload_on_change;
-    int timeout_ms;      // request wall-clock timeout; 0 disables
-    size_t memory_limit; // QuickJS per-loop runtime memory limit; 0 disables
-    size_t stack_size;   // QuickJS max stack size; 0 disables
+    int timeout_ms; // request wall-clock timeout; 0 disables
 
     HttpJsHandlerOptions()
         : reload_on_change(true)
-        , timeout_ms(30000)
-        , memory_limit(64 * 1024 * 1024)
-        , stack_size(1024 * 1024) {}
+        , timeout_ms(30000) {}
 };
 
 // HttpJsHandler runs a QuickJS script to handle an HTTP request.

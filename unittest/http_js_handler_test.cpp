@@ -47,9 +47,8 @@ static std::string write_script(const char* name, const char* content) {
 
 int main() {
     hloop_t* loop = hloop_new(0);
-    hv::js::HvJsRuntimeOptions runtime_options;
-    hv::js::HvJsRuntime* runtime1 = hv::js::hvjs_runtime(loop, runtime_options);
-    hv::js::HvJsRuntime* runtime2 = hv::js::hvjs_runtime(loop, runtime_options);
+    hv::js::HvJsRuntime* runtime1 = hv::js::hvjs_runtime(loop);
+    hv::js::HvJsRuntime* runtime2 = hv::js::hvjs_runtime(loop);
     CHECK(runtime1 != NULL);
     CHECK(runtime1 == runtime2);
     hloop_free(&loop);

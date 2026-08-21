@@ -19,16 +19,8 @@ namespace js {
 struct HvJsTask;
 struct HvJsPromiseOp;
 
-struct HV_EXPORT HvJsRuntimeOptions {
-    size_t memory_limit;
-    size_t stack_size;
-
-    HvJsRuntimeOptions();
-};
-
 struct HV_EXPORT HvJsRuntime {
     JSRuntime* rt;
-    HvJsRuntimeOptions options;
     HvJsTask* current_task;
     std::vector<HvJsTask*> tasks;
 
@@ -86,7 +78,7 @@ struct HV_EXPORT HvJsPromiseOp {
     virtual void cancel(const char* reason);
 };
 
-HV_EXPORT HvJsRuntime* hvjs_runtime(hloop_t* loop, const HvJsRuntimeOptions& options);
+HV_EXPORT HvJsRuntime* hvjs_runtime(hloop_t* loop);
 
 HV_EXPORT void hvjs_task_set_runtime(HvJsTask* task, HvJsRuntime* runtime);
 HV_EXPORT void hvjs_task_ref(HvJsTask* task);

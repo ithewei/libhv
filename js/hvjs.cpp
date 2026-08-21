@@ -29,6 +29,9 @@ struct HvJsImmediatePromise : public HvJsPromiseOp {};
 static JSClassID s_task_ref_class_id;
 static std::once_flag s_task_ref_class_once;
 
+const size_t DEFAULT_JS_MEMORY_LIMIT = 64 * 1024 * 1024;
+const size_t DEFAULT_JS_STACK_SIZE = 1024 * 1024;
+
 void delete_op(HvJsPromiseOp* op);
 
 void runtime_dtor(void* userdata) {
@@ -327,8 +330,6 @@ JSValue require_hv(JSContext* js) {
 
 } // namespace
 
-HvJsRuntimeOptions::HvJsRuntimeOptions() : memory_limit(64 * 1024 * 1024), stack_size(1024 * 1024) {}
-
 HvJsRuntime::HvJsRuntime() : rt(NULL), current_task(NULL), tasks() {}
 
 HvJsTaskScope::HvJsTaskScope(HvJsTask* task) : runtime(task ? task->runtime : NULL), current(task), previous(runtime ? runtime->current_task : NULL) {
@@ -359,24 +360,19 @@ void HvJsPromiseOp::cancel(const char* reason) {
     (void)reason;
 }
 
-HvJsRuntime* hvjs_runtime(hloop_t* loop, const HvJsRuntimeOptions& options) {
+HvJsRuntime* hvjs_runtime(hloop_t* loop) {
     if (loop == NULL) return NULL;
     HvJsRuntime* runtime = (HvJsRuntime*)hloop_js_runtime(loop);
     if (runtime) return runtime;
 
     runtime = new HvJsRuntime();
-    runtime->options = options;
     runtime->rt = JS_NewRuntime();
     if (runtime->rt == NULL) {
         delete runtime;
         return NULL;
     }
-    if (runtime->options.memory_limit > 0) {
-        JS_SetMemoryLimit(runtime->rt, runtime->options.memory_limit);
-    }
-    if (runtime->options.stack_size > 0) {
-        JS_SetMaxStackSize(runtime->rt, runtime->options.stack_size);
-    }
+    JS_SetMemoryLimit(runtime->rt, DEFAULT_JS_MEMORY_LIMIT);
+    JS_SetMaxStackSize(runtime->rt, DEFAULT_JS_STACK_SIZE);
     JS_SetRuntimeOpaque(runtime->rt, runtime);
     JS_SetInterruptHandler(runtime->rt, interrupt_handler, NULL);
     hloop_set_js_runtime(loop, runtime, runtime_dtor);
