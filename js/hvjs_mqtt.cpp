@@ -51,7 +51,7 @@ struct HvJsMqttState {
     ~HvJsMqttState() { detach(); }
 };
 
-void js_mqtt_detach_after_callback(const EventLoopPtr& loop, hloop_t* raw_loop, const std::shared_ptr<HvJsMqttState>& state);
+void js_mqtt_detach_after_callback(hloop_t* loop, const std::shared_ptr<HvJsMqttState>& state);
 
 struct HvJsMqttClient {
     std::shared_ptr<HvJsMqttState> state;
@@ -64,7 +64,7 @@ struct HvJsMqttConnect : public HvJsPromiseOp {
         std::shared_ptr<HvJsMqttState> hold = state;
         if (hold) {
             hold->connect_op = NULL;
-            js_mqtt_detach_after_callback(task ? task->loop_ptr : EventLoopPtr(), task ? task->loop : NULL, hold);
+            js_mqtt_detach_after_callback(hvjs_task_loop(task), hold);
         }
         HvJsPromiseOp::cancel(reason);
     }
@@ -78,7 +78,7 @@ struct HvJsMqttRecv : public HvJsPromiseOp {
         if (hold) {
             hold->recv_op = NULL;
             if (!hold->js_alive && hold->connect_op == NULL) {
-                js_mqtt_detach_after_callback(task ? task->loop_ptr : EventLoopPtr(), task ? task->loop : NULL, hold);
+                js_mqtt_detach_after_callback(hvjs_task_loop(task), hold);
             }
         }
         HvJsPromiseOp::cancel(reason);
@@ -154,8 +154,7 @@ void js_mqtt_try_deliver(HvJsMqttState* state) {
     if (!state || state->recv_op == NULL) return;
     HvJsMqttRecv* op = static_cast<HvJsMqttRecv*>(state->recv_op);
     std::shared_ptr<HvJsMqttState> hold = op->state;
-    EventLoopPtr loop = op->task ? op->task->loop_ptr : EventLoopPtr();
-    hloop_t* raw_loop = op->task ? op->task->loop : NULL;
+    hloop_t* loop = hvjs_task_loop(op->task);
     if (!state->inbox.empty()) {
         HvJsMqttMessage msg = std::move(state->inbox.front());
         state->inbox.pop_front();
@@ -167,7 +166,7 @@ void js_mqtt_try_deliver(HvJsMqttState* state) {
         hvjs_promise_reject(op, js_mqtt_closed_reason(state));
     }
     if (!hold->js_alive && hold->connect_op == NULL && hold->recv_op == NULL) {
-        js_mqtt_detach_after_callback(loop, raw_loop, hold);
+        js_mqtt_detach_after_callback(loop, hold);
     }
 }
 
@@ -179,23 +178,20 @@ void js_mqtt_detach_event_cb(hevent_t* ev) {
     }
 }
 
-void js_mqtt_detach_after_callback(const EventLoopPtr& loop, hloop_t* raw_loop, const std::shared_ptr<HvJsMqttState>& state) {
+void js_mqtt_detach_after_callback(hloop_t* loop, const std::shared_ptr<HvJsMqttState>& state) {
     if (!state) return;
     state->reconnect = false;
     if (state->client) {
         mqtt_client_set_reconnect(state->client, NULL);
     }
-    if (loop && loop->loop() && hloop_status(loop->loop()) == HLOOP_STATUS_RUNNING) {
-        loop->queueInLoop([state]() { state->detach(); });
-    }
-    else if (raw_loop && hloop_status(raw_loop) == HLOOP_STATUS_RUNNING) {
+    if (loop && hloop_status(loop) == HLOOP_STATUS_RUNNING) {
         HvJsMqttDetachEvent* detach = new HvJsMqttDetachEvent();
         detach->state = state;
         hevent_t ev;
         memset(&ev, 0, sizeof(ev));
         ev.cb = js_mqtt_detach_event_cb;
         ev.userdata = detach;
-        hloop_post_event(raw_loop, &ev);
+        hloop_post_event(loop, &ev);
     }
     else {
         state->detach();
@@ -211,13 +207,12 @@ void js_mqtt_on_event(mqtt_client_t* client, int type) {
         if (state->connect_op) {
             HvJsMqttConnect* op = static_cast<HvJsMqttConnect*>(state->connect_op);
             std::shared_ptr<HvJsMqttState> hold = op->state;
-            EventLoopPtr loop = op->task ? op->task->loop_ptr : EventLoopPtr();
-            hloop_t* raw_loop = op->task ? op->task->loop : NULL;
+            hloop_t* loop = hvjs_task_loop(op->task);
             state->connect_op = NULL;
             JSValue obj = js_mqtt_new_client_object(op->task->js, hold);
             if (JS_IsException(obj)) {
                 hvjs_promise_reject(op, "hv.mqtt: create client failed");
-                js_mqtt_detach_after_callback(loop, raw_loop, hold);
+                js_mqtt_detach_after_callback(loop, hold);
             }
             else {
                 hvjs_promise_resolve(op, obj);
@@ -242,21 +237,19 @@ void js_mqtt_on_event(mqtt_client_t* client, int type) {
         if (state->connect_op) {
             HvJsMqttConnect* op = static_cast<HvJsMqttConnect*>(state->connect_op);
             std::shared_ptr<HvJsMqttState> hold = op->state;
-            EventLoopPtr loop = op->task ? op->task->loop_ptr : EventLoopPtr();
-            hloop_t* raw_loop = op->task ? op->task->loop : NULL;
+            hloop_t* loop = hvjs_task_loop(op->task);
             state->connect_op = NULL;
             hvjs_promise_reject(op, "connect failed");
-            js_mqtt_detach_after_callback(loop, raw_loop, hold);
+            js_mqtt_detach_after_callback(loop, hold);
         }
         if (state->recv_op) {
             HvJsMqttRecv* op = static_cast<HvJsMqttRecv*>(state->recv_op);
             std::shared_ptr<HvJsMqttState> hold = op->state;
-            EventLoopPtr loop = op->task ? op->task->loop_ptr : EventLoopPtr();
-            hloop_t* raw_loop = op->task ? op->task->loop : NULL;
+            hloop_t* loop = hvjs_task_loop(op->task);
             state->recv_op = NULL;
             hvjs_promise_reject(op, js_mqtt_closed_reason(state));
             if (!hold->js_alive && hold->connect_op == NULL && hold->recv_op == NULL) {
-                js_mqtt_detach_after_callback(loop, raw_loop, hold);
+                js_mqtt_detach_after_callback(loop, hold);
             }
         }
         break;
@@ -288,7 +281,8 @@ bool js_parse_reconnect(JSContext* js, JSValueConst obj, reconn_setting_t* out) 
 JSValue js_mqtt_connect(JSContext* js, JSValueConst this_val, int argc, JSValueConst* argv) {
     (void)this_val;
     HvJsTask* task = hvjs_get_task(js);
-    if (task == NULL || task->loop == NULL) {
+    hloop_t* loop = hvjs_task_loop(task);
+    if (task == NULL || loop == NULL) {
         return hvjs_rejected_promise(js, "hv.mqtt: no event loop on this thread");
     }
     if (argc < 1 || !JS_IsObject(argv[0])) {
@@ -308,7 +302,7 @@ JSValue js_mqtt_connect(JSContext* js, JSValueConst this_val, int argc, JSValueC
 
     js_mqtt_register_class(js);
     std::shared_ptr<HvJsMqttState> state = std::make_shared<HvJsMqttState>();
-    state->client = mqtt_client_new(task->loop);
+    state->client = mqtt_client_new(loop);
     if (state->client == NULL) {
         return hvjs_rejected_promise(js, "hv.mqtt: create client failed");
     }
@@ -343,7 +337,7 @@ JSValue js_mqtt_connect(JSContext* js, JSValueConst this_val, int argc, JSValueC
         state->detach();
     }
     --task->in_call;
-    hvjs_finish_deferred_op(op);
+    hvjs_finish_deferred_ops(task);
     return promise;
 }
 

@@ -178,14 +178,15 @@ JSValue js_redis_command(JSContext* js, JSValueConst this_val, int argc, JSValue
         hvjs_promise_reject(op, "hv.redis: request failed");
     }
     --task->in_call;
-    hvjs_finish_deferred_op(op);
+    hvjs_finish_deferred_ops(task);
     return promise;
 }
 
 JSValue js_redis_new(JSContext* js, JSValueConst this_val, int argc, JSValueConst* argv) {
     (void)this_val;
     HvJsTask* task = hvjs_get_task(js);
-    if (task == NULL || !task->loop_ptr) {
+    EventLoopPtr loop_ptr = currentThreadEventLoopPtr;
+    if (task == NULL || !loop_ptr) {
         return JS_ThrowTypeError(js, "hv.redis: no shared event loop on this thread");
     }
     js_redis_register_class(js);
@@ -207,7 +208,7 @@ JSValue js_redis_new(JSContext* js, JSValueConst this_val, int argc, JSValueCons
     if (JS_IsException(obj)) return obj;
     HvJsRedisClient* box = new HvJsRedisClient();
     box->state = std::make_shared<HvJsRedisState>();
-    box->state->client = std::make_shared<AsyncRedisClient>(task->loop_ptr);
+    box->state->client = std::make_shared<AsyncRedisClient>(loop_ptr);
     box->state->client->setHost(host);
     box->state->client->setPort(port);
     if (!auth.empty()) box->state->client->setAuth(auth);

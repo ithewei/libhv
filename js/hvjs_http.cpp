@@ -23,24 +23,37 @@ namespace {
 
 static const int JS_HTTP_METHOD_REQUEST = -1;
 
-void js_http_release_client_after_callback(const EventLoopPtr& loop, const std::shared_ptr<AsyncHttpClient>& client) {
-    if (!client) return;
-    if (loop && loop->loop() && hloop_status(loop->loop()) == HLOOP_STATUS_RUNNING) {
-        loop->queueInLoop([client]() {});
+void js_http_client_free(void* p) {
+    delete static_cast<AsyncHttpClient*>(p);
+}
+
+// Get (lazily create) the per-loop AsyncHttpClient, owned by the runtime for the
+// lifetime of the loop and shared by every request on it (mirrors the lua
+// binding's per-lua_State client). AsyncHttpClient multiplexes concurrent
+// requests, so one instance per loop is enough. Returns NULL if there is no
+// shared current loop.
+AsyncHttpClient* js_http_client(HvJsTask* task) {
+    HvJsRuntime* runtime = task ? task->runtime : NULL;
+    if (runtime == NULL) return NULL;
+    for (size_t i = 0; i < runtime->cleanups.size(); ++i) {
+        if (runtime->cleanups[i].fn == js_http_client_free) {
+            return static_cast<AsyncHttpClient*>(runtime->cleanups[i].userdata);
+        }
     }
+    EventLoopPtr loop = currentThreadEventLoopPtr;
+    if (!loop) return NULL;
+    AsyncHttpClient* client = new AsyncHttpClient(loop);
+    hvjs_runtime_add_cleanup(runtime, js_http_client_free, client);
+    return client;
 }
 
 struct HvJsHttpRequest : public HvJsPromiseOp {
     HttpRequestPtr req;
-    std::shared_ptr<AsyncHttpClient> client;
 
     void cancel(const char* reason) override {
         if (req) {
             req->Cancel();
         }
-        std::shared_ptr<AsyncHttpClient> hold = client;
-        client.reset();
-        js_http_release_client_after_callback(task ? task->loop_ptr : EventLoopPtr(), hold);
         HvJsPromiseOp::cancel(reason);
     }
 };
@@ -102,7 +115,8 @@ int js_fill_http_request(JSContext* js, JSValueConst* argv, int argc, http_metho
 JSValue js_http_request(JSContext* js, JSValueConst this_val, int argc, JSValueConst* argv, int magic) {
     (void)this_val;
     HvJsTask* task = hvjs_get_task(js);
-    if (task == NULL || !task->loop_ptr) {
+    AsyncHttpClient* client = js_http_client(task);
+    if (task == NULL || client == NULL) {
         return hvjs_rejected_promise(js, "hv.http: no shared event loop on this thread");
     }
     http_method method = (http_method)magic;
@@ -127,16 +141,12 @@ JSValue js_http_request(JSContext* js, JSValueConst this_val, int argc, JSValueC
     JSValue promise = hvjs_new_promise<HvJsHttpRequest>(js, task, &op);
     if (JS_IsException(promise)) return promise;
     op->req = req;
-    op->client = std::make_shared<AsyncHttpClient>(task->loop_ptr);
-    std::shared_ptr<AsyncHttpClient> client = op->client;
     std::shared_ptr<HvJsPromiseOp*> handle = op->handle;
     ++task->in_call;
-    int ret = client->send(req, [handle, client](const HttpResponsePtr& resp) {
+    int ret = client->send(req, [handle](const HttpResponsePtr& resp) {
         HvJsPromiseOp* base = handle ? *handle : NULL;
         if (base == NULL || base->task == NULL) return;
         HvJsHttpRequest* op = static_cast<HvJsHttpRequest*>(base);
-        op->client.reset();
-        js_http_release_client_after_callback(base->task->loop_ptr, client);
         JSContext* js = base->task->js;
         if (resp) {
             hvjs_promise_resolve(op, js_push_http_response(js, resp));
@@ -149,7 +159,7 @@ JSValue js_http_request(JSContext* js, JSValueConst this_val, int argc, JSValueC
         hvjs_promise_reject(op, "hv.http: request failed");
     }
     --task->in_call;
-    hvjs_finish_deferred_op(op);
+    hvjs_finish_deferred_ops(task);
     return promise;
 }
 
@@ -182,7 +192,7 @@ struct HvJsWsState {
     ~HvJsWsState() { detach(); }
 };
 
-void js_ws_detach_after_callback(const EventLoopPtr& loop, hloop_t* raw_loop, const std::shared_ptr<HvJsWsState>& state);
+void js_ws_detach_after_callback(hloop_t* loop, const std::shared_ptr<HvJsWsState>& state);
 
 struct HvJsWsClient {
     std::shared_ptr<HvJsWsState> state;
@@ -199,7 +209,7 @@ struct HvJsWsConnect : public HvJsPromiseOp {
         std::shared_ptr<HvJsWsState> hold = state;
         if (hold) {
             hold->connect_op = NULL;
-            js_ws_detach_after_callback(task ? task->loop_ptr : EventLoopPtr(), task ? task->loop : NULL, hold);
+            js_ws_detach_after_callback(hvjs_task_loop(task), hold);
         }
         HvJsPromiseOp::cancel(reason);
     }
@@ -213,7 +223,7 @@ struct HvJsWsRecv : public HvJsPromiseOp {
         if (hold) {
             hold->recv_op = NULL;
             if (!hold->js_alive && hold->connect_op == NULL) {
-                js_ws_detach_after_callback(task ? task->loop_ptr : EventLoopPtr(), task ? task->loop : NULL, hold);
+                js_ws_detach_after_callback(hvjs_task_loop(task), hold);
             }
         }
         HvJsPromiseOp::cancel(reason);
@@ -232,20 +242,16 @@ void js_ws_detach_event_cb(hevent_t* ev) {
     }
 }
 
-void js_ws_detach_after_callback(const EventLoopPtr& loop, hloop_t* raw_loop, const std::shared_ptr<HvJsWsState>& state) {
+void js_ws_detach_after_callback(hloop_t* loop, const std::shared_ptr<HvJsWsState>& state) {
     if (!state) return;
-    hloop_t* event_loop = loop ? loop->loop() : NULL;
-    if (loop && event_loop && hloop_status(event_loop) == HLOOP_STATUS_RUNNING) {
-        loop->queueInLoop([state]() { state->detach(); });
-    }
-    else if (raw_loop && hloop_status(raw_loop) == HLOOP_STATUS_RUNNING) {
+    if (loop && hloop_status(loop) == HLOOP_STATUS_RUNNING) {
         HvJsWsDetachEvent* detach = new HvJsWsDetachEvent();
         detach->state = state;
         hevent_t ev;
         memset(&ev, 0, sizeof(ev));
         ev.cb = js_ws_detach_event_cb;
         ev.userdata = detach;
-        hloop_post_event(raw_loop, &ev);
+        hloop_post_event(loop, &ev);
     }
     else {
         state->detach();
@@ -280,8 +286,7 @@ void js_ws_try_deliver(const std::shared_ptr<HvJsWsState>& state) {
     if (!state || state->recv_op == NULL) return;
     HvJsWsRecv* op = static_cast<HvJsWsRecv*>(state->recv_op);
     std::shared_ptr<HvJsWsState> hold = op->state;
-    EventLoopPtr loop = op->task ? op->task->loop_ptr : EventLoopPtr();
-    hloop_t* raw_loop = op->task ? op->task->loop : NULL;
+    hloop_t* loop = hvjs_task_loop(op->task);
     if (!state->inbox.empty()) {
         std::string msg = std::move(state->inbox.front());
         state->inbox.pop_front();
@@ -293,7 +298,7 @@ void js_ws_try_deliver(const std::shared_ptr<HvJsWsState>& state) {
         hvjs_promise_reject(op, "closed");
     }
     if (!hold->js_alive && hold->connect_op == NULL && hold->recv_op == NULL) {
-        js_ws_detach_after_callback(loop, raw_loop, hold);
+        js_ws_detach_after_callback(loop, hold);
     }
 }
 
@@ -380,7 +385,8 @@ JSValue js_ws_new_client_object(JSContext* js, const std::shared_ptr<HvJsWsState
 JSValue js_ws_connect(JSContext* js, JSValueConst this_val, int argc, JSValueConst* argv) {
     (void)this_val;
     HvJsTask* task = hvjs_get_task(js);
-    if (task == NULL || !task->loop_ptr) {
+    EventLoopPtr loop_ptr = currentThreadEventLoopPtr;
+    if (task == NULL || !loop_ptr) {
         return hvjs_rejected_promise(js, "hv.ws: no shared event loop on this thread");
     }
     if (argc < 1) {
@@ -389,7 +395,7 @@ JSValue js_ws_connect(JSContext* js, JSValueConst this_val, int argc, JSValueCon
     std::string url = hvjs_to_string(js, argv[0]);
     js_ws_register_class(js);
     std::shared_ptr<HvJsWsState> state = std::make_shared<HvJsWsState>();
-    state->client = std::make_shared<WebSocketClient>(task->loop_ptr);
+    state->client = std::make_shared<WebSocketClient>(loop_ptr);
     if (argc > 1 && JS_IsObject(argv[1])) {
         int timeout = hvjs_get_int_property(js, argv[1], "connect_timeout", 0);
         if (timeout <= 0) timeout = hvjs_get_int_property(js, argv[1], "timeout", 0);
@@ -409,13 +415,12 @@ JSValue js_ws_connect(JSContext* js, JSValueConst this_val, int argc, JSValueCon
         if (state->connect_op) {
             HvJsWsConnect* op = static_cast<HvJsWsConnect*>(state->connect_op);
             std::shared_ptr<HvJsWsState> hold = op->state;
-            EventLoopPtr loop = op->task ? op->task->loop_ptr : EventLoopPtr();
-            hloop_t* raw_loop = op->task ? op->task->loop : NULL;
+            hloop_t* loop = hvjs_task_loop(op->task);
             state->connect_op = NULL;
             JSValue obj = js_ws_new_client_object(op->task->js, hold);
             if (JS_IsException(obj)) {
                 hvjs_promise_reject(op, "hv.ws: create client failed");
-                js_ws_detach_after_callback(loop, raw_loop, hold);
+                js_ws_detach_after_callback(loop, hold);
             }
             else {
                 hvjs_promise_resolve(op, obj);
@@ -432,11 +437,10 @@ JSValue js_ws_connect(JSContext* js, JSValueConst this_val, int argc, JSValueCon
         if (state->connect_op) {
             HvJsWsConnect* op = static_cast<HvJsWsConnect*>(state->connect_op);
             std::shared_ptr<HvJsWsState> hold = op->state;
-            EventLoopPtr loop = op->task ? op->task->loop_ptr : EventLoopPtr();
-            hloop_t* raw_loop = op->task ? op->task->loop : NULL;
+            hloop_t* loop = hvjs_task_loop(op->task);
             state->connect_op = NULL;
             hvjs_promise_reject(op, "closed");
-            js_ws_detach_after_callback(loop, raw_loop, hold);
+            js_ws_detach_after_callback(loop, hold);
         }
         js_ws_try_deliver(state);
     };
@@ -448,7 +452,7 @@ JSValue js_ws_connect(JSContext* js, JSValueConst this_val, int argc, JSValueCon
         state->detach();
     }
     --task->in_call;
-    hvjs_finish_deferred_op(op);
+    hvjs_finish_deferred_ops(task);
     return promise;
 }
 

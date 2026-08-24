@@ -16,13 +16,21 @@
 namespace hv {
 namespace js {
 
+// Internal (not exported): only used within this translation unit now that the
+// task lifecycle helpers (await/poll/close) wrap them.
+void hvjs_schedule_drain(HvJsTask* task);
+bool hvjs_watch_promise(HvJsTask* task, std::string* err = NULL);
+void hvjs_drain_jobs(HvJsTask* task);
+bool hvjs_task_start_timeout(HvJsTask* task, int timeout_ms);
+void hvjs_task_cancel_timeout(HvJsTask* task);
+void hvjs_task_cancel_ops(HvJsTask* task, const char* message);
+
 namespace {
 
 struct HvJsSleep : public HvJsPromiseOp {
     htimer_t* timer;
-    TimerID timer_id;
 
-    HvJsSleep() : timer(NULL), timer_id(INVALID_TIMER_ID) {}
+    HvJsSleep() : timer(NULL) {}
     void cancel(const char* reason) override;
 };
 
@@ -42,6 +50,11 @@ const size_t DEFAULT_JS_STACK_SIZE = 1024 * 1024;
 const int DEFAULT_JS_TASK_TIMEOUT = 30000;
 
 void delete_op(HvJsPromiseOp* op);
+
+// The strong EventLoopPtr is never stored on the task: all task callbacks run
+// on the loop thread, so bindings recover it on demand via
+// currentThreadEventLoopPtr (same pattern as the lua bindings). The raw
+// per-loop hloop_t* lives on the runtime and is exposed via hvjs_task_loop().
 
 void runtime_dtor(void* userdata) {
     HvJsRuntime* runtime = (HvJsRuntime*)userdata;
@@ -67,6 +80,13 @@ void runtime_dtor(void* userdata) {
             hvjs_task_unref(task);
         }
         hvjs_task_unref(task);
+    }
+    // Run per-loop cleanup hooks (e.g. destroy the per-loop AsyncHttpClient)
+    // after all tasks are torn down and before the JSRuntime is freed.
+    std::vector<HvJsCleanup> cleanups;
+    cleanups.swap(runtime->cleanups);
+    for (size_t i = 0; i < cleanups.size(); ++i) {
+        if (cleanups[i].fn) cleanups[i].fn(cleanups[i].userdata);
     }
     if (runtime->rt) {
         JS_RunGC(runtime->rt);
@@ -236,10 +256,6 @@ void sleep_timer_cb(htimer_t* timer) {
 }
 
 void HvJsSleep::cancel(const char* reason) {
-    if (timer_id != INVALID_TIMER_ID && task && task->loop_ptr) {
-        task->loop_ptr->killTimer(timer_id);
-        timer_id = INVALID_TIMER_ID;
-    }
     if (timer) {
         hevent_set_userdata(timer, NULL);
         htimer_del(timer);
@@ -291,21 +307,12 @@ JSValue js_hv_sleep(JSContext* js, JSValueConst this_val, int argc, JSValueConst
     HvJsSleep* sleep = NULL;
     JSValue promise = hvjs_new_promise<HvJsSleep>(js, task, &sleep);
     if (JS_IsException(promise)) return promise;
-    std::shared_ptr<HvJsPromiseOp*> handle = sleep->handle;
     int delay = ms > 0 ? ms : 1;
-    if (task->loop_ptr && task->loop_ptr->isRunning()) {
-        sleep->timer_id = task->loop_ptr->setTimeout(delay, [handle](TimerID) {
-            HvJsPromiseOp* op = handle ? *handle : NULL;
-            if (op == NULL) return;
-            static_cast<HvJsSleep*>(op)->timer_id = INVALID_TIMER_ID;
-            hvjs_promise_resolve(op, JS_UNDEFINED);
-        });
+    sleep->timer = htimer_add(hvjs_task_loop(task), sleep_timer_cb, (uint32_t)delay, 1);
+    if (sleep->timer) {
+        hevent_set_userdata(sleep->timer, sleep);
     }
     else {
-        sleep->timer = htimer_add(task->loop, sleep_timer_cb, (uint32_t)delay, 1);
-        if (sleep->timer) hevent_set_userdata(sleep->timer, sleep);
-    }
-    if (sleep->timer == NULL && sleep->timer_id == INVALID_TIMER_ID) {
         hvjs_promise_reject(sleep, "hv.sleep: failed to create timer");
     }
     return promise;
@@ -366,11 +373,9 @@ void script_finish(HvJsTask* base, JSValue result) {
     }
     JS_FreeValue(task->js, result);
     hvjs_task_cancel_timeout(task);
-    if (task->loop_ptr && task->loop_ptr->isRunning()) {
-        task->loop_ptr->stop();
-    }
-    else if (task->loop && hloop_status(task->loop) == HLOOP_STATUS_RUNNING) {
-        hloop_stop(task->loop);
+    hloop_t* loop = hvjs_task_loop(task);
+    if (loop && hloop_status(loop) == HLOOP_STATUS_RUNNING) {
+        hloop_stop(loop);
     }
     hvjs_task_unref(task);
 }
@@ -402,27 +407,9 @@ int hvjs_dostring(hloop_t* loop, const char* code, const char* filename, int arg
 
     HvJsScriptTask* task = new HvJsScriptTask();
     task->exit_code = exit_code;
-    task->loop = loop;
-    task->loop_ptr = currentThreadEventLoopPtr;
-    if (task->loop_ptr == NULL) {
-        EventLoop* current_loop = currentThreadEventLoop;
-        if (current_loop && current_loop->loop() == loop) {
-            task->loop_ptr = current_loop->shared_from_this();
-        }
-    }
     task->finish = script_finish;
-    hvjs_task_set_runtime(task, hvjs_runtime(loop));
-    task->js = task->runtime ? JS_NewContext(task->runtime->rt) : NULL;
-    if (task->runtime == NULL || task->js == NULL) {
-        hloge("[js] failed to create quickjs runtime");
-        hvjs_task_unref(task);
-        return -1;
-    }
-    JS_SetContextOpaque(task->js, task);
-    task->timeout_ms = DEFAULT_JS_TASK_TIMEOUT;
-    task->start_hrtime = gethrtime_us();
-    if (!hvjs_task_start_timeout(task, task->timeout_ms)) {
-        hloge("[js] failed to create timeout timer");
+    if (!hvjs_runtime_add_task(hvjs_runtime(loop), task, DEFAULT_JS_TASK_TIMEOUT)) {
+        hloge("[js] failed to setup js task");
         hvjs_task_unref(task);
         return -1;
     }
@@ -434,6 +421,7 @@ int hvjs_dostring(hloop_t* loop, const char* code, const char* filename, int arg
         JSValue global = JS_GetGlobalObject(task->js);
         JS_SetPropertyStr(task->js, global, "require", JS_NewCFunction(task->js, hvjs_require, "require", 1));
         JS_SetPropertyStr(task->js, global, "print", JS_NewCFunction(task->js, js_print, "print", 1));
+        JS_FreeValue(task->js, global);
 
         std::string wrapped = "(async function(){\n";
         wrapped += code;
@@ -441,48 +429,18 @@ int hvjs_dostring(hloop_t* loop, const char* code, const char* filename, int arg
         JSValue eval = JS_Eval(task->js, wrapped.c_str(), wrapped.size(), filename ? filename : "<input>", JS_EVAL_TYPE_GLOBAL);
         if (JS_IsException(eval)) {
             err = hvjs_exception_string(task->js);
-            JS_FreeValue(task->js, global);
             hloge("[js] eval %s failed: %s", filename ? filename : "<input>", err.c_str());
-            task->closing = true;
-            hvjs_task_cancel_ops(task, "javascript script error");
-            hvjs_task_cancel_timeout(task);
-            hvjs_task_unref(task);
+            hvjs_task_close(task, "javascript script error");
             return -1;
         }
-
-        JSValue promise_ctor = JS_GetPropertyStr(task->js, global, "Promise");
-        JSValue promise_resolve = JS_GetPropertyStr(task->js, promise_ctor, "resolve");
-        JS_FreeValue(task->js, global);
-        JSValue promise_arg = eval;
-        task->promise = JS_Call(task->js, promise_resolve, promise_ctor, 1, &promise_arg);
-        JS_FreeValue(task->js, promise_resolve);
-        JS_FreeValue(task->js, promise_ctor);
-        JS_FreeValue(task->js, eval);
-        if (JS_IsException(task->promise)) {
-            err = hvjs_exception_string(task->js);
-            hloge("[js] Promise.resolve %s failed: %s", filename ? filename : "<input>", err.c_str());
-            task->closing = true;
-            hvjs_task_cancel_ops(task, "javascript script error");
-            hvjs_task_cancel_timeout(task);
-            hvjs_task_unref(task);
-            return -1;
-        }
-        if (!hvjs_watch_promise(task, &err)) {
-            hloge("[js] watch promise %s failed: %s", filename ? filename : "<input>", err.c_str());
-            task->closing = true;
-            hvjs_task_cancel_ops(task, "javascript script error");
-            hvjs_task_cancel_timeout(task);
-            hvjs_task_unref(task);
+        if (!hvjs_task_await(task, eval, &err)) {
+            hloge("[js] await %s failed: %s", filename ? filename : "<input>", err.c_str());
+            hvjs_task_close(task, "javascript script error");
             return -1;
         }
     }
 
-    hvjs_task_ref(task);
-    hvjs_drain_jobs(task);
-    bool finished = task->finished;
-    bool ok = task->error.empty() && !task->promise_rejected;
-    hvjs_task_unref(task);
-    return finished ? (ok ? 1 : -1) : 0;
+    return hvjs_task_poll(task);
 }
 
 int hvjs_dofile(hloop_t* loop, const char* filepath, int argc, char** argv, int* exit_code) {
@@ -495,7 +453,7 @@ int hvjs_dofile(hloop_t* loop, const char* filepath, int argc, char** argv, int*
     return hvjs_dostring(loop, code.c_str(), filepath, argc, argv, exit_code);
 }
 
-HvJsRuntime::HvJsRuntime() : rt(NULL), current_task(NULL), tasks() {}
+HvJsRuntime::HvJsRuntime() : rt(NULL), loop(NULL), current_task(NULL), tasks(), cleanups() {}
 
 HvJsTaskScope::HvJsTaskScope(HvJsTask* task) : runtime(task ? task->runtime : NULL), current(task), previous(runtime ? runtime->current_task : NULL) {
     if (runtime) {
@@ -510,9 +468,9 @@ HvJsTaskScope::~HvJsTaskScope() {
 }
 
 HvJsTask::HvJsTask()
-    : runtime(NULL), js(NULL), loop(NULL), loop_ptr(), promise(JS_UNDEFINED), promise_result(JS_UNDEFINED), promise_settled(false), promise_rejected(false),
-      finished(false), drain_scheduled(false), in_call(0), closing(false), refcount(1), start_hrtime(0), timeout_ms(0), timeout_timer_id(INVALID_TIMER_ID),
-      timeout_timer(NULL), finish(NULL) {}
+    : runtime(NULL), js(NULL), promise(JS_UNDEFINED), promise_result(JS_UNDEFINED), promise_settled(false), promise_rejected(false),
+      finished(false), drain_scheduled(false), in_call(0), closing(false), refcount(1), start_hrtime(0), timeout_ms(0), timeout_timer(NULL),
+      finish(NULL) {}
 
 HvJsTask::~HvJsTask() {}
 
@@ -531,6 +489,7 @@ HvJsRuntime* hvjs_runtime(hloop_t* loop) {
     if (runtime) return runtime;
 
     runtime = new HvJsRuntime();
+    runtime->loop = loop;
     runtime->rt = JS_NewRuntime();
     if (runtime->rt == NULL) {
         delete runtime;
@@ -581,43 +540,34 @@ void hvjs_task_unref(HvJsTask* task) {
     delete task;
 }
 
-void hvjs_task_set_runtime(HvJsTask* task, HvJsRuntime* runtime) {
-    if (task == NULL) return;
+bool hvjs_runtime_add_task(HvJsRuntime* runtime, HvJsTask* task, int timeout_ms) {
+    if (runtime == NULL || runtime->rt == NULL || task == NULL) return false;
+    task->js = JS_NewContext(runtime->rt);
+    if (task->js == NULL) return false;
     task->runtime = runtime;
-    if (runtime) {
-        runtime->tasks.push_back(task);
-    }
+    runtime->tasks.push_back(task);
+    JS_SetContextOpaque(task->js, task);
+    return hvjs_task_start_timeout(task, timeout_ms);
+}
+
+void hvjs_runtime_add_cleanup(HvJsRuntime* runtime, void (*fn)(void*), void* userdata) {
+    if (runtime == NULL || fn == NULL) return;
+    HvJsCleanup cleanup = {fn, userdata};
+    runtime->cleanups.push_back(cleanup);
+}
+
+hloop_t* hvjs_task_loop(HvJsTask* task) {
+    return task && task->runtime ? task->runtime->loop : NULL;
 }
 
 bool hvjs_task_start_timeout(HvJsTask* task, int timeout_ms) {
     if (task == NULL || timeout_ms <= 0) return true;
     task->timeout_ms = timeout_ms;
-    if (task->start_hrtime == 0) {
-        task->start_hrtime = gethrtime_us();
-    }
+    task->start_hrtime = gethrtime_us();
     hvjs_task_ref(task);
-    if (task->loop_ptr && task->loop_ptr->isRunning()) {
-        task->timeout_timer_id = task->loop_ptr->setTimeout(timeout_ms, [task](TimerID timerID) {
-            if (task->timeout_timer_id != timerID) return;
-            task->timeout_timer_id = INVALID_TIMER_ID;
-            if (!task->finished && !task->closing) {
-                task->error = "javascript request timeout";
-                task->closing = true;
-                hvjs_task_cancel_ops(task, task->error.c_str());
-                if (task->finish) {
-                    task->finish(task, JS_UNDEFINED);
-                }
-            }
-            hvjs_task_unref(task);
-        });
-        if (task->timeout_timer_id == INVALID_TIMER_ID) {
-            hvjs_task_unref(task);
-            return false;
-        }
-        return true;
-    }
-    if (task->loop) {
-        task->timeout_timer = htimer_add(task->loop, task_timeout_timer_cb, (uint32_t)timeout_ms, 1);
+    hloop_t* loop = hvjs_task_loop(task);
+    if (loop) {
+        task->timeout_timer = htimer_add(loop, task_timeout_timer_cb, (uint32_t)timeout_ms, 1);
         if (task->timeout_timer) {
             hevent_set_userdata(task->timeout_timer, task);
             return true;
@@ -629,11 +579,6 @@ bool hvjs_task_start_timeout(HvJsTask* task, int timeout_ms) {
 
 void hvjs_task_cancel_timeout(HvJsTask* task) {
     if (task == NULL) return;
-    if (task->timeout_timer_id != INVALID_TIMER_ID && task->loop_ptr) {
-        task->loop_ptr->killTimer(task->timeout_timer_id);
-        task->timeout_timer_id = INVALID_TIMER_ID;
-        hvjs_task_unref(task);
-    }
     if (task->timeout_timer) {
         htimer_t* timer = task->timeout_timer;
         hevent_set_userdata(timer, NULL);
@@ -673,19 +618,13 @@ void hvjs_schedule_drain(HvJsTask* task) {
     if (task->drain_scheduled) return;
     task->drain_scheduled = true;
     hvjs_task_ref(task);
-    if (task->loop_ptr && task->loop_ptr->loop() && hloop_status(task->loop_ptr->loop()) == HLOOP_STATUS_RUNNING) {
-        task->loop_ptr->queueInLoop([task]() {
-            task->drain_scheduled = false;
-            hvjs_drain_jobs(task);
-            hvjs_task_unref(task);
-        });
-    }
-    else if (task->loop && hloop_status(task->loop) == HLOOP_STATUS_RUNNING) {
+    hloop_t* loop = hvjs_task_loop(task);
+    if (loop && hloop_status(loop) == HLOOP_STATUS_RUNNING) {
         hevent_t ev;
         memset(&ev, 0, sizeof(ev));
         ev.cb = drain_event_cb;
         ev.userdata = task;
-        hloop_post_event(task->loop, &ev);
+        hloop_post_event(loop, &ev);
     }
     else {
         task->drain_scheduled = false;
@@ -761,6 +700,49 @@ void hvjs_drain_jobs(HvJsTask* task) {
     }
 }
 
+bool hvjs_task_await(HvJsTask* task, JSValue value, std::string* err) {
+    if (task == NULL || task->js == NULL) {
+        if (task && task->js) JS_FreeValue(task->js, value);
+        if (err) *err = "invalid hvjs task";
+        return false;
+    }
+    JSContext* js = task->js;
+    JSValue global = JS_GetGlobalObject(js);
+    JSValue promise_ctor = JS_GetPropertyStr(js, global, "Promise");
+    JSValue promise_resolve = JS_GetPropertyStr(js, promise_ctor, "resolve");
+    JS_FreeValue(js, global);
+    task->promise = JS_Call(js, promise_resolve, promise_ctor, 1, &value);
+    JS_FreeValue(js, promise_resolve);
+    JS_FreeValue(js, promise_ctor);
+    JS_FreeValue(js, value);
+    if (JS_IsException(task->promise)) {
+        if (err) *err = hvjs_exception_string(js);
+        return false;
+    }
+    return hvjs_watch_promise(task, err);
+}
+
+int hvjs_task_poll(HvJsTask* task) {
+    if (task == NULL) return -1;
+    // Guard ref: a synchronous settle inside the drain fires the finish callback,
+    // which drops the task's birth ref and may free it. Hold a ref so we can read
+    // the outcome, then release it (freeing the task if it already finished).
+    hvjs_task_ref(task);
+    hvjs_drain_jobs(task);
+    bool finished = task->finished;
+    bool ok = task->error.empty() && !task->promise_rejected;
+    hvjs_task_unref(task);
+    return finished ? (ok ? 1 : -1) : 0;
+}
+
+void hvjs_task_close(HvJsTask* task, const char* reason) {
+    if (task == NULL) return;
+    task->closing = true;
+    hvjs_task_cancel_ops(task, reason);
+    hvjs_task_cancel_timeout(task);
+    hvjs_task_unref(task);
+}
+
 void hvjs_promise_resolve(HvJsPromiseOp* op, JSValue value) {
     promise_complete(op, value, true);
 }
@@ -798,9 +780,7 @@ JSValue hvjs_async_resolved_promise(JSContext* js, HvJsTask* task, JSValue value
     return promise;
 }
 
-void hvjs_finish_deferred_op(HvJsPromiseOp* op) {
-    if (op == NULL) return;
-    HvJsTask* task = op->task;
+void hvjs_finish_deferred_ops(HvJsTask* task) {
     if (task && task->in_call == 0) {
         finish_deferred_ops(task);
     }

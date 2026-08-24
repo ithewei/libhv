@@ -19,10 +19,21 @@ namespace js {
 struct HvJsTask;
 struct HvJsPromiseOp;
 
+// Per-loop cleanup hook. Bindings that create loop-bound state (e.g. a per-loop
+// AsyncHttpClient) register a (fn, userdata) pair; runtime teardown invokes each
+// fn(userdata) before the JSRuntime is freed. Mirrors the lua binding's
+// hvlua_cleanup_add. The void* keeps hvjs.h free of optional-module headers.
+struct HvJsCleanup {
+    void (*fn)(void* userdata);
+    void* userdata;
+};
+
 struct HV_EXPORT HvJsRuntime {
     JSRuntime* rt;
+    hloop_t* loop;
     HvJsTask* current_task;
     std::vector<HvJsTask*> tasks;
+    std::vector<HvJsCleanup> cleanups;
 
     HvJsRuntime();
 };
@@ -41,8 +52,6 @@ struct HV_EXPORT HvJsTask {
 
     HvJsRuntime* runtime;
     JSContext* js;
-    hloop_t* loop;
-    EventLoopPtr loop_ptr;
     JSValue promise;
     JSValue promise_result;
     bool promise_settled;
@@ -54,7 +63,6 @@ struct HV_EXPORT HvJsTask {
     int refcount;
     uint64_t start_hrtime;
     int timeout_ms;
-    TimerID timeout_timer_id;
     htimer_t* timeout_timer;
     std::string error;
     FinishCallback finish;
@@ -90,17 +98,35 @@ HV_EXPORT int hvjs_dofile(hloop_t* loop, const char* filepath, int argc = 0, cha
 HV_EXPORT int hvjs_dostring(hloop_t* loop, const char* code, const char* filename = "<input>", int argc = 0, char** argv = NULL,
                             int* exit_code = NULL);
 
-HV_EXPORT void hvjs_task_set_runtime(HvJsTask* task, HvJsRuntime* runtime);
+// Attach `task` to the loop's per-loop runtime: register it, create its
+// JSContext, and (when timeout_ms > 0) arm a wall-clock timeout that aborts the
+// task if the script runs too long. Returns false on failure (caller unrefs).
+HV_EXPORT bool hvjs_runtime_add_task(HvJsRuntime* runtime, HvJsTask* task, int timeout_ms = 0);
+// Register a per-loop cleanup hook, run on runtime teardown before the
+// JSRuntime is freed. Used by bindings to own loop-bound state (e.g. a
+// per-loop AsyncHttpClient) for the lifetime of the loop.
+HV_EXPORT void hvjs_runtime_add_cleanup(HvJsRuntime* runtime, void (*fn)(void*), void* userdata);
+
+// Raw per-loop hloop_t* the task runs on (stored on the runtime, NULL-safe).
+HV_EXPORT hloop_t* hvjs_task_loop(HvJsTask* task);
 HV_EXPORT void hvjs_task_ref(HvJsTask* task);
 HV_EXPORT void hvjs_task_unref(HvJsTask* task);
-HV_EXPORT bool hvjs_task_start_timeout(HvJsTask* task, int timeout_ms);
-HV_EXPORT void hvjs_task_cancel_timeout(HvJsTask* task);
 HV_EXPORT void hvjs_task_add_op(HvJsTask* task, HvJsPromiseOp* op);
 HV_EXPORT void hvjs_task_remove_op(HvJsTask* task, HvJsPromiseOp* op);
-HV_EXPORT void hvjs_task_cancel_ops(HvJsTask* task, const char* reason);
-HV_EXPORT void hvjs_schedule_drain(HvJsTask* task);
-HV_EXPORT bool hvjs_watch_promise(HvJsTask* task, std::string* err = NULL);
-HV_EXPORT void hvjs_drain_jobs(HvJsTask* task);
+
+// Wrap `value` in Promise.resolve() as task->promise and attach the settle
+// callback that records the outcome (promise_result / promise_settled /
+// promise_rejected) once it settles. Takes ownership of `value` (frees it).
+// Must be called inside a HvJsTaskScope. Returns false and sets *err on failure.
+HV_EXPORT bool hvjs_task_await(HvJsTask* task, JSValue value, std::string* err = NULL);
+// Run the pending job (microtask) queue once. Returns 1 if the task settled
+// fulfilled, -1 if it settled rejected/errored, 0 if it is still pending on
+// async work (the caller should run the loop). When it returns non-zero the
+// task may already be freed — do not touch it afterwards.
+HV_EXPORT int hvjs_task_poll(HvJsTask* task);
+// Abort a task that has not settled yet: mark it closing, cancel pending ops and
+// the timeout, and release the caller's reference. Used on setup/eval failures.
+HV_EXPORT void hvjs_task_close(HvJsTask* task, const char* reason);
 
 template <typename T> JSValue hvjs_new_promise(JSContext* js, HvJsTask* task, T** out) {
     JSValue funcs[2];
@@ -129,7 +155,10 @@ HV_EXPORT void hvjs_promise_resolve(HvJsPromiseOp* op, JSValue value);
 HV_EXPORT void hvjs_promise_reject(HvJsPromiseOp* op, const char* message);
 HV_EXPORT JSValue hvjs_rejected_promise(JSContext* js, const char* message);
 HV_EXPORT JSValue hvjs_async_resolved_promise(JSContext* js, HvJsTask* task, JSValue value);
-HV_EXPORT void hvjs_finish_deferred_op(HvJsPromiseOp* op);
+// Flush the task's deferred-delete ops once the binding call that may have
+// completed an op synchronously (guarded by task->in_call) has returned. Safe
+// no-op while another in_call frame is still open. Call after --task->in_call.
+HV_EXPORT void hvjs_finish_deferred_ops(HvJsTask* task);
 
 HV_EXPORT std::string hvjs_to_string(JSContext* ctx, JSValueConst value);
 HV_EXPORT std::string hvjs_exception_string(JSContext* ctx);
