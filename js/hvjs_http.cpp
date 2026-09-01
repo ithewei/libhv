@@ -105,7 +105,7 @@ int js_fill_http_request(JSContext* js, JSValueConst* argv, int argc, http_metho
                 JS_FreeValue(js, value);
                 JS_FreeValue(js, key);
             }
-            js_free(js, tab);
+            JS_FreePropertyEnum(js, tab, len);
         }
     }
     *out = req;

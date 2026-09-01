@@ -313,8 +313,9 @@ int HttpJsHandler::operator()(const HttpContextPtr& ctx) {
 
     std::string code, err;
     if (!loadScript(&code, &err)) {
+        hloge("[js] load %s failed: %s", filepath_.c_str(), err.c_str());
         ctx->response->status_code = HTTP_STATUS_INTERNAL_SERVER_ERROR;
-        ctx->response->String(err);
+        ctx->response->String("javascript handler error");
         return HTTP_STATUS_INTERNAL_SERVER_ERROR;
     }
 

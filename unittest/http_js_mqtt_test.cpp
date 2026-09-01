@@ -65,7 +65,10 @@ int main() {
     CHECK(resp != NULL);
     CHECK(resp->status_code == 200);
     CHECK(resp->body.find("\"ok\":true") != std::string::npos);
+    // Must carry a non-empty error string, proving connect() actually rejected
+    // (an empty "err":"" would pass a bare substring check without a rejection).
     CHECK(resp->body.find("\"err\":\"") != std::string::npos);
+    CHECK(resp->body.find("\"err\":\"\"") == std::string::npos);
     printf("ALL http_js_mqtt_test PASSED\n");
     return 0;
 }

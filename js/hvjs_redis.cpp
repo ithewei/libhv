@@ -114,6 +114,11 @@ bool js_build_redis_command(JSContext* js, JSValueConst* argv, int argc, int fir
         uint32_t len = 0;
         JS_ToUint32(js, &len, lenv);
         JS_FreeValue(js, lenv);
+        // Cap the argument count: a sparse array can report length up to
+        // 0xffffffff, and this native loop runs inside a C callback where the
+        // interrupt handler cannot enforce the request timeout.
+        const uint32_t MAX_REDIS_ARGS = 1024 * 1024;
+        if (len > MAX_REDIS_ARGS) return false;
         for (uint32_t i = 0; i < len; ++i) {
             JSValue item = JS_GetPropertyUint32(js, argv[first], i);
             cmd->push_back(hvjs_to_string(js, item));
