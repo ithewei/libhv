@@ -31,6 +31,13 @@ static JsHttpTask* js_get_task(JSContext* js) {
     return static_cast<JsHttpTask*>(hv::js::hvjs_get_task(js));
 }
 
+// A JS-supplied status code must be a valid HTTP status. In particular 0 aliases
+// HTTP_STATUS_NEXT: storing it would make a completed synchronous handler report
+// "response deferred" after its task is gone, hanging the request.
+static bool js_valid_http_status(int32_t status) {
+    return status >= 100 && status <= 599;
+}
+
 static JSValue js_ctx_method(JSContext* js, JSValueConst this_val, int argc, JSValueConst* argv) {
     (void)this_val;
     (void)argc;
@@ -98,6 +105,9 @@ static JSValue js_ctx_status(JSContext* js, JSValueConst this_val, int argc, JSV
     }
     int32_t status = 0;
     if (JS_ToInt32(js, &status, argv[0]) != 0) return JS_EXCEPTION;
+    if (!js_valid_http_status(status)) {
+        return JS_ThrowRangeError(js, "invalid http status code: %d", status);
+    }
     task->ctx->response->status_code = (http_status)status;
     return JS_NewInt32(js, status);
 }
@@ -208,7 +218,7 @@ static bool apply_result(JSContext* js, JSValueConst value, const HttpContextPtr
     }
     if (JS_IsNumber(value)) {
         int32_t status = 0;
-        if (JS_ToInt32(js, &status, value) == 0 && ctx->response->status_code == HTTP_STATUS_OK) {
+        if (JS_ToInt32(js, &status, value) == 0 && js_valid_http_status(status) && ctx->response->status_code == HTTP_STATUS_OK) {
             ctx->response->status_code = (http_status)status;
         }
         return true;

@@ -75,6 +75,12 @@ int main() {
     std::string spin_script = write_script("spin.js", "function get(ctx) {\n"
                                                       "  while (true) {}\n"
                                                       "}\n");
+    // ctx.status(0) aliases HTTP_STATUS_NEXT; a completed sync handler must not
+    // report a deferred response and hang. The invalid status rejects instead.
+    std::string badstatus_script = write_script("badstatus.js", "function get(ctx) {\n"
+                                                                "  ctx.status(0);\n"
+                                                                "  return 'never';\n"
+                                                                "}\n");
 
     HttpService service;
     service.GET("/ping", [](HttpRequest* req, HttpResponse* resp) {
@@ -89,6 +95,7 @@ int main() {
     timeout_options.timeout_ms = 100;
     service.GET("/pending", hv::HttpJsHandler(pending_script.c_str(), timeout_options));
     service.GET("/spin", hv::HttpJsHandler(spin_script.c_str(), timeout_options));
+    service.GET("/badstatus", hv::HttpJsHandler(badstatus_script.c_str(), timeout_options));
 
     hv::HttpServer server(&service);
     server.setThreadNum(1);
@@ -146,12 +153,18 @@ int main() {
     uint64_t spin_start = gettimeofday_ms();
     auto spin_resp = requests::get(spin_url);
     uint64_t spin_elapsed = gettimeofday_ms() - spin_start;
+    char badstatus_url[128];
+    snprintf(badstatus_url, sizeof(badstatus_url), "http://127.0.0.1:%d/badstatus", server_port);
+    uint64_t badstatus_start = gettimeofday_ms();
+    auto badstatus_resp = requests::get(badstatus_url);
+    uint64_t badstatus_elapsed = gettimeofday_ms() - badstatus_start;
 
     server.stop();
     hv_msleep(100);
 
-    printf("ok_count=%d/%d elapsed=%llums pending=%llums spin=%llums\n",
-           ok_count.load(), N, (unsigned long long)elapsed, (unsigned long long)pending_elapsed, (unsigned long long)spin_elapsed);
+    printf("ok_count=%d/%d elapsed=%llums pending=%llums spin=%llums badstatus=%llums\n",
+           ok_count.load(), N, (unsigned long long)elapsed, (unsigned long long)pending_elapsed, (unsigned long long)spin_elapsed,
+           (unsigned long long)badstatus_elapsed);
     CHECK(ok_count.load() == N);
     CHECK(elapsed < 1200);
     CHECK(direct_resp != NULL);
@@ -169,6 +182,11 @@ int main() {
     CHECK(spin_resp->status_code == 500);
     CHECK(spin_resp->body == "javascript handler error");
     CHECK(spin_elapsed < 1000);
+    // ctx.status(0) must reject (500), not hang the request as a phantom async.
+    CHECK(badstatus_resp != NULL);
+    CHECK(badstatus_resp->status_code == 500);
+    CHECK(badstatus_resp->body == "javascript handler error");
+    CHECK(badstatus_elapsed < 1000);
     printf("ALL http_js_handler_test PASSED\n");
     return 0;
 }
