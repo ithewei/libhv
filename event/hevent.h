@@ -72,6 +72,10 @@ struct hloop_s {
     // lua-free. Set via hloop_set_lua_state with a destructor; freed in hloop_cleanup.
     void*                       lua_state;
     void                        (*lua_state_dtor)(void* lua_state);
+    // per-loop JS runtime (js/), stored as opaque void* so the C core stays
+    // quickjs-free. Set via hloop_set_js_runtime with a destructor; freed in hloop_cleanup.
+    void*                       js_runtime;
+    void                        (*js_runtime_dtor)(void* js_runtime);
 };
 
 uint64_t hloop_next_event_id();

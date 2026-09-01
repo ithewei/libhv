@@ -1,6 +1,6 @@
 # Http Lua Handler
 
-`HttpScriptHandler` 允许 `HttpService` 调用脚本里的 `handle(ctx)` 方法处理 HTTP 请求。当前支持 `.lua` 脚本，适合把少量业务逻辑从 C++ 编译周期里解耦出来：修改脚本后无需重新编译服务，下一次请求会自动加载新脚本。
+`HttpScriptHandler` 允许 `HttpService` 调用脚本里的 `handle(ctx)` 方法处理 HTTP 请求。启用 `WITH_LUA` 时支持 `.lua` 脚本，启用 `WITH_JS` 时也支持 `.js` 脚本。它适合把少量业务逻辑从 C++ 编译周期里解耦出来：修改脚本后无需重新编译服务，下一次请求会自动加载新脚本。
 
 该功能是可选模块，默认不编译。
 
@@ -76,7 +76,7 @@ end
 router.Script("/script/", "scripts");
 ```
 
-访问 `/script/user?id=42` 时会调用 `scripts/user.lua`。访问 `/script/` 时会调用 `scripts/index.lua`。当前目录映射只自动补 `.lua` 后缀。
+访问 `/script/user?id=42` 时会调用 `scripts/user.lua`。访问 `/script/` 时会调用 `scripts/index.lua`。如果同时启用了 Lua 和 JS，未带后缀的脚本路径会优先匹配 `.lua`，再匹配 `.js`。
 
 目录映射默认支持 `GET`、`POST`、`PUT`、`DELETE`、`PATCH`。路径中包含 `..` 路径段时返回 `403`。
 
@@ -168,7 +168,7 @@ end
 
 ## 热更新
 
-`HttpScriptHandler` 当前会把 `.lua` 文件转给 `HttpLuaHandler`。`HttpLuaHandler` 会记录脚本文件的 `mtime`。每次请求前，如果文件被修改，会重新加载脚本。
+`HttpScriptHandler` 当前会把 `.lua` 文件转给 `HttpLuaHandler`，把 `.js` 文件转给 `HttpJsHandler`。`HttpLuaHandler` 会记录脚本文件的 `mtime`。每次请求前，如果文件被修改，会重新加载脚本。
 
 重新加载失败时：
 

@@ -9,6 +9,10 @@
 
 - [Lua Binding: hv.* Lua 绑定](lua.md)
 
+## js接口
+
+- [Http JS Handler: HTTP JS脚本处理器](HttpJsHandler.md)
+
 ## c++接口
 
 - [class EventLoop: 事件循环类](EventLoop.md)

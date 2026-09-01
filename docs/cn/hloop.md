@@ -104,6 +104,14 @@ void  hloop_set_userdata(hloop_t* loop, void* userdata);
 // 获取事件循环的用户数据
 void* hloop_userdata(hloop_t* loop);
 
+// 设置/获取事件循环关联的 lua_State（由 lua 绑定使用）
+void  hloop_set_lua_state(hloop_t* loop, void* lua_state, void (*dtor)(void* lua_state));
+void* hloop_lua_state(hloop_t* loop);
+
+// 设置/获取事件循环关联的 JS runtime（由 js 绑定使用）
+void  hloop_set_js_runtime(hloop_t* loop, void* js_runtime, void (*dtor)(void* js_runtime));
+void* hloop_js_runtime(hloop_t* loop);
+
 // 投递事件
 void hloop_post_event(hloop_t* loop, hevent_t* ev);
 

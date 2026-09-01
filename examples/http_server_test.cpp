@@ -8,7 +8,7 @@
 #include "hthread.h"    // import hv_gettid
 #include "hasync.h"     // import hv::async
 
-#ifdef WITH_LUA
+#if defined(WITH_LUA) || defined(WITH_JS)
 #include "HttpScriptHandler.h"
 #endif
 
@@ -95,8 +95,14 @@ int main(int argc, char** argv) {
 #ifdef WITH_LUA
     // curl -v "http://ip:port/lua/hello?id=42"
     router.GET("/lua/hello", HttpScriptHandler("examples/scripts/hello.lua"));
+#endif
+#ifdef WITH_JS
+    // curl -v "http://ip:port/js/hello?id=42"
+    router.GET("/js/hello", HttpScriptHandler("examples/scripts/hello.js"));
+#endif
+#if defined(WITH_LUA) || defined(WITH_JS)
     // curl -v "http://ip:port/script/hello?id=42"
-    // curl -v "http://ip:port/script/async?host=example.com"  (coroutine sync-style async)
+    // curl -v "http://ip:port/script/async?host=example.com"  (sync-style async)
     router.Script("/script/", "examples/scripts");
 #endif
 

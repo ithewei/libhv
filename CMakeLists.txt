@@ -7,6 +7,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 set(LIBHV_FIND_DEPENDENCY_OPENSSL FALSE)
+set(LIBHV_FIND_DEPENDENCY_QUICKJS FALSE)
 
 option(BUILD_SHARED "build shared library" ON)
 option(BUILD_STATIC "build static library" ON)
@@ -36,6 +37,7 @@ option(WITH_GNUTLS  "with gnutls library"  OFF)
 option(WITH_MBEDTLS "with mbedtls library" OFF)
 
 option(WITH_LUA "with lua library" OFF)
+option(WITH_JS "with quickjs library" OFF)
 
 option(WITH_KCP "compile event/kcp" OFF)
 
@@ -213,6 +215,57 @@ if(WITH_LUA)
     endif()
 endif()
 
+if(WITH_JS)
+    add_definitions(-DWITH_JS)
+    find_path(QUICKJS_INCLUDE_DIR
+        NAMES quickjs.h
+        HINTS
+            ${QUICKJS_ROOT}/include/quickjs
+            ${QUICKJS_ROOT}/include
+            /opt/homebrew/opt/quickjs/include/quickjs
+            /opt/homebrew/opt/quickjs/include
+            /usr/local/opt/quickjs/include/quickjs
+            /usr/local/opt/quickjs/include
+            /usr/local/include/quickjs
+            /usr/local/include
+            /usr/include/quickjs
+            /usr/include)
+    find_library(QUICKJS_LIBRARY
+        NAMES quickjs libquickjs
+        HINTS
+            ${QUICKJS_ROOT}/lib/quickjs
+            ${QUICKJS_ROOT}/lib
+            /opt/homebrew/opt/quickjs/lib/quickjs
+            /opt/homebrew/opt/quickjs/lib
+            /usr/local/opt/quickjs/lib/quickjs
+            /usr/local/opt/quickjs/lib
+            /usr/local/lib/quickjs
+            /usr/local/lib
+            /usr/lib/quickjs
+            /usr/lib)
+    if(NOT QUICKJS_INCLUDE_DIR OR NOT QUICKJS_LIBRARY)
+        message(FATAL_ERROR "WITH_JS requires QuickJS. Set QUICKJS_ROOT or QUICKJS_INCLUDE_DIR and QUICKJS_LIBRARY.")
+    endif()
+    if(NOT TARGET QuickJS::QuickJS)
+        add_library(QuickJS::QuickJS UNKNOWN IMPORTED)
+        set_target_properties(QuickJS::QuickJS PROPERTIES
+            IMPORTED_LOCATION "${QUICKJS_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${QUICKJS_INCLUDE_DIR}")
+    endif()
+    include_directories(${QUICKJS_INCLUDE_DIR})
+    set(LIBS ${LIBS} QuickJS::QuickJS)
+    set(LIBHV_FIND_DEPENDENCY_QUICKJS TRUE)
+    if(WITH_EVPP AND WITH_HTTP AND WITH_HTTP_CLIENT)
+        add_definitions(-DHVJS_WITH_HTTP)
+    endif()
+    if(WITH_EVPP AND WITH_REDIS)
+        add_definitions(-DHVJS_WITH_REDIS)
+    endif()
+    if(WITH_EVPP AND WITH_MQTT)
+        add_definitions(-DHVJS_WITH_MQTT)
+    endif()
+endif()
+
 if(WIN32 OR MINGW)
     add_definitions(-DWIN32_LEAN_AND_MEAN -D_CRT_SECURE_NO_WARNINGS -D_WIN32_WINNT=0x0600)
     set(LIBS ${LIBS} secur32 crypt32 winmm iphlpapi ws2_32)
@@ -243,7 +296,7 @@ if(APPLE)
 endif()
 
 # see Makefile
-set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt)
+set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt js)
 set(CORE_SRCDIRS . base ssl event)
 if(WIN32 OR MINGW)
     if(WITH_WEPOLL)
@@ -263,7 +316,7 @@ if(WITH_PROTOCOL)
 endif()
 
 if(WITH_LUA)
-    set(LIBHV_HEADERS ${LIBHV_HEADERS} lua/hvlua.h lua/hvlua_json.h lua/hvlua_util.h)
+    set(LIBHV_HEADERS ${LIBHV_HEADERS} ${LUA_HEADERS})
     set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} lua)
     if(NOT WITH_EVPP)
         set(LIBHV_HEADERS ${LIBHV_HEADERS} ${CPPUTIL_HEADERS})
@@ -274,6 +327,10 @@ endif()
 if(WITH_EVPP)
     set(LIBHV_HEADERS ${LIBHV_HEADERS} ${CPPUTIL_HEADERS} ${EVPP_HEADERS})
     set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} cpputil evpp)
+    if(WITH_JS)
+        set(LIBHV_HEADERS ${LIBHV_HEADERS} ${JS_HEADERS})
+        set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} js)
+    endif()
     if(WITH_REDIS)
         set(LIBHV_HEADERS ${LIBHV_HEADERS} ${REDIS_HEADERS})
         set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} redis)
@@ -286,8 +343,14 @@ if(WITH_EVPP)
         endif()
         if(WITH_HTTP_SERVER)
             set(LIBHV_HEADERS ${LIBHV_HEADERS} ${HTTP_SERVER_HEADERS})
+            if(WITH_LUA OR WITH_JS)
+                set(LIBHV_HEADERS ${LIBHV_HEADERS} http/server/HttpScriptHandler.h)
+            endif()
             if(WITH_LUA)
-                set(LIBHV_HEADERS ${LIBHV_HEADERS} http/server/HttpScriptHandler.h http/server/HttpLuaHandler.h)
+                set(LIBHV_HEADERS ${LIBHV_HEADERS} http/server/HttpLuaHandler.h)
+            endif()
+            if(WITH_JS)
+                set(LIBHV_HEADERS ${LIBHV_HEADERS} http/server/HttpJsHandler.h)
             endif()
             set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} http/server)
         endif()
@@ -308,6 +371,15 @@ if(WITH_MQTT)
 endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
+if(NOT WITH_LUA)
+    list(FILTER LIBHV_SRCS EXCLUDE REGEX "(^|/)HttpLuaHandler\\.cpp$")
+endif()
+if(NOT WITH_JS)
+    list(FILTER LIBHV_SRCS EXCLUDE REGEX "(^|/)HttpJsHandler\\.cpp$")
+endif()
+if(NOT WITH_LUA AND NOT WITH_JS)
+    list(FILTER LIBHV_SRCS EXCLUDE REGEX "(^|/)HttpScriptHandler\\.cpp$")
+endif()
 if(WIN32)
     set(CMAKE_RC_FLAGS_DEBUG -D_DEBUG)
     configure_file(${PROJECT_SOURCE_DIR}/${PROJECT_NAME}.rc.in ${CMAKE_BINARY_DIR}/${PROJECT_NAME}.rc)
@@ -322,6 +394,9 @@ if(BUILD_SHARED)
     target_compile_definitions(hv PRIVATE HV_DYNAMICLIB)
     target_include_directories(hv PRIVATE ${LIBHV_SRCDIRS}
         INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    if(WITH_JS)
+        target_include_directories(hv INTERFACE $<BUILD_INTERFACE:${QUICKJS_INCLUDE_DIR}>)
+    endif()
     target_link_libraries(hv PUBLIC ${LIBS})
     install(TARGETS hv
         EXPORT libhvTargets
@@ -336,6 +411,9 @@ if(BUILD_STATIC)
     target_compile_definitions(hv_static PUBLIC HV_STATICLIB)
     target_include_directories(hv_static PRIVATE ${LIBHV_SRCDIRS}
         INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+    if(WITH_JS)
+        target_include_directories(hv_static INTERFACE $<BUILD_INTERFACE:${QUICKJS_INCLUDE_DIR}>)
+    endif()
     target_link_libraries(hv_static PUBLIC ${LIBS})
     if(NOT (WIN32 AND BUILD_SHARED))
         set_target_properties(hv_static PROPERTIES OUTPUT_NAME hv)

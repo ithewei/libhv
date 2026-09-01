@@ -33,6 +33,7 @@ modules:
   --with-redis          compile redis module?           (DEFAULT: $WITH_REDIS)
   --with-rpc            compile hrpc (libhrpc, needs protobuf)? (DEFAULT: $WITH_RPC)
   --with-lua            compile lua module?             (DEFAULT: $WITH_LUA)
+  --with-js             compile js module?              (DEFAULT: $WITH_JS)
 
 features:
   --enable-uds          enable Unix Domain Socket?      (DEFAULT: $ENABLE_UDS)
@@ -305,6 +306,7 @@ option=ENABLE_UDS && check_option
 option=USE_MULTIMAP && check_option
 option=WITH_KCP && check_option
 option=WITH_IO_URING && check_option
+option=WITH_JS && check_option
 
 # end confile
 cat << END >> $confile

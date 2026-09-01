@@ -6,6 +6,46 @@ if(@LIBHV_FIND_DEPENDENCY_OPENSSL@)
     find_dependency(OpenSSL)
 endif()
 
+if(@LIBHV_FIND_DEPENDENCY_QUICKJS@ AND NOT TARGET QuickJS::QuickJS)
+    find_path(QUICKJS_INCLUDE_DIR
+        NAMES quickjs.h
+        HINTS
+            ${QUICKJS_ROOT}/include/quickjs
+            ${QUICKJS_ROOT}/include
+            /opt/homebrew/opt/quickjs/include/quickjs
+            /opt/homebrew/opt/quickjs/include
+            /usr/local/opt/quickjs/include/quickjs
+            /usr/local/opt/quickjs/include
+            /usr/local/include/quickjs
+            /usr/local/include
+            /usr/include/quickjs
+            /usr/include)
+    find_library(QUICKJS_LIBRARY
+        NAMES quickjs libquickjs
+        HINTS
+            ${QUICKJS_ROOT}/lib/quickjs
+            ${QUICKJS_ROOT}/lib
+            /opt/homebrew/opt/quickjs/lib/quickjs
+            /opt/homebrew/opt/quickjs/lib
+            /usr/local/opt/quickjs/lib/quickjs
+            /usr/local/opt/quickjs/lib
+            /usr/local/lib/quickjs
+            /usr/local/lib
+            /usr/lib/quickjs
+            /usr/lib)
+    if(NOT QUICKJS_INCLUDE_DIR OR NOT QUICKJS_LIBRARY)
+        set(libhv_FOUND FALSE)
+        set(libhv_NOT_FOUND_MESSAGE
+            "QuickJS dependency not found. Set QUICKJS_ROOT or QUICKJS_INCLUDE_DIR and QUICKJS_LIBRARY.")
+        return()
+    else()
+        add_library(QuickJS::QuickJS UNKNOWN IMPORTED)
+        set_target_properties(QuickJS::QuickJS PROPERTIES
+            IMPORTED_LOCATION "${QUICKJS_LIBRARY}"
+            INTERFACE_INCLUDE_DIRECTORIES "${QUICKJS_INCLUDE_DIR}")
+    endif()
+endif()
+
 include("${CMAKE_CURRENT_LIST_DIR}/libhvTargets.cmake")
 
 if(TARGET libhv::hv)
@@ -34,6 +74,18 @@ if(NOT TARGET hv_static AND TARGET libhv::hv_static)
 endif()
 
 set_and_check(libhv_INCLUDE_DIRS "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+if(@LIBHV_FIND_DEPENDENCY_QUICKJS@)
+    if(QUICKJS_INCLUDE_DIR)
+        set(libhv_INCLUDE_DIRS "${libhv_INCLUDE_DIRS}" "${QUICKJS_INCLUDE_DIR}")
+    elseif(TARGET QuickJS::QuickJS)
+        get_target_property(QUICKJS_INCLUDE_DIR QuickJS::QuickJS INTERFACE_INCLUDE_DIRECTORIES)
+        if(QUICKJS_INCLUDE_DIR)
+            set(libhv_INCLUDE_DIRS "${libhv_INCLUDE_DIRS}" "${QUICKJS_INCLUDE_DIR}")
+        endif()
+    endif()
+else()
+    set(libhv_INCLUDE_DIRS "${libhv_INCLUDE_DIRS}")
+endif()
 set(LIBHV_INCLUDE_DIRS "${libhv_INCLUDE_DIRS}")
 set(LIBHV_LIBRARY "${libhv_LIBRARY}")
 set(LIBHV_STATIC_LIBRARY "${libhv_STATIC_LIBRARY}")

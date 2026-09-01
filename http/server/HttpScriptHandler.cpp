@@ -1,17 +1,28 @@
 #include "HttpScriptHandler.h"
 
-#ifdef WITH_LUA
+#if defined(WITH_LUA) || defined(WITH_JS)
 
 #include "hbase.h"
 #include "hstring.h"
+#ifdef WITH_JS
+#include "HttpJsHandler.h"
+#endif
+#ifdef WITH_LUA
 #include "HttpLuaHandler.h"
+#endif
 #include <mutex>
 
 namespace hv {
 
 struct HttpScriptHandler::State {
+#ifdef WITH_LUA
     std::once_flag    lua_once;
     HttpLuaHandlerPtr lua_handler;
+#endif
+#ifdef WITH_JS
+    std::once_flag   js_once;
+    HttpJsHandlerPtr js_handler;
+#endif
 };
 
 namespace {
@@ -44,6 +55,7 @@ HttpScriptHandler& HttpScriptHandler::operator=(const HttpScriptHandler& rhs) {
 }
 
 int HttpScriptHandler::operator()(const HttpContextPtr& ctx) {
+#ifdef WITH_LUA
     if (filepath_has_suffix(filepath_, "lua")) {
         std::call_once(state_->lua_once, [this]() {
             HttpLuaHandlerOptions lua_options;
@@ -52,6 +64,18 @@ int HttpScriptHandler::operator()(const HttpContextPtr& ctx) {
         });
         return (*state_->lua_handler)(ctx);
     }
+#endif
+
+#ifdef WITH_JS
+    if (filepath_has_suffix(filepath_, "js")) {
+        std::call_once(state_->js_once, [this]() {
+            HttpJsHandlerOptions js_options;
+            js_options.reload_on_change = options_.reload_on_change;
+            state_->js_handler = std::make_shared<HttpJsHandler>(filepath_.c_str(), js_options);
+        });
+        return (*state_->js_handler)(ctx);
+    }
+#endif
 
     if (ctx && ctx->response) {
         ctx->response->status_code = HTTP_STATUS_NOT_IMPLEMENTED;
@@ -62,4 +86,4 @@ int HttpScriptHandler::operator()(const HttpContextPtr& ctx) {
 
 } // namespace hv
 
-#endif // WITH_LUA
+#endif // WITH_LUA || WITH_JS

@@ -2,7 +2,7 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt
+ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt js
 CORE_SRCDIRS=. base ssl event
 ifeq ($(WITH_KCP), yes)
 CORE_SRCDIRS += event/kcp
@@ -21,11 +21,18 @@ LIBHV_SRCDIRS += protocol
 endif
 
 ifeq ($(WITH_LUA), yes)
-LIBHV_HEADERS += lua/hvlua.h lua/hvlua_json.h lua/hvlua_util.h
+LIBHV_HEADERS += $(LUA_HEADERS)
 LIBHV_SRCDIRS += lua
 ifneq ($(WITH_EVPP), yes)
 LIBHV_HEADERS += $(CPPUTIL_HEADERS)
 LIBHV_SRCDIRS += cpputil
+endif
+endif
+
+ifeq ($(WITH_JS), yes)
+ifeq ($(WITH_EVPP), yes)
+LIBHV_HEADERS += $(JS_HEADERS)
+LIBHV_SRCDIRS += js
 endif
 endif
 
@@ -49,8 +56,14 @@ endif
 ifeq ($(WITH_HTTP_SERVER), yes)
 LIBHV_HEADERS += $(HTTP_SERVER_HEADERS)
 LIBHV_SRCDIRS += http/server
+ifneq ($(filter yes,$(WITH_LUA) $(WITH_JS)),)
+LIBHV_HEADERS += http/server/HttpScriptHandler.h
+endif
 ifeq ($(WITH_LUA), yes)
-LIBHV_HEADERS += http/server/HttpScriptHandler.h http/server/HttpLuaHandler.h
+LIBHV_HEADERS += http/server/HttpLuaHandler.h
+endif
+ifeq ($(WITH_JS), yes)
+LIBHV_HEADERS += http/server/HttpJsHandler.h
 endif
 endif
 
@@ -113,6 +126,11 @@ endif
 ifeq ($(WITH_LUA), yes)
 ifeq ($(WITH_EVPP), yes)
 EXAMPLES += hvlua
+endif
+endif
+ifeq ($(WITH_JS), yes)
+ifeq ($(WITH_EVPP), yes)
+EXAMPLES += hvjs
 endif
 endif
 
@@ -227,6 +245,9 @@ host: prepare
 
 hvlua: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/hvlua examples/hvlua.cpp -Llib -lhv -pthread $(LUA_LIBS)
+
+hvjs: prepare libhv
+	$(MAKEF) TARGET=$@ SRCDIRS="$(LIBHV_SRCDIRS)" SRCS="examples/hvjs.cpp"
 
 multi-acceptor-processes: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/multi-thread/multi-acceptor-processes.c"
@@ -421,6 +442,24 @@ ifeq ($(WITH_MQTT), yes)
 endif
 ifeq ($(WITH_REDIS), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA -DHVLUA_WITH_REDIS $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -Ilua -o bin/lua_redis_test unittest/lua_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(LUA_LIBS)
+endif
+endif
+endif
+ifeq ($(WITH_JS), yes)
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_HTTP), yes)
+ifeq ($(WITH_HTTP_SERVER), yes)
+ifeq ($(WITH_HTTP_CLIENT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ijs -Ihttp -Ihttp/server -Ihttp/client -o bin/http_js_handler_test unittest/http_js_handler_test.cpp -Llib -lhv -pthread $(LDFLAGS) $(JS_LIBS)
+ifeq ($(WITH_REDIS), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP -DHVJS_WITH_REDIS $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -Iredis -o bin/http_js_redis_test unittest/http_js_redis_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread $(LDFLAGS) $(JS_LIBS)
+endif
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -o bin/http_js_ws_test unittest/http_js_ws_test.cpp -Llib -lhv -pthread $(LDFLAGS) $(JS_LIBS)
+ifeq ($(WITH_MQTT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_JS -DHVJS_WITH_HTTP -DHVJS_WITH_MQTT $(JS_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -Imqtt -o bin/http_js_mqtt_test unittest/http_js_mqtt_test.cpp -Llib -lhv -pthread $(LDFLAGS) $(JS_LIBS)
+endif
+endif
+endif
 endif
 endif
 endif

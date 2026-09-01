@@ -16,14 +16,36 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: build-quickjs
+        run: |
+          QUICKJS_COMMIT=04be246001599f5995fa2f2d8c91a0f198d3f34c
+          rm -rf /tmp/quickjs
+          git init -q /tmp/quickjs
+          git -C /tmp/quickjs remote add origin https://github.com/bellard/quickjs.git
+          git -C /tmp/quickjs fetch -q --depth 1 origin ${QUICKJS_COMMIT}
+          git -C /tmp/quickjs checkout -q FETCH_HEAD
+          printf '\nCFLAGS_OPT+=-fPIC\n' >> /tmp/quickjs/Makefile
+          make -C /tmp/quickjs libquickjs.a -j$(nproc)
+          sudo mkdir -p /usr/local/include/quickjs /usr/local/lib/quickjs
+          sudo install -m644 /tmp/quickjs/quickjs.h /tmp/quickjs/quickjs-libc.h /usr/local/include/quickjs/
+          sudo install -m644 /tmp/quickjs/libquickjs.a /usr/local/lib/quickjs/
+          echo "QUICKJS_ROOT=/usr/local" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=${GITHUB_WORKSPACE}/lib:${LD_LIBRARY_PATH}" >> $GITHUB_ENV
+
       - name: build
         run: |
           sudo apt update
-          sudo apt install libssl-dev libnghttp2-dev liblua5.4-dev libprotobuf-dev libprotoc-dev protobuf-compiler
-          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-lua --with-rpc
-          make libhv evpp
+          sudo apt install libssl-dev libnghttp2-dev libprotobuf-dev libprotoc-dev protobuf-compiler liblua5.4-dev
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-rpc --with-lua --with-js
+          make libhv evpp unittest
           # hrpc = separate libhrpc (needs protobuf); apt installs protobuf under /usr
           make libhrpc hrpc PROTOBUF_PREFIX=/usr
+          # hvlua = libhv + lua binding
+          make hvlua
+          bin/hvlua examples/lua/sleep.lua
+          # hvjs = libhv + js binding
+          make hvjs
+          bin/hvjs examples/js/sleep.js
 
       - name: test
         run: |

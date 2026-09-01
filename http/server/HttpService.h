@@ -201,7 +201,7 @@ struct HV_EXPORT HttpService {
     // @retval / => /var/www/html/index.html
     std::string GetStaticFilepath(const char* path);
 
-#ifdef WITH_LUA
+#if defined(WITH_LUA) || defined(WITH_JS)
     void Script(const char* path, const char* script_dir);
 #endif
 

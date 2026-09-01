@@ -372,6 +372,14 @@ static void hloop_cleanup(hloop_t* loop) {
     loop->lua_state = NULL;
     loop->lua_state_dtor = NULL;
 
+    // per-loop JS runtime (opaque; destructor supplied by js/ layer)
+    if (loop->js_runtime && loop->js_runtime_dtor) {
+        printd("cleanup js_runtime...\n");
+        loop->js_runtime_dtor(loop->js_runtime);
+    }
+    loop->js_runtime = NULL;
+    loop->js_runtime_dtor = NULL;
+
     // ios
     printd("cleanup ios...\n");
     for (int i = 0; i < loop->ios.maxsize; ++i) {
@@ -617,6 +625,15 @@ void hloop_set_lua_state(hloop_t* loop, void* lua_state, void (*dtor)(void* lua_
 
 void* hloop_lua_state(hloop_t* loop) {
     return loop->lua_state;
+}
+
+void hloop_set_js_runtime(hloop_t* loop, void* js_runtime, void (*dtor)(void* js_runtime)) {
+    loop->js_runtime = js_runtime;
+    loop->js_runtime_dtor = dtor;
+}
+
+void* hloop_js_runtime(hloop_t* loop) {
+    return loop->js_runtime;
 }
 
 static hloop_t* s_signal_loop = NULL;
