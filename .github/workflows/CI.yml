@@ -14,7 +14,7 @@ jobs:
     name: build-linux
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       - name: build
         run: |
@@ -34,7 +34,7 @@ jobs:
     name: build-windows
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: build
         run: |
           mkdir cmake-build-win64
@@ -56,7 +56,7 @@ jobs:
     name: build-mac
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: build
         run: |
           ./configure
@@ -71,7 +71,7 @@ jobs:
     name: build-android
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: build
         run: |
           mkdir cmake-build-arm64
@@ -83,7 +83,7 @@ jobs:
     name: build-ios
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: build
         run: |
           mkdir cmake-build-ios
