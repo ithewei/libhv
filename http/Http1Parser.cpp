@@ -142,8 +142,8 @@ int on_message_complete(http_parser* parser) {
 int on_chunk_header(http_parser* parser) {
     printd("on_chunk_header:%llu\n", parser->content_length);
     Http1Parser* hp = (Http1Parser*)parser->data;
-    int chunk_size = parser->content_length;
-    int reserve_size = MIN(chunk_size + 1, MAX_CONTENT_LENGTH);
+    uint64_t chunk_size = parser->content_length;
+    size_t reserve_size = (size_t)MIN(chunk_size + 1, (uint64_t)MAX_CONTENT_LENGTH);
     if (reserve_size > hp->parsed->body.capacity()) {
         hp->parsed->body.reserve(reserve_size);
     }
