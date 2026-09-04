@@ -1,5 +1,7 @@
 #include "dns.h"
 
+#include <string.h>
+
 #include "hdef.h"
 #include "hsocket.h"
 #include "herr.h"
@@ -12,64 +14,93 @@ void dns_free(dns_t* dns) {
 }
 
 // www.example.com => 3www7example3com
+// Returns encoded length including the terminating 0-label, or -1 on error.
+// buf must hold at least DNS_NAME_MAXLEN bytes (DNS wire name limit).
 int dns_name_encode(const char* domain, char* buf) {
     const char* p = domain;
-    char* plen = buf++;
-    int buflen = 1;
+    char* start = buf;
+    char* end = buf + DNS_NAME_MAXLEN;
+    char* plen;
     int len = 0;
+
+    if (!domain || !buf) return -1;
+    if (buf + 1 >= end) return -1;
+
+    plen = buf++;
     while (*p != '\0') {
         if (*p != '.') {
             ++len;
-            *buf = *p;
-        }
-        else {
-            *plen = len;
-            //printf("len=%d\n", len);
-            plen = buf;
+            if (len > 63) return -1; /* label too long */
+            if (buf >= end) return -1;
+            *buf++ = *p;
+        } else {
+            if (len == 0) return -1; /* empty label / consecutive dots */
+            *plen = (char)len;
+            if (buf >= end) return -1;
+            plen = buf++;
             len = 0;
         }
         ++p;
-        ++buf;
-        ++buflen;
     }
-    *plen = len;
-    //printf("len=%d\n", len);
-    *buf = '\0';
-    if (len != 0) {
-        ++buflen; // include last '\0'
-    }
-    return buflen;
+    *plen = (char)len;
+    if (buf >= end) return -1;
+    *buf++ = '\0';
+    return (int)(buf - start);
 }
 
 // 3www7example3com => www.example.com
+// Returns number of wire bytes consumed (including the terminating 0 label),
+// or -1 on error. domain must hold at least DNS_NAME_MAXLEN bytes.
+// This function does not follow compression pointers; callers that see a
+// pointer prefix must handle it separately.
 int dns_name_decode(const char* buf, char* domain) {
-    const char* p = buf;
-    int len = *p++;
-    //printf("len=%d\n", len);
-    int buflen = 1;
-    while (*p != '\0') {
-        if (len-- == 0) {
-            len = *p;
-            //printf("len=%d\n", len);
-            *domain = '.';
+    const unsigned char* p;
+    const unsigned char* wire_start;
+    char* d;
+    char* dend;
+    int lablen;
+    int first = 1;
+    size_t wire_max = DNS_NAME_MAXLEN; /* max wire name size including root */
+
+    if (!buf || !domain) return -1;
+
+    p = (const unsigned char*)buf;
+    wire_start = p;
+    d = domain;
+    dend = domain + DNS_NAME_MAXLEN - 1; /* leave room for NUL */
+
+    for (;;) {
+        if ((size_t)(p - wire_start) >= wire_max) return -1;
+        lablen = *p++;
+        if (lablen == 0) {
+            *d = '\0';
+            return (int)(p - wire_start);
         }
-        else {
-            *domain = *p;
+        /* compression pointer not supported in this helper */
+        if (lablen >= 192) return -1;
+        if (lablen > 63) return -1;
+        if ((size_t)(p - wire_start) + (size_t)lablen >= wire_max) return -1;
+
+        if (!first) {
+            if (d >= dend) return -1;
+            *d++ = '.';
         }
-        ++p;
-        ++domain;
-        ++buflen;
+        first = 0;
+
+        if (d + lablen > dend) return -1;
+        memcpy(d, p, (size_t)lablen);
+        d += lablen;
+        p += lablen;
     }
-    *domain = '\0';
-    ++buflen; // include last '\0'
-    return buflen;
 }
 
 int dns_rr_pack(dns_rr_t* rr, char* buf, int len) {
     char* p = buf;
-    char encoded_name[256];
+    char encoded_name[DNS_NAME_MAXLEN];
     int encoded_namelen = dns_name_encode(rr->name, encoded_name);
-    int packetlen = encoded_namelen + 2 + 2 + (rr->data ? (4+2+rr->datalen) : 0);
+    int packetlen;
+    if (encoded_namelen < 0) return -1;
+    packetlen = encoded_namelen + 2 + 2 + (rr->data ? (4+2+rr->datalen) : 0);
     if (len < packetlen) {
         return -1;
     }
@@ -101,15 +132,19 @@ int dns_rr_unpack(char* buf, int len, dns_rr_t* rr, int is_question) {
     char* p = buf;
     int off = 0;
     int namelen = 0;
+    if (len < 1) return -1;
     if (*(uint8_t*)p >= 192) {
-        // name off, we ignore
+        /* Compression pointer: skip 2 bytes and leave name empty/NUL. */
+        if (len < 2) return -1;
         namelen = 2;
+        rr->name[0] = '\0';
         //uint16_t nameoff = (*(uint8_t*)p - 192) * 256 + *(uint8_t*)(p+1);
     }
     else {
         namelen = dns_name_decode(buf, rr->name);
     }
     if (namelen < 0) return -1;
+    if (namelen > len) return -1;
     p += namelen;
     off += namelen;
 
