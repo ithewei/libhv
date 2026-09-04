@@ -77,6 +77,9 @@ void hio_init(hio_t* io) {
     // write_queue_init(&io->write_queue, 4);
 
     hrecursive_mutex_init(&io->write_mutex);
+    io->sendfile_fd = -1;
+    io->sendfile_offset = 0;
+    io->sendfile_remain = 0;
 }
 
 void hio_ready(hio_t* io) {
@@ -752,7 +755,7 @@ void hio_set_max_write_bufsize(hio_t* io, uint32_t size) {
 }
 
 size_t hio_write_bufsize(hio_t* io) {
-    return io->write_bufsize;
+    return io->write_bufsize + io->sendfile_remain;
 }
 
 int hio_read_once (hio_t* io) {
