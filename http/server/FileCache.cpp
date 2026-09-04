@@ -1,5 +1,7 @@
 #include "FileCache.h"
 
+#include <fcntl.h>
+
 #include "herr.h"
 #include "hscope.h"
 #include "htime.h"
