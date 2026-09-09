@@ -6,13 +6,14 @@
  * A records) and pointing the resolver at it via hdns_setting_t.nameserver.
  *
  * Covered:
- *   1. numeric IPv4 / IPv6 fast path
- *   2. /etc/hosts lookup (localhost)
- *   3. real query round-trip against a mock nameserver (wire build + parse)
- *   4. cache hit (second resolve does not hit the mock server)
- *   5. cancel before completion (callback not invoked)
+ *   1. numeric IPv4 fast path
+ *   2. numeric IPv6 fast path
+ *   3. /etc/hosts lookup (localhost)
+ *   4. real query round-trip against a mock nameserver (wire build + parse)
+ *   5. cache hit (second resolve does not hit the mock server)
  *   6. NXDOMAIN handling
- *   7. default nameserver list is refreshed between resolves
+ *   7. cancel before completion (callback not invoked)
+ *   8. auto nameserver list is refreshed (throttled) between resolves
  */
 
 #include <assert.h>
@@ -246,7 +247,7 @@ int main() {
         printf("[cancel.test] callback correctly NOT called\n");
     }
 
-    // 7) auto nameserver reload: a later resolve must pick up a new default NS
+    // 8) auto nameserver reload: a later resolve must pick up a new default NS
     {
         hdns_setting_t od = opt;
         od.nameserver = NULL;
@@ -256,6 +257,9 @@ int main() {
 
         assert(test_setenv("HV_DNS_NAMESERVER", "127.0.0.1:1") == 0);
         run_expect(loop, "reload.test", &od, HDNS_STATUS_TIMEOUT, 0);
+
+        // wait out the throttle window so the next resolve actually reloads
+        hv_msleep(HDNS_NS_REFRESH_INTERVAL_MS + 100);
 
         char ns_override[32];
         snprintf(ns_override, sizeof(ns_override), "127.0.0.1:%d", g_mock_port);
