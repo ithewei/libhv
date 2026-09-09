@@ -1,7 +1,3 @@
-#ifndef _WIN32
-#define _POSIX_C_SOURCE 200809L
-#endif
-
 /*
  * hdns_test — unit test for the asynchronous DNS resolver (event/hdns.*).
  *
@@ -20,6 +16,7 @@
  */
 
 #include <assert.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
