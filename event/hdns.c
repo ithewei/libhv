@@ -240,6 +240,7 @@ static honce_t      s_config_once = HONCE_INIT;
 static int          s_config_loaded = 0;
 static sockaddr_u   s_nameservers[HDNS_MAX_NAMESERVERS];
 static int          s_nnameservers = 0;
+static unsigned int s_ns_refresh_tick = 0;  // gettick_ms() of last auto reload
 static struct list_head s_hosts;    // list of hdns_hosts_entry_t
 
 static void hdns__config_init_once(void) {
@@ -405,19 +406,46 @@ static void hdns__load_hosts(void) {
     fclose(fp);
 }
 
-static void hdns__load_config_locked(void) {
-    if (s_config_loaded) return;
-    s_config_loaded = 1;
+static void hdns__refresh_nameservers_locked(void) {
+    // Throttle reloads: reading the system resolver config is a blocking
+    // syscall on the loop thread (fopen(/etc/resolv.conf) on Unix,
+    // GetAdaptersAddresses on Windows) and hdns__send_queries() runs again for
+    // every retry, so refreshing on each send would repeatedly stall the loop.
+    // Keep the cached list unless the refresh interval has elapsed; unsigned
+    // subtraction stays correct across the ~49.7-day gettick_ms() wraparound.
+    unsigned int now = gettick_ms();
+    if (s_nnameservers > 0 &&
+        (unsigned int)(now - s_ns_refresh_tick) < HDNS_NS_REFRESH_INTERVAL_MS) {
+        return;
+    }
+    s_ns_refresh_tick = now;
+
     s_nnameservers = 0;
+
+    // Optional process-wide override for the auto-selected nameserver list.
+    // This keeps tests deterministic and lets long-running processes pick up a
+    // changed default nameserver without having to thread per-query overrides.
+    const char* env_ns = getenv("HV_DNS_NAMESERVER");
+    if (env_ns && *env_ns) {
+        hdns__add_nameserver(env_ns);
+    }
+
+    if (s_nnameservers == 0) {
 #ifdef OS_WIN
-    hdns__load_nameservers_win();
+        hdns__load_nameservers_win();
 #else
-    hdns__load_nameservers_unix();
+        hdns__load_nameservers_unix();
 #endif
+    }
     if (s_nnameservers == 0) {
         // universal fallback
         hdns__add_nameserver(HDNS_FALLBACK_NAMESERVER);
     }
+}
+
+static void hdns__load_config_locked(void) {
+    if (s_config_loaded) return;
+    s_config_loaded = 1;
     hdns__load_hosts();
 }
 
@@ -741,6 +769,7 @@ static void hdns__send_queries(hdns_t* q) {
             return;
         }
     } else {
+        hdns__refresh_nameservers_locked();
         if (s_nnameservers == 0) {
             hmutex_unlock(&s_config_mutex);
             hdns__finish(q, HDNS_STATUS_NONAMESERVER);

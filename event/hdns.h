@@ -40,6 +40,11 @@
 #define HDNS_FALLBACK_NAMESERVER    "8.8.8.8"
 #define HDNS_MAX_ADDRS              16
 #define HDNS_NAME_MAXLEN           256
+// Min interval between auto reloads of the system nameserver list. The list is
+// re-read (so reconnects pick up DNS config changes after the network returns)
+// at most once per interval, avoiding a blocking resolver-config syscall on the
+// loop thread for every query/retry.
+#define HDNS_NS_REFRESH_INTERVAL_MS 1000
 
 // hdns_result_t.status codes (0 = success, negative = failure)
 #define HDNS_STATUS_OK              0
