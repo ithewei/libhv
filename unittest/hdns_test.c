@@ -1,3 +1,7 @@
+#ifndef _WIN32
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 /*
  * hdns_test — unit test for the asynchronous DNS resolver (event/hdns.*).
  *
@@ -12,6 +16,7 @@
  *   4. cache hit (second resolve does not hit the mock server)
  *   5. cancel before completion (callback not invoked)
  *   6. NXDOMAIN handling
+ *   7. default nameserver list is refreshed between resolves
  */
 
 #include <assert.h>
@@ -23,6 +28,14 @@
 #include "hsocket.h"
 #include "hbase.h"
 #include "htime.h"
+
+#ifdef OS_WIN
+#define test_setenv(name, value)   _putenv_s(name, value)
+#define test_unsetenv(name)        _putenv_s(name, "")
+#else
+#define test_setenv(name, value)   setenv(name, value, 1)
+#define test_unsetenv(name)        unsetenv(name)
+#endif
 
 //------------------------------------------------------------------------------
 // Mock DNS nameserver: parses the incoming question and replies with A records
@@ -234,6 +247,24 @@ int main() {
         hloop_run(loop);
         assert(g_cancel_cb_called == 0);
         printf("[cancel.test] callback correctly NOT called\n");
+    }
+
+    // 7) auto nameserver reload: a later resolve must pick up a new default NS
+    {
+        hdns_setting_t od = opt;
+        od.nameserver = NULL;
+        od.use_cache = 0;
+        od.timeout_ms = 100;
+        od.retries = 0;
+
+        assert(test_setenv("HV_DNS_NAMESERVER", "127.0.0.1:1") == 0);
+        run_expect(loop, "reload.test", &od, HDNS_STATUS_TIMEOUT, 0);
+
+        char ns_override[32];
+        snprintf(ns_override, sizeof(ns_override), "127.0.0.1:%d", g_mock_port);
+        assert(test_setenv("HV_DNS_NAMESERVER", ns_override) == 0);
+        run_expect(loop, "reload.test", &od, HDNS_STATUS_OK, 1);
+        assert(test_unsetenv("HV_DNS_NAMESERVER") == 0);
     }
 
     hio_close(mock);

@@ -405,19 +405,33 @@ static void hdns__load_hosts(void) {
     fclose(fp);
 }
 
-static void hdns__load_config_locked(void) {
-    if (s_config_loaded) return;
-    s_config_loaded = 1;
+static void hdns__refresh_nameservers_locked(void) {
     s_nnameservers = 0;
+
+    // Optional process-wide override for the auto-selected nameserver list.
+    // This keeps tests deterministic and lets long-running processes pick up a
+    // changed default nameserver without having to thread per-query overrides.
+    const char* env_ns = getenv("HV_DNS_NAMESERVER");
+    if (env_ns && *env_ns) {
+        hdns__add_nameserver(env_ns);
+    }
+
+    if (s_nnameservers == 0) {
 #ifdef OS_WIN
-    hdns__load_nameservers_win();
+        hdns__load_nameservers_win();
 #else
-    hdns__load_nameservers_unix();
+        hdns__load_nameservers_unix();
 #endif
+    }
     if (s_nnameservers == 0) {
         // universal fallback
         hdns__add_nameserver(HDNS_FALLBACK_NAMESERVER);
     }
+}
+
+static void hdns__load_config_locked(void) {
+    if (s_config_loaded) return;
+    s_config_loaded = 1;
     hdns__load_hosts();
 }
 
@@ -741,6 +755,7 @@ static void hdns__send_queries(hdns_t* q) {
             return;
         }
     } else {
+        hdns__refresh_nameservers_locked();
         if (s_nnameservers == 0) {
             hmutex_unlock(&s_config_mutex);
             hdns__finish(q, HDNS_STATUS_NONAMESERVER);
