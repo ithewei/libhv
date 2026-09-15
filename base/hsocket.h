@@ -122,6 +122,8 @@ HV_EXPORT int sockaddr_set_ipport(sockaddr_u* addr, const char* host, int port);
 HV_EXPORT socklen_t sockaddr_len(sockaddr_u* addr);
 HV_EXPORT const char* sockaddr_str(sockaddr_u* addr, char* buf, int len);
 HV_EXPORT int sockaddr_compare(const sockaddr_u* addr1, const sockaddr_u* addr2);
+// hash the ip part only (port ignored), so the same client ip maps to the same value. used by LB_IpHash.
+HV_EXPORT uint32_t sockaddr_ip_hash(sockaddr_u* addr);
 
 //#define INET_ADDRSTRLEN   16
 //#define INET6_ADDRSTRLEN  46

@@ -67,6 +67,7 @@ int ResolveAddr(const char* host, sockaddr_u* addr) {
 
     if (inet_pton(AF_INET6, host, &addr->sin6.sin6_addr) == 1) {
         addr->sa.sa_family = AF_INET6; // host is ipv6
+        return 0;
     }
 
     struct addrinfo* ais = NULL;
@@ -190,9 +191,33 @@ int sockaddr_compare(const sockaddr_u* addr1, const sockaddr_u* addr2) {
             return addr1->sin6.sin6_family - addr2->sin6.sin6_family;
         if (addr1->sin6.sin6_port != addr2->sin6.sin6_port)
             return addr1->sin6.sin6_port - addr2->sin6.sin6_port;
-        return memcmp(&addr1->sin6.sin6_addr, &addr2->sin6.sin6_addr, sizeof(struct in_addr));
+        return memcmp(&addr1->sin6.sin6_addr, &addr2->sin6.sin6_addr, sizeof(struct in6_addr));
     }
     return memcmp(addr1, addr2, sizeof(sockaddr_u));
+}
+
+uint32_t sockaddr_ip_hash(sockaddr_u* addr) {
+    // FNV-1a hash over the ip bytes only (port excluded).
+    const uint32_t FNV_PRIME = 16777619u;
+    uint32_t hash = 2166136261u;
+    const unsigned char* p = NULL;
+    int len = 0;
+    if (addr->sa.sa_family == AF_INET) {
+        p = (const unsigned char*)&addr->sin.sin_addr;
+        len = sizeof(struct in_addr);
+    }
+    else if (addr->sa.sa_family == AF_INET6) {
+        p = (const unsigned char*)&addr->sin6.sin6_addr;
+        len = sizeof(struct in6_addr);
+    }
+    else {
+        return 0;
+    }
+    for (int i = 0; i < len; ++i) {
+        hash ^= p[i];
+        hash *= FNV_PRIME;
+    }
+    return hash;
 }
 
 static int sockaddr_bind(sockaddr_u* localaddr, int type) {
