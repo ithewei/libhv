@@ -28,7 +28,8 @@ public:
         thread_num_ = num;
     }
 
-    EventLoopPtr nextLoop(load_balance_e lb = LB_RoundRobin) {
+    // @param hash: used by LB_IpHash (see sockaddr_ip_hash), ignored by other strategies.
+    EventLoopPtr nextLoop(load_balance_e lb = LB_RoundRobin, uint32_t hash = 0) {
         size_t numLoops = loop_threads_.size();
         if (numLoops == 0) return NULL;
         size_t idx = 0;
@@ -43,8 +44,12 @@ public:
                     idx = i;
                 }
             }
+        } else if (lb == LB_IpHash) {
+            idx = hash % numLoops;
         } else {
-            // Not Implemented
+            // Not Implemented, fallback to RoundRobin
+            if (++next_loop_idx_ >= numLoops) next_loop_idx_ = 0;
+            idx = next_loop_idx_ % numLoops;
         }
         return loop_threads_[idx]->loop();
     }

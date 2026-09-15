@@ -255,7 +255,11 @@ private:
         TcpServerEventLoopTmpl* server = (TcpServerEventLoopTmpl*)hevent_userdata(connio);
         // NOTE: detach from acceptor loop
         hio_detach(connio);
-        EventLoopPtr worker_loop = server->worker_threads.nextLoop(server->load_balance);
+        uint32_t hash = 0;
+        if (server->load_balance == LB_IpHash) {
+            hash = sockaddr_ip_hash((sockaddr_u*)hio_peeraddr(connio));
+        }
+        EventLoopPtr worker_loop = server->worker_threads.nextLoop(server->load_balance, hash);
         if (worker_loop == NULL) {
             worker_loop = server->acceptor_loop;
         }

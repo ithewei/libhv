@@ -17,6 +17,8 @@ class TcpServer {
     void setMaxConnectionNum(uint32_t num);
 
     // 设置负载均衡策略
+    // 可选: LB_RoundRobin(轮询, 默认) / LB_Random(随机) /
+    //       LB_LeastConnections(最少连接数) / LB_IpHash(按客户端IP哈希, 同一IP固定分配到同一worker)
     void setLoadBalance(load_balance_e lb);
 
     // 设置线程数
