@@ -32,8 +32,17 @@ typedef struct file_cache_s {
     }
 
     bool is_modified() {
+        struct stat new_st;
+        // stat failed: treat as modified to force re-validation via reopen
+#ifdef OS_WIN
+        if (_wstat(hv::utf8_to_wchar(filepath).c_str(), (struct _stat*)&new_st) != 0)
+            return true;
+#else
+        if (stat(filepath.c_str(), &new_st) != 0)
+            return true;
+#endif
         time_t mtime = st.st_mtime;
-        stat(filepath.c_str(), &st);
+        st = new_st;
         return mtime != st.st_mtime;
     }
 

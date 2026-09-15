@@ -16,6 +16,22 @@
 
 #define ETAG_FMT    "\"%zx-%zx\""
 
+// platform-abstracted stat + open.
+// @return fd (>=0) on success, -1 on error. fills st on success.
+// NOTE: open(dir) returns -1 on windows, so a directory yields fd=0 there.
+static int stat_and_open(const char* filepath, struct stat* st, int flags) {
+#ifdef OS_WIN
+    std::wstring wpath = hv::utf8_to_wchar(filepath);
+    if (_wstat(wpath.c_str(), (struct _stat*)st) != 0) return -1;
+    if (S_ISREG(st->st_mode)) return _wopen(wpath.c_str(), flags);
+    if (S_ISDIR(st->st_mode)) return 0;
+    return -1;
+#else
+    if (stat(filepath, st) != 0) return -1;
+    return open(filepath, flags);
+#endif
+}
+
 FileCache::FileCache(size_t capacity) : hv::LRUCache<std::string, file_cache_ptr>(capacity) {
     stat_interval = 10; // s
     expired_time  = 60; // s
@@ -23,23 +39,13 @@ FileCache::FileCache(size_t capacity) : hv::LRUCache<std::string, file_cache_ptr
 
 file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
     file_cache_ptr fc = Get(filepath);
-#ifdef OS_WIN
-    std::wstring wfilepath;
-#endif
     bool modified = false;
     if (fc) {
         time_t now = time(NULL);
         if (now - fc->stat_time > stat_interval) {
             fc->stat_time = now;
             fc->stat_cnt++;
-#ifdef OS_WIN
-            wfilepath = hv::utf8_to_wchar(filepath);
-            now = fc->st.st_mtime;
-            _wstat(wfilepath.c_str(), (struct _stat*)&fc->st);
-            modified = now != fc->st.st_mtime;
-#else
             modified = fc->is_modified();
-#endif
         }
         if (param->need_read) {
             if (!modified && fc->is_complete()) {
@@ -53,26 +59,7 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
 #ifdef O_BINARY
         flags |= O_BINARY;
 #endif
-        int fd = -1;
-#ifdef OS_WIN
-        if(wfilepath.empty()) wfilepath = hv::utf8_to_wchar(filepath);
-        if(_wstat(wfilepath.c_str(), (struct _stat*)&st) != 0) {
-            param->error = ERR_OPEN_FILE;
-            return NULL;
-        }
-        if(S_ISREG(st.st_mode)) {
-            fd = _wopen(wfilepath.c_str(), flags);
-        }else if (S_ISDIR(st.st_mode)) {
-            // NOTE: open(dir) return -1 on windows
-            fd = 0;
-        }
-#else
-        if(stat(filepath, &st) != 0) {
-            param->error = ERR_OPEN_FILE;
-            return NULL;
-        }
-        fd = open(filepath, flags);
-#endif
+        int fd = stat_and_open(filepath, &st, flags);
         if (fd < 0) {
             param->error = ERR_OPEN_FILE;
             return NULL;
@@ -108,6 +95,7 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
                 if (nread != fc->filebuf.len) {
                     hloge("Failed to read file: %s", filepath);
                     param->error = ERR_READ_FILE;
+                    Close(filepath);
                     return NULL;
                 }
             }
