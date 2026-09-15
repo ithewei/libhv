@@ -32,8 +32,13 @@ typedef struct file_cache_s {
     }
 
     bool is_modified() {
+        struct stat new_st;
+        // keep old st if stat failed (POSIX leaves the buffer undefined)
+        if (stat(filepath.c_str(), &new_st) != 0) {
+            return false;
+        }
         time_t mtime = st.st_mtime;
-        stat(filepath.c_str(), &st);
+        st = new_st;
         return mtime != st.st_mtime;
     }
 

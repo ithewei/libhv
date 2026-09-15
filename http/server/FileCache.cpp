@@ -108,6 +108,7 @@ file_cache_ptr FileCache::Open(const char* filepath, OpenParam* param) {
                 if (nread != fc->filebuf.len) {
                     hloge("Failed to read file: %s", filepath);
                     param->error = ERR_READ_FILE;
+                    Close(filepath);
                     return NULL;
                 }
             }
