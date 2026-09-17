@@ -42,6 +42,7 @@ HttpHandler::HttpHandler(hio_t* io) :
     tid(0),
     // for http
     io(io),
+    server(NULL),
     service(NULL),
     api_handler(NULL),
     // for websocket
@@ -353,6 +354,11 @@ void HttpHandler::onBody(const char* data, size_t size) {
 void HttpHandler::onMessageComplete() {
     // printf("onMessageComplete\n");
     int status_code = HTTP_STATUS_OK;
+
+    // stat: count every completed request (including proxy and error requests)
+    if (server) {
+        server->stat.total_requests++;
+    }
 
     if (error) {
         SendHttpStatusResponse(resp->status_code);
