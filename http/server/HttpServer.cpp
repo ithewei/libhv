@@ -13,6 +13,7 @@ using namespace hv;
 
 static void on_accept(hio_t* io);
 static void on_recv(hio_t* io, void* _buf, int readbytes);
+static void on_send(hio_t* io, const void* _buf, int writebytes);
 static void on_close(hio_t* io);
 
 struct HttpServerPrivdata {
@@ -28,6 +29,10 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     assert(handler != NULL);
 
+    if (handler->server) {
+        handler->server->stat.total_recv_bytes += readbytes;
+    }
+
     int nfeed = handler->FeedRecvData((const char*)buf, readbytes);
     if (nfeed != readbytes) {
         hio_close(io);
@@ -35,9 +40,29 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
     }
 }
 
+// NOTE: HttpServer owns the io write_cb so it can count sent bytes; the
+// HttpResponseWriter (a Channel) is located via hio_context and its onwrite
+// is still dispatched here, so streaming (sendfile/SSE) keeps working.
+static void on_send(hio_t* io, const void* buf, int writebytes) {
+    HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
+    if (handler && handler->server) {
+        handler->server->stat.total_send_bytes += writebytes;
+    }
+    hv::Channel* channel = (hv::Channel*)hio_context(io);
+    if (channel && channel->onwrite) {
+        hv::Buffer data((void*)buf, writebytes);
+        channel->onwrite(&data);
+    }
+}
+
 static void on_close(hio_t* io) {
     HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
     if (handler == NULL) return;
+    http_server_t* server = handler->server;
+
+    if (server && server->onClose) {
+        server->onClose(io);
+    }
 
     hevent_set_userdata(io, NULL);
     delete handler;
@@ -45,6 +70,9 @@ static void on_close(hio_t* io) {
     EventLoop* loop = currentThreadEventLoop;
     if (loop) {
         --loop->connectionNum;
+    }
+    if (server) {
+        --server->stat.cur_connections;
     }
 }
 
@@ -66,10 +94,22 @@ static void on_accept(hio_t* io) {
         hio_close(io);
         return;
     }
+    if (server->onAccept) {
+        if (!server->onAccept(io)) {
+            hio_close(io);
+            return;
+        }
+    }
     ++loop->connectionNum;
+    ++server->stat.total_connections;
+    ++server->stat.cur_connections;
 
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
+    // NOTE: set write_cb before new HttpHandler (which creates the writer
+    // Channel that would otherwise install its own write_cb); on_send then
+    // owns the slot and still dispatches the writer's onwrite.
+    hio_setcb_write(io, on_send);
     hio_read(io);
     if (service->keepalive_timeout > 0) {
         hio_set_keepalive_timeout(io, service->keepalive_timeout);
@@ -83,6 +123,8 @@ static void on_accept(hio_t* io) {
     sockaddr_u* peeraddr = (sockaddr_u*)hio_peeraddr(io);
     sockaddr_ip(peeraddr, handler->ip, sizeof(handler->ip));
     handler->port = sockaddr_port(peeraddr);
+    // http server
+    handler->server = server;
     // http service
     handler->service = service;
     // websocket service
@@ -330,15 +372,7 @@ std::shared_ptr<hv::EventLoop> HttpServer::loop(int idx) {
 }
 
 size_t HttpServer::connectionNum() {
-    HttpServerPrivdata* privdata = (HttpServerPrivdata*)this->privdata;
-    if (privdata == NULL) return 0;
-    std::lock_guard<std::mutex> locker(privdata->mutex_);
-    if (privdata->loops.empty()) return 0;
-    size_t total = 0;
-    for (auto& loop : privdata->loops) {
-        total += loop->connectionNum;
-    }
-    return total;
+    return stat.cur_connections.load();
 }
 
 }

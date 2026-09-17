@@ -30,6 +30,15 @@ class HttpServer {
     std::function<void()> onWorkerStart;
     // 事件循环结束时执行的回调函数
     std::function<void()> onWorkerStop;
+    // 新连接建立时执行的回调函数 (在任何HTTP解析之前)，返回false则拒绝(关闭)该连接。
+    // 注意: https下该回调在TLS握手之前触发，可用于按IP做allow/deny。
+    std::function<bool(hio_t* io)> onAccept;
+    // 连接关闭时执行的回调函数。
+    std::function<void(hio_t* io)> onClose;
+
+    // 获取运行时统计信息 (连接数/请求数/收发字节数, 可用于计算QPS/吞吐)
+    // 注意: 统计计数是`每进程`的; 多进程模式下需外部聚合各进程的数据。
+    const HttpServerStat& getStat();
 
     // 占用当前线程运行
     int run(bool wait = true);
@@ -40,6 +49,15 @@ class HttpServer {
     // 停止服务
     int stop();
 
+};
+
+// HTTP服务端运行时统计 (计数为累积单调值, cur_connections除外)
+struct HttpServerStat {
+    std::atomic<uint64_t> cur_connections;   // 当前活跃连接数
+    std::atomic<uint64_t> total_connections; // 累积处理的连接数
+    std::atomic<uint64_t> total_requests;    // 累积完成的请求数
+    std::atomic<uint64_t> total_recv_bytes;  // 累积接收字节数
+    std::atomic<uint64_t> total_send_bytes;  // 累积发送字节数
 };
 
 // HTTP业务类

@@ -42,6 +42,7 @@ HttpHandler::HttpHandler(hio_t* io) :
     tid(0),
     // for http
     io(io),
+    server(NULL),
     service(NULL),
     api_handler(NULL),
     // for websocket
@@ -382,6 +383,11 @@ void HttpHandler::onMessageComplete() {
         if (status_code != HTTP_STATUS_NEXT) {
             SendHttpResponse();
         }
+    }
+
+    // stat
+    if (server) {
+        server->stat.total_requests++;
     }
 
     // access log

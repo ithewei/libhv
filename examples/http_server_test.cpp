@@ -6,7 +6,9 @@
 
 #include "HttpServer.h"
 #include "hthread.h"    // import hv_gettid
+#include "htime.h"      // import gettimeofday_ms
 #include "hasync.h"     // import hv::async
+#include "EventLoop.h"  // import hv::setInterval
 
 #if defined(WITH_LUA) || defined(WITH_JS)
 #include "HttpScriptHandler.h"
@@ -28,6 +30,11 @@ using namespace hv;
  *
  */
 #define TEST_HTTPS 0
+
+// NOTE: single-process (multi-threaded) server, so the HttpServerStat counters
+// aggregate across all worker threads. Under multi-process mode the counters
+// would be per-process; see the /stats note below.
+static HttpServer g_server;
 
 int main(int argc, char** argv) {
     HV_MEMCHECK;
@@ -68,6 +75,69 @@ int main(int argc, char** argv) {
     // curl -v http://ip:port/paths
     router.GET("/paths", [&router](HttpRequest* req, HttpResponse* resp) {
         return resp->Json(router.Paths());
+    });
+
+    // curl -v http://ip:port/stats
+    // Runtime server stats as JSON: current/total connections, completed
+    // requests, received/sent bytes, plus per-second rates refreshed by a
+    // 60s interval timer (diff of two HttpServerStat snapshots divided by
+    // the elapsed seconds).
+    // NOTE: counters are per-process; this demo runs single-process so they
+    // aggregate all worker threads. Under multi-process mode each process has
+    // its own counters and an external collector must aggregate them.
+    router.GET("/stats", [](HttpRequest* req, HttpResponse* resp) {
+        // published per-second rates (written by the timer, read here)
+        static std::atomic<double> conn_per_sec{0};
+        static std::atomic<double> req_per_sec{0};
+        static std::atomic<double> recv_per_sec{0};
+        static std::atomic<double> send_per_sec{0};
+        // start the sampling timer once, on the first /stats request
+        static std::once_flag once;
+        std::call_once(once, []() {
+            struct Snapshot {
+                uint64_t ms, connections, requests, recv_bytes, send_bytes;
+            };
+            auto last = std::make_shared<Snapshot>();
+            const HttpServerStat& stat = g_server.getStat();
+            last->ms = gettimeofday_ms();
+            last->connections = stat.total_connections.load();
+            last->requests    = stat.total_requests.load();
+            last->recv_bytes  = stat.total_recv_bytes.load();
+            last->send_bytes  = stat.total_send_bytes.load();
+            hv::setInterval(60000, [last](hv::TimerID) {
+                const HttpServerStat& stat = g_server.getStat();
+                uint64_t now = gettimeofday_ms();
+                double dt = (now - last->ms) / 1000.0;
+                if (dt <= 0) return;
+                uint64_t connections = stat.total_connections.load();
+                uint64_t requests    = stat.total_requests.load();
+                uint64_t recv_bytes  = stat.total_recv_bytes.load();
+                uint64_t send_bytes  = stat.total_send_bytes.load();
+                conn_per_sec = (connections - last->connections) / dt;
+                req_per_sec  = (requests    - last->requests)    / dt;
+                recv_per_sec = (recv_bytes  - last->recv_bytes)  / dt;
+                send_per_sec = (send_bytes  - last->send_bytes)  / dt;
+                last->ms = now;
+                last->connections = connections;
+                last->requests    = requests;
+                last->recv_bytes  = recv_bytes;
+                last->send_bytes  = send_bytes;
+            });
+        });
+
+        const HttpServerStat& stat = g_server.getStat();
+        hv::Json json;
+        json["cur_connections"]   = stat.cur_connections.load();
+        json["total_connections"] = stat.total_connections.load();
+        json["total_requests"]    = stat.total_requests.load();
+        json["total_recv_bytes"]  = stat.total_recv_bytes.load();
+        json["total_send_bytes"]  = stat.total_send_bytes.load();
+        // per-second rates over the last 60s window (0 until first window elapses)
+        json["connections_per_sec"] = conn_per_sec.load();
+        json["requests_per_sec"]    = req_per_sec.load();
+        json["recv_bytes_per_sec"]  = recv_per_sec.load();
+        json["send_bytes_per_sec"]  = send_per_sec.load();
+        return resp->Json(json);
     });
 
     // curl -v http://ip:port/get?env=1
@@ -128,7 +198,7 @@ int main(int argc, char** argv) {
         return HTTP_STATUS_NEXT;
     });
 
-    HttpServer server;
+    HttpServer& server = g_server;
     server.service = &router;
     server.port = port;
 #if TEST_HTTPS

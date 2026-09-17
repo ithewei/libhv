@@ -1,6 +1,8 @@
 #ifndef HV_HTTP_SERVER_H_
 #define HV_HTTP_SERVER_H_
 
+#include <atomic>
+
 #include "hexport.h"
 #include "hssl.h"
 // #include "EventLoop.h"
@@ -12,6 +14,28 @@ struct WebSocketService;
 }
 using hv::HttpService;
 using hv::WebSocketService;
+
+// Runtime statistics of the http server.
+// NOTE: counters are cumulative and monotonic (except cur_connections);
+// compute QPS by sampling total_requests twice and dividing the delta by
+// the elapsed time.
+// NOTE: in multi-process mode (worker_processes > 0) the counters are
+// per-process, not aggregated across processes.
+struct HttpServerStat {
+    std::atomic<uint64_t> cur_connections;   // current active connections
+    std::atomic<uint64_t> total_connections; // cumulative handled connections
+    std::atomic<uint64_t> total_requests;    // cumulative completed requests
+    std::atomic<uint64_t> total_recv_bytes;  // cumulative received bytes
+    std::atomic<uint64_t> total_send_bytes;  // cumulative sent bytes
+
+    HttpServerStat()
+        : cur_connections(0)
+        , total_connections(0)
+        , total_requests(0)
+        , total_recv_bytes(0)
+        , total_send_bytes(0)
+    {}
+};
 
 typedef struct http_server_s {
     char host[64];
@@ -29,6 +53,13 @@ typedef struct http_server_s {
     // hooks
     std::function<void()> onWorkerStart;
     std::function<void()> onWorkerStop;
+    // @brief called on a new connection accepted, before any HTTP parsing.
+    //        return false to reject (close) the connection.
+    std::function<bool(hio_t* io)> onAccept;
+    // @brief called when a connection is closed.
+    std::function<void(hio_t* io)> onClose;
+    // stat counters
+    HttpServerStat stat;
     // SSL/TLS
     hssl_ctx_t  ssl_ctx;
     unsigned    alloced_ssl_ctx: 1;
@@ -123,6 +154,9 @@ public:
         this->worker_connections = num;
     }
     size_t connectionNum();
+
+    // runtime statistics (connections / requests, for QPS etc.)
+    const HttpServerStat& getStat() { return stat; }
 
     // SSL/TLS
     int setSslCtx(hssl_ctx_t ssl_ctx) {
