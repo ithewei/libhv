@@ -355,6 +355,11 @@ void HttpHandler::onMessageComplete() {
     // printf("onMessageComplete\n");
     int status_code = HTTP_STATUS_OK;
 
+    // stat: count every completed request (including proxy and error requests)
+    if (server) {
+        server->stat.total_requests++;
+    }
+
     if (error) {
         SendHttpStatusResponse(resp->status_code);
         return;
@@ -383,11 +388,6 @@ void HttpHandler::onMessageComplete() {
         if (status_code != HTTP_STATUS_NEXT) {
             SendHttpResponse();
         }
-    }
-
-    // stat
-    if (server) {
-        server->stat.total_requests++;
     }
 
     // access log

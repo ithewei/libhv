@@ -31,7 +31,6 @@ class HttpServer {
     // 事件循环结束时执行的回调函数
     std::function<void()> onWorkerStop;
     // 新连接建立时执行的回调函数 (在任何HTTP解析之前)，返回false则拒绝(关闭)该连接。
-    // 注意: https下该回调在TLS握手之前触发，可用于按IP做allow/deny。
     std::function<bool(hio_t* io)> onAccept;
     // 连接关闭时执行的回调函数。
     std::function<void(hio_t* io)> onClose;
