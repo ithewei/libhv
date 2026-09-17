@@ -225,6 +225,8 @@ static void WINAPI loop_thread_stdcall(void* userdata) {
  * on_close -> delete HttpHandler
  */
 int http_server_run(http_server_t* server, int wait) {
+    // reset graceful-shutdown state in case the server object is reused
+    server->draining = false;
     // http_port
     if (server->port >= 0) {
         server->listenfd[0] = Listen(server->port, server->host);
@@ -404,11 +406,17 @@ int http_server_graceful_stop(http_server_t* server, int timeout_ms) {
 
     // wait for in-flight connections to drain (or until timeout)
     if (timeout_ms != 0) {
-        uint64_t start = gettimeofday_ms();
+        // use monotonic clock; check deadline before sleeping and cap the
+        // sleep to the remaining time so a small timeout does not overshoot.
+        unsigned int start = gettick_ms();
         while (server->stat.cur_connections.load() > 0) {
-            hv_delay(50);
-            if (timeout_ms > 0 && (int)(gettimeofday_ms() - start) >= timeout_ms) {
-                break;
+            if (timeout_ms > 0) {
+                int elapsed = (int)(gettick_ms() - start);
+                int remain = timeout_ms - elapsed;
+                if (remain <= 0) break;
+                hv_delay(MIN(remain, 50));
+            } else {
+                hv_delay(50);
             }
         }
     }
