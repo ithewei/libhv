@@ -89,6 +89,11 @@ static void on_accept(hio_t* io) {
     */
 
     EventLoop* loop = currentThreadEventLoop;
+    if (server->draining) {
+        // graceful shutdown in progress: reject new connections
+        hio_close(io);
+        return;
+    }
     if (loop->connectionNum >= server->worker_connections) {
         hlogw("over worker_connections");
         hio_close(io);
@@ -220,6 +225,8 @@ static void WINAPI loop_thread_stdcall(void* userdata) {
  * on_close -> delete HttpHandler
  */
 int http_server_run(http_server_t* server, int wait) {
+    // reset graceful-shutdown state in case the server object is reused
+    server->draining = false;
     // http_port
     if (server->port >= 0) {
         server->listenfd[0] = Listen(server->port, server->host);
@@ -350,6 +357,71 @@ int http_server_stop(http_server_t* server) {
     delete privdata;
     server->privdata = NULL;
     return 0;
+}
+
+int http_server_stop_accept(http_server_t* server) {
+#ifdef OS_UNIX
+    if (server->worker_processes) {
+        // multi-process graceful shutdown is not supported (master manages
+        // workers via signals). Use single-process (multi-threaded) mode.
+        hloge("http_server_stop_accept is not supported in multi-process mode");
+        return ERR_INVALID_PARAM;
+    }
+#endif
+    HttpServerPrivdata* privdata = (HttpServerPrivdata*)server->privdata;
+    if (privdata == NULL) return 0;
+
+    // Set draining first: rejects new connections in on_accept (backlog that
+    // slips in before hio_del) and forces keep-alive connections to close after
+    // their current response. In-flight requests are allowed to finish.
+    server->draining = true;
+
+    // Stop accepting on each loop's listen io by removing its read event.
+    // NOTE: only del the event, do NOT close the shared listenfd here; the fd
+    // is closed once by hloop cleanup on stop(). hio_del must run in the io's
+    // loop thread, so post it via runInLoop.
+    std::lock_guard<std::mutex> locker(privdata->mutex_);
+    for (auto& loop : privdata->loops) {
+        hloop_t* hloop = loop->loop();
+        if (hloop == NULL) continue;
+        loop->runInLoop([hloop, server]() {
+            for (int i = 0; i < 2; ++i) {
+                if (server->listenfd[i] < 0) continue;
+                hio_t* listenio = hio_get(hloop, server->listenfd[i]);
+                if (listenio) hio_del(listenio, HV_READ);
+            }
+        });
+    }
+    return 0;
+}
+
+int http_server_graceful_stop(http_server_t* server, int timeout_ms) {
+#ifdef OS_UNIX
+    if (server->worker_processes) {
+        hloge("http_server_graceful_stop is not supported in multi-process mode");
+        return ERR_INVALID_PARAM;
+    }
+#endif
+    http_server_stop_accept(server);
+
+    // wait for in-flight connections to drain (or until timeout)
+    if (timeout_ms != 0) {
+        // use monotonic clock; check deadline before sleeping and cap the
+        // sleep to the remaining time so a small timeout does not overshoot.
+        unsigned int start = gettick_ms();
+        while (server->stat.cur_connections.load() > 0) {
+            if (timeout_ms > 0) {
+                int elapsed = (int)(gettick_ms() - start);
+                int remain = timeout_ms - elapsed;
+                if (remain <= 0) break;
+                hv_delay(MIN(remain, 50));
+            } else {
+                hv_delay(50);
+            }
+        }
+    }
+
+    return http_server_stop(server);
 }
 
 namespace hv {

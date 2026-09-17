@@ -58,6 +58,9 @@ typedef struct http_server_s {
     std::function<bool(hio_t* io)> onAccept;
     // @brief called when a connection is closed.
     std::function<void(hio_t* io)> onClose;
+    // graceful shutdown flag: when set, new connections are rejected and
+    // keep-alive connections are closed after their current response.
+    std::atomic<bool> draining;
     // stat counters
     HttpServerStat stat;
     // SSL/TLS
@@ -81,6 +84,7 @@ typedef struct http_server_s {
         listenfd[0] = listenfd[1] = -1;
         userdata = NULL;
         privdata = NULL;
+        draining = false;
         // SSL/TLS
         ssl_ctx = NULL;
         alloced_ssl_ctx = 0;
@@ -93,6 +97,25 @@ HV_EXPORT int http_server_run(http_server_t* server, int wait = 1);
 
 // NOTE: stop all loops and join all threads
 HV_EXPORT int http_server_stop(http_server_t* server);
+
+// Graceful shutdown: stop accepting new connections/requests, then close.
+// Removes the listen read event on every loop and sets draining so keep-alive
+// connections are closed after their current response. In-flight requests are
+// allowed to finish. Waits until there are no active connections or the timeout
+// elapses, then calls http_server_stop.
+// @param timeout_ms: max time to wait for in-flight connections to drain;
+//        default 60s. 0 means do not wait; <0 means wait indefinitely (not
+//        recommended: long-lived connections such as WebSocket/SSE may never
+//        close, blocking forever).
+// NOTE: single-process (multi-threaded) mode only; not supported in
+//       multi-process mode (worker_processes > 0).
+HV_EXPORT int http_server_graceful_stop(http_server_t* server, int timeout_ms = 60000);
+
+// Stop accepting: remove the listen read event on every loop and set draining
+// (keep-alive -> close). Existing in-flight requests continue; does not wait or
+// stop the loops. The listen fd is not closed here (closed once on stop()).
+// NOTE: single-process (multi-threaded) mode only.
+HV_EXPORT int http_server_stop_accept(http_server_t* server);
 
 /*
 #include "HttpServer.h"
@@ -194,6 +217,18 @@ public:
 
     int stop() {
         return http_server_stop(this);
+    }
+
+    // Graceful shutdown: stop accepting, let in-flight requests finish, then stop.
+    // @param timeout_ms: default 60s; 0 no wait; <0 wait indefinitely (not
+    //        recommended). See http_server_graceful_stop.
+    int gracefulStop(int timeout_ms = 60000) {
+        return http_server_graceful_stop(this, timeout_ms);
+    }
+
+    // Stop accepting new connections/requests without stopping the loops.
+    int stopAccept() {
+        return http_server_stop_accept(this);
     }
 };
 
