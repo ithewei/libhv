@@ -399,6 +399,12 @@ void HttpHandler::onMessageComplete() {
     }
 
     if (status_code != HTTP_STATUS_NEXT) {
+        // draining is the authoritative close decision: honor it here too, in
+        // case it was set after addResponseHeaders() ran for this request,
+        // otherwise the connection would stay alive and never drain.
+        if (server && server->draining) {
+            keepalive = false;
+        }
         // keepalive ? Reset : Close
         if (keepalive) {
             Reset();
@@ -480,6 +486,10 @@ void HttpHandler::addResponseHeaders() {
     pResp->headers["Server"] = "libhv/" HV_VERSION_STRING;
 
     // Connection:
+    // graceful shutdown: don't keep the connection alive while draining
+    if (server && server->draining) {
+        keepalive = false;
+    }
     pResp->headers["Connection"] = keepalive ? "keep-alive" : "close";
 }
 

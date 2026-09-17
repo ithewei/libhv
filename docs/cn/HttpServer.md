@@ -48,6 +48,17 @@ class HttpServer {
     // 停止服务
     int stop();
 
+    // 停止接收: 移除各事件循环的监听读事件并置为 draining (keep-alive 连接
+    // 处理完当前响应后关闭), 在途请求继续处理; 不关闭监听fd, 不停止事件循环。
+    // 注意: 仅单进程(多线程)模式支持。
+    int stopAccept();
+
+    // 优雅停止: 先停止接收新连接/请求, 等待在途请求处理完成(或超时)后再停止服务。
+    // @param timeout_ms: 等待在途连接排空的最长时间; 默认60s; 0表示不等待;
+    //        <0表示无限等待(不推荐: WebSocket/SSE等长连接可能永不关闭而一直阻塞)。
+    // 注意: 仅单进程(多线程)模式支持, 多进程模式(worker_processes>0)不支持。
+    int gracefulStop(int timeout_ms = 60000);
+
 };
 
 // HTTP服务端运行时统计 (计数为累积单调值, cur_connections除外)
