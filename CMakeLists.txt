@@ -24,6 +24,7 @@ option(WITH_HTTP_SERVER "compile http/server" ON)
 option(WITH_HTTP_CLIENT "compile http/client" ON)
 option(WITH_MQTT "compile mqtt" OFF)
 option(WITH_REDIS "compile redis" OFF)
+option(WITH_MAIL "compile mail (SMTP/IMAP)" OFF)
 option(WITH_RPC "compile hrpc (libhrpc, needs protobuf)" OFF)
 
 option(ENABLE_UDS "Unix Domain Socket" OFF)
@@ -296,7 +297,7 @@ if(APPLE)
 endif()
 
 # see Makefile
-set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt js)
+set(ALL_SRCDIRS . base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt mail js)
 set(CORE_SRCDIRS . base ssl event)
 if(WIN32 OR MINGW)
     if(WITH_WEPOLL)
@@ -368,6 +369,11 @@ endif()
 if(WITH_MQTT)
     set(LIBHV_HEADERS ${LIBHV_HEADERS} ${MQTT_HEADERS})
     set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} mqtt)
+endif()
+
+if(WITH_MAIL)
+    set(LIBHV_HEADERS ${LIBHV_HEADERS} ${MAIL_HEADERS})
+    set(LIBHV_SRCDIRS ${LIBHV_SRCDIRS} mail)
 endif()
 
 list_source_directories(LIBHV_SRCS ${LIBHV_SRCDIRS})
