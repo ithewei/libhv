@@ -53,6 +53,23 @@ static int membuf_puts(membuf_t* buf, const char* s) {
 
 // ---- codecs ----
 
+// base64 decode that tolerates MIME line breaks / whitespace: hv_base64_decode
+// rejects CR/LF, so strip whitespace into a scratch buffer first.
+// Returns decoded length, or -1 on error.
+static int mime_base64_decode(const char* in, int inlen, unsigned char* out) {
+    char* tmp = (char*)malloc(inlen + 1);
+    if (tmp == NULL) return -1;
+    int n = 0;
+    for (int i = 0; i < inlen; ++i) {
+        char c = in[i];
+        if (c == '\r' || c == '\n' || c == ' ' || c == '\t') continue;
+        tmp[n++] = c;
+    }
+    int ret = hv_base64_decode(tmp, n, out);
+    free(tmp);
+    return ret;
+}
+
 int mime_qp_decode(const char* in, int inlen, char* out) {
     int o = 0;
     for (int i = 0; i < inlen; ++i) {
@@ -85,23 +102,76 @@ int mime_encode_word(const char* in, int inlen, char* out, int outlen) {
     return n;
 }
 
-// Encode a header value: if it contains non-ASCII, use RFC 2047 encoded-word.
-static void append_header_value(membuf_t* buf, const char* value) {
-    int has_non_ascii = 0;
-    for (const char* p = value; *p; ++p) {
-        if ((unsigned char)*p >= 0x80) { has_non_ascii = 1; break; }
+// Decode an RFC 2047 header value that may contain encoded-words
+// "=?charset?B?..?=" (base64) or "=?charset?Q?..?=" (quoted-printable-like).
+// Non-encoded text is copied through. Returns a heap string (caller frees),
+// charset is not converted (returned bytes are the decoded payload as-is).
+static char* mime_decode_word(const char* in, int inlen) {
+    char* out = (char*)malloc(inlen + 1);
+    if (out == NULL) return NULL;
+    int o = 0;
+    int i = 0;
+    while (i < inlen) {
+        // look for "=?"
+        if (i + 1 < inlen && in[i] == '=' && in[i + 1] == '?') {
+            // parse =?charset?E?text?=
+            const char* p = in + i + 2;
+            const char* end = in + inlen;
+            const char* q1 = memchr(p, '?', end - p);          // after charset
+            if (q1 && q1 + 2 < end && q1[2] == '?') {
+                char enc = q1[1];
+                const char* text = q1 + 3;
+                // find closing "?="
+                const char* close = text;
+                while (close + 1 < end && !(close[0] == '?' && close[1] == '=')) close++;
+                if (close + 1 < end) {
+                    int tlen = (int)(close - text);
+                    if (enc == 'B' || enc == 'b') {
+                        o += hv_base64_decode(text, tlen, (unsigned char*)out + o);
+                    } else if (enc == 'Q' || enc == 'q') {
+                        // Q-encoding: '_' => space, '=XX' => byte
+                        for (int k = 0; k < tlen; ++k) {
+                            if (text[k] == '_') {
+                                out[o++] = ' ';
+                            } else if (text[k] == '=' && k + 2 < tlen) {
+                                char hex[3] = { text[k + 1], text[k + 2], 0 };
+                                out[o++] = (char)strtol(hex, NULL, 16);
+                                k += 2;
+                            } else {
+                                out[o++] = text[k];
+                            }
+                        }
+                    }
+                    i = (int)(close + 2 - in);
+                    continue;
+                }
+            }
+        }
+        out[o++] = in[i++];
     }
-    if (!has_non_ascii) {
+    out[o] = '\0';
+    return out;
+}
+
+// Encode a header value: if it contains non-ASCII, use RFC 2047 encoded-word.
+// Any CR/LF (or other control chars) force encoding too, to prevent header
+// injection (e.g. a subject/name carrying "\r\nBcc: ...").
+static void append_header_value(membuf_t* buf, const char* value) {
+    int needs_encoding = 0;
+    for (const char* p = value; *p; ++p) {
+        unsigned char c = (unsigned char)*p;
+        if (c >= 0x80 || c == '\r' || c == '\n' || c == '\t') { needs_encoding = 1; break; }
+    }
+    if (!needs_encoding) {
         membuf_puts(buf, value);
         return;
     }
     int inlen = (int)strlen(value);
     int outlen = 16 + BASE64_ENCODE_OUT_SIZE(inlen);
     char* enc = (char*)malloc(outlen);
-    if (enc == NULL) { membuf_puts(buf, value); return; }
+    if (enc == NULL) return;   // drop rather than emit an unsafe raw value
     int n = mime_encode_word(value, inlen, enc, outlen);
     if (n > 0) membuf_append(buf, enc, n);
-    else membuf_puts(buf, value);
     free(enc);
 }
 
@@ -366,7 +436,7 @@ static char* dup_header(const char* start, const char* end, const char* name) {
     int len = 0;
     const char* v = find_header(start, end, name, &len);
     if (v == NULL || len <= 0) return NULL;
-    return mime_strndup(v, len);
+    return mime_decode_word(v, len);
 }
 
 // find end of headers (double CRLF); returns pointer to body start, or end.
@@ -403,25 +473,30 @@ static int extract_boundary(const char* ct, int ctlen, char* out, int outlen) {
 }
 
 // decode a body part according to Content-Transfer-Encoding into a heap buffer.
+// Sets *outlen to the decoded byte length (binary-safe; the buffer is also
+// NUL-terminated for text convenience but may contain embedded NULs).
 static char* decode_part_body(const char* body, int bodylen,
-                              const char* enc, int enclen) {
+                              const char* enc, int enclen, int* outlen) {
     if (enc && enclen >= 6 && strnicmp(enc, "base64", 6) == 0) {
         int out_size = BASE64_DECODE_OUT_SIZE(bodylen) + 1;
         char* out = (char*)malloc(out_size);
-        if (out == NULL) return NULL;
-        int n = hv_base64_decode(body, bodylen, (unsigned char*)out);
+        if (out == NULL) { *outlen = 0; return NULL; }
+        int n = mime_base64_decode(body, bodylen, (unsigned char*)out);
         if (n < 0) n = 0;
         out[n] = '\0';
+        *outlen = n;
         return out;
     }
     if (enc && enclen >= 16 && strnicmp(enc, "quoted-printable", 16) == 0) {
         char* out = (char*)malloc(bodylen + 1);
-        if (out == NULL) return NULL;
+        if (out == NULL) { *outlen = 0; return NULL; }
         int n = mime_qp_decode(body, bodylen, out);
         out[n] = '\0';
+        *outlen = n;
         return out;
     }
     // 7bit / 8bit / none
+    *outlen = bodylen;
     return mime_strndup(body, bodylen);
 }
 
@@ -512,7 +587,8 @@ static void parse_part(const char* start, const char* end, mail_t* mail) {
             }
         }
         int bodylen = (int)(end - body);
-        char* decoded = decode_part_body(body, bodylen, enc, enclen);
+        int declen = 0;
+        char* decoded = decode_part_body(body, bodylen, enc, enclen, &declen);
         char* ct_dup = ct ? mime_strndup(ct, ctlen) : NULL;
         // strip params after ';' in ct
         if (ct_dup) {
@@ -521,7 +597,7 @@ static void parse_part(const char* start, const char* end, mail_t* mail) {
         }
         mail_add_attachment(mail, filename ? filename : "attachment",
                             ct_dup, decoded ? decoded : "",
-                            decoded ? strlen(decoded) : 0);
+                            decoded ? (size_t)declen : 0);
         free(filename);
         free(ct_dup);
         free(decoded);
@@ -530,7 +606,8 @@ static void parse_part(const char* start, const char* end, mail_t* mail) {
 
     // text body
     int bodylen = (int)(end - body);
-    char* decoded = decode_part_body(body, bodylen, enc, enclen);
+    int declen = 0;
+    char* decoded = decode_part_body(body, bodylen, enc, enclen, &declen);
     if (decoded == NULL) return;
     int is_html = (ct && ctlen >= 9 && strnicmp(ct, "text/html", 9) == 0);
     if (is_html) {

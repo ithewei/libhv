@@ -69,6 +69,25 @@ static int smtp_write(smtp_client_t* cli, const char* buf, int len) {
     return nwrite;
 }
 
+// Send the DATA payload with dot-stuffing: any line starting with '.' gets an
+// extra leading '.', so a body line "." cannot prematurely terminate DATA.
+static void smtp_send_data(smtp_client_t* cli, const char* msg) {
+    const char* p = msg;
+    while (*p) {
+        if (*p == '.') {
+            smtp_write(cli, ".", 1);   // stuff an extra leading dot
+        }
+        const char* nl = strchr(p, '\n');
+        if (nl == NULL) {
+            smtp_write(cli, p, (int)strlen(p));
+            break;
+        }
+        int linelen = (int)(nl - p) + 1;
+        smtp_write(cli, p, linelen);   // includes the '\n'
+        p = nl + 1;
+    }
+}
+
 static int smtp_writef(smtp_client_t* cli, const char* fmt, ...) {
     char buf[1024];
     va_list ap;
@@ -76,6 +95,9 @@ static int smtp_writef(smtp_client_t* cli, const char* fmt, ...) {
     int len = vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
     if (len <= 0) return -1;
+    // vsnprintf returns the length that WOULD be written; clamp to the actual
+    // bytes stored so smtp_write never reads past the stack buffer.
+    if (len >= (int)sizeof(buf)) len = (int)sizeof(buf) - 1;
     return smtp_write(cli, buf, len);
 }
 
@@ -170,15 +192,16 @@ static void on_recv(hio_t* io, void* buf, int len) {
         smtp_send_next(cli);   // send first RCPT TO
         break;
     case SMTP_ST_RCPT_TO:
-        if (code != 250 && code != 251) { smtp_finish(cli, code, cli->last_msg); hio_close(io); return; }
+        // 250 OK, 251 forwarded, 252 accepted (cannot verify recipient)
+        if (code != 250 && code != 251 && code != 252) { smtp_finish(cli, code, cli->last_msg); hio_close(io); return; }
         cli->rcpt_index++;
         smtp_send_next(cli);   // next RCPT or DATA
         break;
     case SMTP_ST_DATA:
         if (code != 354) { smtp_finish(cli, code, cli->last_msg); hio_close(io); return; }
         cli->state = SMTP_ST_BODY;
-        // send message + end-of-body
-        smtp_write(cli, cli->message, (int)strlen(cli->message));
+        // send dot-stuffed message + end-of-body
+        smtp_send_data(cli, cli->message);
         smtp_write(cli, "\r\n.\r\n", 5);
         break;
     case SMTP_ST_BODY:
@@ -363,6 +386,10 @@ int smtp_client_send(smtp_client_t* cli, mail_t* mail) {
     if (io == NULL) return ERR_SOCKET;
     if (cli->ssl) {
         if (cli->ssl_ctx) hio_set_ssl_ctx(io, cli->ssl_ctx);
+        // set SNI hostname: hio_create_socket only stores the peer address, but
+        // the TLS backend sends SNI from io->hostname. Without this, name-based
+        // virtual SMTPS hosts may reject the handshake or route incorrectly.
+        hio_set_hostname(io, cli->host);
         hio_enable_ssl(io);
     }
     cli->io = io;

@@ -226,6 +226,18 @@ if(WITH_MQTT)
     list(APPEND EXAMPLES mqtt_sub mqtt_pub mqtt_client_test)
 endif()
 
+if(WITH_MAIL)
+    include_directories(../mail)
+
+    add_executable(sendmail_test mail/sendmail_test.cpp)
+    target_link_libraries(sendmail_test ${HV_LIBRARIES})
+
+    add_executable(recvmail_test mail/recvmail_test.cpp)
+    target_link_libraries(recvmail_test ${HV_LIBRARIES})
+
+    list(APPEND EXAMPLES sendmail_test recvmail_test)
+endif()
+
 # hrpc examples: link the hrpc library (built at top level when WITH_RPC=ON) --
 # exactly how a downstream user consumes hrpc: -lhrpc -lhv -lprotobuf.
 if(WITH_RPC)

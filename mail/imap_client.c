@@ -61,6 +61,29 @@ struct imap_client_s {
 static void imap_fetch_next(imap_client_t* cli);
 static void imap_process(imap_client_t* cli);
 
+// IMAP quoted-string: wrap in double quotes and backslash-escape " and \.
+// Caller must ensure the input has no control chars (see imap_has_ctrl).
+static void imap_quote(const char* in, char* out, int outlen) {
+    int o = 0;
+    if (o < outlen - 1) out[o++] = '"';
+    for (const char* p = in; *p && o < outlen - 2; ++p) {
+        if (*p == '"' || *p == '\\') {
+            if (o < outlen - 3) out[o++] = '\\';
+        }
+        out[o++] = *p;
+    }
+    if (o < outlen - 1) out[o++] = '"';
+    out[o] = '\0';
+}
+
+// reject CR/LF and other control characters (command injection guard)
+static int imap_has_ctrl(const char* s) {
+    for (const char* p = s; *p; ++p) {
+        if ((unsigned char)*p < 0x20) return 1;
+    }
+    return 0;
+}
+
 static void imap_done(imap_client_t* cli, int code, const char* msg) {
     if (cli->done_cb && !cli->done_called) {
         cli->done_called = 1;
@@ -90,6 +113,9 @@ static int imap_tag_prefix(imap_client_t* cli, char* out, int outlen) {
 // check whether buffer [data,data+len) contains the tagged final response for
 // the current tag. Sets *ok to 1 if "aNNN OK", 0 if NO/BAD. Returns pointer to
 // the byte just after that line's CRLF, or NULL if not present yet.
+// NOTE: only a complete LF-terminated line is treated as final, so a tagged
+// response split across reads is not consumed prematurely (which would discard
+// the remainder and hang waiting for the next tag).
 static char* find_tagged_response(imap_client_t* cli, char* data, size_t len, int* ok) {
     char prefix[16];
     int plen = imap_tag_prefix(cli, prefix, sizeof(prefix));
@@ -97,14 +123,14 @@ static char* find_tagged_response(imap_client_t* cli, char* data, size_t len, in
     char* end = data + len;
     while (p < end) {
         char* nl = (char*)memchr(p, '\n', end - p);
-        int linelen = nl ? (int)(nl - p) : (int)(end - p);
+        if (nl == NULL) break;   // incomplete line; wait for more data
+        int linelen = (int)(nl - p);
         if (linelen >= plen && strncmp(p, prefix, plen) == 0) {
             const char* status = p + plen;
             if (strnicmp(status, "OK", 2) == 0) *ok = 1;
             else *ok = 0;  // NO / BAD
-            return nl ? nl + 1 : end;
+            return nl + 1;
         }
-        if (nl == NULL) break;
         p = nl + 1;
     }
     return NULL;
@@ -216,10 +242,14 @@ static void imap_process(imap_client_t* cli) {
         size_t consumed = nl - data + 1;
         memmove(data, nl + 1, len - consumed);
         cli->recvlen = len - consumed;
-        // LOGIN
+        // LOGIN with quoted credentials (escape " and \; control chars are
+        // rejected earlier in imap_client_fetch to prevent command injection)
         cli->state = IMAP_ST_LOGIN;
-        char cmd[384];
-        snprintf(cmd, sizeof(cmd), "LOGIN %s %s", cli->username, cli->password);
+        char user_q[256], pass_q[256];
+        imap_quote(cli->username, user_q, sizeof(user_q));
+        imap_quote(cli->password, pass_q, sizeof(pass_q));
+        char cmd[600];
+        snprintf(cmd, sizeof(cmd), "LOGIN %s %s", user_q, pass_q);
         imap_send_cmd(cli, cmd);
         break;
     }
@@ -288,7 +318,9 @@ static void imap_fetch_next(imap_client_t* cli) {
     }
     int id = cli->ids[cli->id_index];
     char cmd[64];
-    snprintf(cmd, sizeof(cmd), "FETCH %d BODY[]", id);
+    // BODY.PEEK[] fetches the full message without setting the \Seen flag,
+    // so reading mail does not mark it as read on the server.
+    snprintf(cmd, sizeof(cmd), "FETCH %d BODY.PEEK[]", id);
     imap_send_cmd(cli, cmd);
 }
 
@@ -451,6 +483,8 @@ void imap_client_set_host(imap_client_t* cli, const char* host, int port, int ss
 int imap_client_fetch(imap_client_t* cli, const char* mailbox, const char* criteria) {
     if (!cli) return -1;
     if (!cli->host[0] || !cli->username[0]) return ERR_INVALID_PARAM;
+    // reject control characters in credentials (IMAP command injection guard)
+    if (imap_has_ctrl(cli->username) || imap_has_ctrl(cli->password)) return ERR_INVALID_PARAM;
     if (mailbox)  hv_strncpy(cli->mailbox, mailbox, sizeof(cli->mailbox));
     if (criteria) hv_strncpy(cli->criteria, criteria, sizeof(cli->criteria));
 
@@ -467,6 +501,8 @@ int imap_client_fetch(imap_client_t* cli, const char* mailbox, const char* crite
     if (io == NULL) return ERR_SOCKET;
     if (cli->ssl) {
         if (cli->ssl_ctx) hio_set_ssl_ctx(io, cli->ssl_ctx);
+        // set SNI hostname (see smtp_client for rationale)
+        hio_set_hostname(io, cli->host);
         hio_enable_ssl(io);
     }
     cli->io = io;
