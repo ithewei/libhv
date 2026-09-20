@@ -267,13 +267,31 @@ static void socks5_expect(hio_t* io, int state, int want) {
     s5->want = want;
 }
 
+// Raw handshake send. The SOCKS5 handshake runs immediately after the TCP
+// connection to the proxy is established, when the socket send buffer is empty
+// and the messages are tiny (<= 513 bytes), so a short write is not expected.
+// We deliberately do NOT use hio_write() here: it would invoke the upper-layer
+// write_cb (leaking handshake bytes, including credentials, to the application
+// before onConnection), dispatch to hssl_write() with a not-yet-created SSL
+// handle for a TLS target, and enqueue on EAGAIN via hio_add() which would
+// clobber the handshake read handler. A short write or error is treated as
+// fatal and closes the connection.
+static int socks5_send(hio_t* io, const void* buf, int len) {
+    int flag = 0;
+#ifdef MSG_NOSIGNAL
+    flag |= MSG_NOSIGNAL;
+#endif
+    int n = send(io->fd, (const char*)buf, len, flag);
+    return n == len ? 0 : -1;
+}
+
 // send the SOCKS5 CONNECT request and wait for the 4-byte reply header.
 static void socks5_send_connect(hio_t* io) {
     socks5_conn_t* s5 = io->socks5;
     unsigned char buf[300];
     int n = socks5_build_connect_request(s5, buf);
     if (n < 0) { socks5_fail(io); return; }
-    if (hio_write(io, buf, n) < 0) { socks5_fail(io); return; }
+    if (socks5_send(io, buf, n) != 0) { socks5_fail(io); return; }
     socks5_expect(io, S5_RECV_REPLY_HEAD, 4);
 }
 
@@ -299,7 +317,7 @@ static void socks5_dispatch(hio_t* io) {
         } else if (buf[1] == SOCKS5_AUTH_USERPASS && s5->setting.username[0]) {
             unsigned char req[640];
             int n = socks5_build_auth_request(s5, req);
-            if (hio_write(io, req, n) < 0) { socks5_fail(io); return; }
+            if (socks5_send(io, req, n) != 0) { socks5_fail(io); return; }
             socks5_expect(io, S5_RECV_AUTH, 2);
         } else {
             socks5_fail(io);   // no acceptable method
@@ -379,7 +397,7 @@ static void socks5_handshake_start(hio_t* io) {
     socks5_conn_t* s5 = io->socks5;
     unsigned char buf[8];
     int n = socks5_build_method_request(s5, buf);
-    if (hio_write(io, buf, n) < 0) { socks5_fail(io); return; }
+    if (socks5_send(io, buf, n) != 0) { socks5_fail(io); return; }
     socks5_expect(io, S5_RECV_METHOD, 2);
     hio_add(io, socks5_handshake, HV_READ);
 }

@@ -10,11 +10,8 @@ SOCKS5 代理客户端
 > - 只做客户端代理(通过代理连出去)，服务端见 [examples/socks5_proxy_server.c](../../examples/socks5_proxy_server.c)。
 > - 支持无认证与用户名/密码认证(不支持 GSSAPI)。
 > - 目标地址以域名(ATYP=domain)发送给代理解析，因此配了代理时客户端本地不再做 DNS。
+> - `host` 建议直接填代理的 IP。若填域名，`hio_connect()` 会在事件循环线程内同步解析代理地址(getaddrinfo)，首连及每次重连都可能短暂阻塞该 loop。
 
-## 配置结构 socks5_setting_t
-
-```c
-typedef struct socks5_setting_s {
 ## 配置结构 socks5_setting_t
 
 ```c
