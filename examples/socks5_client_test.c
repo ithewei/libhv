@@ -46,13 +46,19 @@ int main(int argc, char** argv) {
     const char* pass = argc > 6 ? argv[6] : NULL;
 
     hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
-    // NOTE: create the socket for the real target; the proxy handshake connects
-    // to the proxy and issues CONNECT to this target.
-    hio_t* io = hio_create_socket(loop, target_host, target_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    // Create the client socket. We do NOT resolve target_host locally: the
+    // proxy resolves it. Only a valid address family is needed for socket(),
+    // and hio_connect() recreates the fd with the proxy's family anyway, so a
+    // loopback placeholder is fine. The real target is carried below via
+    // hio_set_hostname (sent to the proxy as CONNECT <host>:<port>).
+    hio_t* io = hio_create_socket(loop, "127.0.0.1", target_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) {
         printf("create socket failed\n");
         return -1;
     }
+    // target host sent to the proxy; a hostname => ATYP=domain (proxy resolves),
+    // a numeric literal => ATYP=ipv4/ipv6.
+    hio_set_hostname(io, target_host);
 
     // route through the SOCKS5 proxy
     socks5_setting_t socks5;
