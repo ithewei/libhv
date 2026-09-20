@@ -353,8 +353,21 @@ HV_EXPORT const char* hio_get_hostname(hio_t* io);
 // HttpClient, ...) can use it. The setting is copied. Pass an empty username
 // for no auth, or a username/password for RFC 1929 auth.
 // NOTE: set before hio_connect().
-struct socks5_setting_s;
-HV_EXPORT int  hio_set_socks5(hio_t* io, struct socks5_setting_s* setting);
+typedef struct socks5_setting_s {
+    char host[256];     // proxy host
+    int  port;          // proxy port
+    char username[256]; // empty => no auth
+    char password[256];
+#ifdef __cplusplus
+    socks5_setting_s() {
+        host[0] = '\0';
+        port = 0;
+        username[0] = '\0';
+        password[0] = '\0';
+    }
+#endif
+} socks5_setting_t;
+HV_EXPORT int  hio_set_socks5(hio_t* io, socks5_setting_t* setting);
 
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));

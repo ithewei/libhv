@@ -8,7 +8,6 @@
 
 #include "hloop.h"
 #include "hsocket.h"
-#include "socks5.h"   // socks5_setting_t
 
 #include "Buffer.h"
 

@@ -15,12 +15,19 @@ SOCKS5 代理客户端
 
 ```c
 typedef struct socks5_setting_s {
+## 配置结构 socks5_setting_t
+
+```c
+typedef struct socks5_setting_s {
     char host[256];     // 代理主机
     int  port;          // 代理端口
     char username[256]; // 空 => 无认证
     char password[256];
 } socks5_setting_t;
 ```
+
+> C 用户使用前请先清零：`socks5_setting_t s5; memset(&s5, 0, sizeof(s5));`（或 `= {0}`），
+> 否则 username/password 为未初始化值会导致认证方式误判。C++ 有默认构造，无需手动清零。
 
 ## C 接口
 
@@ -34,8 +41,8 @@ int hio_set_socks5(hio_t* io, socks5_setting_t* setting);
 ```c++
 namespace hv {
 
-// Channel / SocketChannel
-int Channel::setSocks5Proxy(socks5_setting_t* setting);
+// SocketChannel
+int SocketChannel::setSocks5Proxy(socks5_setting_t* setting);
 
 // TcpClient
 void TcpClient::setSocks5Proxy(socks5_setting_t* setting);

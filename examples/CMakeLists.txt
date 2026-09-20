@@ -110,7 +110,11 @@ if(WITH_EVPP)
     target_compile_definitions(nmap PRIVATE PRINT_DEBUG)
     target_link_libraries(nmap ${HV_LIBRARIES})
 
-    list(APPEND EXAMPLES hmain_test nmap)
+    # socks5_client_test
+    add_executable(socks5_client_test socks5_client_test.cpp)
+    target_link_libraries(socks5_client_test ${HV_LIBRARIES})
+
+    list(APPEND EXAMPLES hmain_test nmap socks5_client_test)
 
     if(WITH_REDIS)
         include_directories(../redis)

@@ -244,9 +244,11 @@ public:
     int startConnectWithAddr() {
         loop_->assertInLoopThread();
         // SOCKS5 + hostname target: DNS is skipped (the proxy resolves the
-        // target), so remote_addr has no family yet. Give it one (+ the target
-        // port) so socket() works and the io layer captures the correct target
-        // port; the actual connect is repointed to the proxy in hio_connect.
+        // target), so remote_addr has no family yet. Give it a placeholder
+        // family (+ the target port) so socket()/createsocket works and the io
+        // layer captures the target port. hio_connect() then dials the proxy
+        // and recreates the fd with the proxy's family if it differs, so this
+        // placeholder family does not matter.
         if (socks5_setting && remote_addr.sa.sa_family == 0 && remote_port >= 0) {
             remote_addr.sin.sin_family = AF_INET;
             sockaddr_set_port(&remote_addr, remote_port);

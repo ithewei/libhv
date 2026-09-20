@@ -251,7 +251,8 @@ enum socks5_state_e {
 
 static void socks5_handshake(hio_t* io) {
     socks5_conn_t* s5 = io->socks5;
-    unsigned char buf[512];
+    // large enough for the auth request: 1+1+255+1+255 = 513 (RFC 1929 max)
+    unsigned char buf[640];
     int n;
 
     switch (s5->state) {
@@ -601,26 +602,45 @@ int hio_accept(hio_t* io) {
 }
 
 int hio_connect(hio_t* io) {
-    // SOCKS5: the target was recorded in io (peeraddr/hostname) by
-    // hio_create_socket; redirect the actual TCP connect to the proxy while
-    // keeping the target for the CONNECT request (sent as a domain name).
+    // SOCKS5: connect to the proxy instead of the target. The target was
+    // recorded on io (peeraddr/hostname) by hio_create_socket; capture it for
+    // the CONNECT request (sent as a domain name), then point the connection at
+    // the proxy. The listening socket was created with the target's address
+    // family, but the proxy may resolve to a different family, so recreate the
+    // fd with the proxy family when they differ (otherwise connect() fails with
+    // EAFNOSUPPORT).
     if (io->socks5) {
         socks5_conn_t* s5 = io->socks5;
         // capture target: prefer the SNI hostname (original domain), else the
-        // numeric peer address.
+        // numeric peer address; port always comes from peeraddr.
         if (io->hostname && io->hostname[0]) {
             hv_strncpy(s5->target_host, io->hostname, sizeof(s5->target_host));
         } else {
             sockaddr_ip((sockaddr_u*)io->peeraddr, s5->target_host, sizeof(s5->target_host));
         }
         s5->target_port = sockaddr_port((sockaddr_u*)io->peeraddr);
-        // repoint peeraddr to the proxy
+        // resolve the proxy address
         sockaddr_u proxyaddr;
         memset(&proxyaddr, 0, sizeof(proxyaddr));
         if (sockaddr_set_ipport(&proxyaddr, s5->setting.host, s5->setting.port) != 0) {
             io->error = ERR_INVALID_PARAM;
             hio_close_async(io);
             return -1;
+        }
+        // recreate the socket with the proxy family if it differs from the
+        // target family the socket was created with.
+        if (proxyaddr.sa.sa_family != io->peeraddr->sa_family) {
+            int newfd = socket(proxyaddr.sa.sa_family, SOCK_STREAM, 0);
+            if (newfd < 0) {
+                io->error = socket_errno();
+                hio_close_async(io);
+                return -1;
+            }
+            nonblocking(newfd);
+            hio_detach(io);                 // remove from loop->ios[oldfd]
+            closesocket(io->fd);
+            io->fd = newfd;
+            hio_attach(io->loop, io);       // re-key by newfd (handles resize)
         }
         hio_set_peeraddr(io, &proxyaddr.sa, sockaddr_len(&proxyaddr));
     }

@@ -1,14 +1,13 @@
 #ifndef HV_SOCKS5_H_
 #define HV_SOCKS5_H_
 
-// SOCKS5 client proxy support (RFC 1928 + RFC 1929 username/password auth).
+// Internal SOCKS5 client helpers (RFC 1928 + RFC 1929 username/password auth).
 //
-// This is used internally by hio_connect() when hio_set_socks5() has been
-// called: instead of connecting to the target directly, the io connects to the
-// SOCKS5 proxy and runs a CONNECT handshake to the original target (sent as a
-// domain name so the proxy resolves it). See hio_set_socks5() in hloop.h.
+// NOTE: this is an internal header (not installed). The public API is
+// socks5_setting_t + hio_set_socks5() in hloop.h. Used internally by
+// hio_connect() to run the proxy handshake; see nio.c.
 
-#include "hexport.h"
+#include "hloop.h"    // socks5_setting_t
 
 #define SOCKS5_VERSION          0x05
 #define SOCKS5_AUTH_VERSION     0x01    // username/password auth subnegotiation
@@ -29,25 +28,6 @@
 // reply codes (0x00 = success)
 #define SOCKS5_REP_SUCCESS      0x00
 
-// User-facing SOCKS5 proxy configuration (like unpack_setting_t /
-// reconn_setting_t). Passed to hio_set_socks5(); the value is copied, so a
-// stack variable is fine.
-typedef struct socks5_setting_s {
-    char host[256];     // proxy host
-    int  port;          // proxy port
-    char username[256]; // empty => no auth
-    char password[256];
-
-#ifdef __cplusplus
-    socks5_setting_s() {
-        host[0] = '\0';
-        port = 0;
-        username[0] = '\0';
-        password[0] = '\0';
-    }
-#endif
-} socks5_setting_t;
-
 // Internal per-connection runtime state for the SOCKS5 handshake (held on
 // hio_t). Not part of the public configuration.
 typedef struct socks5_conn_s {
@@ -60,11 +40,11 @@ typedef struct socks5_conn_s {
 BEGIN_EXTERN_C
 
 // Build SOCKS5 handshake messages into buf; return bytes written (<0 on error).
-HV_EXPORT int socks5_build_method_request (const socks5_conn_t* s5, unsigned char* buf);
-HV_EXPORT int socks5_build_auth_request   (const socks5_conn_t* s5, unsigned char* buf);
-HV_EXPORT int socks5_build_connect_request(const socks5_conn_t* s5, unsigned char* buf);
+int socks5_build_method_request (const socks5_conn_t* s5, unsigned char* buf);
+int socks5_build_auth_request   (const socks5_conn_t* s5, unsigned char* buf);
+int socks5_build_connect_request(const socks5_conn_t* s5, unsigned char* buf);
 // Expected CONNECT reply length for a fixed-size ATYP (ipv4/ipv6); -1 otherwise.
-HV_EXPORT int socks5_connect_reply_len(unsigned char atyp);
+int socks5_connect_reply_len(unsigned char atyp);
 
 END_EXTERN_C
 
