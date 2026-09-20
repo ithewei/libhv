@@ -350,12 +350,13 @@ HV_EXPORT const char* hio_get_hostname(hio_t* io);
 // enabled) the TLS handshake runs against the target. Because it hooks
 // hio_connect, all clients built on it (TcpClient, HttpClient, ...) can use it.
 //
-// IMPORTANT: the io must be created for the PROXY address, i.e.
-//   hio_create_socket(loop, setting.proxy_host, setting.proxy_port, ...);
-//   hio_set_proxy(io, &setting);
-// The socket connects to the proxy; proxy_host/proxy_port are kept in the
-// setting so higher layers (TcpClient) can create the socket from a single
-// struct, while the io layer itself only uses target_* and the credentials.
+// IMPORTANT: create the io for the PROXY address, then set the target here:
+//   hio_create_socket(loop, proxy_host, proxy_port, ...);
+//   hio_set_proxy(io, &setting);   // setting carries the final target + auth
+// The socket connects to the proxy; the io layer only uses target_* and the
+// credentials. proxy_host/proxy_port are kept in the setting for reference /
+// higher-level use, but the SOCKS5 path does not require them (the socket is
+// already the proxy connection).
 //
 // The setting is copied. Leave username empty for no auth, or set
 // username/password for auth (SOCKS5 => RFC 1929). Only PROXY_PROTOCOL_SOCKS5
@@ -368,7 +369,7 @@ typedef enum {
 
 typedef struct proxy_setting_s {
     int  protocol;              // proxy_protocol_e
-    char proxy_host[256];       // proxy host (used to create/connect the socket)
+    char proxy_host[256];       // proxy host (SOCKS5: unused, socket is the proxy)
     int  proxy_port;
     char target_host[256];      // final target the proxy should CONNECT to
     int  target_port;

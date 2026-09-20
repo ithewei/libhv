@@ -86,7 +86,7 @@ hio_connect(io);
 
 ### C++
 
-C++ 用 `TcpClient`：`createsocket(port, host)` 传真实目标(内部会作为 `target_*` 交给代理)，代理地址填在 `proxy_setting_t.proxy_host/proxy_port`。代理若是域名，由 `TcpClient` 内部异步解析(不阻塞 loop)：
+C++ 用 `TcpClient`：`createsocket(proxy_port, proxy_host)` 连接到**代理**，目标填在 `proxy_setting_t.target_host/target_port`。代理若是域名，由 `TcpClient` 内部异步解析(不阻塞 loop)：
 
 ```c++
 #include "TcpClient.h"
@@ -94,11 +94,11 @@ using namespace hv;
 
 int main() {
     TcpClient cli;
-    cli.createsocket(1234, "target.example.com");   // 目标(可为域名，由代理解析)
+    cli.createsocket(1080, "127.0.0.1");   // 代理地址
 
     proxy_setting_t proxy;
-    hv_strncpy(proxy.proxy_host, "127.0.0.1", sizeof(proxy.proxy_host));
-    proxy.proxy_port = 1080;
+    hv_strncpy(proxy.target_host, "target.example.com", sizeof(proxy.target_host)); // 目标(域名由代理解析)
+    proxy.target_port = 1234;
     // 如需认证: hv_strncpy(proxy.username, "user", ...); hv_strncpy(proxy.password, "pass", ...);
     cli.setProxy(&proxy);
 

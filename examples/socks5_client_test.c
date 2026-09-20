@@ -48,8 +48,8 @@ int main(int argc, char** argv) {
     const char* pass = argc > 6 ? argv[6] : NULL;
 
     hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
-    // NOTE: create the socket for the PROXY (not the target). The proxy
-    // handshake connects to this proxy and issues CONNECT to target below.
+    // create the socket for the PROXY; the proxy handshake then CONNECTs to the
+    // target carried in proxy_setting below.
     hio_t* io = hio_create_socket(loop, proxy_host, proxy_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) {
         printf("create socket failed\n");

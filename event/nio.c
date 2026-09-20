@@ -227,6 +227,11 @@ static void nio_connect_established(hio_t* io) {
         }
         if (io->hostname) {
             hssl_set_sni_hostname(io->ssl, io->hostname);
+        } else if (io->proxy && io->proxy->setting.target_host[0]) {
+            // through a proxy the TLS peer is the target, and the socket was
+            // created for the proxy (so io->hostname is unset); use the target
+            // as SNI unless the caller set an explicit hostname above.
+            hssl_set_sni_hostname(io->ssl, io->proxy->setting.target_host);
         }
         ssl_client_handshake(io);
     }

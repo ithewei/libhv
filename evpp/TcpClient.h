@@ -143,12 +143,6 @@ public:
 
     int startConnect() {
         loop_->assertInLoopThread();
-        // Via a proxy: the socket connects to the PROXY, not the target. The
-        // target (createsocket's host/port) is carried in proxy_setting and
-        // sent to the proxy as a CONNECT. Resolve the proxy address here.
-        if (proxy_setting) {
-            return startConnectViaProxy();
-        }
         // If the target is a hostname, resolve it asynchronously through hdns
         // so the event loop is never blocked by getaddrinfo. This covers both
         // the first connect and every reconnect (to pick up DNS changes).
@@ -158,60 +152,13 @@ public:
         // NOTE: Unix Domain Socket targets (remote_port < 0) carry a filesystem
         // path in remote_host, not a hostname; remote_addr is already set by
         // createsocket(), so never run DNS on them.
+        // NOTE: with a proxy, remote_host/remote_port ARE the proxy (that is
+        // what createsocket connects to); the final target lives in
+        // proxy_setting. So this same DNS path resolves the proxy address.
         if (remote_port >= 0 && !remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
             return startResolveThenConnect();
         }
         return startConnectWithAddr();
-    }
-
-    // @internal: connect through proxy_setting. The socket is created for the
-    // PROXY address (so a single socket suffices regardless of address family);
-    // the createsocket() target is copied into the setting and delivered to the
-    // proxy via the SOCKS5 CONNECT. remote_addr is repurposed to hold the proxy
-    // address, and remote_host stays the target (used as SNI for TLS).
-    int startConnectViaProxy() {
-        // carry the target the proxy should CONNECT to
-        hv_strncpy(proxy_setting->target_host, remote_host.c_str(), sizeof(proxy_setting->target_host));
-        proxy_setting->target_port = remote_port;
-        const char* proxy_host = proxy_setting->proxy_host;
-        int proxy_port = proxy_setting->proxy_port;
-        // A target-bound socket may have been created by createsocket() for a
-        // numeric target; drop it so the socket is (re)created for the proxy.
-        if (channel && channel->isClosed()) {
-            channel = NULL;
-        }
-        if (is_ipaddr(proxy_host)) {
-            memset(&remote_addr, 0, sizeof(remote_addr));
-            int ret = sockaddr_set_ipport(&remote_addr, proxy_host, proxy_port);
-            if (ret != 0) return NABS(ret);
-            return startConnectWithAddr();
-        }
-        // proxy is a hostname: resolve asynchronously (never block the loop).
-        cancelDnsQuery();
-        hdns_setting_t opt;
-        opt.family = HDNS_QUERY_BOTH;
-        if (connect_timeout > 0) opt.timeout_ms = connect_timeout;
-        dns_id = loop_->resolveDns(proxy_host,
-            [this, proxy_port](int status, int naddrs, const sockaddr_u* addrs) {
-                dns_id = INVALID_DNS_ID;
-                if (status == HDNS_STATUS_OK && naddrs > 0) {
-                    remote_addr = addrs[0];
-                    sockaddr_set_port(&remote_addr, proxy_port);
-                } else if (remote_addr.sa.sa_family == 0) {
-                    hloge("resolve proxy %s failed, status=%d", proxy_setting->proxy_host, status);
-                    onDnsResolveFailed();
-                    return;
-                }
-                startConnectWithAddr();
-            }, &opt);
-        if (dns_id == INVALID_DNS_ID) {
-            if (remote_addr.sa.sa_family == 0) {
-                onDnsResolveFailed();
-                return 0;
-            }
-            return startConnectWithAddr();
-        }
-        return 0;
     }
 
     // @internal: resolve remote_host asynchronously, then connect.
@@ -291,8 +238,8 @@ public:
 
     int startConnectWithAddr() {
         loop_->assertInLoopThread();
-        // NOTE: when a proxy is set, remote_addr holds the PROXY address
-        // (filled by startConnectViaProxy), so the socket connects to the proxy.
+        // NOTE: with a proxy, remote_addr/remote_host is the PROXY (that is what
+        // we connect to); the final target lives in proxy_setting.
         if (channel == NULL || channel->isClosed()) {
             int connfd = createsocket(&remote_addr.sa);
             if (connfd < 0) {
@@ -321,8 +268,11 @@ public:
                     return ret;
                 }
             }
-            if (!is_ipaddr(remote_host.c_str())) {
-                channel->setHostname(remote_host);
+            // SNI = the TLS peer. Through a proxy the TLS peer is the target
+            // (proxy_setting->target_host), otherwise it is remote_host.
+            const char* sni = proxy_setting ? proxy_setting->target_host : remote_host.c_str();
+            if (sni && sni[0] && !is_ipaddr(sni)) {
+                channel->setHostname(sni);
             }
         }
         channel->onconnect = [this]() {
@@ -418,12 +368,10 @@ public:
         connect_timeout = ms;
     }
 
-    // Route the connection through a proxy (SOCKS5). The socket connects to the
-    // proxy (proxy_setting.proxy_host:proxy_port) and the createsocket() target
-    // is sent to the proxy as a CONNECT. The setting is copied; set
-    // username/password for auth (see proxy_setting_t). proxy_host/proxy_port
-    // must be filled by the caller; target_host/target_port are overwritten
-    // from createsocket() at connect time.
+    // Route the connection through a proxy (SOCKS5). Create the client socket
+    // for the PROXY (createsocket(proxy_port, proxy_host)); this setting carries
+    // the final target the proxy should CONNECT to. The setting is copied; set
+    // username/password for auth (see proxy_setting_t).
     void setProxy(proxy_setting_t* setting) {
         if (setting == NULL) {
             HV_FREE(proxy_setting);
@@ -501,7 +449,7 @@ public:
     hssl_ctx_opt_t*         tls_setting;
     reconn_setting_t*       reconn_setting;
     unpack_setting_t*       unpack_setting;
-    // client-side proxy (SOCKS5), applied in startConnectViaProxy
+    // client-side proxy (SOCKS5), applied in startConnectWithAddr
     proxy_setting_t*        proxy_setting;
 
     // Callback
