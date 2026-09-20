@@ -5,6 +5,7 @@
 #include "herr.h"
 
 #include "unpack.h"
+#include "socks5.h"
 
 uint64_t hloop_next_event_id() {
     static hatomic_t s_id = HATOMIC_VAR_INIT(0);
@@ -135,6 +136,7 @@ void hio_ready(hio_t* io) {
     io->ssl_ctx = NULL;
     io->alloced_ssl_ctx = 0;
     io->hostname = NULL;
+    io->socks5 = NULL;
     // context
     io->ctx = NULL;
     // private:
@@ -493,6 +495,17 @@ int hio_set_hostname(hio_t* io, const char* hostname) {
 
 const char* hio_get_hostname(hio_t* io) {
     return io->hostname;
+}
+
+int hio_set_socks5(hio_t* io, socks5_setting_t* setting) {
+    if (io == NULL || setting == NULL) return -1;
+    if (io->socks5 == NULL) {
+        HV_ALLOC_SIZEOF(io->socks5);
+        if (io->socks5 == NULL) return -1;
+    }
+    // copy the user config; runtime fields (target/state) are filled at connect
+    io->socks5->setting = *setting;
+    return 0;
 }
 
 void hio_del_connect_timer(hio_t* io) {

@@ -101,7 +101,7 @@ EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
 	jsonrpc
 
 ifeq ($(WITH_EVPP), yes)
-EXAMPLES += nmap
+EXAMPLES += nmap socks5_client_test
 ifeq ($(WITH_REDIS), yes)
 EXAMPLES += redis_client_example redis_subscriber_example
 endif
@@ -269,6 +269,9 @@ tinyproxyd: prepare
 
 nmap: prepare libhv
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil examples/nmap" DEFINES="PRINT_DEBUG"
+
+socks5_client_test: prepare libhv
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/socks5_client_test examples/socks5_client_test.cpp -Llib -lhv -pthread
 
 ifeq ($(WITH_REDIS), yes)
 redis_client_example: prepare

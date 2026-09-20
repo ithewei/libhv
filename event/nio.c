@@ -6,6 +6,7 @@
 #include "hlog.h"
 #include "herr.h"
 #include "hthread.h"
+#include "socks5.h"
 
 static void __connect_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
@@ -196,6 +197,155 @@ accept_error:
     // hio_close(io);
 }
 
+// After the transport is connected (and, if using SOCKS5, after the proxy
+// handshake completed), start the SSL handshake or deliver connect_cb.
+static void nio_connect_established(hio_t* io) {
+    if (io->io_type == HIO_TYPE_SSL) {
+        if (io->ssl == NULL) {
+            // io->ssl_ctx > g_ssl_ctx > hssl_ctx_new
+            hssl_ctx_t ssl_ctx = NULL;
+            if (io->ssl_ctx) {
+                ssl_ctx = io->ssl_ctx;
+            } else if (g_ssl_ctx) {
+                ssl_ctx = g_ssl_ctx;
+            } else {
+                io->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
+                io->alloced_ssl_ctx = 1;
+            }
+            if (ssl_ctx == NULL) {
+                io->error = ERR_NEW_SSL_CTX;
+                hio_close(io);
+                return;
+            }
+            hssl_t ssl = hssl_new(ssl_ctx, io->fd);
+            if (ssl == NULL) {
+                io->error = ERR_NEW_SSL;
+                hio_close(io);
+                return;
+            }
+            io->ssl = ssl;
+        }
+        if (io->hostname) {
+            hssl_set_sni_hostname(io->ssl, io->hostname);
+        }
+        ssl_client_handshake(io);
+    }
+    else {
+        // NOTE: SSL call connect_cb after handshake finished
+        __connect_cb(io);
+    }
+}
+
+// SOCKS5 client handshake state machine (RFC 1928 + RFC 1929).
+// Driven non-blockingly via hio_add(io, socks5_handshake, HV_READ/WRITE),
+// mirroring ssl_client_handshake. Runs on the raw TCP socket to the proxy.
+enum socks5_state_e {
+    S5_SEND_METHODS = 0,
+    S5_RECV_METHOD,
+    S5_SEND_AUTH,
+    S5_RECV_AUTH,
+    S5_SEND_CONNECT,
+    S5_RECV_REPLY,
+    S5_DONE,
+};
+
+static void socks5_handshake(hio_t* io) {
+    socks5_conn_t* s5 = io->socks5;
+    unsigned char buf[512];
+    int n;
+
+    switch (s5->state) {
+    case S5_SEND_METHODS:
+        n = socks5_build_method_request(s5, buf);
+        if (send(io->fd, (const char*)buf, n, 0) != n) goto s5_error;
+        s5->state = S5_RECV_METHOD;
+        hio_add(io, socks5_handshake, HV_READ);
+        return;
+
+    case S5_RECV_METHOD: {
+        // reply: VER METHOD (2 bytes)
+        n = recv(io->fd, (char*)buf, 2, 0);
+        if (n == 0) goto s5_error;              // peer closed
+        if (n < 0) { if (socket_errno()==EAGAIN||socket_errno()==EINTR) return; goto s5_error; }
+        if (n < 2 || buf[0] != SOCKS5_VERSION) goto s5_error;
+        unsigned char method = buf[1];
+        if (method == SOCKS5_AUTH_NONE) {
+            s5->state = S5_SEND_CONNECT;
+        } else if (method == SOCKS5_AUTH_USERPASS && s5->setting.username[0]) {
+            s5->state = S5_SEND_AUTH;
+        } else {
+            goto s5_error;                      // no acceptable method
+        }
+        hio_del(io, HV_READ);
+        socks5_handshake(io);                   // advance immediately (send)
+        return;
+    }
+
+    case S5_SEND_AUTH:
+        n = socks5_build_auth_request(s5, buf);
+        if (send(io->fd, (const char*)buf, n, 0) != n) goto s5_error;
+        s5->state = S5_RECV_AUTH;
+        hio_add(io, socks5_handshake, HV_READ);
+        return;
+
+    case S5_RECV_AUTH:
+        // reply: VER STATUS (2 bytes), STATUS 0 = success
+        n = recv(io->fd, (char*)buf, 2, 0);
+        if (n == 0) goto s5_error;
+        if (n < 0) { if (socket_errno()==EAGAIN||socket_errno()==EINTR) return; goto s5_error; }
+        if (n < 2 || buf[1] != 0x00) goto s5_error;
+        s5->state = S5_SEND_CONNECT;
+        hio_del(io, HV_READ);
+        socks5_handshake(io);
+        return;
+
+    case S5_SEND_CONNECT:
+        n = socks5_build_connect_request(s5, buf);
+        if (n < 0 || send(io->fd, (const char*)buf, n, 0) != n) goto s5_error;
+        s5->state = S5_RECV_REPLY;
+        hio_add(io, socks5_handshake, HV_READ);
+        return;
+
+    case S5_RECV_REPLY: {
+        // reply: VER REP RSV ATYP BND.ADDR BND.PORT
+        // Peek the fixed 4-byte header first to learn ATYP, then drain the
+        // variable-length bound address so the stream starts clean.
+        n = recv(io->fd, (char*)buf, 4, MSG_PEEK);
+        if (n == 0) goto s5_error;
+        if (n < 0) { if (socket_errno()==EAGAIN||socket_errno()==EINTR) return; goto s5_error; }
+        if (n < 4) return;                      // wait for the full header
+        if (buf[0] != SOCKS5_VERSION) goto s5_error;
+        if (buf[1] != SOCKS5_REP_SUCCESS) { io->error = ERR_CONNECT; goto s5_error; }
+        unsigned char atyp = buf[3];
+        int total;
+        if (atyp == SOCKS5_ATYP_IPV4)      total = 4 + 4 + 2;
+        else if (atyp == SOCKS5_ATYP_IPV6) total = 4 + 16 + 2;
+        else if (atyp == SOCKS5_ATYP_DOMAIN) {
+            unsigned char hdr[5];
+            if (recv(io->fd, (char*)hdr, 5, MSG_PEEK) < 5) return;  // need len byte
+            total = 4 + 1 + hdr[4] + 2;
+        } else goto s5_error;
+        // ensure the whole reply is available, then consume it
+        n = recv(io->fd, (char*)buf, total, MSG_PEEK);
+        if (n < total) return;                  // wait for more
+        recv(io->fd, (char*)buf, total, 0);     // drain
+        s5->state = S5_DONE;
+        hio_del(io, HV_READ);
+        // proxy tunnel established -> proceed to SSL handshake / connect_cb
+        nio_connect_established(io);
+        return;
+    }
+
+    default:
+        return;
+    }
+
+s5_error:
+    if (io->error == 0) io->error = ERR_CONNECT;
+    hlogw("connfd=%d socks5 handshake error", io->fd);
+    hio_close(io);
+}
+
 static void nio_connect(hio_t* io) {
     // printd("nio_connect connfd=%d\n", io->fd);
     socklen_t addrlen = sizeof(sockaddr_u);
@@ -208,39 +358,15 @@ static void nio_connect(hio_t* io) {
         addrlen = sizeof(sockaddr_u);
         getsockname(io->fd, io->localaddr, &addrlen);
 
-        if (io->io_type == HIO_TYPE_SSL) {
-            if (io->ssl == NULL) {
-                // io->ssl_ctx > g_ssl_ctx > hssl_ctx_new
-                hssl_ctx_t ssl_ctx = NULL;
-                if (io->ssl_ctx) {
-                    ssl_ctx = io->ssl_ctx;
-                } else if (g_ssl_ctx) {
-                    ssl_ctx = g_ssl_ctx;
-                } else {
-                    io->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
-                    io->alloced_ssl_ctx = 1;
-                }
-                if (ssl_ctx == NULL) {
-                    io->error = ERR_NEW_SSL_CTX;
-                    goto connect_error;
-                }
-                hssl_t ssl = hssl_new(ssl_ctx, io->fd);
-                if (ssl == NULL) {
-                    io->error = ERR_NEW_SSL;
-                    goto connect_error;
-                }
-                io->ssl = ssl;
-            }
-            if (io->hostname) {
-                hssl_set_sni_hostname(io->ssl, io->hostname);
-            }
-            ssl_client_handshake(io);
-        }
-        else {
-            // NOTE: SSL call connect_cb after handshake finished
-            __connect_cb(io);
+        // SOCKS5: the TCP connection is to the proxy; run the proxy handshake
+        // (CONNECT to the real target) before SSL / connect_cb.
+        if (io->socks5) {
+            io->socks5->state = S5_SEND_METHODS;
+            socks5_handshake(io);
+            return;
         }
 
+        nio_connect_established(io);
         return;
     }
 
@@ -475,6 +601,29 @@ int hio_accept(hio_t* io) {
 }
 
 int hio_connect(hio_t* io) {
+    // SOCKS5: the target was recorded in io (peeraddr/hostname) by
+    // hio_create_socket; redirect the actual TCP connect to the proxy while
+    // keeping the target for the CONNECT request (sent as a domain name).
+    if (io->socks5) {
+        socks5_conn_t* s5 = io->socks5;
+        // capture target: prefer the SNI hostname (original domain), else the
+        // numeric peer address.
+        if (io->hostname && io->hostname[0]) {
+            hv_strncpy(s5->target_host, io->hostname, sizeof(s5->target_host));
+        } else {
+            sockaddr_ip((sockaddr_u*)io->peeraddr, s5->target_host, sizeof(s5->target_host));
+        }
+        s5->target_port = sockaddr_port((sockaddr_u*)io->peeraddr);
+        // repoint peeraddr to the proxy
+        sockaddr_u proxyaddr;
+        memset(&proxyaddr, 0, sizeof(proxyaddr));
+        if (sockaddr_set_ipport(&proxyaddr, s5->setting.host, s5->setting.port) != 0) {
+            io->error = ERR_INVALID_PARAM;
+            hio_close_async(io);
+            return -1;
+        }
+        hio_set_peeraddr(io, &proxyaddr.sa, sockaddr_len(&proxyaddr));
+    }
     int ret = connect(io->fd, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
 #ifdef OS_WIN
     if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
@@ -646,6 +795,7 @@ int hio_close (hio_t* io) {
         io->ssl_ctx = NULL;
     }
     SAFE_FREE(io->hostname);
+    SAFE_FREE(io->socks5);
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     } else if (io->io_type == HIO_TYPE_PIPE) {

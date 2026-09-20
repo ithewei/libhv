@@ -344,6 +344,18 @@ HV_EXPORT hssl_ctx_t hio_get_ssl_ctx(hio_t* io);
 HV_EXPORT int         hio_set_hostname(hio_t* io, const char* hostname);
 HV_EXPORT const char* hio_get_hostname(hio_t* io);
 
+// SOCKS5 proxy (client side). When set, hio_connect() dials the proxy at
+// setting->host:port and performs a SOCKS5 handshake (RFC 1928), issuing a
+// CONNECT to the io's original target (sent as a domain name, ATYP=domain, so
+// the proxy resolves it). After the handshake succeeds the connection is
+// transparent and (if SSL was enabled) the TLS handshake runs against the
+// target. Because it hooks hio_connect, all clients built on it (TcpClient,
+// HttpClient, ...) can use it. The setting is copied. Pass an empty username
+// for no auth, or a username/password for RFC 1929 auth.
+// NOTE: set before hio_connect().
+struct socks5_setting_s;
+HV_EXPORT int  hio_set_socks5(hio_t* io, struct socks5_setting_s* setting);
+
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
 // close timeout => hclose_cb

@@ -28,6 +28,7 @@ public:
         tls_setting = NULL;
         reconn_setting = NULL;
         unpack_setting = NULL;
+        socks5_setting = NULL;
         reconn_timer_id = INVALID_TIMER_ID;
         dns_id = INVALID_DNS_ID;
         reconn_success_cnt_ = 0;
@@ -40,6 +41,7 @@ public:
         HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
+        HV_FREE(socks5_setting);
     }
 
     const EventLoopPtr& loop() {
@@ -141,6 +143,14 @@ public:
 
     int startConnect() {
         loop_->assertInLoopThread();
+        // With a SOCKS5 proxy, the target host is resolved by the proxy, so skip
+        // client-side DNS: connect to the proxy and pass the target as a domain.
+        // remote_addr only needs a valid family for socket(); the proxy uses the
+        // hostname (set as SNI/target below), not remote_addr, to reach the target.
+        if (socks5_setting && remote_port >= 0 &&
+            !remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
+            return startConnectWithAddr();
+        }
         // If the target is a hostname, resolve it asynchronously through hdns
         // so the event loop is never blocked by getaddrinfo. This covers both
         // the first connect and every reconnect (to pick up DNS changes).
@@ -233,6 +243,14 @@ public:
 
     int startConnectWithAddr() {
         loop_->assertInLoopThread();
+        // SOCKS5 + hostname target: DNS is skipped (the proxy resolves the
+        // target), so remote_addr has no family yet. Give it one (+ the target
+        // port) so socket() works and the io layer captures the correct target
+        // port; the actual connect is repointed to the proxy in hio_connect.
+        if (socks5_setting && remote_addr.sa.sa_family == 0 && remote_port >= 0) {
+            remote_addr.sin.sin_family = AF_INET;
+            sockaddr_set_port(&remote_addr, remote_port);
+        }
         if (channel == NULL || channel->isClosed()) {
             int connfd = createsocket(&remote_addr.sa);
             if (connfd < 0) {
@@ -245,6 +263,14 @@ public:
         }
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
+        }
+        // SOCKS5 proxy: record the proxy + set the target host as the io
+        // hostname so the handshake sends CONNECT <hostname>:<port> (domain).
+        if (socks5_setting) {
+            if (!remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
+                channel->setHostname(remote_host);
+            }
+            channel->setSocks5Proxy(socks5_setting);
         }
         if (tls) {
             channel->enableSSL();
@@ -353,6 +379,21 @@ public:
         connect_timeout = ms;
     }
 
+    // SOCKS5 proxy: route the connection through a SOCKS5 proxy. The target
+    // host is sent to the proxy as a domain name (the proxy resolves it), so
+    // client-side DNS is skipped when a hostname target is used with a proxy.
+    // The setting is copied; pass a username/password for auth (see socks5_setting_t).
+    void setSocks5Proxy(socks5_setting_t* setting) {
+        if (setting == NULL) {
+            HV_FREE(socks5_setting);
+            return;
+        }
+        if (socks5_setting == NULL) {
+            HV_ALLOC_SIZEOF(socks5_setting);
+        }
+        *socks5_setting = *setting;
+    }
+
     void setReconnect(reconn_setting_t* setting) {
         if (setting == NULL) {
             cancelReconnectTimer();
@@ -419,6 +460,8 @@ public:
     hssl_ctx_opt_t*         tls_setting;
     reconn_setting_t*       reconn_setting;
     unpack_setting_t*       unpack_setting;
+    // socks5 proxy (client side), applied in startConnectWithAddr
+    socks5_setting_t*       socks5_setting;
 
     // Callback
     std::function<void(const TSocketChannelPtr&)>           onConnection;

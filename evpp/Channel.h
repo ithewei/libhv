@@ -8,6 +8,7 @@
 
 #include "hloop.h"
 #include "hsocket.h"
+#include "socks5.h"   // socks5_setting_t
 
 #include "Buffer.h"
 
@@ -284,6 +285,12 @@ public:
     int setHostname(const std::string& hostname) {
         if (io_ == NULL) return -1;
         return hio_set_hostname(io_, hostname.c_str());
+    }
+
+    // SOCKS5 proxy (client side); see hio_set_socks5.
+    int setSocks5Proxy(socks5_setting_t* setting) {
+        if (io_ == NULL) return -1;
+        return hio_set_socks5(io_, setting);
     }
 
     // timeout

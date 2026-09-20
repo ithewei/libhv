@@ -28,6 +28,7 @@ set(EVENT_HEADERS
     event/hloop.h
     event/nlog.h
     event/hdns.h
+    event/socks5.h
 )
 
 set(UTIL_HEADERS
