@@ -237,114 +237,151 @@ static void nio_connect_established(hio_t* io) {
 }
 
 // SOCKS5 client handshake state machine (RFC 1928 + RFC 1929).
-// Driven non-blockingly via hio_add(io, socks5_handshake, HV_READ/WRITE),
-// mirroring ssl_client_handshake. Runs on the raw TCP socket to the proxy.
+// Driven via hio_add(io, socks5_handshake, HV_READ), exactly like
+// ssl_client_handshake: it does raw recv() into an internal accumulator and
+// does NOT touch io->read_cb (which the upper-layer Channel owns for delivering
+// user data). Bytes are buffered in s5->rbuf until a full step is available, so
+// the handshake is robust to TCP fragmentation. Runs before the optional SSL
+// handshake.
 enum socks5_state_e {
-    S5_SEND_METHODS = 0,
-    S5_RECV_METHOD,
-    S5_SEND_AUTH,
-    S5_RECV_AUTH,
-    S5_SEND_CONNECT,
-    S5_RECV_REPLY,
-    S5_DONE,
+    S5_RECV_METHOD = 0,     // 2 bytes: VER METHOD
+    S5_RECV_AUTH,           // 2 bytes: VER STATUS
+    S5_RECV_REPLY_HEAD,     // 4 bytes: VER REP RSV ATYP
+    S5_RECV_REPLY_ADDR,     // fixed addr+port (ipv4/ipv6)
+    S5_RECV_REPLY_DADDR,    // 1 (dlen) already known: domain + port
 };
 
-static void socks5_handshake(hio_t* io) {
-    socks5_conn_t* s5 = io->socks5;
-    // large enough for the auth request: 1+1+255+1+255 = 513 (RFC 1929 max)
-    unsigned char buf[640];
-    int n;
+static void socks5_handshake(hio_t* io);
 
-    switch (s5->state) {
-    case S5_SEND_METHODS:
-        n = socks5_build_method_request(s5, buf);
-        if (send(io->fd, (const char*)buf, n, 0) != n) goto s5_error;
-        s5->state = S5_RECV_METHOD;
-        hio_add(io, socks5_handshake, HV_READ);
-        return;
-
-    case S5_RECV_METHOD: {
-        // reply: VER METHOD (2 bytes)
-        n = recv(io->fd, (char*)buf, 2, 0);
-        if (n == 0) goto s5_error;              // peer closed
-        if (n < 0) { if (socket_errno()==EAGAIN||socket_errno()==EINTR) return; goto s5_error; }
-        if (n < 2 || buf[0] != SOCKS5_VERSION) goto s5_error;
-        unsigned char method = buf[1];
-        if (method == SOCKS5_AUTH_NONE) {
-            s5->state = S5_SEND_CONNECT;
-        } else if (method == SOCKS5_AUTH_USERPASS && s5->setting.username[0]) {
-            s5->state = S5_SEND_AUTH;
-        } else {
-            goto s5_error;                      // no acceptable method
-        }
-        hio_del(io, HV_READ);
-        socks5_handshake(io);                   // advance immediately (send)
-        return;
-    }
-
-    case S5_SEND_AUTH:
-        n = socks5_build_auth_request(s5, buf);
-        if (send(io->fd, (const char*)buf, n, 0) != n) goto s5_error;
-        s5->state = S5_RECV_AUTH;
-        hio_add(io, socks5_handshake, HV_READ);
-        return;
-
-    case S5_RECV_AUTH:
-        // reply: VER STATUS (2 bytes), STATUS 0 = success
-        n = recv(io->fd, (char*)buf, 2, 0);
-        if (n == 0) goto s5_error;
-        if (n < 0) { if (socket_errno()==EAGAIN||socket_errno()==EINTR) return; goto s5_error; }
-        if (n < 2 || buf[1] != 0x00) goto s5_error;
-        s5->state = S5_SEND_CONNECT;
-        hio_del(io, HV_READ);
-        socks5_handshake(io);
-        return;
-
-    case S5_SEND_CONNECT:
-        n = socks5_build_connect_request(s5, buf);
-        if (n < 0 || send(io->fd, (const char*)buf, n, 0) != n) goto s5_error;
-        s5->state = S5_RECV_REPLY;
-        hio_add(io, socks5_handshake, HV_READ);
-        return;
-
-    case S5_RECV_REPLY: {
-        // reply: VER REP RSV ATYP BND.ADDR BND.PORT
-        // Peek the fixed 4-byte header first to learn ATYP, then drain the
-        // variable-length bound address so the stream starts clean.
-        n = recv(io->fd, (char*)buf, 4, MSG_PEEK);
-        if (n == 0) goto s5_error;
-        if (n < 0) { if (socket_errno()==EAGAIN||socket_errno()==EINTR) return; goto s5_error; }
-        if (n < 4) return;                      // wait for the full header
-        if (buf[0] != SOCKS5_VERSION) goto s5_error;
-        if (buf[1] != SOCKS5_REP_SUCCESS) { io->error = ERR_CONNECT; goto s5_error; }
-        unsigned char atyp = buf[3];
-        int total;
-        if (atyp == SOCKS5_ATYP_IPV4)      total = 4 + 4 + 2;
-        else if (atyp == SOCKS5_ATYP_IPV6) total = 4 + 16 + 2;
-        else if (atyp == SOCKS5_ATYP_DOMAIN) {
-            unsigned char hdr[5];
-            if (recv(io->fd, (char*)hdr, 5, MSG_PEEK) < 5) return;  // need len byte
-            total = 4 + 1 + hdr[4] + 2;
-        } else goto s5_error;
-        // ensure the whole reply is available, then consume it
-        n = recv(io->fd, (char*)buf, total, MSG_PEEK);
-        if (n < total) return;                  // wait for more
-        recv(io->fd, (char*)buf, total, 0);     // drain
-        s5->state = S5_DONE;
-        hio_del(io, HV_READ);
-        // proxy tunnel established -> proceed to SSL handshake / connect_cb
-        nio_connect_established(io);
-        return;
-    }
-
-    default:
-        return;
-    }
-
-s5_error:
+static void socks5_fail(hio_t* io) {
     if (io->error == 0) io->error = ERR_CONNECT;
     hlogw("connfd=%d socks5 handshake error", io->fd);
     hio_close(io);
+}
+
+// advance to a new state that needs `want` more bytes, resetting the buffer.
+static void socks5_expect(hio_t* io, int state, int want) {
+    socks5_conn_t* s5 = io->socks5;
+    s5->state = state;
+    s5->rlen = 0;
+    s5->want = want;
+}
+
+// send the SOCKS5 CONNECT request and wait for the 4-byte reply header.
+static void socks5_send_connect(hio_t* io) {
+    socks5_conn_t* s5 = io->socks5;
+    unsigned char buf[300];
+    int n = socks5_build_connect_request(s5, buf);
+    if (n < 0) { socks5_fail(io); return; }
+    if (hio_write(io, buf, n) < 0) { socks5_fail(io); return; }
+    socks5_expect(io, S5_RECV_REPLY_HEAD, 4);
+}
+
+// hand off the established proxy tunnel to the upper layer: stop the handshake
+// read handler, then run the SSL handshake / connect_cb. io->read_cb was never
+// touched, so the upper-layer Channel read callback stays intact.
+static void socks5_established(hio_t* io) {
+    hio_del(io, HV_READ);
+    nio_connect_established(io);
+}
+
+// process one accumulated step; s5->rbuf holds exactly s5->want bytes.
+static void socks5_dispatch(hio_t* io) {
+    socks5_conn_t* s5 = io->socks5;
+    unsigned char* buf = s5->rbuf;
+
+    switch (s5->state) {
+    case S5_RECV_METHOD:
+        // VER METHOD
+        if (buf[0] != SOCKS5_VERSION) { socks5_fail(io); return; }
+        if (buf[1] == SOCKS5_AUTH_NONE) {
+            socks5_send_connect(io);
+        } else if (buf[1] == SOCKS5_AUTH_USERPASS && s5->setting.username[0]) {
+            unsigned char req[640];
+            int n = socks5_build_auth_request(s5, req);
+            if (hio_write(io, req, n) < 0) { socks5_fail(io); return; }
+            socks5_expect(io, S5_RECV_AUTH, 2);
+        } else {
+            socks5_fail(io);   // no acceptable method
+        }
+        return;
+
+    case S5_RECV_AUTH:
+        // VER STATUS (0 == success)
+        if (buf[1] != 0x00) { socks5_fail(io); return; }
+        socks5_send_connect(io);
+        return;
+
+    case S5_RECV_REPLY_HEAD: {
+        // VER REP RSV ATYP
+        if (buf[0] != SOCKS5_VERSION) { socks5_fail(io); return; }
+        if (buf[1] != SOCKS5_REP_SUCCESS) { io->error = ERR_CONNECT; socks5_fail(io); return; }
+        unsigned char atyp = buf[3];
+        if (atyp == SOCKS5_ATYP_IPV4) {
+            socks5_expect(io, S5_RECV_REPLY_ADDR, 4 + 2);   // addr + port
+        } else if (atyp == SOCKS5_ATYP_IPV6) {
+            socks5_expect(io, S5_RECV_REPLY_ADDR, 16 + 2);
+        } else if (atyp == SOCKS5_ATYP_DOMAIN) {
+            // read 1 length byte + then domain+port; do it in one extra step by
+            // first requiring the length byte.
+            socks5_expect(io, S5_RECV_REPLY_DADDR, 1);
+        } else {
+            socks5_fail(io);
+        }
+        return;
+    }
+
+    case S5_RECV_REPLY_ADDR:
+        // bound addr+port consumed; tunnel is up
+        socks5_established(io);
+        return;
+
+    case S5_RECV_REPLY_DADDR:
+        // first entry: we have the 1-byte domain length -> need dlen + 2 more.
+        // Re-enter with the full length once available.
+        if (s5->want == 1) {
+            int dlen = buf[0];
+            socks5_expect(io, S5_RECV_REPLY_DADDR, dlen + 2);
+            return;
+        }
+        socks5_established(io);
+        return;
+
+    default:
+        socks5_fail(io);
+        return;
+    }
+}
+
+// hio_add read handler: accumulate into s5->rbuf until s5->want bytes are
+// available, then dispatch. Never touches io->read_cb.
+static void socks5_handshake(hio_t* io) {
+    socks5_conn_t* s5 = io->socks5;
+    while (s5->rlen < s5->want) {
+        int need = s5->want - s5->rlen;
+        if (s5->want > (int)sizeof(s5->rbuf)) { socks5_fail(io); return; }
+        int n = recv(io->fd, (char*)s5->rbuf + s5->rlen, need, 0);
+        if (n == 0) { socks5_fail(io); return; }          // peer closed
+        if (n < 0) {
+            int err = socket_errno();
+            if (err == EAGAIN || err == EINTR) return;    // wait for more
+            io->error = err;
+            socks5_fail(io);
+            return;
+        }
+        s5->rlen += n;
+    }
+    socks5_dispatch(io);
+}
+
+// Kick off the SOCKS5 handshake once the TCP connection to the proxy is up.
+static void socks5_handshake_start(hio_t* io) {
+    socks5_conn_t* s5 = io->socks5;
+    unsigned char buf[8];
+    int n = socks5_build_method_request(s5, buf);
+    if (hio_write(io, buf, n) < 0) { socks5_fail(io); return; }
+    socks5_expect(io, S5_RECV_METHOD, 2);
+    hio_add(io, socks5_handshake, HV_READ);
 }
 
 static void nio_connect(hio_t* io) {
@@ -362,8 +399,7 @@ static void nio_connect(hio_t* io) {
         // SOCKS5: the TCP connection is to the proxy; run the proxy handshake
         // (CONNECT to the real target) before SSL / connect_cb.
         if (io->socks5) {
-            io->socks5->state = S5_SEND_METHODS;
-            socks5_handshake(io);
+            socks5_handshake_start(io);
             return;
         }
 

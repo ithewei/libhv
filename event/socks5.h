@@ -35,6 +35,11 @@ typedef struct socks5_conn_s {
     char target_host[256];          // address the proxy should CONNECT to
     int  target_port;
     int  state;                     // socks5_state_e (see nio.c)
+    // handshake read accumulator: SOCKS5 replies may be fragmented across TCP
+    // segments, so bytes are buffered here until a full message is available.
+    unsigned char rbuf[300];        // max reply: 4 + 1 + 255 + 2 (domain bind)
+    int  rlen;                      // bytes currently in rbuf
+    int  want;                      // bytes needed to complete the current step
 } socks5_conn_t;
 
 BEGIN_EXTERN_C
@@ -43,8 +48,6 @@ BEGIN_EXTERN_C
 int socks5_build_method_request (const socks5_conn_t* s5, unsigned char* buf);
 int socks5_build_auth_request   (const socks5_conn_t* s5, unsigned char* buf);
 int socks5_build_connect_request(const socks5_conn_t* s5, unsigned char* buf);
-// Expected CONNECT reply length for a fixed-size ATYP (ipv4/ipv6); -1 otherwise.
-int socks5_connect_reply_len(unsigned char atyp);
 
 END_EXTERN_C
 
