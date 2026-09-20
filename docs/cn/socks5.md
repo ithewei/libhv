@@ -51,7 +51,7 @@ void TcpClient::setSocks5Proxy(socks5_setting_t* setting);
 
 ### C
 
-C 层没有异步 DNS，目标域名交给代理解析，所以**不要**用 `hio_create_socket(loop, target_host, ...)` 去本地解析目标(仅代理可达的域名会在这里失败)。正确做法是：用一个占位 host + **真实的目标端口**建 socket(host 只决定 socket 的地址族，`hio_connect()` 会按代理地址族重建 fd)，再用 `hio_set_hostname()` 把真实目标交给握手：
+配了代理时，目标域名应交给**代理**解析(这样只有代理可达的域名也能用，IP 字面量也才能正确走 ATYP)，所以**不要**用 `hio_create_socket(loop, target_host, ...)` 在本地解析目标——该底层接口内部走同步 `getaddrinfo`(不接 `hdns` 异步解析)，仅代理可达的域名会在这里直接失败。正确做法是：用一个占位 host + **真实的目标端口**建 socket(host 只决定 socket 的地址族，`hio_connect()` 会按代理地址族重建 fd)，再用 `hio_set_hostname()` 把真实目标交给握手：
 
 ```c
 #include "hloop.h"
