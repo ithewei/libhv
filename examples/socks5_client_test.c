@@ -1,8 +1,10 @@
 /*
  * TCP client via SOCKS5 proxy (pure C, io layer).
  *
- * Demonstrates routing a connection through a SOCKS5 proxy with hio_set_socks5.
- * The target host is sent to the proxy as a domain name (the proxy resolves it).
+ * Demonstrates routing a connection through a SOCKS5 proxy with hio_set_proxy.
+ * The socket is created for the PROXY address; the proxy issues a CONNECT to
+ * the target carried in proxy_setting_t (target host sent as a domain name so
+ * the proxy resolves it, or as ATYP=ipv4/ipv6 for a numeric literal).
  *
  * @build   make examples
  * @test    # start libhv's own SOCKS5 proxy server as the proxy:
@@ -46,29 +48,23 @@ int main(int argc, char** argv) {
     const char* pass = argc > 6 ? argv[6] : NULL;
 
     hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
-    // Create the client socket. hio_connect() takes the target PORT from
-    // peeraddr, so target_port here must be the real target port. The host,
-    // however, is only used to pick the socket's address family (and is then
-    // overridden below via hio_set_hostname / recreated with the proxy family
-    // in hio_connect), so a loopback placeholder is fine and target_host is NOT
-    // resolved locally -- the proxy resolves it.
-    hio_t* io = hio_create_socket(loop, "127.0.0.1", target_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    // NOTE: create the socket for the PROXY (not the target). The proxy
+    // handshake connects to this proxy and issues CONNECT to target below.
+    hio_t* io = hio_create_socket(loop, proxy_host, proxy_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) {
         printf("create socket failed\n");
         return -1;
     }
-    // target host sent to the proxy; a hostname => ATYP=domain (proxy resolves),
-    // a numeric literal => ATYP=ipv4/ipv6.
-    hio_set_hostname(io, target_host);
 
-    // route through the SOCKS5 proxy
-    socks5_setting_t socks5;
-    memset(&socks5, 0, sizeof(socks5));
-    hv_strncpy(socks5.host, proxy_host, sizeof(socks5.host));
-    socks5.port = proxy_port;
-    if (user) hv_strncpy(socks5.username, user, sizeof(socks5.username));
-    if (pass) hv_strncpy(socks5.password, pass, sizeof(socks5.password));
-    hio_set_socks5(io, &socks5);
+    // route through the SOCKS5 proxy: carry the target + optional auth
+    proxy_setting_t proxy;
+    memset(&proxy, 0, sizeof(proxy));
+    proxy.protocol = PROXY_PROTOCOL_SOCKS5;
+    hv_strncpy(proxy.target_host, target_host, sizeof(proxy.target_host));
+    proxy.target_port = target_port;
+    if (user) hv_strncpy(proxy.username, user, sizeof(proxy.username));
+    if (pass) hv_strncpy(proxy.password, pass, sizeof(proxy.password));
+    hio_set_proxy(io, &proxy);
 
     hio_setcb_connect(io, on_connect);
     hio_setcb_close(io, on_close);

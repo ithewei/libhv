@@ -286,10 +286,10 @@ public:
         return hio_set_hostname(io_, hostname.c_str());
     }
 
-    // SOCKS5 proxy (client side); see hio_set_socks5.
-    int setSocks5Proxy(socks5_setting_t* setting) {
+    // Client-side proxy; see hio_set_proxy.
+    int setProxy(proxy_setting_t* setting) {
         if (io_ == NULL) return -1;
-        return hio_set_socks5(io_, setting);
+        return hio_set_proxy(io_, setting);
     }
 
     // timeout

@@ -28,7 +28,7 @@ public:
         tls_setting = NULL;
         reconn_setting = NULL;
         unpack_setting = NULL;
-        socks5_setting = NULL;
+        proxy_setting = NULL;
         reconn_timer_id = INVALID_TIMER_ID;
         dns_id = INVALID_DNS_ID;
         reconn_success_cnt_ = 0;
@@ -41,7 +41,7 @@ public:
         HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
-        HV_FREE(socks5_setting);
+        HV_FREE(proxy_setting);
     }
 
     const EventLoopPtr& loop() {
@@ -143,13 +143,11 @@ public:
 
     int startConnect() {
         loop_->assertInLoopThread();
-        // With a SOCKS5 proxy, the target host is resolved by the proxy, so skip
-        // client-side DNS: connect to the proxy and pass the target as a domain.
-        // remote_addr only needs a valid family for socket(); the proxy uses the
-        // hostname (set as SNI/target below), not remote_addr, to reach the target.
-        if (socks5_setting && remote_port >= 0 &&
-            !remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
-            return startConnectWithAddr();
+        // Via a proxy: the socket connects to the PROXY, not the target. The
+        // target (createsocket's host/port) is carried in proxy_setting and
+        // sent to the proxy as a CONNECT. Resolve the proxy address here.
+        if (proxy_setting) {
+            return startConnectViaProxy();
         }
         // If the target is a hostname, resolve it asynchronously through hdns
         // so the event loop is never blocked by getaddrinfo. This covers both
@@ -164,6 +162,56 @@ public:
             return startResolveThenConnect();
         }
         return startConnectWithAddr();
+    }
+
+    // @internal: connect through proxy_setting. The socket is created for the
+    // PROXY address (so a single socket suffices regardless of address family);
+    // the createsocket() target is copied into the setting and delivered to the
+    // proxy via the SOCKS5 CONNECT. remote_addr is repurposed to hold the proxy
+    // address, and remote_host stays the target (used as SNI for TLS).
+    int startConnectViaProxy() {
+        // carry the target the proxy should CONNECT to
+        hv_strncpy(proxy_setting->target_host, remote_host.c_str(), sizeof(proxy_setting->target_host));
+        proxy_setting->target_port = remote_port;
+        const char* proxy_host = proxy_setting->proxy_host;
+        int proxy_port = proxy_setting->proxy_port;
+        // A target-bound socket may have been created by createsocket() for a
+        // numeric target; drop it so the socket is (re)created for the proxy.
+        if (channel && channel->isClosed()) {
+            channel = NULL;
+        }
+        if (is_ipaddr(proxy_host)) {
+            memset(&remote_addr, 0, sizeof(remote_addr));
+            int ret = sockaddr_set_ipport(&remote_addr, proxy_host, proxy_port);
+            if (ret != 0) return NABS(ret);
+            return startConnectWithAddr();
+        }
+        // proxy is a hostname: resolve asynchronously (never block the loop).
+        cancelDnsQuery();
+        hdns_setting_t opt;
+        opt.family = HDNS_QUERY_BOTH;
+        if (connect_timeout > 0) opt.timeout_ms = connect_timeout;
+        dns_id = loop_->resolveDns(proxy_host,
+            [this, proxy_port](int status, int naddrs, const sockaddr_u* addrs) {
+                dns_id = INVALID_DNS_ID;
+                if (status == HDNS_STATUS_OK && naddrs > 0) {
+                    remote_addr = addrs[0];
+                    sockaddr_set_port(&remote_addr, proxy_port);
+                } else if (remote_addr.sa.sa_family == 0) {
+                    hloge("resolve proxy %s failed, status=%d", proxy_setting->proxy_host, status);
+                    onDnsResolveFailed();
+                    return;
+                }
+                startConnectWithAddr();
+            }, &opt);
+        if (dns_id == INVALID_DNS_ID) {
+            if (remote_addr.sa.sa_family == 0) {
+                onDnsResolveFailed();
+                return 0;
+            }
+            return startConnectWithAddr();
+        }
+        return 0;
     }
 
     // @internal: resolve remote_host asynchronously, then connect.
@@ -243,16 +291,8 @@ public:
 
     int startConnectWithAddr() {
         loop_->assertInLoopThread();
-        // SOCKS5 + hostname target: DNS is skipped (the proxy resolves the
-        // target), so remote_addr has no family yet. Give it a placeholder
-        // family (+ the target port) so socket()/createsocket works and the io
-        // layer captures the target port. hio_connect() then dials the proxy
-        // and recreates the fd with the proxy's family if it differs, so this
-        // placeholder family does not matter.
-        if (socks5_setting && remote_addr.sa.sa_family == 0 && remote_port >= 0) {
-            remote_addr.sin.sin_family = AF_INET;
-            sockaddr_set_port(&remote_addr, remote_port);
-        }
+        // NOTE: when a proxy is set, remote_addr holds the PROXY address
+        // (filled by startConnectViaProxy), so the socket connects to the proxy.
         if (channel == NULL || channel->isClosed()) {
             int connfd = createsocket(&remote_addr.sa);
             if (connfd < 0) {
@@ -266,13 +306,10 @@ public:
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
         }
-        // SOCKS5 proxy: record the proxy + set the target host as the io
-        // hostname so the handshake sends CONNECT <hostname>:<port> (domain).
-        if (socks5_setting) {
-            if (!remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
-                channel->setHostname(remote_host);
-            }
-            channel->setSocks5Proxy(socks5_setting);
+        // Proxy: the socket connects to the proxy; the proxy handshake issues
+        // CONNECT to the target carried in proxy_setting.
+        if (proxy_setting) {
+            channel->setProxy(proxy_setting);
         }
         if (tls) {
             channel->enableSSL();
@@ -381,19 +418,21 @@ public:
         connect_timeout = ms;
     }
 
-    // SOCKS5 proxy: route the connection through a SOCKS5 proxy. The target
-    // host is sent to the proxy as a domain name (the proxy resolves it), so
-    // client-side DNS is skipped when a hostname target is used with a proxy.
-    // The setting is copied; pass a username/password for auth (see socks5_setting_t).
-    void setSocks5Proxy(socks5_setting_t* setting) {
+    // Route the connection through a proxy (SOCKS5). The socket connects to the
+    // proxy (proxy_setting.proxy_host:proxy_port) and the createsocket() target
+    // is sent to the proxy as a CONNECT. The setting is copied; set
+    // username/password for auth (see proxy_setting_t). proxy_host/proxy_port
+    // must be filled by the caller; target_host/target_port are overwritten
+    // from createsocket() at connect time.
+    void setProxy(proxy_setting_t* setting) {
         if (setting == NULL) {
-            HV_FREE(socks5_setting);
+            HV_FREE(proxy_setting);
             return;
         }
-        if (socks5_setting == NULL) {
-            HV_ALLOC_SIZEOF(socks5_setting);
+        if (proxy_setting == NULL) {
+            HV_ALLOC_SIZEOF(proxy_setting);
         }
-        *socks5_setting = *setting;
+        *proxy_setting = *setting;
     }
 
     void setReconnect(reconn_setting_t* setting) {
@@ -462,8 +501,8 @@ public:
     hssl_ctx_opt_t*         tls_setting;
     reconn_setting_t*       reconn_setting;
     unpack_setting_t*       unpack_setting;
-    // socks5 proxy (client side), applied in startConnectWithAddr
-    socks5_setting_t*       socks5_setting;
+    // client-side proxy (SOCKS5), applied in startConnectViaProxy
+    proxy_setting_t*        proxy_setting;
 
     // Callback
     std::function<void(const TSocketChannelPtr&)>           onConnection;

@@ -10,7 +10,7 @@
 //   +----+----------+----------+
 // Offers NONE, plus USERPASS when auth credentials are present.
 // Returns the number of bytes written.
-int socks5_build_method_request(const socks5_conn_t* s5, unsigned char* buf) {
+int socks5_build_method_request(const proxy_conn_t* s5, unsigned char* buf) {
     int n = 0;
     buf[n++] = SOCKS5_VERSION;
     if (s5->setting.username[0]) {
@@ -28,7 +28,7 @@ int socks5_build_method_request(const socks5_conn_t* s5, unsigned char* buf) {
 //   +----+------+----------+------+----------+
 //   |VER | ULEN |  UNAME   | PLEN |  PASSWD  |
 //   +----+------+----------+------+----------+
-int socks5_build_auth_request(const socks5_conn_t* s5, unsigned char* buf) {
+int socks5_build_auth_request(const proxy_conn_t* s5, unsigned char* buf) {
     int n = 0;
     int ulen = (int)strlen(s5->setting.username);
     int plen = (int)strlen(s5->setting.password);
@@ -47,28 +47,29 @@ int socks5_build_auth_request(const socks5_conn_t* s5, unsigned char* buf) {
 // An IPv4/IPv6 literal target is encoded as ATYP=1/4 (raw address bytes, per
 // RFC 1928); anything else is sent as ATYP=domain so the proxy resolves it.
 // Returns bytes written, or -1 on error (host too long).
-int socks5_build_connect_request(const socks5_conn_t* s5, unsigned char* buf) {
+int socks5_build_connect_request(const proxy_conn_t* s5, unsigned char* buf) {
     int n = 0;
     buf[n++] = SOCKS5_VERSION;
     buf[n++] = SOCKS5_CMD_CONNECT;
     buf[n++] = 0x00;                     // RSV
 
+    const char* target_host = s5->setting.target_host;
     struct in_addr  addr4;
     struct in6_addr addr6;
-    if (inet_pton(AF_INET, s5->target_host, &addr4) == 1) {
+    if (inet_pton(AF_INET, target_host, &addr4) == 1) {
         buf[n++] = SOCKS5_ATYP_IPV4;
         memcpy(buf + n, &addr4, 4); n += 4;
-    } else if (inet_pton(AF_INET6, s5->target_host, &addr6) == 1) {
+    } else if (inet_pton(AF_INET6, target_host, &addr6) == 1) {
         buf[n++] = SOCKS5_ATYP_IPV6;
         memcpy(buf + n, &addr6, 16); n += 16;
     } else {
-        int hlen = (int)strlen(s5->target_host);
+        int hlen = (int)strlen(target_host);
         if (hlen <= 0 || hlen > 255) return -1;
         buf[n++] = SOCKS5_ATYP_DOMAIN;
         buf[n++] = (unsigned char)hlen;
-        memcpy(buf + n, s5->target_host, hlen); n += hlen;
+        memcpy(buf + n, target_host, hlen); n += hlen;
     }
-    unsigned short port = (unsigned short)s5->target_port;
+    unsigned short port = (unsigned short)s5->setting.target_port;
     buf[n++] = (unsigned char)((port >> 8) & 0xFF);
     buf[n++] = (unsigned char)(port & 0xFF);
     return n;

@@ -186,10 +186,10 @@ struct hio_s {
     void*       ssl;        // for hio_set_ssl
     void*       ssl_ctx;    // for hio_set_ssl_ctx
     char*       hostname;   // for hssl_set_sni_hostname
-    // socks5 proxy (client side): if set, hio_connect dials the proxy and
-    // performs a SOCKS5 handshake (CONNECT to the original target) before the
-    // connection is handed to the upper layer / SSL handshake.
-    struct socks5_conn_s* socks5;
+    // client-side proxy: if set, hio_connect performs the proxy handshake
+    // (CONNECT to the target) before the connection is handed to the upper
+    // layer / SSL handshake. The io itself connects to the proxy address.
+    struct proxy_conn_s* proxy;
     // context
     void*       ctx; // for hio_context / hio_set_context
 // private:

@@ -344,30 +344,49 @@ HV_EXPORT hssl_ctx_t hio_get_ssl_ctx(hio_t* io);
 HV_EXPORT int         hio_set_hostname(hio_t* io, const char* hostname);
 HV_EXPORT const char* hio_get_hostname(hio_t* io);
 
-// SOCKS5 proxy (client side). When set, hio_connect() dials the proxy at
-// setting->host:port and performs a SOCKS5 handshake (RFC 1928), issuing a
-// CONNECT to the io's original target (sent as a domain name, ATYP=domain, so
-// the proxy resolves it). After the handshake succeeds the connection is
-// transparent and (if SSL was enabled) the TLS handshake runs against the
-// target. Because it hooks hio_connect, all clients built on it (TcpClient,
-// HttpClient, ...) can use it. The setting is copied. Pass an empty username
-// for no auth, or a username/password for RFC 1929 auth.
+// Client-side proxy. When set, hio_connect() performs the proxy handshake
+// (issuing a CONNECT to setting->target_host:target_port) before SSL /
+// connect_cb; after it succeeds the connection is transparent and (if SSL was
+// enabled) the TLS handshake runs against the target. Because it hooks
+// hio_connect, all clients built on it (TcpClient, HttpClient, ...) can use it.
+//
+// IMPORTANT: the io must be created for the PROXY address, i.e.
+//   hio_create_socket(loop, setting.proxy_host, setting.proxy_port, ...);
+//   hio_set_proxy(io, &setting);
+// The socket connects to the proxy; proxy_host/proxy_port are kept in the
+// setting so higher layers (TcpClient) can create the socket from a single
+// struct, while the io layer itself only uses target_* and the credentials.
+//
+// The setting is copied. Leave username empty for no auth, or set
+// username/password for auth (SOCKS5 => RFC 1929). Only PROXY_PROTOCOL_SOCKS5
+// is implemented so far.
 // NOTE: set before hio_connect().
-typedef struct socks5_setting_s {
-    char host[256];     // proxy host
-    int  port;          // proxy port
-    char username[256]; // empty => no auth
+typedef enum {
+    PROXY_PROTOCOL_NONE   = 0,
+    PROXY_PROTOCOL_SOCKS5 = 1,
+} proxy_protocol_e;
+
+typedef struct proxy_setting_s {
+    int  protocol;              // proxy_protocol_e
+    char proxy_host[256];       // proxy host (used to create/connect the socket)
+    int  proxy_port;
+    char target_host[256];      // final target the proxy should CONNECT to
+    int  target_port;
+    char username[256];         // empty => no auth
     char password[256];
 #ifdef __cplusplus
-    socks5_setting_s() {
-        host[0] = '\0';
-        port = 0;
+    proxy_setting_s() {
+        protocol = PROXY_PROTOCOL_SOCKS5;
+        proxy_host[0] = '\0';
+        proxy_port = 0;
+        target_host[0] = '\0';
+        target_port = 0;
         username[0] = '\0';
         password[0] = '\0';
     }
 #endif
-} socks5_setting_t;
-HV_EXPORT int  hio_set_socks5(hio_t* io, socks5_setting_t* setting);
+} proxy_setting_t;
+HV_EXPORT int  hio_set_proxy(hio_t* io, proxy_setting_t* setting);
 
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));

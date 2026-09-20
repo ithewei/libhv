@@ -136,7 +136,7 @@ void hio_ready(hio_t* io) {
     io->ssl_ctx = NULL;
     io->alloced_ssl_ctx = 0;
     io->hostname = NULL;
-    io->socks5 = NULL;
+    io->proxy = NULL;
     // context
     io->ctx = NULL;
     // private:
@@ -497,14 +497,16 @@ const char* hio_get_hostname(hio_t* io) {
     return io->hostname;
 }
 
-int hio_set_socks5(hio_t* io, socks5_setting_t* setting) {
+int hio_set_proxy(hio_t* io, proxy_setting_t* setting) {
     if (io == NULL || setting == NULL) return -1;
-    if (io->socks5 == NULL) {
-        HV_ALLOC_SIZEOF(io->socks5);
-        if (io->socks5 == NULL) return -1;
+    // only SOCKS5 is implemented so far
+    if (setting->protocol != PROXY_PROTOCOL_SOCKS5) return -1;
+    if (io->proxy == NULL) {
+        HV_ALLOC_SIZEOF(io->proxy);
+        if (io->proxy == NULL) return -1;
     }
-    // copy the user config; runtime fields (target/state) are filled at connect
-    io->socks5->setting = *setting;
+    // copy the user config; runtime fields (state/accumulator) are filled at connect
+    io->proxy->setting = *setting;
     return 0;
 }
 

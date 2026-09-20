@@ -261,7 +261,7 @@ static void socks5_fail(hio_t* io) {
 
 // advance to a new state that needs `want` more bytes, resetting the buffer.
 static void socks5_expect(hio_t* io, int state, int want) {
-    socks5_conn_t* s5 = io->socks5;
+    proxy_conn_t* s5 = io->proxy;
     s5->state = state;
     s5->rlen = 0;
     s5->want = want;
@@ -287,7 +287,7 @@ static int socks5_send(hio_t* io, const void* buf, int len) {
 
 // send the SOCKS5 CONNECT request and wait for the 4-byte reply header.
 static void socks5_send_connect(hio_t* io) {
-    socks5_conn_t* s5 = io->socks5;
+    proxy_conn_t* s5 = io->proxy;
     unsigned char buf[300];
     int n = socks5_build_connect_request(s5, buf);
     if (n < 0) { socks5_fail(io); return; }
@@ -305,7 +305,7 @@ static void socks5_established(hio_t* io) {
 
 // process one accumulated step; s5->rbuf holds exactly s5->want bytes.
 static void socks5_dispatch(hio_t* io) {
-    socks5_conn_t* s5 = io->socks5;
+    proxy_conn_t* s5 = io->proxy;
     unsigned char* buf = s5->rbuf;
 
     switch (s5->state) {
@@ -374,7 +374,7 @@ static void socks5_dispatch(hio_t* io) {
 // hio_add read handler: accumulate into s5->rbuf until s5->want bytes are
 // available, then dispatch. Never touches io->read_cb.
 static void socks5_handshake(hio_t* io) {
-    socks5_conn_t* s5 = io->socks5;
+    proxy_conn_t* s5 = io->proxy;
     while (s5->rlen < s5->want) {
         int need = s5->want - s5->rlen;
         if (s5->want > (int)sizeof(s5->rbuf)) { socks5_fail(io); return; }
@@ -394,12 +394,25 @@ static void socks5_handshake(hio_t* io) {
 
 // Kick off the SOCKS5 handshake once the TCP connection to the proxy is up.
 static void socks5_handshake_start(hio_t* io) {
-    socks5_conn_t* s5 = io->socks5;
+    proxy_conn_t* s5 = io->proxy;
     unsigned char buf[8];
     int n = socks5_build_method_request(s5, buf);
     if (socks5_send(io, buf, n) != 0) { socks5_fail(io); return; }
     socks5_expect(io, S5_RECV_METHOD, 2);
     hio_add(io, socks5_handshake, HV_READ);
+}
+
+// Dispatch the proxy handshake by protocol (only SOCKS5 implemented so far).
+static void proxy_handshake_start(hio_t* io) {
+    switch (io->proxy->setting.protocol) {
+    case PROXY_PROTOCOL_SOCKS5:
+        socks5_handshake_start(io);
+        return;
+    default:
+        io->error = ERR_INVALID_PARAM;
+        hio_close(io);
+        return;
+    }
 }
 
 static void nio_connect(hio_t* io) {
@@ -414,10 +427,10 @@ static void nio_connect(hio_t* io) {
         addrlen = sizeof(sockaddr_u);
         getsockname(io->fd, io->localaddr, &addrlen);
 
-        // SOCKS5: the TCP connection is to the proxy; run the proxy handshake
+        // Proxy: the TCP connection is to the proxy; run the proxy handshake
         // (CONNECT to the real target) before SSL / connect_cb.
-        if (io->socks5) {
-            socks5_handshake_start(io);
+        if (io->proxy) {
+            proxy_handshake_start(io);
             return;
         }
 
@@ -656,48 +669,6 @@ int hio_accept(hio_t* io) {
 }
 
 int hio_connect(hio_t* io) {
-    // SOCKS5: connect to the proxy instead of the target. The target was
-    // recorded on io (peeraddr/hostname) by hio_create_socket; capture it for
-    // the CONNECT request (sent as a domain name), then point the connection at
-    // the proxy. The listening socket was created with the target's address
-    // family, but the proxy may resolve to a different family, so recreate the
-    // fd with the proxy family when they differ (otherwise connect() fails with
-    // EAFNOSUPPORT).
-    if (io->socks5) {
-        socks5_conn_t* s5 = io->socks5;
-        // capture target: prefer the SNI hostname (original domain), else the
-        // numeric peer address; port always comes from peeraddr.
-        if (io->hostname && io->hostname[0]) {
-            hv_strncpy(s5->target_host, io->hostname, sizeof(s5->target_host));
-        } else {
-            sockaddr_ip((sockaddr_u*)io->peeraddr, s5->target_host, sizeof(s5->target_host));
-        }
-        s5->target_port = sockaddr_port((sockaddr_u*)io->peeraddr);
-        // resolve the proxy address
-        sockaddr_u proxyaddr;
-        memset(&proxyaddr, 0, sizeof(proxyaddr));
-        if (sockaddr_set_ipport(&proxyaddr, s5->setting.host, s5->setting.port) != 0) {
-            io->error = ERR_INVALID_PARAM;
-            hio_close_async(io);
-            return -1;
-        }
-        // recreate the socket with the proxy family if it differs from the
-        // target family the socket was created with.
-        if (proxyaddr.sa.sa_family != io->peeraddr->sa_family) {
-            int newfd = socket(proxyaddr.sa.sa_family, SOCK_STREAM, 0);
-            if (newfd < 0) {
-                io->error = socket_errno();
-                hio_close_async(io);
-                return -1;
-            }
-            nonblocking(newfd);
-            hio_detach(io);                 // remove from loop->ios[oldfd]
-            closesocket(io->fd);
-            io->fd = newfd;
-            hio_attach(io->loop, io);       // re-key by newfd (handles resize)
-        }
-        hio_set_peeraddr(io, &proxyaddr.sa, sockaddr_len(&proxyaddr));
-    }
     int ret = connect(io->fd, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
 #ifdef OS_WIN
     if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
@@ -869,7 +840,7 @@ int hio_close (hio_t* io) {
         io->ssl_ctx = NULL;
     }
     SAFE_FREE(io->hostname);
-    SAFE_FREE(io->socks5);
+    SAFE_FREE(io->proxy);
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     } else if (io->io_type == HIO_TYPE_PIPE) {
