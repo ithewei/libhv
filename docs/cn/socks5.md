@@ -9,7 +9,7 @@ SOCKS5 代理客户端
 > 说明：
 > - 只做客户端代理(通过代理连出去)，服务端见 [examples/socks5_proxy_server.c](../../examples/socks5_proxy_server.c)。
 > - 支持无认证与用户名/密码认证(不支持 GSSAPI)。
-> - 目标地址以域名(ATYP=domain)发送给代理解析，因此配了代理时客户端本地不再做 DNS。
+> - 目标为域名时以 ATYP=domain 发给代理解析(客户端本地不做 DNS)；为 IP 字面量时按 ATYP=ipv4/ipv6 发送。
 > - `host` 建议直接填代理的 IP。若填域名，`hio_connect()` 会在事件循环线程内同步解析代理地址(getaddrinfo)，首连及每次重连都可能短暂阻塞该 loop。
 
 ## 配置结构 socks5_setting_t
@@ -49,6 +49,36 @@ void TcpClient::setSocks5Proxy(socks5_setting_t* setting);
 
 ## 示例
 
+### C
+
+C 层没有异步 DNS，目标域名交给代理解析，所以**不要**用 `hio_create_socket(loop, target_host, ...)` 去本地解析目标(仅代理可达的域名会在这里失败)。正确做法是：用一个占位 host + **真实的目标端口**建 socket(host 只决定 socket 的地址族，`hio_connect()` 会按代理地址族重建 fd)，再用 `hio_set_hostname()` 把真实目标交给握手：
+
+```c
+#include "hloop.h"
+#include "hbase.h"
+
+// 注意：端口用真实目标端口；host 是占位符(只定地址族)，真实目标走 hio_set_hostname。
+hio_t* io = hio_create_socket(loop, "127.0.0.1", target_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+hio_set_hostname(io, target_host);   // 域名 => ATYP=domain(代理解析)；IP => ATYP=ipv4/ipv6
+
+socks5_setting_t socks5;
+memset(&socks5, 0, sizeof(socks5));
+hv_strncpy(socks5.host, "127.0.0.1", sizeof(socks5.host));
+socks5.port = 1080;
+// 如需认证: hv_strncpy(socks5.username, "user", ...); hv_strncpy(socks5.password, "pass", ...);
+hio_set_socks5(io, &socks5);
+
+hio_setcb_connect(io, on_connect);
+hio_setcb_close(io, on_close);
+hio_connect(io);
+```
+
+完整示例见 [examples/socks5_client_test.c](../../examples/socks5_client_test.c)。
+
+### C++
+
+C++ 用 `TcpClient`，DNS 由其内部异步处理(配了代理时会跳过本地 DNS)，`createsocket(port, host)` 直接传真实目标即可：
+
 ```c++
 #include "TcpClient.h"
 using namespace hv;
@@ -74,8 +104,6 @@ int main() {
     return 0;
 }
 ```
-
-测试代码见 [examples/socks5_client_test.c](../../examples/socks5_client_test.c)
 
 可用 libhv 自带的 SOCKS5 代理服务端做端到端测试：
 

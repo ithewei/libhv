@@ -46,11 +46,12 @@ int main(int argc, char** argv) {
     const char* pass = argc > 6 ? argv[6] : NULL;
 
     hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
-    // Create the client socket. We do NOT resolve target_host locally: the
-    // proxy resolves it. Only a valid address family is needed for socket(),
-    // and hio_connect() recreates the fd with the proxy's family anyway, so a
-    // loopback placeholder is fine. The real target is carried below via
-    // hio_set_hostname (sent to the proxy as CONNECT <host>:<port>).
+    // Create the client socket. hio_connect() takes the target PORT from
+    // peeraddr, so target_port here must be the real target port. The host,
+    // however, is only used to pick the socket's address family (and is then
+    // overridden below via hio_set_hostname / recreated with the proxy family
+    // in hio_connect), so a loopback placeholder is fine and target_host is NOT
+    // resolved locally -- the proxy resolves it.
     hio_t* io = hio_create_socket(loop, "127.0.0.1", target_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
     if (io == NULL) {
         printf("create socket failed\n");
