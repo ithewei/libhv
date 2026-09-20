@@ -94,6 +94,7 @@ EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
 	udp_echo_server \
 	udp_proxy_server \
 	socks5_proxy_server \
+	socks5_client_test \
 	host \
 	multi-acceptor-processes \
 	multi-acceptor-threads \
@@ -101,7 +102,7 @@ EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
 	jsonrpc
 
 ifeq ($(WITH_EVPP), yes)
-EXAMPLES += nmap socks5_client_test
+EXAMPLES += nmap
 ifeq ($(WITH_REDIS), yes)
 EXAMPLES += redis_client_example redis_subscriber_example
 endif
@@ -240,6 +241,9 @@ udp_proxy_server: prepare
 socks5_proxy_server: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/socks5_proxy_server.c"
 
+socks5_client_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/socks5_client_test.c"
+
 host: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/host.c"
 
@@ -269,9 +273,6 @@ tinyproxyd: prepare
 
 nmap: prepare libhv
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) cpputil examples/nmap" DEFINES="PRINT_DEBUG"
-
-socks5_client_test: prepare libhv
-	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/socks5_client_test examples/socks5_client_test.cpp -Llib -lhv -pthread
 
 ifeq ($(WITH_REDIS), yes)
 redis_client_example: prepare

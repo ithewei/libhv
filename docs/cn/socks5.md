@@ -75,7 +75,7 @@ int main() {
 }
 ```
 
-测试代码见 [examples/socks5_client_test.cpp](../../examples/socks5_client_test.cpp)
+测试代码见 [examples/socks5_client_test.c](../../examples/socks5_client_test.c)
 
 可用 libhv 自带的 SOCKS5 代理服务端做端到端测试：
 

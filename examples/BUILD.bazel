@@ -75,12 +75,8 @@ cc_binary(
 
 cc_binary(
     name = "socks5_client_test",
-    srcs = ["socks5_client_test.cpp"],
-    deps = ["//:hv"],
-    target_compatible_with = select({
-        "//:with_evpp": [],
-        "//conditions:default": ["@platforms//:incompatible"],
-    }),
+    srcs = ["socks5_client_test.c"],
+    deps = ["//:hv"]
 )
 
 cc_binary(
@@ -230,10 +226,11 @@ filegroup(
         ":udp_echo_server",
         ":udp_proxy_server",
         ":socks5_proxy_server",
+        ":socks5_client_test",
         ":jsonrpc_client",
         ":jsonrpc_server",
     ] + select({
-        "//:with_evpp": [":hmain_test", ":nmap", ":socks5_client_test"],
+        "//:with_evpp": [":hmain_test", ":nmap"],
         "//conditions:default": [],
     }) + select({
         "//:with_redis": [":redis_client_example", ":redis_subscriber_example"],
