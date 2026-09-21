@@ -4,7 +4,39 @@
 #include <stdio.h>
 
 #include "hsocket.h"    // is_ipv4 / is_ipv6 / inet_pton via hplatform
-#include "base64.h"     // hv_base64_encode
+
+// Minimal base64 encoder for the HTTP CONNECT Proxy-Authorization header.
+// NOTE: implemented locally (not via util/base64.h) because the event layer
+// must not depend on util/ (core builds only add -I. -Ibase -Issl -Ievent).
+// Writes ceil(len/3)*4 bytes to out (no NUL terminator); returns bytes written.
+static int socks5_base64_encode(const unsigned char* in, int len, char* out) {
+    static const char tbl[] =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    int n = 0, i = 0;
+    while (i + 3 <= len) {
+        unsigned v = (in[i] << 16) | (in[i+1] << 8) | in[i+2];
+        out[n++] = tbl[(v >> 18) & 0x3F];
+        out[n++] = tbl[(v >> 12) & 0x3F];
+        out[n++] = tbl[(v >> 6) & 0x3F];
+        out[n++] = tbl[v & 0x3F];
+        i += 3;
+    }
+    int rem = len - i;
+    if (rem == 1) {
+        unsigned v = in[i] << 16;
+        out[n++] = tbl[(v >> 18) & 0x3F];
+        out[n++] = tbl[(v >> 12) & 0x3F];
+        out[n++] = '=';
+        out[n++] = '=';
+    } else if (rem == 2) {
+        unsigned v = (in[i] << 16) | (in[i+1] << 8);
+        out[n++] = tbl[(v >> 18) & 0x3F];
+        out[n++] = tbl[(v >> 12) & 0x3F];
+        out[n++] = tbl[(v >> 6) & 0x3F];
+        out[n++] = '=';
+    }
+    return n;
+}
 
 // Build the SOCKS5 method-selection request.
 //   +----+----------+----------+
@@ -97,7 +129,7 @@ int http_connect_build_request(const proxy_conn_t* p, char* buf, int bufsize) {
                          p->setting.username, p->setting.password);
         if (c < 0 || c >= (int)sizeof(cred)) return -1;
         char b64[768];
-        int b = hv_base64_encode((const unsigned char*)cred, (unsigned int)c, b64);
+        int b = socks5_base64_encode((const unsigned char*)cred, c, b64);
         b64[b] = '\0';
         r = snprintf(buf + n, bufsize - n, "Proxy-Authorization: Basic %s\r\n", b64);
         if (r < 0 || r >= bufsize - n) return -1;
