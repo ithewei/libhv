@@ -199,15 +199,24 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
             }
         }
     }
+    // Proxy-Authorization is only meaningful for the plain-HTTP absolute-URI
+    // forward proxy (the request is sent to the proxy itself). Clear any value
+    // first so it (a) never crosses a CONNECT tunnel to the origin and leaks the
+    // proxy credentials, and (b) does not linger after credentials are cleared
+    // via setProxyAuth(NULL, NULL) or when a request object is reused. It is
+    // then regenerated only in the forward-proxy branch below.
+    req->headers.erase("Proxy-Authorization");
     if (use_proxy) {
         if (https) {
             // https over proxy: use an HTTP CONNECT tunnel (end-to-end TLS with
-            // the origin), NOT absolute-URI forwarding.
+            // the origin), NOT absolute-URI forwarding. Credentials travel in
+            // the CONNECT request itself (transport-only).
             req->SetTunnelProxy(cli->https_proxy_host.c_str(), cli->https_proxy_port,
                                 cli->proxy_username.empty() ? NULL : cli->proxy_username.c_str(),
                                 cli->proxy_password.empty() ? NULL : cli->proxy_password.c_str());
         } else {
-            // plain http over proxy: absolute-URI forward proxy.
+            // plain http over proxy: absolute-URI forward proxy. The request is
+            // sent to the proxy, so Proxy-Authorization is correctly consumed by it.
             req->SetProxy(cli->http_proxy_host.c_str(), cli->http_proxy_port);
             if (!cli->proxy_username.empty()) {
                 std::string cred = cli->proxy_username + ":" + cli->proxy_password;

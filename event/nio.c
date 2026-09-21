@@ -278,21 +278,43 @@ static void socks5_expect(hio_t* io, int state, int want) {
 }
 
 // Raw handshake send. The proxy handshake runs immediately after the TCP
-// connection to the proxy is established, when the socket send buffer is empty
-// and the messages are small, so a short write is not expected. We deliberately
-// do NOT use hio_write() here: it would invoke the upper-layer write_cb
-// (leaking handshake bytes, including credentials, to the application before
-// onConnection), dispatch to hssl_write() with a not-yet-created SSL handle for
-// a TLS target, and enqueue on EAGAIN via hio_add() which would clobber the
-// handshake read handler. A short write or error is treated as fatal and closes
-// the connection.
+// connection to the proxy is established, when the socket send buffer is empty.
+// We deliberately do NOT use hio_write() here: it would invoke the upper-layer
+// write_cb (leaking handshake bytes, including credentials, to the application
+// before onConnection), dispatch to hssl_write() with a not-yet-created SSL
+// handle for a TLS target, and enqueue on EAGAIN via hio_add() which would
+// clobber the handshake read handler. Handshake messages are small (SOCKS5
+// <= 513 bytes; HTTP CONNECT typically < 1KB) but a positive short write is
+// still legal, so loop until all bytes are sent, briefly backing off on EAGAIN
+// (bounded, ~5s total). Returns 0 on success, -1 on error.
 static int proxy_send(hio_t* io, const void* buf, int len) {
     int flag = 0;
 #ifdef MSG_NOSIGNAL
     flag |= MSG_NOSIGNAL;
 #endif
-    int n = send(io->fd, (const char*)buf, len, flag);
-    return n == len ? 0 : -1;
+    const char* p = (const char*)buf;
+    int sent = 0;
+    int backoff = 0;    // ms waited so far on EAGAIN
+    while (sent < len) {
+        int n = send(io->fd, p + sent, len - sent, flag);
+        if (n > 0) {
+            sent += n;
+            backoff = 0;
+            continue;
+        }
+        if (n < 0) {
+            int err = socket_errno();
+            if (err == EINTR) continue;
+            if (err == EAGAIN) {
+                if (backoff >= 5000) return -1;   // give up after ~5s
+                hv_msleep(1);
+                ++backoff;
+                continue;
+            }
+        }
+        return -1;   // 0 (peer closed) or fatal error
+    }
+    return 0;
 }
 
 // send the SOCKS5 CONNECT request and wait for the 4-byte reply header.
