@@ -74,6 +74,12 @@ cc_binary(
 )
 
 cc_binary(
+    name = "socks5_client_test",
+    srcs = ["socks5_client_test.c"],
+    deps = ["//:hv"]
+)
+
+cc_binary(
     name = "jsonrpc_client",
     srcs = ["jsonrpc/jsonrpc_client.c", "jsonrpc/cJSON.c"] + glob(["jsonrpc/*.h"]),
     copts = ["-DCJSON_HIDE_SYMBOLS"],
@@ -220,6 +226,7 @@ filegroup(
         ":udp_echo_server",
         ":udp_proxy_server",
         ":socks5_proxy_server",
+        ":socks5_client_test",
         ":jsonrpc_client",
         ":jsonrpc_server",
     ] + select({

@@ -28,6 +28,7 @@ public:
         tls_setting = NULL;
         reconn_setting = NULL;
         unpack_setting = NULL;
+        proxy_setting = NULL;
         reconn_timer_id = INVALID_TIMER_ID;
         dns_id = INVALID_DNS_ID;
         reconn_success_cnt_ = 0;
@@ -40,6 +41,7 @@ public:
         HV_FREE(tls_setting);
         HV_FREE(reconn_setting);
         HV_FREE(unpack_setting);
+        HV_FREE(proxy_setting);
     }
 
     const EventLoopPtr& loop() {
@@ -150,6 +152,9 @@ public:
         // NOTE: Unix Domain Socket targets (remote_port < 0) carry a filesystem
         // path in remote_host, not a hostname; remote_addr is already set by
         // createsocket(), so never run DNS on them.
+        // NOTE: with a proxy, remote_host/remote_port ARE the proxy (that is
+        // what createsocket connects to); the final target lives in
+        // proxy_setting. So this same DNS path resolves the proxy address.
         if (remote_port >= 0 && !remote_host.empty() && !is_ipaddr(remote_host.c_str())) {
             return startResolveThenConnect();
         }
@@ -233,6 +238,8 @@ public:
 
     int startConnectWithAddr() {
         loop_->assertInLoopThread();
+        // NOTE: with a proxy, remote_addr/remote_host is the PROXY (that is what
+        // we connect to); the final target lives in proxy_setting.
         if (channel == NULL || channel->isClosed()) {
             int connfd = createsocket(&remote_addr.sa);
             if (connfd < 0) {
@@ -246,6 +253,11 @@ public:
         if (connect_timeout) {
             channel->setConnectTimeout(connect_timeout);
         }
+        // Proxy: the socket connects to the proxy; the proxy handshake issues
+        // CONNECT to the target carried in proxy_setting.
+        if (proxy_setting) {
+            channel->setProxy(proxy_setting);
+        }
         if (tls) {
             channel->enableSSL();
             if (tls_setting) {
@@ -256,8 +268,11 @@ public:
                     return ret;
                 }
             }
-            if (!is_ipaddr(remote_host.c_str())) {
-                channel->setHostname(remote_host);
+            // SNI = the TLS peer. Through a proxy the TLS peer is the target
+            // (proxy_setting->target_host), otherwise it is remote_host.
+            const char* sni = proxy_setting ? proxy_setting->target_host : remote_host.c_str();
+            if (sni && sni[0] && !is_ipaddr(sni)) {
+                channel->setHostname(sni);
             }
         }
         channel->onconnect = [this]() {
@@ -353,6 +368,21 @@ public:
         connect_timeout = ms;
     }
 
+    // Route the connection through a proxy (SOCKS5). Create the client socket
+    // for the PROXY (createsocket(proxy_port, proxy_host)); this setting carries
+    // the final target the proxy should CONNECT to. The setting is copied; set
+    // username/password for auth (see proxy_setting_t).
+    void setProxy(proxy_setting_t* setting) {
+        if (setting == NULL) {
+            HV_FREE(proxy_setting);
+            return;
+        }
+        if (proxy_setting == NULL) {
+            HV_ALLOC_SIZEOF(proxy_setting);
+        }
+        *proxy_setting = *setting;
+    }
+
     void setReconnect(reconn_setting_t* setting) {
         if (setting == NULL) {
             cancelReconnectTimer();
@@ -419,6 +449,8 @@ public:
     hssl_ctx_opt_t*         tls_setting;
     reconn_setting_t*       reconn_setting;
     unpack_setting_t*       unpack_setting;
+    // client-side proxy (SOCKS5), applied in startConnectWithAddr
+    proxy_setting_t*        proxy_setting;
 
     // Callback
     std::function<void(const TSocketChannelPtr&)>           onConnection;

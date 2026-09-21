@@ -94,6 +94,7 @@ EXAMPLES = hmain_test htimer_test hloop_test pipe_test \
 	udp_echo_server \
 	udp_proxy_server \
 	socks5_proxy_server \
+	socks5_client_test \
 	host \
 	multi-acceptor-processes \
 	multi-acceptor-threads \
@@ -239,6 +240,9 @@ udp_proxy_server: prepare
 
 socks5_proxy_server: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/socks5_proxy_server.c"
+
+socks5_client_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/socks5_client_test.c"
 
 host: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS)" SRCS="examples/host.c"

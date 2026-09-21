@@ -344,6 +344,51 @@ HV_EXPORT hssl_ctx_t hio_get_ssl_ctx(hio_t* io);
 HV_EXPORT int         hio_set_hostname(hio_t* io, const char* hostname);
 HV_EXPORT const char* hio_get_hostname(hio_t* io);
 
+// Client-side proxy. When set, hio_connect() performs the proxy handshake
+// (issuing a CONNECT to setting->target_host:target_port) before SSL /
+// connect_cb; after it succeeds the connection is transparent and (if SSL was
+// enabled) the TLS handshake runs against the target. Because it hooks
+// hio_connect, all clients built on it (TcpClient, HttpClient, ...) can use it.
+//
+// IMPORTANT: create the io for the PROXY address, then set the target here:
+//   hio_create_socket(loop, proxy_host, proxy_port, ...);
+//   hio_set_proxy(io, &setting);   // setting carries the final target + auth
+// The socket connects to the proxy; the io layer only uses target_* and the
+// credentials. proxy_host/proxy_port are kept in the setting for reference /
+// higher-level use, but the SOCKS5 path does not require them (the socket is
+// already the proxy connection).
+//
+// The setting is copied. Leave username empty for no auth, or set
+// username/password for auth (SOCKS5 => RFC 1929). Only PROXY_PROTOCOL_SOCKS5
+// is implemented so far.
+// NOTE: set before hio_connect().
+typedef enum {
+    PROXY_PROTOCOL_NONE   = 0,
+    PROXY_PROTOCOL_SOCKS5 = 1,
+} proxy_protocol_e;
+
+typedef struct proxy_setting_s {
+    int  protocol;              // proxy_protocol_e
+    char proxy_host[256];       // proxy host (SOCKS5: unused, socket is the proxy)
+    int  proxy_port;
+    char target_host[256];      // final target the proxy should CONNECT to
+    int  target_port;
+    char username[256];         // empty => no auth
+    char password[256];
+#ifdef __cplusplus
+    proxy_setting_s() {
+        protocol = PROXY_PROTOCOL_SOCKS5;
+        proxy_host[0] = '\0';
+        proxy_port = 0;
+        target_host[0] = '\0';
+        target_port = 0;
+        username[0] = '\0';
+        password[0] = '\0';
+    }
+#endif
+} proxy_setting_t;
+HV_EXPORT int  hio_set_proxy(hio_t* io, proxy_setting_t* setting);
+
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
 // close timeout => hclose_cb

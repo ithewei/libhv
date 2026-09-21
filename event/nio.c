@@ -6,6 +6,7 @@
 #include "hlog.h"
 #include "herr.h"
 #include "hthread.h"
+#include "socks5.h"
 
 static void __connect_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
@@ -196,6 +197,234 @@ accept_error:
     // hio_close(io);
 }
 
+// After the transport is connected (and, if using SOCKS5, after the proxy
+// handshake completed), start the SSL handshake or deliver connect_cb.
+static void nio_connect_established(hio_t* io) {
+    if (io->io_type == HIO_TYPE_SSL) {
+        if (io->ssl == NULL) {
+            // io->ssl_ctx > g_ssl_ctx > hssl_ctx_new
+            hssl_ctx_t ssl_ctx = NULL;
+            if (io->ssl_ctx) {
+                ssl_ctx = io->ssl_ctx;
+            } else if (g_ssl_ctx) {
+                ssl_ctx = g_ssl_ctx;
+            } else {
+                io->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
+                io->alloced_ssl_ctx = 1;
+            }
+            if (ssl_ctx == NULL) {
+                io->error = ERR_NEW_SSL_CTX;
+                hio_close(io);
+                return;
+            }
+            hssl_t ssl = hssl_new(ssl_ctx, io->fd);
+            if (ssl == NULL) {
+                io->error = ERR_NEW_SSL;
+                hio_close(io);
+                return;
+            }
+            io->ssl = ssl;
+        }
+        // SNI: through a proxy the TLS peer is the target, so the proxy's
+        // target_host is authoritative; otherwise use the explicitly-set
+        // io->hostname. SNI must be a hostname, not an IP literal (RFC 6066),
+        // so a numeric candidate is skipped and the next one is considered.
+        const char* sni = NULL;
+        if (io->proxy && io->proxy->setting.target_host[0] && !is_ipaddr(io->proxy->setting.target_host)) {
+            sni = io->proxy->setting.target_host;
+        } else if (io->hostname && !is_ipaddr(io->hostname)) {
+            sni = io->hostname;
+        }
+        if (sni) {
+            hssl_set_sni_hostname(io->ssl, sni);
+        }
+        ssl_client_handshake(io);
+    }
+    else {
+        // NOTE: SSL call connect_cb after handshake finished
+        __connect_cb(io);
+    }
+}
+
+// SOCKS5 client handshake state machine (RFC 1928 + RFC 1929).
+// Driven via hio_add(io, socks5_handshake, HV_READ), exactly like
+// ssl_client_handshake: it does raw recv() into an internal accumulator and
+// does NOT touch io->read_cb (which the upper-layer Channel owns for delivering
+// user data). Bytes are buffered in s5->rbuf until a full step is available, so
+// the handshake is robust to TCP fragmentation. Runs before the optional SSL
+// handshake.
+enum socks5_state_e {
+    S5_RECV_METHOD = 0,     // 2 bytes: VER METHOD
+    S5_RECV_AUTH,           // 2 bytes: VER STATUS
+    S5_RECV_REPLY_HEAD,     // 4 bytes: VER REP RSV ATYP
+    S5_RECV_REPLY_ADDR,     // fixed addr+port (ipv4/ipv6)
+    S5_RECV_REPLY_DADDR,    // 1 (dlen) already known: domain + port
+};
+
+static void socks5_handshake(hio_t* io);
+
+static void socks5_fail(hio_t* io) {
+    if (io->error == 0) io->error = ERR_CONNECT;
+    hlogw("connfd=%d socks5 handshake error", io->fd);
+    hio_close(io);
+}
+
+// advance to a new state that needs `want` more bytes, resetting the buffer.
+static void socks5_expect(hio_t* io, int state, int want) {
+    proxy_conn_t* s5 = io->proxy;
+    s5->state = state;
+    s5->rlen = 0;
+    s5->want = want;
+}
+
+// Raw handshake send. The SOCKS5 handshake runs immediately after the TCP
+// connection to the proxy is established, when the socket send buffer is empty
+// and the messages are tiny (<= 513 bytes), so a short write is not expected.
+// We deliberately do NOT use hio_write() here: it would invoke the upper-layer
+// write_cb (leaking handshake bytes, including credentials, to the application
+// before onConnection), dispatch to hssl_write() with a not-yet-created SSL
+// handle for a TLS target, and enqueue on EAGAIN via hio_add() which would
+// clobber the handshake read handler. A short write or error is treated as
+// fatal and closes the connection.
+static int socks5_send(hio_t* io, const void* buf, int len) {
+    int flag = 0;
+#ifdef MSG_NOSIGNAL
+    flag |= MSG_NOSIGNAL;
+#endif
+    int n = send(io->fd, (const char*)buf, len, flag);
+    return n == len ? 0 : -1;
+}
+
+// send the SOCKS5 CONNECT request and wait for the 4-byte reply header.
+static void socks5_send_connect(hio_t* io) {
+    proxy_conn_t* s5 = io->proxy;
+    unsigned char buf[300];
+    int n = socks5_build_connect_request(s5, buf);
+    if (n < 0) { socks5_fail(io); return; }
+    if (socks5_send(io, buf, n) != 0) { socks5_fail(io); return; }
+    socks5_expect(io, S5_RECV_REPLY_HEAD, 4);
+}
+
+// hand off the established proxy tunnel to the upper layer: stop the handshake
+// read handler, then run the SSL handshake / connect_cb. io->read_cb was never
+// touched, so the upper-layer Channel read callback stays intact.
+static void socks5_established(hio_t* io) {
+    hio_del(io, HV_READ);
+    nio_connect_established(io);
+}
+
+// process one accumulated step; s5->rbuf holds exactly s5->want bytes.
+static void socks5_dispatch(hio_t* io) {
+    proxy_conn_t* s5 = io->proxy;
+    unsigned char* buf = s5->rbuf;
+
+    switch (s5->state) {
+    case S5_RECV_METHOD:
+        // VER METHOD
+        if (buf[0] != SOCKS5_VERSION) { socks5_fail(io); return; }
+        if (buf[1] == SOCKS5_AUTH_NONE) {
+            socks5_send_connect(io);
+        } else if (buf[1] == SOCKS5_AUTH_USERPASS && s5->setting.username[0]) {
+            unsigned char req[640];
+            int n = socks5_build_auth_request(s5, req);
+            if (socks5_send(io, req, n) != 0) { socks5_fail(io); return; }
+            socks5_expect(io, S5_RECV_AUTH, 2);
+        } else {
+            socks5_fail(io);   // no acceptable method
+        }
+        return;
+
+    case S5_RECV_AUTH:
+        // VER STATUS (0 == success)
+        if (buf[1] != 0x00) { socks5_fail(io); return; }
+        socks5_send_connect(io);
+        return;
+
+    case S5_RECV_REPLY_HEAD: {
+        // VER REP RSV ATYP
+        if (buf[0] != SOCKS5_VERSION) { socks5_fail(io); return; }
+        if (buf[1] != SOCKS5_REP_SUCCESS) { io->error = ERR_CONNECT; socks5_fail(io); return; }
+        unsigned char atyp = buf[3];
+        if (atyp == SOCKS5_ATYP_IPV4) {
+            socks5_expect(io, S5_RECV_REPLY_ADDR, 4 + 2);   // addr + port
+        } else if (atyp == SOCKS5_ATYP_IPV6) {
+            socks5_expect(io, S5_RECV_REPLY_ADDR, 16 + 2);
+        } else if (atyp == SOCKS5_ATYP_DOMAIN) {
+            // read 1 length byte + then domain+port; do it in one extra step by
+            // first requiring the length byte.
+            socks5_expect(io, S5_RECV_REPLY_DADDR, 1);
+        } else {
+            socks5_fail(io);
+        }
+        return;
+    }
+
+    case S5_RECV_REPLY_ADDR:
+        // bound addr+port consumed; tunnel is up
+        socks5_established(io);
+        return;
+
+    case S5_RECV_REPLY_DADDR:
+        // first entry: we have the 1-byte domain length -> need dlen + 2 more.
+        // Re-enter with the full length once available.
+        if (s5->want == 1) {
+            int dlen = buf[0];
+            socks5_expect(io, S5_RECV_REPLY_DADDR, dlen + 2);
+            return;
+        }
+        socks5_established(io);
+        return;
+
+    default:
+        socks5_fail(io);
+        return;
+    }
+}
+
+// hio_add read handler: accumulate into s5->rbuf until s5->want bytes are
+// available, then dispatch. Never touches io->read_cb.
+static void socks5_handshake(hio_t* io) {
+    proxy_conn_t* s5 = io->proxy;
+    while (s5->rlen < s5->want) {
+        int need = s5->want - s5->rlen;
+        if (s5->want > (int)sizeof(s5->rbuf)) { socks5_fail(io); return; }
+        int n = recv(io->fd, (char*)s5->rbuf + s5->rlen, need, 0);
+        if (n == 0) { socks5_fail(io); return; }          // peer closed
+        if (n < 0) {
+            int err = socket_errno();
+            if (err == EAGAIN || err == EINTR) return;    // wait for more
+            io->error = err;
+            socks5_fail(io);
+            return;
+        }
+        s5->rlen += n;
+    }
+    socks5_dispatch(io);
+}
+
+// Kick off the SOCKS5 handshake once the TCP connection to the proxy is up.
+static void socks5_handshake_start(hio_t* io) {
+    proxy_conn_t* s5 = io->proxy;
+    unsigned char buf[8];
+    int n = socks5_build_method_request(s5, buf);
+    if (socks5_send(io, buf, n) != 0) { socks5_fail(io); return; }
+    socks5_expect(io, S5_RECV_METHOD, 2);
+    hio_add(io, socks5_handshake, HV_READ);
+}
+
+// Dispatch the proxy handshake by protocol (only SOCKS5 implemented so far).
+static void proxy_handshake_start(hio_t* io) {
+    switch (io->proxy->setting.protocol) {
+    case PROXY_PROTOCOL_SOCKS5:
+        socks5_handshake_start(io);
+        return;
+    default:
+        io->error = ERR_INVALID_PARAM;
+        hio_close(io);
+        return;
+    }
+}
+
 static void nio_connect(hio_t* io) {
     // printd("nio_connect connfd=%d\n", io->fd);
     socklen_t addrlen = sizeof(sockaddr_u);
@@ -208,39 +437,14 @@ static void nio_connect(hio_t* io) {
         addrlen = sizeof(sockaddr_u);
         getsockname(io->fd, io->localaddr, &addrlen);
 
-        if (io->io_type == HIO_TYPE_SSL) {
-            if (io->ssl == NULL) {
-                // io->ssl_ctx > g_ssl_ctx > hssl_ctx_new
-                hssl_ctx_t ssl_ctx = NULL;
-                if (io->ssl_ctx) {
-                    ssl_ctx = io->ssl_ctx;
-                } else if (g_ssl_ctx) {
-                    ssl_ctx = g_ssl_ctx;
-                } else {
-                    io->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
-                    io->alloced_ssl_ctx = 1;
-                }
-                if (ssl_ctx == NULL) {
-                    io->error = ERR_NEW_SSL_CTX;
-                    goto connect_error;
-                }
-                hssl_t ssl = hssl_new(ssl_ctx, io->fd);
-                if (ssl == NULL) {
-                    io->error = ERR_NEW_SSL;
-                    goto connect_error;
-                }
-                io->ssl = ssl;
-            }
-            if (io->hostname) {
-                hssl_set_sni_hostname(io->ssl, io->hostname);
-            }
-            ssl_client_handshake(io);
-        }
-        else {
-            // NOTE: SSL call connect_cb after handshake finished
-            __connect_cb(io);
+        // Proxy: the TCP connection is to the proxy; run the proxy handshake
+        // (CONNECT to the real target) before SSL / connect_cb.
+        if (io->proxy) {
+            proxy_handshake_start(io);
+            return;
         }
 
+        nio_connect_established(io);
         return;
     }
 
@@ -646,6 +850,7 @@ int hio_close (hio_t* io) {
         io->ssl_ctx = NULL;
     }
     SAFE_FREE(io->hostname);
+    SAFE_FREE(io->proxy);
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     } else if (io->io_type == HIO_TYPE_PIPE) {

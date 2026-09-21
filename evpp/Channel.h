@@ -286,6 +286,12 @@ public:
         return hio_set_hostname(io_, hostname.c_str());
     }
 
+    // Client-side proxy; see hio_set_proxy.
+    int setProxy(proxy_setting_t* setting) {
+        if (io_ == NULL) return -1;
+        return hio_set_proxy(io_, setting);
+    }
+
     // timeout
     void setConnectTimeout(int timeout_ms) {
         if (io_ == NULL) return;
