@@ -225,13 +225,17 @@ static void nio_connect_established(hio_t* io) {
             }
             io->ssl = ssl;
         }
-        if (io->hostname) {
-            hssl_set_sni_hostname(io->ssl, io->hostname);
-        } else if (io->proxy && io->proxy->setting.target_host[0]) {
-            // through a proxy the TLS peer is the target, and the socket was
-            // created for the proxy (so io->hostname is unset); use the target
-            // as SNI unless the caller set an explicit hostname above.
-            hssl_set_sni_hostname(io->ssl, io->proxy->setting.target_host);
+        // SNI: through a proxy the TLS peer is the target, so the proxy's
+        // target_host is authoritative; otherwise use the explicitly-set
+        // io->hostname.
+        const char* sni = NULL;
+        if (io->proxy && io->proxy->setting.target_host[0]) {
+            sni = io->proxy->setting.target_host;
+        } else if (io->hostname) {
+            sni = io->hostname;
+        }
+        if (sni) {
+            hssl_set_sni_hostname(io->ssl, sni);
         }
         ssl_client_handshake(io);
     }
