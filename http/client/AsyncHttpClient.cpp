@@ -34,16 +34,24 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     }
 
     req->ParseUrl();
+    // Where to open the TCP connection: normally the origin, but for an HTTP
+    // CONNECT tunnel (https over proxy) it is the proxy. The origin is then
+    // reached via the proxy's CONNECT (see doTaskWithAddr / hio_set_proxy).
     const char* host = req->host.c_str();
+    int port = req->port;
+    if (req->IsTunnelProxy()) {
+        host = req->tunnel_proxy_host.c_str();
+        port = req->tunnel_proxy_port;
+    }
 
     // If host is a numeric IP (or UDS), resolve synchronously (fast path).
     // Otherwise resolve the hostname asynchronously via EventLoop::resolveDns
     // so the event loop is never blocked by getaddrinfo. resolveDns returns a
     // use-after-free-proof DnsID and owns the underlying hdns_t lifetime.
-    if (req->port < 0 || is_ipaddr(host)) {
+    if (port < 0 || is_ipaddr(host)) {
         sockaddr_u peeraddr;
         memset(&peeraddr, 0, sizeof(peeraddr));
-        int ret = sockaddr_set_ipport(&peeraddr, host, req->port);
+        int ret = sockaddr_set_ipport(&peeraddr, host, port);
         if (ret != 0) {
             hloge("unknown host %s", host);
             return -20;
@@ -53,7 +61,6 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
 
     hdns_setting_t opt;
     if (req->connect_timeout > 0) opt.timeout_ms = req->connect_timeout * 1000;
-    int port = req->port;
     DnsID id = EventLoopThread::loop()->resolveDns(host,
         [this, task, port](int status, int naddrs, const sockaddr_u* addrs) {
             if (status != HDNS_STATUS_OK || naddrs <= 0) {
@@ -90,7 +97,6 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
         return -10;
     }
 
-    const char* host = req->host.c_str();
     sockaddr_u peeraddr = *paddr;
 
     int connfd = -1;
@@ -114,11 +120,24 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
         assert(connio != NULL);
         hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
         addChannel(connio);
-        // https
-        if (req->IsHttps() && !req->IsProxy()) {
+        // https over proxy: HTTP CONNECT tunnel to the origin, then TLS with it.
+        if (req->IsTunnelProxy()) {
+            proxy_setting_t proxy;
+            proxy.protocol = PROXY_PROTOCOL_HTTP_CONNECT;
+            hv_strncpy(proxy.target_host, req->host.c_str(), sizeof(proxy.target_host));
+            proxy.target_port = req->port;
+            if (!req->tunnel_proxy_username.empty()) {
+                hv_strncpy(proxy.username, req->tunnel_proxy_username.c_str(), sizeof(proxy.username));
+                hv_strncpy(proxy.password, req->tunnel_proxy_password.c_str(), sizeof(proxy.password));
+            }
+            hio_set_proxy(connio, &proxy);
+        }
+        // https: enable TLS against the origin (also for the tunnel case, run
+        // after the CONNECT handshake completes, with SNI = origin host).
+        if (req->IsHttps()) {
             hio_enable_ssl(connio);
-            if (!is_ipaddr(host)) {
-                hio_set_hostname(connio, host);
+            if (!is_ipaddr(req->host.c_str())) {
+                hio_set_hostname(connio, req->host.c_str());
             }
         }
     }
@@ -159,6 +178,9 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
             auto& req = ctx->task->req;
             auto& resp = ctx->resp;
             bool keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
+            // Snapshot before any callback: successCallback() clears ctx->task,
+            // which frees the request `req` references (dangling afterwards).
+            bool is_tunnel = req->IsTunnelProxy();
             if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
                 std::string location = resp->headers["Location"];
                 if (!location.empty()) {
@@ -174,11 +196,14 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
             } else {
                 ctx->successCallback();
             }
-            if (keepalive) {
+            if (keepalive && !is_tunnel) {
                 // NOTE: add into conn_pools to reuse
                 // hlogd("add into conn_pools");
                 conn_pools[channel->peeraddr()].add(channel->fd());
             } else {
+                // A CONNECT tunnel is bound to one origin; the pool is keyed by
+                // peeraddr (the proxy), so reusing it for a different origin
+                // would send to the wrong target. Never pool tunnels.
                 channel->close();
             }
         }

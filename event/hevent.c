@@ -499,8 +499,11 @@ const char* hio_get_hostname(hio_t* io) {
 
 int hio_set_proxy(hio_t* io, proxy_setting_t* setting) {
     if (io == NULL || setting == NULL) return -1;
-    // only SOCKS5 is implemented so far
-    if (setting->protocol != PROXY_PROTOCOL_SOCKS5) return -1;
+    // implemented: SOCKS5, HTTP CONNECT
+    if (setting->protocol != PROXY_PROTOCOL_SOCKS5 &&
+        setting->protocol != PROXY_PROTOCOL_HTTP_CONNECT) {
+        return -1;
+    }
     if (io->proxy == NULL) {
         HV_ALLOC_SIZEOF(io->proxy);
         if (io->proxy == NULL) return -1;

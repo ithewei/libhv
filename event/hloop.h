@@ -359,17 +359,19 @@ HV_EXPORT const char* hio_get_hostname(hio_t* io);
 // already the proxy connection).
 //
 // The setting is copied. Leave username empty for no auth, or set
-// username/password for auth (SOCKS5 => RFC 1929). Only PROXY_PROTOCOL_SOCKS5
-// is implemented so far.
+// username/password for auth (SOCKS5 => RFC 1929, HTTP CONNECT => Basic).
+// Implemented protocols: PROXY_PROTOCOL_SOCKS5, PROXY_PROTOCOL_HTTP_CONNECT.
 // NOTE: set before hio_connect().
 typedef enum {
-    PROXY_PROTOCOL_NONE   = 0,
-    PROXY_PROTOCOL_SOCKS5 = 1,
+    PROXY_PROTOCOL_NONE         = 0,
+    PROXY_PROTOCOL_SOCKS5       = 1,
+    PROXY_PROTOCOL_HTTP_CONNECT = 2,    // HTTP CONNECT tunnel (RFC 7231 4.3.6)
 } proxy_protocol_e;
 
 typedef struct proxy_setting_s {
     int  protocol;              // proxy_protocol_e
-    char proxy_host[256];       // proxy host (SOCKS5: unused, socket is the proxy)
+    char proxy_host[256];       // proxy host (unused by the io layer: the socket
+                                // is already the proxy connection; kept for ref)
     int  proxy_port;
     char target_host[256];      // final target the proxy should CONNECT to
     int  target_port;

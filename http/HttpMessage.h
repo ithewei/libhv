@@ -386,8 +386,16 @@ public:
     uint32_t            retry_count;
     uint32_t            retry_delay;    // unit: ms
     unsigned            redirect: 1;
-    unsigned            proxy   : 1;
+    unsigned            proxy   : 1;    // absolute-URI forward proxy (plain HTTP)
     unsigned            cancel  : 1;
+    // CONNECT-tunnel proxy (for https-over-proxy): when tunnel_proxy_host is set,
+    // the client connects to the proxy and issues an HTTP CONNECT to
+    // host:port, then does TLS end-to-end against the origin. Distinct from the
+    // `proxy` bit above, which is the plain-HTTP absolute-URI forward proxy.
+    std::string         tunnel_proxy_host;
+    int                 tunnel_proxy_port;
+    std::string         tunnel_proxy_username;
+    std::string         tunnel_proxy_password;
 
     HttpRequest();
 
@@ -447,6 +455,18 @@ public:
 
     void SetProxy(const char* host, int port);
     bool IsProxy() { return proxy; }
+
+    // CONNECT-tunnel proxy (used for https-over-proxy). Unlike SetProxy (plain
+    // HTTP absolute-URI forwarding), this connects to the proxy and issues an
+    // HTTP CONNECT to the origin, then does end-to-end TLS with the origin.
+    void SetTunnelProxy(const char* host, int port,
+                        const char* username = NULL, const char* password = NULL) {
+        tunnel_proxy_host = host ? host : "";
+        tunnel_proxy_port = port;
+        tunnel_proxy_username = username ? username : "";
+        tunnel_proxy_password = password ? password : "";
+    }
+    bool IsTunnelProxy() { return !tunnel_proxy_host.empty(); }
 
     // Auth
     void SetAuth(const std::string& auth);

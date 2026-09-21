@@ -660,6 +660,10 @@ void HttpRequest::Init() {
     redirect = 1;
     proxy = 0;
     cancel = 0;
+    tunnel_proxy_host.clear();
+    tunnel_proxy_port = 0;
+    tunnel_proxy_username.clear();
+    tunnel_proxy_password.clear();
 }
 
 void HttpRequest::Reset() {

@@ -1,8 +1,10 @@
 #include "socks5.h"
 
 #include <string.h>
+#include <stdio.h>
 
 #include "hsocket.h"    // is_ipv4 / is_ipv6 / inet_pton via hplatform
+#include "base64.h"     // hv_base64_encode
 
 // Build the SOCKS5 method-selection request.
 //   +----+----------+----------+
@@ -72,5 +74,38 @@ int socks5_build_connect_request(const proxy_conn_t* s5, unsigned char* buf) {
     unsigned short port = (unsigned short)s5->setting.target_port;
     buf[n++] = (unsigned char)((port >> 8) & 0xFF);
     buf[n++] = (unsigned char)(port & 0xFF);
+    return n;
+}
+
+// Build an HTTP CONNECT request (RFC 7231 4.3.6). The request-target is the
+// authority form "host:port"; a Basic Proxy-Authorization header is added when
+// credentials are present.
+int http_connect_build_request(const proxy_conn_t* p, char* buf, int bufsize) {
+    const char* host = p->setting.target_host;
+    int port = p->setting.target_port;
+    int n = 0;
+    int r = snprintf(buf + n, bufsize - n,
+                     "CONNECT %s:%d HTTP/1.1\r\nHost: %s:%d\r\n",
+                     host, port, host, port);
+    if (r < 0 || r >= bufsize - n) return -1;
+    n += r;
+
+    if (p->setting.username[0]) {
+        // credentials = "user:pass"
+        char cred[520];
+        int c = snprintf(cred, sizeof(cred), "%s:%s",
+                         p->setting.username, p->setting.password);
+        if (c < 0 || c >= (int)sizeof(cred)) return -1;
+        char b64[768];
+        int b = hv_base64_encode((const unsigned char*)cred, (unsigned int)c, b64);
+        b64[b] = '\0';
+        r = snprintf(buf + n, bufsize - n, "Proxy-Authorization: Basic %s\r\n", b64);
+        if (r < 0 || r >= bufsize - n) return -1;
+        n += r;
+    }
+
+    r = snprintf(buf + n, bufsize - n, "\r\n");
+    if (r < 0 || r >= bufsize - n) return -1;
+    n += r;
     return n;
 }
