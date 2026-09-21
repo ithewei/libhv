@@ -227,11 +227,12 @@ static void nio_connect_established(hio_t* io) {
         }
         // SNI: through a proxy the TLS peer is the target, so the proxy's
         // target_host is authoritative; otherwise use the explicitly-set
-        // io->hostname.
+        // io->hostname. SNI must be a hostname, not an IP literal (RFC 6066),
+        // so a numeric candidate is skipped and the next one is considered.
         const char* sni = NULL;
-        if (io->proxy && io->proxy->setting.target_host[0]) {
+        if (io->proxy && io->proxy->setting.target_host[0] && !is_ipaddr(io->proxy->setting.target_host)) {
             sni = io->proxy->setting.target_host;
-        } else if (io->hostname) {
+        } else if (io->hostname && !is_ipaddr(io->hostname)) {
             sni = io->hostname;
         }
         if (sni) {
