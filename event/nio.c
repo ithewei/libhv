@@ -278,43 +278,23 @@ static void socks5_expect(hio_t* io, int state, int want) {
 }
 
 // Raw handshake send. The proxy handshake runs immediately after the TCP
-// connection to the proxy is established, when the socket send buffer is empty.
+// connection to the proxy is established, when the socket send buffer is empty
+// and the message is tiny (SOCKS5 <= 513 bytes; HTTP CONNECT < ~1.3KB), far
+// smaller than the default send buffer, so a single send() transfers it all.
 // We deliberately do NOT use hio_write() here: it would invoke the upper-layer
 // write_cb (leaking handshake bytes, including credentials, to the application
 // before onConnection), dispatch to hssl_write() with a not-yet-created SSL
 // handle for a TLS target, and enqueue on EAGAIN via hio_add() which would
-// clobber the handshake read handler. Handshake messages are small (SOCKS5
-// <= 513 bytes; HTTP CONNECT typically < 1KB) but a positive short write is
-// still legal, so loop until all bytes are sent, briefly backing off on EAGAIN
-// (bounded, ~5s total). Returns 0 on success, -1 on error.
+// clobber the handshake read handler (io has a single cb slot). A short write
+// cannot happen here in practice; if it somehow does, it is treated as fatal
+// (return -1) rather than blocking the event loop.
 static int proxy_send(hio_t* io, const void* buf, int len) {
     int flag = 0;
 #ifdef MSG_NOSIGNAL
     flag |= MSG_NOSIGNAL;
 #endif
-    const char* p = (const char*)buf;
-    int sent = 0;
-    int backoff = 0;    // ms waited so far on EAGAIN
-    while (sent < len) {
-        int n = send(io->fd, p + sent, len - sent, flag);
-        if (n > 0) {
-            sent += n;
-            backoff = 0;
-            continue;
-        }
-        if (n < 0) {
-            int err = socket_errno();
-            if (err == EINTR) continue;
-            if (err == EAGAIN) {
-                if (backoff >= 5000) return -1;   // give up after ~5s
-                hv_msleep(1);
-                ++backoff;
-                continue;
-            }
-        }
-        return -1;   // 0 (peer closed) or fatal error
-    }
-    return 0;
+    int n = send(io->fd, (const char*)buf, len, flag);
+    return n == len ? 0 : -1;
 }
 
 // send the SOCKS5 CONNECT request and wait for the 4-byte reply header.
@@ -436,58 +416,77 @@ static void socks5_handshake_start(hio_t* io) {
 
 // HTTP CONNECT handshake (RFC 7231 4.3.6): send a CONNECT request, then read
 // response headers until the blank line "\r\n\r\n". A 2xx status establishes
-// the tunnel. Like the SOCKS5 handshake this uses a dedicated recv() into
-// s5->rbuf via hio_add (never touches io->read_cb) and is robust to
-// fragmentation. Because CONNECT response headers carry no body, all bytes up
-// to and including the blank line belong to the handshake; any bytes after it
-// would already be tunnel data (a well-behaved proxy sends none until the
-// client speaks first, which our clients do -- TLS ClientHello / request).
+// the tunnel. Like the SOCKS5 handshake this uses a dedicated recv() via
+// hio_add (never touches io->read_cb) and is robust to fragmentation.
+//
+// CONNECT responses carry no body, but a server-first origin protocol (SMTP,
+// IMAP, FTP...) may send its greeting immediately after the tunnel opens, so
+// those bytes can arrive in the same segment as the response headers. To avoid
+// swallowing them, we MSG_PEEK to locate the header terminator, then drain
+// EXACTLY the header bytes with a real recv(); anything after "\r\n\r\n" stays
+// in the socket for the upper-layer read path.
 static void http_connect_handshake(hio_t* io) {
     proxy_conn_t* p = io->proxy;
-    // read more into the accumulator (non-destructive across calls)
-    while (p->rlen < (int)sizeof(p->rbuf)) {
-        int n = recv(io->fd, (char*)p->rbuf + p->rlen, (int)sizeof(p->rbuf) - p->rlen, 0);
-        if (n == 0) { proxy_fail(io); return; }            // peer closed
+    for (;;) {
+        int cap = (int)sizeof(p->rbuf) - p->rlen;
+        if (cap <= 0) { proxy_fail(io); return; }   // headers too large
+        // peek (non-destructive): inspect what is available without consuming.
+        int n = recv(io->fd, (char*)p->rbuf + p->rlen, cap, MSG_PEEK);
+        if (n == 0) { proxy_fail(io); return; }      // peer closed
         if (n < 0) {
             int err = socket_errno();
-            if (err == EAGAIN || err == EINTR) break;      // wait for more
+            if (err == EAGAIN || err == EINTR) return;   // wait for more
             io->error = err;
             proxy_fail(io);
             return;
         }
-        p->rlen += n;
-        // look for end of headers
-        if (p->rlen >= 4) {
-            for (int i = 3; i < p->rlen; ++i) {
-                if (p->rbuf[i-3]=='\r' && p->rbuf[i-2]=='\n' &&
-                    p->rbuf[i-1]=='\r' && p->rbuf[i]=='\n') {
-                    // parse status line: "HTTP/1.x SP CODE SP ..."
-                    // find first space, then 3-digit code
-                    int code = 0;
-                    char* sp = (char*)memchr(p->rbuf, ' ', p->rlen);
-                    if (sp) code = atoi(sp + 1);
-                    if (code >= 200 && code < 300) {
-                        proxy_established(io);
-                    } else {
-                        hlogw("connfd=%d http proxy CONNECT failed: %d", io->fd, code);
-                        io->error = ERR_CONNECT;
-                        proxy_fail(io);
-                    }
-                    return;
-                }
-            }
+        int have = p->rlen + n;
+        // search for "\r\n\r\n" in the peeked window (rescan from a safe offset)
+        int start = p->rlen >= 3 ? p->rlen - 3 : 0;
+        int term = -1;
+        for (int i = start + 3; i < have; ++i) {
+            if (p->rbuf[i-3]=='\r' && p->rbuf[i-2]=='\n' &&
+                p->rbuf[i-1]=='\r' && p->rbuf[i]=='\n') { term = i; break; }
         }
-    }
-    if (p->rlen >= (int)sizeof(p->rbuf)) {
-        // headers too large, no blank line found
-        proxy_fail(io);
+        if (term < 0) {
+            // no full header yet: consume the peeked bytes into the accumulator
+            // (they are all header bytes) and keep reading.
+            int got = recv(io->fd, (char*)p->rbuf + p->rlen, n, 0);
+            if (got <= 0) { proxy_fail(io); return; }
+            p->rlen += got;
+            continue;
+        }
+        // full header present. Drain exactly up to and including the terminator,
+        // leaving any trailing tunnel/greeting bytes in the socket.
+        int header_len = term + 1;              // bytes from socket start
+        int to_drain = header_len - p->rlen;    // not yet consumed
+        if (to_drain > 0) {
+            int got = recv(io->fd, (char*)p->rbuf + p->rlen, to_drain, 0);
+            if (got != to_drain) { proxy_fail(io); return; }
+            p->rlen += got;
+        }
+        // parse status line: "HTTP/1.x SP CODE SP ..."
+        int code = 0;
+        char* sp = (char*)memchr(p->rbuf, ' ', p->rlen);
+        if (sp) code = atoi(sp + 1);
+        if (code >= 200 && code < 300) {
+            proxy_established(io);
+        } else {
+            hlogw("connfd=%d http proxy CONNECT failed: %d", io->fd, code);
+            io->error = ERR_CONNECT;
+            proxy_fail(io);
+        }
+        return;
     }
 }
 
 // Kick off the HTTP CONNECT handshake once the TCP connection to the proxy is up.
 static void http_connect_start(hio_t* io) {
     proxy_conn_t* p = io->proxy;
-    char buf[1024];
+    // Max request: "CONNECT " + authority(<=262) + " HTTP/1.1\r\nHost: " +
+    // authority + "\r\nProxy-Authorization: Basic " + base64(255:255)=~684 +
+    // "\r\n\r\n" ~= 1.3KB. 2048 leaves headroom.
+    char buf[2048];
     int n = http_connect_build_request(p, buf, (int)sizeof(buf));
     if (n < 0) { proxy_fail(io); return; }
     if (proxy_send(io, buf, n) != 0) { proxy_fail(io); return; }

@@ -110,15 +110,23 @@ int socks5_build_connect_request(const proxy_conn_t* s5, unsigned char* buf) {
 }
 
 // Build an HTTP CONNECT request (RFC 7231 4.3.6). The request-target is the
-// authority form "host:port"; a Basic Proxy-Authorization header is added when
-// credentials are present.
+// authority form "host:port"; an IPv6 literal is bracketed ("[addr]:port") per
+// RFC 3986. A Basic Proxy-Authorization header is added when credentials are
+// present.
 int http_connect_build_request(const proxy_conn_t* p, char* buf, int bufsize) {
     const char* host = p->setting.target_host;
     int port = p->setting.target_port;
+    // bracket IPv6 literals in authority form
+    char authority[300];
+    if (is_ipv6(host)) {
+        snprintf(authority, sizeof(authority), "[%s]:%d", host, port);
+    } else {
+        snprintf(authority, sizeof(authority), "%s:%d", host, port);
+    }
     int n = 0;
     int r = snprintf(buf + n, bufsize - n,
-                     "CONNECT %s:%d HTTP/1.1\r\nHost: %s:%d\r\n",
-                     host, port, host, port);
+                     "CONNECT %s HTTP/1.1\r\nHost: %s\r\n",
+                     authority, authority);
     if (r < 0 || r >= bufsize - n) return -1;
     n += r;
 

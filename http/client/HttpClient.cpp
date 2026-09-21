@@ -199,12 +199,19 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
             }
         }
     }
-    // Proxy-Authorization is only meaningful for the plain-HTTP absolute-URI
-    // forward proxy (the request is sent to the proxy itself). Clear any value
-    // first so it (a) never crosses a CONNECT tunnel to the origin and leaks the
-    // proxy credentials, and (b) does not linger after credentials are cleared
-    // via setProxyAuth(NULL, NULL) or when a request object is reused. It is
-    // then regenerated only in the forward-proxy branch below.
+    // Recompute proxy routing from scratch for THIS request. HttpClient reuses
+    // one HttpRequest across redirects and repeated sends, so any proxy mode
+    // left over from a previous route must be cleared first -- otherwise a prior
+    // tunnel/forward setting could survive a redirect to a no_proxy host or a
+    // scheme switch and pick the wrong transport. Also drop any generated
+    // Proxy-Authorization so it never crosses a CONNECT tunnel to the origin and
+    // never lingers after setProxyAuth(NULL, NULL); it is regenerated below only
+    // for the plain-HTTP forward proxy (where the request goes to the proxy).
+    req->proxy = 0;
+    req->tunnel_proxy_host.clear();
+    req->tunnel_proxy_port = 0;
+    req->tunnel_proxy_username.clear();
+    req->tunnel_proxy_password.clear();
     req->headers.erase("Proxy-Authorization");
     if (use_proxy) {
         if (https) {
@@ -301,8 +308,12 @@ static int http_client_ssl_handshake(http_client_t* cli, int connfd, const char*
 static int http_client_http_connect(int connfd, const char* origin_host, int origin_port,
                                      const std::string& user, const std::string& pass,
                                      int blocktime) {
-    std::string reqstr = hv::asprintf("CONNECT %s:%d HTTP/1.1\r\nHost: %s:%d\r\n",
-                                      origin_host, origin_port, origin_host, origin_port);
+    // authority form; bracket IPv6 literals per RFC 3986
+    std::string authority = is_ipv6(origin_host)
+        ? hv::asprintf("[%s]:%d", origin_host, origin_port)
+        : hv::asprintf("%s:%d", origin_host, origin_port);
+    std::string reqstr = hv::asprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n",
+                                      authority.c_str(), authority.c_str());
     if (!user.empty()) {
         std::string cred = user + ":" + pass;
         reqstr += "Proxy-Authorization: Basic " +
@@ -720,6 +731,11 @@ static int http_client_exec_curl(http_client_t* cli, HttpRequest* req, HttpRespo
 
     // proxy: plain-http forward proxy (req->host is the proxy) or CONNECT
     // tunnel (tunnel_proxy_* for https). libcurl handles both, incl. CONNECT.
+    // cli->curl is reused across requests, so always reset proxy options first
+    // (a stale PROXY / PROXYUSERPWD would otherwise leak into a later request
+    // that uses a different or no proxy).
+    curl_easy_setopt(curl, CURLOPT_PROXY, "");
+    curl_easy_setopt(curl, CURLOPT_PROXYUSERPWD, "");
     if (req->IsProxy()) {
         curl_easy_setopt(curl, CURLOPT_PROXY, req->host.c_str());
         curl_easy_setopt(curl, CURLOPT_PROXYPORT, req->port);

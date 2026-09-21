@@ -779,6 +779,11 @@ void HttpRequest::SetProxy(const char* host, int port) {
     this->host = host;
     this->port = port;
     proxy = 1;
+    // mutually exclusive with the CONNECT-tunnel mode
+    tunnel_proxy_host.clear();
+    tunnel_proxy_port = 0;
+    tunnel_proxy_username.clear();
+    tunnel_proxy_password.clear();
 }
 
 void HttpRequest::SetAuth(const std::string& auth) {

@@ -100,13 +100,19 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
     sockaddr_u peeraddr = *paddr;
 
     int connfd = -1;
-    // first get from conn_pools
+    // Reuse a pooled keep-alive connection when possible. NOT for tunnels: the
+    // pool is keyed by peeraddr (the proxy), and a pooled plain HTTP-forward (or
+    // different-origin tunnel) connection to the same proxy would bypass the
+    // per-connection hio_set_proxy/SSL setup below and send over the wrong
+    // transport. Tunnels always open a fresh connection.
     char strAddr[SOCKADDR_STRLEN] = {0};
     SOCKADDR_STR(&peeraddr, strAddr);
-    auto iter = conn_pools.find(strAddr);
-    if (iter != conn_pools.end()) {
-        // hlogd("get from conn_pools");
-        iter->second.get(connfd);
+    if (!req->IsTunnelProxy()) {
+        auto iter = conn_pools.find(strAddr);
+        if (iter != conn_pools.end()) {
+            // hlogd("get from conn_pools");
+            iter->second.get(connfd);
+        }
     }
 
     if (connfd < 0) {

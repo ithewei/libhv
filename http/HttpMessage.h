@@ -459,8 +459,10 @@ public:
     // CONNECT-tunnel proxy (used for https-over-proxy). Unlike SetProxy (plain
     // HTTP absolute-URI forwarding), this connects to the proxy and issues an
     // HTTP CONNECT to the origin, then does end-to-end TLS with the origin.
+    // Mutually exclusive with the forward-proxy mode: clears the `proxy` bit.
     void SetTunnelProxy(const char* host, int port,
                         const char* username = NULL, const char* password = NULL) {
+        proxy = 0;   // not an absolute-URI forward proxy
         tunnel_proxy_host = host ? host : "";
         tunnel_proxy_port = port;
         tunnel_proxy_username = username ? username : "";
