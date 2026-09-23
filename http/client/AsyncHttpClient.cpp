@@ -15,28 +15,56 @@ int AsyncHttpClient::send(const HttpRequestPtr& req, HttpResponseCallback resp_c
     return send(task);
 }
 
-// createsocket => startConnect =>
-// onconnect => sendRequest => startRead =>
-// onread => HttpParser => resp_cb
-int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
+int AsyncHttpClient::checkTaskCancelOrTimeout(const HttpClientTaskPtr& task) {
     const HttpRequestPtr& req = task->req;
     if (req->cancel) {
         return -1;
     }
 
-    // queueInLoop timeout?
     uint64_t now_hrtime = hloop_now_hrtime(EventLoopThread::hloop());
-    int elapsed_ms = (now_hrtime - task->start_time) / 1000;
+    int elapsed = (now_hrtime - task->start_time) / 1000;
     int timeout_ms = req->timeout * 1000;
-    if (timeout_ms > 0 && elapsed_ms >= timeout_ms) {
+    if (timeout_ms > 0 && elapsed >= timeout_ms) {
         hlogw("%s queueInLoop timeout!", req->url.c_str());
         return -10;
     }
+    return elapsed;
+}
 
+// ParseUrl -> if conn_key in conn_pools: startTask -> sendRequest
+//          -> else: resolveDns -> startConnect
+int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
+    int elapsed_ms = checkTaskCancelOrTimeout(task);
+    if (elapsed_ms < 0) {
+        return elapsed_ms;
+    }
+
+    const HttpRequestPtr& req = task->req;
     req->ParseUrl();
+    HttpConnKey conn_key(*req);
+
+    // The pool is keyed by the logical transport identity (host/port/proxy/TLS),
+    // not the resolved sockaddr. Reuse an idle connection before DNS so a pool
+    // hit never waits for or starts an unnecessary resolver query.
+    int connfd = -1;
+    auto iter = conn_pools.find(conn_key);
+    if (iter != conn_pools.end()) {
+        iter->second.get(connfd);
+    }
+    if (connfd >= 0) {
+        const SocketChannelPtr& channel = getChannel(connfd);
+        if (channel) {
+            int err = startTask(task, channel);
+            if (err != 0) {
+                return err;
+            }
+            return sendRequest(channel);
+        }
+    }
+
     // Where to open the TCP connection: normally the origin, but for an HTTP
     // CONNECT tunnel (https over proxy) it is the proxy. The origin is then
-    // reached via the proxy's CONNECT (see doTaskWithAddr / hio_set_proxy).
+    // reached via the proxy's CONNECT (see startConnect / hio_set_proxy).
     const char* host = req->host.c_str();
     int port = req->port;
     if (req->IsTunnelProxy()) {
@@ -56,7 +84,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             hloge("unknown host %s", host);
             return -20;
         }
-        return doTaskWithAddr(task, &peeraddr);
+        return startConnect(task, &peeraddr);
     }
 
     hdns_setting_t opt;
@@ -70,7 +98,7 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
             }
             sockaddr_u peeraddr = addrs[0];
             sockaddr_set_port(&peeraddr, port);
-            int err = doTaskWithAddr(task, &peeraddr);
+            int err = startConnect(task, &peeraddr);
             if (err != 0 && task->cb) {
                 task->cb(NULL);
             }
@@ -82,69 +110,49 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     return 0;
 }
 
-// Continue the request once the peer address is known.
-int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockaddr_u* paddr) {
+// socket -> addChannel -> configure callbacks -> startTask -> startConnect
+int AsyncHttpClient::startConnect(const HttpClientTaskPtr& task, const sockaddr_u* paddr) {
+    int elapsed_ms = checkTaskCancelOrTimeout(task);
+    if (elapsed_ms < 0) {
+        return elapsed_ms;
+    }
+
     const HttpRequestPtr& req = task->req;
-    if (req->cancel) {
-        return -1;
-    }
-
-    uint64_t now_hrtime = hloop_now_hrtime(EventLoopThread::hloop());
-    int elapsed_ms = (now_hrtime - task->start_time) / 1000;
-    int timeout_ms = req->timeout * 1000;
-    if (timeout_ms > 0 && elapsed_ms >= timeout_ms) {
-        hlogw("%s queueInLoop timeout!", req->url.c_str());
-        return -10;
-    }
-
     sockaddr_u peeraddr = *paddr;
     HttpConnKey conn_key(*req);
 
-    int connfd = -1;
-    auto iter = conn_pools.find(conn_key);
-    if (iter != conn_pools.end()) {
-        // hlogd("get from conn_pools");
-        iter->second.get(connfd);
-    }
-
+    // create socket
+    int connfd = socket(peeraddr.sa.sa_family, SOCK_STREAM, 0);
     if (connfd < 0) {
-        // create socket
-        connfd = socket(peeraddr.sa.sa_family, SOCK_STREAM, 0);
-        if (connfd < 0) {
-            perror("socket");
-            return -30;
+        perror("socket");
+        return -30;
+    }
+    hio_t* connio = hio_get(EventLoopThread::hloop(), connfd);
+    assert(connio != NULL);
+    hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
+    const SocketChannelPtr& channel = addChannel(connio);
+    channel->getContext<HttpClientContext>()->conn_key = conn_key;
+    // https over proxy: HTTP CONNECT tunnel to the origin, then TLS with it.
+    if (req->IsTunnelProxy()) {
+        proxy_setting_t proxy;
+        proxy.protocol = PROXY_PROTOCOL_HTTP_CONNECT;
+        hv_strncpy(proxy.target_host, req->host.c_str(), sizeof(proxy.target_host));
+        proxy.target_port = req->port;
+        if (!req->tunnel_proxy_username.empty()) {
+            hv_strncpy(proxy.username, req->tunnel_proxy_username.c_str(), sizeof(proxy.username));
+            hv_strncpy(proxy.password, req->tunnel_proxy_password.c_str(), sizeof(proxy.password));
         }
-        hio_t* connio = hio_get(EventLoopThread::hloop(), connfd);
-        assert(connio != NULL);
-        hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
-        addChannel(connio);
-        // https over proxy: HTTP CONNECT tunnel to the origin, then TLS with it.
-        if (req->IsTunnelProxy()) {
-            proxy_setting_t proxy;
-            proxy.protocol = PROXY_PROTOCOL_HTTP_CONNECT;
-            hv_strncpy(proxy.target_host, req->host.c_str(), sizeof(proxy.target_host));
-            proxy.target_port = req->port;
-            if (!req->tunnel_proxy_username.empty()) {
-                hv_strncpy(proxy.username, req->tunnel_proxy_username.c_str(), sizeof(proxy.username));
-                hv_strncpy(proxy.password, req->tunnel_proxy_password.c_str(), sizeof(proxy.password));
-            }
-            hio_set_proxy(connio, &proxy);
-        }
-        // https: enable TLS against the origin (also for the tunnel case, run
-        // after the CONNECT handshake completes, with SNI = origin host).
-        if (req->IsHttps()) {
-            hio_enable_ssl(connio);
-            if (!is_ipaddr(req->host.c_str())) {
-                hio_set_hostname(connio, req->host.c_str());
-            }
+        hio_set_proxy(connio, &proxy);
+    }
+    // https: enable TLS against the origin (also for the tunnel case, run
+    // after the CONNECT handshake completes, with SNI = origin host).
+    if (req->IsHttps()) {
+        hio_enable_ssl(connio);
+        if (!is_ipaddr(req->host.c_str())) {
+            hio_set_hostname(connio, req->host.c_str());
         }
     }
 
-    const SocketChannelPtr& channel = getChannel(connfd);
-    assert(channel != NULL);
-    HttpClientContext* ctx = channel->getContext<HttpClientContext>();
-    ctx->conn_key = conn_key;
-    ctx->task = task;
     channel->onconnect = [&channel]() {
         sendRequest(channel);
     };
@@ -240,6 +248,31 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
         removeChannel(channel);
     };
 
+    int err = startTask(task, channel);
+    if (err != 0) {
+        return err;
+    }
+
+    if (req->connect_timeout > 0) {
+        channel->setConnectTimeout(req->connect_timeout * 1000);
+    }
+    return channel->startConnect();
+}
+
+int AsyncHttpClient::startTask(const HttpClientTaskPtr& task,
+                               const SocketChannelPtr& channel) {
+    int elapsed_ms = checkTaskCancelOrTimeout(task);
+    if (elapsed_ms < 0) {
+        return elapsed_ms;
+    }
+
+    const HttpRequestPtr& req = task->req;
+    int timeout_ms = req->timeout * 1000;
+
+    assert(channel != NULL);
+    HttpClientContext* ctx = channel->getContext<HttpClientContext>();
+    ctx->task = task;
+
     // timer
     if (timeout_ms > 0) {
         ctx->timerID = setTimeout(timeout_ms - elapsed_ms, [&channel](TimerID timerID){
@@ -251,17 +284,6 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
                 channel->close();
             }
         });
-    }
-
-    if (channel->isConnected()) {
-        // sendRequest
-        sendRequest(channel);
-    } else {
-        // startConnect
-        if (req->connect_timeout > 0) {
-            channel->setConnectTimeout(req->connect_timeout * 1000);
-        }
-        channel->startConnect();
     }
 
     return 0;

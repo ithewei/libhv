@@ -203,8 +203,15 @@ protected:
     }
     int doTask(const HttpClientTaskPtr& task);
 
-    // @internal: continue doTask after the peer address is known.
-    int doTaskWithAddr(const HttpClientTaskPtr& task, const sockaddr_u* peeraddr);
+    // Create/configure a new channel, bind its first task and start connecting.
+    int startConnect(const HttpClientTaskPtr& task, const sockaddr_u* peeraddr);
+
+    // Bind the current task and arm its remaining end-to-end timeout.
+    int startTask(const HttpClientTaskPtr& task, const SocketChannelPtr& channel);
+
+    // Return elapsed milliseconds when task is still runnable, -1 when
+    // cancelled and -10 when its end-to-end timeout has expired.
+    int checkTaskCancelOrTimeout(const HttpClientTaskPtr& task);
 
     static int sendRequest(const SocketChannelPtr& channel);
 
