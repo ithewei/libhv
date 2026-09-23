@@ -35,10 +35,17 @@ class HttpClient {
     // 异步发送
     int sendAsync(HttpRequestPtr req, HttpResponseCallback resp_cb = NULL);
 
+    // 按请求中的目标及代理配置建立连接；成功返回时CONNECT隧道和TLS握手均已完成
+    int connect(HttpRequest& req);
+    // 直接连接指定主机
+    int connect(const char* host, int port = DEFAULT_HTTP_PORT, int https = 0, int timeout = DEFAULT_HTTP_CONNECT_TIMEOUT);
+
     // 关闭连接 (HttpClient对象析构时会自动调用)
     int close();
 
 };
+
+当 `HttpRequest` 已通过 `SetProxy` 或 `SetTunnelProxy` 配置代理时，以请求级配置为准；否则使用 `HttpClient` 的全局代理配置。重定向后的连接目标未变化时复用当前连接，目标或代理变化时使用独立连接完成重定向，不会关闭调用方原有的 keep-alive 连接。
 
 namespace requests {
 

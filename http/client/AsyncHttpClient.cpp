@@ -98,21 +98,13 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
     }
 
     sockaddr_u peeraddr = *paddr;
+    HttpConnKey conn_key(*req);
 
     int connfd = -1;
-    // Reuse a pooled keep-alive connection when possible. NOT for tunnels: the
-    // pool is keyed by peeraddr (the proxy), and a pooled plain HTTP-forward (or
-    // different-origin tunnel) connection to the same proxy would bypass the
-    // per-connection hio_set_proxy/SSL setup below and send over the wrong
-    // transport. Tunnels always open a fresh connection.
-    char strAddr[SOCKADDR_STRLEN] = {0};
-    SOCKADDR_STR(&peeraddr, strAddr);
-    if (!req->IsTunnelProxy()) {
-        auto iter = conn_pools.find(strAddr);
-        if (iter != conn_pools.end()) {
-            // hlogd("get from conn_pools");
-            iter->second.get(connfd);
-        }
+    auto iter = conn_pools.find(conn_key);
+    if (iter != conn_pools.end()) {
+        // hlogd("get from conn_pools");
+        iter->second.get(connfd);
     }
 
     if (connfd < 0) {
@@ -151,6 +143,7 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
     const SocketChannelPtr& channel = getChannel(connfd);
     assert(channel != NULL);
     HttpClientContext* ctx = channel->getContext<HttpClientContext>();
+    ctx->conn_key = conn_key;
     ctx->task = task;
     channel->onconnect = [&channel]() {
         sendRequest(channel);
@@ -184,9 +177,6 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
             auto& req = ctx->task->req;
             auto& resp = ctx->resp;
             bool keepalive = req->IsKeepAlive() && resp->IsKeepAlive();
-            // Snapshot before any callback: successCallback() clears ctx->task,
-            // which frees the request `req` references (dangling afterwards).
-            bool is_tunnel = req->IsTunnelProxy();
             if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
                 std::string location = resp->headers["Location"];
                 if (!location.empty()) {
@@ -202,14 +192,11 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
             } else {
                 ctx->successCallback();
             }
-            if (keepalive && !is_tunnel) {
+            if (keepalive) {
                 // NOTE: add into conn_pools to reuse
                 // hlogd("add into conn_pools");
-                conn_pools[channel->peeraddr()].add(channel->fd());
+                conn_pools[ctx->conn_key].add(channel->fd());
             } else {
-                // A CONNECT tunnel is bound to one origin; the pool is keyed by
-                // peeraddr (the proxy), so reusing it for a different origin
-                // would send to the wrong target. Never pool tunnels.
                 channel->close();
             }
         }
@@ -218,9 +205,12 @@ int AsyncHttpClient::doTaskWithAddr(const HttpClientTaskPtr& task, const sockadd
         HttpClientContext* ctx = channel->getContext<HttpClientContext>();
         // NOTE: remove from conn_pools
         // hlogd("remove from conn_pools");
-        auto iter = conn_pools.find(channel->peeraddr());
+        auto iter = conn_pools.find(ctx->conn_key);
         if (iter != conn_pools.end()) {
             iter->second.remove(channel->fd());
+            if (iter->second.size() == 0) {
+                conn_pools.erase(iter);
+            }
         }
 
         const HttpClientTaskPtr& task = ctx->task;

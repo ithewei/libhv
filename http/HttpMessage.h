@@ -455,6 +455,9 @@ public:
 
     void SetProxy(const char* host, int port);
     bool IsProxy() { return proxy; }
+    // Basic authentication for an HTTP forward proxy request.
+    // Empty username removes Proxy-Authorization.
+    void SetProxyAuth(const char* username, const char* password = NULL);
 
     // CONNECT-tunnel proxy (used for https-over-proxy). Unlike SetProxy (plain
     // HTTP absolute-URI forwarding), this connects to the proxy and issues an
@@ -463,6 +466,7 @@ public:
     void SetTunnelProxy(const char* host, int port,
                         const char* username = NULL, const char* password = NULL) {
         proxy = 0;   // not an absolute-URI forward proxy
+        headers.erase("Proxy-Authorization");
         tunnel_proxy_host = host ? host : "";
         tunnel_proxy_port = port;
         tunnel_proxy_username = username ? username : "";

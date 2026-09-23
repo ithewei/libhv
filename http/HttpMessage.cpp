@@ -786,6 +786,21 @@ void HttpRequest::SetProxy(const char* host, int port) {
     tunnel_proxy_password.clear();
 }
 
+void HttpRequest::SetProxyAuth(const char* username, const char* password) {
+    if (username == NULL || *username == '\0') {
+        headers.erase("Proxy-Authorization");
+        return;
+    }
+
+    std::string credentials = username;
+    credentials += ':';
+    if (password) {
+        credentials += password;
+    }
+    headers["Proxy-Authorization"] =
+        "Basic " + hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+}
+
 void HttpRequest::SetAuth(const std::string& auth) {
     SetHeader("Authorization", auth);
 }

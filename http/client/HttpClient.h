@@ -72,6 +72,8 @@ HV_EXPORT int http_client_send_async(HttpRequestPtr req, HttpResponseCallback re
 
 // low-level api
 // @retval >=0 connfd, <0 error
+// Connect according to req route: direct or HTTP CONNECT tunnel.
+HV_EXPORT int http_client_connect(http_client_t* cli, HttpRequest* req);
 HV_EXPORT int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout);
 HV_EXPORT int http_client_send_header(http_client_t* cli, HttpRequest* req);
 HV_EXPORT int http_client_send_data(http_client_t* cli, const char* data, int size);
@@ -142,6 +144,9 @@ public:
     }
 
     // low-level api
+    int connect(HttpRequest& req) {
+        return http_client_connect(client_.get(), &req);
+    }
     int connect(const char* host, int port = DEFAULT_HTTP_PORT, int https = 0, int timeout = DEFAULT_HTTP_CONNECT_TIMEOUT) {
         return http_client_connect(client_.get(), host, port, https, timeout);
     }
