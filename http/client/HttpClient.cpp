@@ -184,9 +184,7 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
         req->host = cli->host;
         req->port = cli->port;
     }
-    if (!req->url.empty()) {
-        req->ParseUrl();
-    }
+    req->ParseUrl();
 
     if (!req->IsTunnelProxy() && !req->IsProxy()) {
         bool https = req->IsHttps();

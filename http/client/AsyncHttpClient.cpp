@@ -31,8 +31,8 @@ int AsyncHttpClient::checkTaskCancelOrTimeout(const HttpClientTaskPtr& task) {
     return elapsed;
 }
 
-// ParseUrl -> if conn_key in conn_pools: startTask -> sendRequest
-//          -> else: resolveDns -> startConnect
+// ParseUrl -> if conn_key in conn_pools: getChannel -> startTask -> sendRequest
+//          -> else: resolveDns -> addChannel -> startTask -> startConnect -> onconnect -> sendRequest
 int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
     int elapsed_ms = checkTaskCancelOrTimeout(task);
     if (elapsed_ms < 0) {
@@ -41,13 +41,12 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
 
     const HttpRequestPtr& req = task->req;
     req->ParseUrl();
-    HttpConnKey conn_key(*req);
 
     // The pool is keyed by the logical transport identity (host/port/proxy/TLS),
     // not the resolved sockaddr. Reuse an idle connection before DNS so a pool
     // hit never waits for or starts an unnecessary resolver query.
     int connfd = -1;
-    auto iter = conn_pools.find(conn_key);
+    auto iter = conn_pools.find(HttpConnKey(*req));
     if (iter != conn_pools.end()) {
         iter->second.get(connfd);
     }
@@ -119,7 +118,6 @@ int AsyncHttpClient::startConnect(const HttpClientTaskPtr& task, const sockaddr_
 
     const HttpRequestPtr& req = task->req;
     sockaddr_u peeraddr = *paddr;
-    HttpConnKey conn_key(*req);
 
     // create socket
     int connfd = socket(peeraddr.sa.sa_family, SOCK_STREAM, 0);
@@ -131,7 +129,7 @@ int AsyncHttpClient::startConnect(const HttpClientTaskPtr& task, const sockaddr_
     assert(connio != NULL);
     hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
     const SocketChannelPtr& channel = addChannel(connio);
-    channel->getContext<HttpClientContext>()->conn_key = conn_key;
+    channel->getContext<HttpClientContext>()->conn_key = HttpConnKey(*req);
     // https over proxy: HTTP CONNECT tunnel to the origin, then TLS with it.
     if (req->IsTunnelProxy()) {
         proxy_setting_t proxy;
