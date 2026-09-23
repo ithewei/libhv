@@ -53,6 +53,8 @@ HV_EXPORT int http_client_set_http_proxy(http_client_t* cli, const char* host, i
 HV_EXPORT int http_client_set_https_proxy(http_client_t* cli, const char* host, int port);
 // no_proxy
 HV_EXPORT int http_client_add_no_proxy(http_client_t* cli, const char* host);
+// proxy auth (Basic for http forward proxy / HTTP CONNECT tunnel)
+HV_EXPORT int http_client_set_proxy_auth(http_client_t* cli, const char* username, const char* password);
 
 // sync
 HV_EXPORT int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp);
@@ -70,6 +72,8 @@ HV_EXPORT int http_client_send_async(HttpRequestPtr req, HttpResponseCallback re
 
 // low-level api
 // @retval >=0 connfd, <0 error
+// Connect according to req route: direct or HTTP CONNECT tunnel.
+HV_EXPORT int http_client_connect(http_client_t* cli, HttpRequest* req);
 HV_EXPORT int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout);
 HV_EXPORT int http_client_send_header(http_client_t* cli, HttpRequest* req);
 HV_EXPORT int http_client_send_data(http_client_t* cli, const char* data, int size);
@@ -124,6 +128,10 @@ public:
     int addNoProxy(const char* host) {
         return http_client_add_no_proxy(client_.get(), host);
     }
+    // proxy auth (Basic for http forward proxy / HTTP CONNECT tunnel)
+    int setProxyAuth(const char* username, const char* password) {
+        return http_client_set_proxy_auth(client_.get(), username, password);
+    }
 
     // sync
     int send(HttpRequest* req, HttpResponse* resp) {
@@ -136,6 +144,9 @@ public:
     }
 
     // low-level api
+    int connect(HttpRequest& req) {
+        return http_client_connect(client_.get(), &req);
+    }
     int connect(const char* host, int port = DEFAULT_HTTP_PORT, int https = 0, int timeout = DEFAULT_HTTP_CONNECT_TIMEOUT) {
         return http_client_connect(client_.get(), host, port, https, timeout);
     }

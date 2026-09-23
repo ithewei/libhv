@@ -660,6 +660,10 @@ void HttpRequest::Init() {
     redirect = 1;
     proxy = 0;
     cancel = 0;
+    tunnel_proxy_host.clear();
+    tunnel_proxy_port = 0;
+    tunnel_proxy_username.clear();
+    tunnel_proxy_password.clear();
 }
 
 void HttpRequest::Reset() {
@@ -775,6 +779,26 @@ void HttpRequest::SetProxy(const char* host, int port) {
     this->host = host;
     this->port = port;
     proxy = 1;
+    // mutually exclusive with the CONNECT-tunnel mode
+    tunnel_proxy_host.clear();
+    tunnel_proxy_port = 0;
+    tunnel_proxy_username.clear();
+    tunnel_proxy_password.clear();
+}
+
+void HttpRequest::SetProxyAuth(const char* username, const char* password) {
+    if (username == NULL || *username == '\0') {
+        headers.erase("Proxy-Authorization");
+        return;
+    }
+
+    std::string credentials = username;
+    credentials += ':';
+    if (password) {
+        credentials += password;
+    }
+    headers["Proxy-Authorization"] =
+        "Basic " + hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
 }
 
 void HttpRequest::SetAuth(const std::string& auth) {

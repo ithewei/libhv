@@ -80,6 +80,10 @@ class HttpRequest : public HttpMessage {
 
     // 设置代理
     void SetProxy(const char* host, int port);
+    // 设置HTTP正向代理Basic认证，username为空时删除Proxy-Authorization
+    void SetProxyAuth(const char* username, const char* password = NULL);
+    // 设置HTTP CONNECT隧道代理及握手认证
+    void SetTunnelProxy(const char* host, int port, const char* username = NULL, const char* password = NULL);
 
     // 设置认证
     void SetAuth(const std::string& auth);

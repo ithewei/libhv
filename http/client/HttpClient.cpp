@@ -10,8 +10,10 @@
 #include "hlog.h"
 #include "htime.h"
 #include "hstring.h"
+#include "hurl.h"
 #include "hsocket.h"
 #include "hssl.h"
+#include "base64.h"
 #include "HttpParser.h"
 
 // for async
@@ -32,6 +34,9 @@ struct http_client_s {
     // https_proxy
     std::string  https_proxy_host;
     int          https_proxy_port;
+    // proxy auth (Basic for http, SOCKS5/CONNECT tunnel auth)
+    std::string  proxy_username;
+    std::string  proxy_password;
     // no_proxy
     StringList   no_proxy_hosts;
 //private:
@@ -45,6 +50,7 @@ struct http_client_s {
     hssl_ctx_t      ssl_ctx;
     bool            alloced_ssl_ctx;
     HttpParserPtr   parser;
+    HttpConnKey     conn_key;
     // for async
     std::mutex                              mutex_;
     std::shared_ptr<hv::AsyncHttpClient>    async_client_;
@@ -166,6 +172,12 @@ int http_client_add_no_proxy(http_client_t* cli, const char* host) {
     return 0;
 }
 
+int http_client_set_proxy_auth(http_client_t* cli, const char* username, const char* password) {
+    cli->proxy_username = username ? username : "";
+    cli->proxy_password = password ? password : "";
+    return 0;
+}
+
 static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
     if (req->url.empty() || *req->url.c_str() == '/') {
         req->scheme = cli->https ? "https" : "http";
@@ -174,24 +186,37 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
     }
     req->ParseUrl();
 
-    bool https = req->IsHttps();
-    bool use_proxy = https ? (!cli->https_proxy_host.empty()) : (!cli->http_proxy_host.empty());
-    if (use_proxy) {
-        if (req->host == "127.0.0.1" || req->host == "localhost") {
-            use_proxy = false;
-        }
-    }
-    if (use_proxy) {
-        for (const auto& host : cli->no_proxy_hosts) {
-            if (req->host == host) {
+    if (!req->IsTunnelProxy() && !req->IsProxy()) {
+        bool https = req->IsHttps();
+        bool use_proxy = https ? (!cli->https_proxy_host.empty()) : (!cli->http_proxy_host.empty());
+        if (use_proxy) {
+            if (req->host == "127.0.0.1" || req->host == "localhost") {
                 use_proxy = false;
-                break;
+            }
+        }
+        if (use_proxy) {
+            for (const auto& host : cli->no_proxy_hosts) {
+                if (req->host == host) {
+                    use_proxy = false;
+                    break;
+                }
+            }
+        }
+
+        if (use_proxy) {
+            if (https) {
+                req->SetTunnelProxy(cli->https_proxy_host.c_str(), cli->https_proxy_port,
+                                    cli->proxy_username.empty() ? NULL : cli->proxy_username.c_str(),
+                                    cli->proxy_password.empty() ? NULL : cli->proxy_password.c_str());
+            } else {
+                req->SetProxy(cli->http_proxy_host.c_str(), cli->http_proxy_port);
+                req->SetProxyAuth(cli->proxy_username.c_str(), cli->proxy_password.c_str());
             }
         }
     }
-    if (use_proxy) {
-        req->SetProxy(https ? cli->https_proxy_host.c_str() : cli->http_proxy_host.c_str(),
-                      https ? cli->https_proxy_port         : cli->http_proxy_port);
+
+    if (!req->IsProxy()) {
+        req->SetProxyAuth(NULL);
     }
 
     if (req->timeout == 0) {
@@ -207,77 +232,206 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
     return 0;
 }
 
-int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout) {
+static void http_client_copy_settings(http_client_t* dst, const http_client_t* src) {
+    dst->host = src->host;
+    dst->port = src->port;
+    dst->https = src->https;
+    dst->timeout = src->timeout;
+    dst->headers = src->headers;
+    dst->http_proxy_host = src->http_proxy_host;
+    dst->http_proxy_port = src->http_proxy_port;
+    dst->https_proxy_host = src->https_proxy_host;
+    dst->https_proxy_port = src->https_proxy_port;
+    dst->proxy_username = src->proxy_username;
+    dst->proxy_password = src->proxy_password;
+    dst->no_proxy_hosts = src->no_proxy_hosts;
+    dst->ssl_ctx = src->ssl_ctx;
+    dst->alloced_ssl_ctx = false;
+}
+
+// Client-side TLS handshake on an already-connected fd. sni_host is the origin
+// host used for SNI. On failure frees cli->ssl and returns an error (<0); the
+// caller owns/closes connfd.
+static int http_client_ssl_handshake(http_client_t* cli, int connfd, const char* sni_host,
+                                     int blocktime, unsigned int start_time) {
+    // cli->ssl_ctx > g_ssl_ctx > hssl_ctx_new
+    hssl_ctx_t ssl_ctx = NULL;
+    if (cli->ssl_ctx) {
+        ssl_ctx = cli->ssl_ctx;
+    } else if (g_ssl_ctx) {
+        ssl_ctx = g_ssl_ctx;
+    } else {
+        cli->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
+        cli->alloced_ssl_ctx = true;
+    }
+    if (ssl_ctx == NULL) {
+        return NABS(ERR_NEW_SSL_CTX);
+    }
+    cli->ssl = hssl_new(ssl_ctx, connfd);
+    if (cli->ssl == NULL) {
+        return NABS(ERR_NEW_SSL);
+    }
+    if (sni_host && !is_ipaddr(sni_host)) {
+        hssl_set_sni_hostname(cli->ssl, sni_host);
+    }
+#ifdef WITH_OPENSSL
+    // Offer ALPN "h2" only when HTTP/2 is intended, so an h2-capable server
+    // negotiates it (real https servers require ALPN, not prior-knowledge).
+    // Set it per-connection on the SSL object (not the shared ctx), so it
+    // works with any ctx source (user/global/allocated) and never leaks h2
+    // into other clients or http/1.1 requests.
+    if (cli->http_version == 2) {
+        static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1";
+        hssl_set_alpn_protos(cli->ssl, s_alpn_protos, sizeof(s_alpn_protos) - 1);
+    }
+#endif
+    unsigned int elapsed = gettick_ms() - start_time;
+    int ssl_timeout = blocktime - (int)elapsed;
+    if (ssl_timeout <= 0) {
+        hssl_free(cli->ssl);
+        cli->ssl = NULL;
+        return NABS(ETIMEDOUT);
+    }
+    so_rcvtimeo(connfd, ssl_timeout);
+    int ret = hssl_connect(cli->ssl);
+    if (ret != 0) {
+        fprintf(stderr, "* ssl handshake failed: %d\n", ret);
+        hloge("ssl handshake failed: %d", ret);
+        hssl_free(cli->ssl);
+        cli->ssl = NULL;
+        return NABS(ret);
+    }
+    return 0;
+}
+
+// Blocking HTTP CONNECT handshake to a proxy on connfd: sends
+//   CONNECT origin_host:origin_port HTTP/1.1 ... [Proxy-Authorization] \r\n\r\n
+// then reads the response headers and requires a 2xx status. Returns 0 on
+// success; the caller owns/closes connfd.
+static int http_client_http_connect(int connfd, const char* origin_host, int origin_port,
+                                     const std::string& user, const std::string& pass,
+                                     int blocktime) {
+    // authority form; bracket IPv6 literals per RFC 3986
+    std::string authority = is_ipv6(origin_host)
+        ? hv::asprintf("[%s]:%d", origin_host, origin_port)
+        : hv::asprintf("%s:%d", origin_host, origin_port);
+    std::string reqstr = hv::asprintf("CONNECT %s HTTP/1.1\r\nHost: %s\r\n",
+                                      authority.c_str(), authority.c_str());
+    if (!user.empty()) {
+        std::string cred = user + ":" + pass;
+        reqstr += "Proxy-Authorization: Basic " +
+                  hv::Base64Encode((const unsigned char*)cred.data(), cred.size()) + "\r\n";
+    }
+    reqstr += "\r\n";
+
+    unsigned int start = gettick_ms();
+    size_t total = 0;
+    while (total < reqstr.size()) {
+        int left = blocktime - (int)(gettick_ms() - start);
+        if (left <= 0) return NABS(ETIMEDOUT);
+        so_sndtimeo(connfd, left);
+        int nsend = send(connfd, reqstr.data() + total, reqstr.size() - total, 0);
+        if (nsend <= 0) {
+            if (socket_errno() == EINTR) continue;
+            return NABS(socket_errno());
+        }
+        total += nsend;
+    }
+
+    // read response headers until CRLFCRLF
+    char buf[1024];
+    int rlen = 0;
+    while (rlen < (int)sizeof(buf)) {
+        int left = blocktime - (int)(gettick_ms() - start);
+        if (left <= 0) return NABS(ETIMEDOUT);
+        so_rcvtimeo(connfd, left);
+        int nrecv = recv(connfd, buf + rlen, sizeof(buf) - rlen, 0);
+        if (nrecv == 0) return NABS(ERR_CONNECT);   // peer closed
+        if (nrecv < 0) {
+            if (socket_errno() == EINTR) continue;
+            return NABS(socket_errno());
+        }
+        rlen += nrecv;
+        for (int i = 3; i < rlen; ++i) {
+            if (buf[i-3]=='\r' && buf[i-2]=='\n' && buf[i-1]=='\r' && buf[i]=='\n') {
+                int code = 0;
+                const char* sp = (const char*)memchr(buf, ' ', rlen);
+                if (sp) code = atoi(sp + 1);
+                if (code >= 200 && code < 300) return 0;
+                hloge("http proxy CONNECT failed: %d", code);
+                return NABS(ERR_CONNECT);
+            }
+        }
+    }
+    return NABS(ERR_CONNECT);   // headers too large, no blank line
+}
+
+int http_client_connect(http_client_t* cli, HttpRequest* req) {
+    if (cli == NULL || req == NULL) return ERR_NULL_POINTER;
+
+    if (!req->url.empty()) {
+        req->ParseUrl();
+    }
     cli->Close();
     int blocktime = DEFAULT_CONNECT_TIMEOUT;
+    int timeout = MIN(req->connect_timeout, req->timeout);
     if (timeout > 0) {
         blocktime = MIN(timeout*1000, blocktime);
     }
+
+    bool tunnel = req->IsTunnelProxy();
+    bool https = req->IsHttps() && !req->IsProxy();
+    const char* connect_host = tunnel ? req->tunnel_proxy_host.c_str() : req->host.c_str();
+    int connect_port = tunnel ? req->tunnel_proxy_port : req->port;
+
     unsigned int start_time = gettick_ms();
-    int connfd = ConnectTimeout(host, port, blocktime);
+    int connfd = ConnectTimeout(connect_host, connect_port, blocktime);
     if (connfd < 0) {
-        hloge("connect %s:%d failed!", host, port);
+        hloge("connect %s:%d failed!", connect_host, connect_port);
         return connfd;
     }
     tcp_nodelay(connfd, 1);
 
-    if (https && cli->ssl == NULL) {
-        // cli->ssl_ctx > g_ssl_ctx > hssl_ctx_new
-        hssl_ctx_t ssl_ctx = NULL;
-        if (cli->ssl_ctx) {
-            ssl_ctx = cli->ssl_ctx;
-        } else if (g_ssl_ctx) {
-            ssl_ctx = g_ssl_ctx;
-        } else {
-            cli->ssl_ctx = ssl_ctx = hssl_ctx_new(NULL);
-            cli->alloced_ssl_ctx = true;
-        }
-        if (ssl_ctx == NULL) {
-            closesocket(connfd);
-            return NABS(ERR_NEW_SSL_CTX);
-        }
-        cli->ssl = hssl_new(ssl_ctx, connfd);
-        if (cli->ssl == NULL) {
-            closesocket(connfd);
-            return NABS(ERR_NEW_SSL);
-        }
-        if (!is_ipaddr(host)) {
-            hssl_set_sni_hostname(cli->ssl, host);
-        }
-#ifdef WITH_OPENSSL
-        // Offer ALPN "h2" only when HTTP/2 is intended, so an h2-capable server
-        // negotiates it (real https servers require ALPN, not prior-knowledge).
-        // Set it per-connection on the SSL object (not the shared ctx), so it
-        // works with any ctx source (user/global/allocated) and never leaks h2
-        // into other clients or http/1.1 requests.
-        if (cli->http_version == 2) {
-            static unsigned char s_alpn_protos[] = "\x02h2\x08http/1.1";
-            hssl_set_alpn_protos(cli->ssl, s_alpn_protos, sizeof(s_alpn_protos) - 1);
-        }
-#endif
-        unsigned int elapsed = gettick_ms() - start_time;
-        int ssl_timeout = blocktime - (int)elapsed;
-        if (ssl_timeout <= 0) {
-            hssl_free(cli->ssl);
-            cli->ssl = NULL;
+    if (tunnel) {
+        int left = blocktime - (int)(gettick_ms() - start_time);
+        if (left <= 0) {
             closesocket(connfd);
             return NABS(ETIMEDOUT);
         }
-        so_rcvtimeo(connfd, ssl_timeout);
-        int ret = hssl_connect(cli->ssl);
+        int ret = http_client_http_connect(connfd, req->host.c_str(), req->port,
+                                           req->tunnel_proxy_username, req->tunnel_proxy_password, left);
         if (ret != 0) {
-            fprintf(stderr, "* ssl handshake failed: %d\n", ret);
-            hloge("ssl handshake failed: %d", ret);
-            hssl_free(cli->ssl);
-            cli->ssl = NULL;
             closesocket(connfd);
-            return NABS(ret);
+            return ret;
+        }
+    }
+
+    cli->http_version = req->http_major;
+    if (https && cli->ssl == NULL) {
+        int ret = http_client_ssl_handshake(cli, connfd, req->host.c_str(), blocktime, start_time);
+        if (ret != 0) {
+            closesocket(connfd);
+            return ret;
         }
     }
 
     cli->fd = connfd;
     cli->keepalive_requests = 0;
+    cli->conn_key = HttpConnKey(*req);
     return connfd;
+}
+
+int http_client_connect(http_client_t* cli, const char* host, int port, int https, int timeout) {
+    if (cli == NULL || host == NULL) return ERR_NULL_POINTER;
+
+    HttpRequest req;
+    req.scheme = https ? "https" : "http";
+    req.host = host;
+    req.port = port;
+    if (timeout > 0) {
+        req.connect_timeout = timeout;
+    }
+    return http_client_connect(cli, &req);
 }
 
 int http_client_close(http_client_t* cli) {
@@ -335,26 +489,20 @@ static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* 
         retry_count = 1;
     }
 
-    if (cli->parser == NULL) {
-        cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT, (http_version)req->http_major));
-        if (cli->parser == NULL) {
-            hloge("New HttpParser failed!");
-            return ERR_NULL_POINTER;
-        }
-    }
-
     char recvbuf[1024] = {0};
     char* data = NULL;
     size_t len  = 0;
     int total_nsend, nsend, nrecv;
     total_nsend = nsend = nrecv = 0;
 
-    if (connfd <= 0 || cli->host != req->host || cli->port != req->port) {
+    HttpConnKey conn_key(*req);
+    int want_major = req->http_major;
+    if (connfd <= 0 || cli->conn_key != conn_key) {
         cli->host = req->host;
         cli->port = req->port;
         cli->http_version = req->http_major;  // gates the ALPN "h2" offer in connect
 connect:
-        connfd = http_client_connect(cli, req->host.c_str(), req->port, https, connect_timeout);
+        connfd = http_client_connect(cli, req);
         if (connfd < 0) {
             return connfd;
         }
@@ -370,20 +518,25 @@ connect:
             unsigned int alpn_len = 0;
             const char* alpn = hssl_get_alpn_proto(cli->ssl, &alpn_len);
             bool is_h2 = (alpn && alpn_len == 2 && memcmp(alpn, "h2", 2) == 0);
-            int want_major = is_h2 ? 2 : 1;
+            want_major = is_h2 ? 2 : 1;
             if (want_major == 1) {
                 // fall back to HTTP/1.1 (not 1.0: keep-alive semantics)
                 req->http_major = 1;
                 req->http_minor = 1;
             }
-            // rebuild the parser if it doesn't match the negotiated version
-            if (cli->parser == NULL || cli->http_version != want_major) {
-                cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT,
-                    (http_version)(want_major == 2 ? HTTP_V2 : HTTP_V1)));
-                cli->http_version = want_major;
-            }
         }
 #endif
+    }
+
+    if (cli->parser == NULL || cli->http_version != want_major) {
+        cli->parser = HttpParserPtr(HttpParser::New(HTTP_CLIENT,
+            (http_version)(want_major == 2 ? HTTP_V2 : HTTP_V1)));
+        if (cli->parser == NULL) {
+            hloge("New HttpParser failed!");
+            cli->Close();
+            return ERR_NULL_POINTER;
+        }
+        cli->http_version = want_major;
     }
 
     cli->parser->SubmitRequest(req);
@@ -574,10 +727,23 @@ static int http_client_exec_curl(http_client_t* cli, HttpRequest* req, HttpRespo
     }
     CURL* curl = cli->curl;
 
-    // proxy
+    // proxy: plain-http forward proxy (req->host is the proxy) or CONNECT
+    // tunnel (tunnel_proxy_* for https). libcurl handles both, incl. CONNECT.
+    // cli->curl is reused across requests, so always reset proxy options first
+    // (a stale PROXY / PROXYUSERPWD would otherwise leak into a later request
+    // that uses a different or no proxy).
+    curl_easy_setopt(curl, CURLOPT_PROXY, "");
+    curl_easy_setopt(curl, CURLOPT_PROXYUSERPWD, "");
     if (req->IsProxy()) {
         curl_easy_setopt(curl, CURLOPT_PROXY, req->host.c_str());
         curl_easy_setopt(curl, CURLOPT_PROXYPORT, req->port);
+    } else if (req->IsTunnelProxy()) {
+        curl_easy_setopt(curl, CURLOPT_PROXY, req->tunnel_proxy_host.c_str());
+        curl_easy_setopt(curl, CURLOPT_PROXYPORT, req->tunnel_proxy_port);
+        if (!req->tunnel_proxy_username.empty()) {
+            std::string userpwd = req->tunnel_proxy_username + ":" + req->tunnel_proxy_password;
+            curl_easy_setopt(curl, CURLOPT_PROXYUSERPWD, userpwd.c_str());
+        }
     }
 
     // SSL
@@ -709,24 +875,64 @@ const char* http_client_strerror(int errcode) {
 
 #endif
 
-static int http_client_redirect(HttpRequest* req, HttpResponse* resp) {
+static std::string http_client_redirect_url(const HttpRequest* req, const std::string& location) {
+    if (location.empty() || strstr(location.c_str(), "://") != NULL) {
+        return location;
+    }
+    if (location[0] != '/') {
+        return location;
+    }
+
+    HUrl base;
+    if (!base.parse(req->url) || base.scheme.empty() || base.host.empty()) {
+        return location;
+    }
+    return base.scheme + "://" + hv::NetAddr::to_string(base.host.c_str(), base.port) + location;
+}
+
+static void http_client_prepare_redirect(HttpRequest* req, const std::string& location) {
+    bool old_https = req->IsHttps();
+    std::string redirect_url = http_client_redirect_url(req, location);
+    bool new_https = hv::startswith(redirect_url, "https://") ? true :
+                     hv::startswith(redirect_url, "http://") ? false : old_https;
+
+    if (new_https && req->IsProxy()) {
+        req->proxy = 0;
+    } else if (!new_https && req->IsTunnelProxy()) {
+        req->tunnel_proxy_host.clear();
+        req->tunnel_proxy_port = 0;
+        req->tunnel_proxy_username.clear();
+        req->tunnel_proxy_password.clear();
+    }
+
+    req->url = redirect_url;
+    req->headers.erase("Host");
+    req->ParseUrl();
+}
+
+static int http_client_send_impl(http_client_t* cli, HttpRequest* req, HttpResponse* resp, bool preserve_connection);
+
+static int http_client_redirect(http_client_t* cli, HttpRequest* req, HttpResponse* resp, bool preserve_connection) {
     std::string location = resp->headers["Location"];
     if (!location.empty()) {
         hlogi("redirect %s => %s", req->url.c_str(), location.c_str());
-        req->url = location;
-        req->ParseUrl();
-        req->headers["Host"] = req->host;
+        http_client_prepare_redirect(req, location);
+        http_client_make_request(cli, req);
         resp->Reset();
-        return http_client_send(req, resp);
+
+        HttpConnKey redirect_key(*req);
+        if (!preserve_connection || cli->fd < 0 || cli->conn_key == redirect_key) {
+            return http_client_send_impl(cli, req, resp, preserve_connection);
+        }
+
+        http_client_t redirect_cli;
+        http_client_copy_settings(&redirect_cli, cli);
+        return http_client_send_impl(&redirect_cli, req, resp, false);
     }
     return 0;
 }
 
-int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
-    if (!cli || !req || !resp) return ERR_NULL_POINTER;
-
-    http_client_make_request(cli, req);
-
+static int http_client_send_impl(http_client_t* cli, HttpRequest* req, HttpResponse* resp, bool preserve_connection) {
     if (req->http_cb) resp->http_cb = std::move(req->http_cb);
 
 #if WITH_CURL
@@ -738,9 +944,16 @@ int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
 
     // redirect
     if (req->redirect && HTTP_STATUS_IS_REDIRECT(resp->status_code)) {
-        return http_client_redirect(req, resp);
+        return http_client_redirect(cli, req, resp, preserve_connection);
     }
     return 0;
+}
+
+int http_client_send(http_client_t* cli, HttpRequest* req, HttpResponse* resp) {
+    if (!cli || !req || !resp) return ERR_NULL_POINTER;
+
+    http_client_make_request(cli, req);
+    return http_client_send_impl(cli, req, resp, true);
 }
 
 int http_client_send(HttpRequest* req, HttpResponse* resp) {
