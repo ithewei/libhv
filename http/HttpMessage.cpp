@@ -797,42 +797,16 @@ void HttpRequest::SetBearerTokenAuth(const std::string& token) {
 }
 
 void HttpRequest::DumpHeaders(std::string& str) {
-    auto iter = headers.find("Proxy-Authorization");
-    if (!IsUriProxy()) {
-        // Proxy credentials are hop-by-hop. Never forward an explicitly
-        // supplied Proxy-Authorization header through a CONNECT tunnel.
-        if (iter == headers.end()) {
-            HttpMessage::DumpHeaders(str);
-            return;
-        }
-        std::pair<std::string, std::string> proxy_auth = *iter;
-        headers.erase(iter);
-        HttpMessage::DumpHeaders(str);
-        headers.insert(proxy_auth);
-        return;
-    }
-
-    // With configured credentials, serialize exactly one Basic header. If
-    // credentials are absent, preserve a caller-supplied proxy auth header.
-    if (proxy_username.empty()) {
-        HttpMessage::DumpHeaders(str);
-        return;
-    }
-
-    std::pair<std::string, std::string> proxy_auth;
-    bool has_proxy_auth = iter != headers.end();
-    if (has_proxy_auth) {
-        proxy_auth = *iter;
-        headers.erase(iter);
+    if (IsUriProxy() && !proxy_username.empty()) {
+        std::string credentials = proxy_username + ':' + proxy_password;
+        headers["Proxy-Authorization"] = "Basic " +
+            hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+    } else if (!IsUriProxy()) {
+        // Proxy credentials are hop-by-hop and must not enter an HTTPS
+        // CONNECT tunnel or a direct request to the origin.
+        headers.erase("Proxy-Authorization");
     }
     HttpMessage::DumpHeaders(str);
-    if (has_proxy_auth) {
-        headers.insert(proxy_auth);
-    }
-    std::string credentials = proxy_username + ':' + proxy_password;
-    str += "Proxy-Authorization: Basic ";
-    str += hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
-    str += "\r\n";
 }
 
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
