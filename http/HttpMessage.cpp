@@ -724,19 +724,13 @@ void HttpRequest::ParseUrl() {
     DumpUrl();
     hurl_t parser;
     hv_parse_url(&parser, url.c_str());
-    // scheme
-    std::string scheme_ = url.substr(parser.fields[HV_URL_SCHEME].off, parser.fields[HV_URL_SCHEME].len);
-    // host
-    std::string host_(host);
+    scheme = url.substr(parser.fields[HV_URL_SCHEME].off, parser.fields[HV_URL_SCHEME].len);
     if (parser.fields[HV_URL_HOST].len > 0) {
-        host_ = url.substr(parser.fields[HV_URL_HOST].off, parser.fields[HV_URL_HOST].len);
+        host = url.substr(parser.fields[HV_URL_HOST].off, parser.fields[HV_URL_HOST].len);
     }
-    // port
-    int port_ = parser.port ? parser.port : strcmp(scheme_.c_str(), "https") ? DEFAULT_HTTP_PORT : DEFAULT_HTTPS_PORT;
-    scheme = scheme_;
-    host = host_;
-    port = port_;
-    FillHost(host_.c_str(), port_);
+    port = parser.port ? parser.port :
+           (scheme == "https" ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT);
+    FillHost(host.c_str(), port);
     // path
     if (parser.fields[HV_URL_PATH].len > 0) {
         path = url.substr(parser.fields[HV_URL_PATH].off);
