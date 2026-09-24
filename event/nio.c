@@ -155,7 +155,7 @@ static void nio_accept(hio_t* io) {
         // NOTE: inherit from listenio
         connio->accept_cb = io->accept_cb;
         connio->userdata = io->userdata;
-        connio->proxy = proxy_conn_dup(io->proxy);
+        connio->proxy = proxy_ctx_dup(io->proxy);
         if (io->unpack_setting) {
             hio_set_unpack(connio, io->unpack_setting);
         }
@@ -273,7 +273,7 @@ static void proxy_fail(hio_t* io) {
 
 // advance to a new state that needs `want` more bytes, resetting the buffer.
 static void socks5_expect(hio_t* io, int state, int want) {
-    proxy_conn_t* s5 = io->proxy;
+    proxy_ctx_t* s5 = io->proxy;
     s5->state = state;
     s5->rlen = 0;
     s5->want = want;
@@ -301,7 +301,7 @@ static int proxy_send(hio_t* io, const void* buf, int len) {
 
 // send the SOCKS5 CONNECT request and wait for the 4-byte reply header.
 static void socks5_send_connect(hio_t* io) {
-    proxy_conn_t* s5 = io->proxy;
+    proxy_ctx_t* s5 = io->proxy;
     unsigned char buf[300];
     int n = socks5_build_connect_request(s5, buf);
     if (n < 0) { proxy_fail(io); return; }
@@ -319,7 +319,7 @@ static void proxy_established(hio_t* io) {
 
 // process one accumulated step; s5->rbuf holds exactly s5->want bytes.
 static void socks5_dispatch(hio_t* io) {
-    proxy_conn_t* s5 = io->proxy;
+    proxy_ctx_t* s5 = io->proxy;
     unsigned char* buf = s5->rbuf;
 
     switch (s5->state) {
@@ -388,7 +388,7 @@ static void socks5_dispatch(hio_t* io) {
 // hio_add read handler: accumulate into s5->rbuf until s5->want bytes are
 // available, then dispatch. Never touches io->read_cb.
 static void socks5_handshake(hio_t* io) {
-    proxy_conn_t* s5 = io->proxy;
+    proxy_ctx_t* s5 = io->proxy;
     while (s5->rlen < s5->want) {
         int need = s5->want - s5->rlen;
         if (s5->want > (int)sizeof(s5->rbuf)) { proxy_fail(io); return; }
@@ -408,7 +408,7 @@ static void socks5_handshake(hio_t* io) {
 
 // Kick off the SOCKS5 handshake once the TCP connection to the proxy is up.
 static void socks5_handshake_start(hio_t* io) {
-    proxy_conn_t* s5 = io->proxy;
+    proxy_ctx_t* s5 = io->proxy;
     unsigned char buf[8];
     int n = socks5_build_method_request(s5, buf);
     if (proxy_send(io, buf, n) != 0) { proxy_fail(io); return; }
@@ -428,7 +428,7 @@ static void socks5_handshake_start(hio_t* io) {
 // EXACTLY the header bytes with a real recv(); anything after "\r\n\r\n" stays
 // in the socket for the upper-layer read path.
 static void http_connect_handshake(hio_t* io) {
-    proxy_conn_t* p = io->proxy;
+    proxy_ctx_t* p = io->proxy;
     for (;;) {
         int cap = (int)sizeof(p->rbuf) - p->rlen;
         if (cap <= 0) { proxy_fail(io); return; }   // headers too large
@@ -484,7 +484,7 @@ static void http_connect_handshake(hio_t* io) {
 
 // Kick off the HTTP CONNECT handshake once the TCP connection to the proxy is up.
 static void http_connect_start(hio_t* io) {
-    proxy_conn_t* p = io->proxy;
+    proxy_ctx_t* p = io->proxy;
     // Max request: "CONNECT " + authority(<=262) + " HTTP/1.1\r\nHost: " +
     // authority + "\r\nProxy-Authorization: Basic " + base64(255:255)=~684 +
     // "\r\n\r\n" ~= 1.3KB. 2048 leaves headroom.
@@ -937,7 +937,7 @@ int hio_close (hio_t* io) {
         io->ssl_ctx = NULL;
     }
     SAFE_FREE(io->hostname);
-    proxy_conn_free(io->proxy);
+    proxy_ctx_free(io->proxy);
     io->proxy = NULL;
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);

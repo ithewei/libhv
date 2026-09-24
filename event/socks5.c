@@ -68,7 +68,7 @@ static void socks5_server_connect(hio_t* io, socks5_server_conn_t* conn) {
 }
 
 static void socks5_server_auth_finish(hio_t* io, socks5_server_conn_t* conn) {
-    proxy_conn_t* proxy = io->proxy;
+    proxy_ctx_t* proxy = io->proxy;
     bool ok = conn->username_len == (int)strlen(proxy->setting.username) &&
               conn->password_len == (int)strlen(proxy->setting.password) &&
               memcmp(conn->username, proxy->setting.username, conn->username_len) == 0 &&
@@ -97,7 +97,7 @@ static void socks5_server_dns(hdns_t* query, const hdns_result_t* result, void* 
 
 static void socks5_server_read(hio_t* io, void* buf, int len) {
     socks5_server_conn_t* conn = io->proxy ? (socks5_server_conn_t*)io->proxy->ctx : NULL;
-    proxy_conn_t* proxy = io->proxy;
+    proxy_ctx_t* proxy = io->proxy;
     unsigned char* data = (unsigned char*)buf;
     if (conn == NULL || proxy == NULL) { hio_close(io); return; }
     switch (conn->state) {
@@ -219,7 +219,7 @@ static int socks5_base64_encode(const unsigned char* in, int len, char* out) {
 //   +----+----------+----------+
 // Offers NONE, plus USERPASS when auth credentials are present.
 // Returns the number of bytes written.
-int socks5_build_method_request(const proxy_conn_t* s5, unsigned char* buf) {
+int socks5_build_method_request(const proxy_ctx_t* s5, unsigned char* buf) {
     int n = 0;
     buf[n++] = SOCKS5_VERSION;
     if (s5->setting.username[0]) {
@@ -237,7 +237,7 @@ int socks5_build_method_request(const proxy_conn_t* s5, unsigned char* buf) {
 //   +----+------+----------+------+----------+
 //   |VER | ULEN |  UNAME   | PLEN |  PASSWD  |
 //   +----+------+----------+------+----------+
-int socks5_build_auth_request(const proxy_conn_t* s5, unsigned char* buf) {
+int socks5_build_auth_request(const proxy_ctx_t* s5, unsigned char* buf) {
     int n = 0;
     int ulen = (int)strlen(s5->setting.username);
     int plen = (int)strlen(s5->setting.password);
@@ -256,7 +256,7 @@ int socks5_build_auth_request(const proxy_conn_t* s5, unsigned char* buf) {
 // An IPv4/IPv6 literal target is encoded as ATYP=1/4 (raw address bytes, per
 // RFC 1928); anything else is sent as ATYP=domain so the proxy resolves it.
 // Returns bytes written, or -1 on error (host too long).
-int socks5_build_connect_request(const proxy_conn_t* s5, unsigned char* buf) {
+int socks5_build_connect_request(const proxy_ctx_t* s5, unsigned char* buf) {
     int n = 0;
     buf[n++] = SOCKS5_VERSION;
     buf[n++] = SOCKS5_CMD_CONNECT;
@@ -288,7 +288,7 @@ int socks5_build_connect_request(const proxy_conn_t* s5, unsigned char* buf) {
 // authority form "host:port"; an IPv6 literal is bracketed ("[addr]:port") per
 // RFC 3986. A Basic Proxy-Authorization header is added when credentials are
 // present.
-int http_connect_build_request(const proxy_conn_t* p, char* buf, int bufsize) {
+int http_connect_build_request(const proxy_ctx_t* p, char* buf, int bufsize) {
     const char* host = p->setting.target_host;
     int port = p->setting.target_port;
     // bracket IPv6 literals in authority form
@@ -331,16 +331,14 @@ hio_t* hio_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* sett
         return NULL;
     }
 
-    proxy_conn_t* proxy = NULL;
-    HV_ALLOC_SIZEOF(proxy);
+    proxy_ctx_t* proxy = proxy_ctx_new(setting);
     if (proxy == NULL) return NULL;
-    proxy->setting = *setting;
     proxy->ctx_free = socks5_server_ctx_free;
 
     hio_t* listener = hloop_create_tcp_server(loop, setting->proxy_host,
                                                setting->proxy_port, socks5_server_accept);
     if (listener == NULL) {
-        proxy_conn_free(proxy);
+        proxy_ctx_free(proxy);
         return NULL;
     }
     listener->proxy = proxy;
