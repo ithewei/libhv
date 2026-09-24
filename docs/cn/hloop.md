@@ -414,6 +414,11 @@ hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, hacce
 // 创建TCP客户端，示例代码见 examples/nc.c
 hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
 
+// 创建SOCKS5客户端，示例代码见 examples/socks5_client_test.c
+// setting会被复制并自动使用SOCKS5协议。
+hio_t* hloop_create_socks5_client(hloop_t* loop, const proxy_setting_t* setting,
+                                  hconnect_cb connect_cb, hclose_cb close_cb);
+
 // @ssl_server: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // 创建SSL服务端，示例代码见 examples/tcp_echo_server.c => #define TEST_SSL 1
 hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);

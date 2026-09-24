@@ -498,6 +498,11 @@ HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int p
 // @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_setcb_close -> hio_connect
 // @see examples/nc.c
 HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
+// @socks5_client: hio_create_socket(proxy) -> hio_set_proxy -> hio_connect
+// The setting is copied; protocol is forced to PROXY_PROTOCOL_SOCKS5.
+// @see examples/socks5_client_test.c
+HV_EXPORT hio_t* hloop_create_socks5_client(hloop_t* loop, const proxy_setting_t* setting,
+                                            hconnect_cb connect_cb, hclose_cb close_cb);
 
 // @ssl_server: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // @see examples/tcp_echo_server.c => #define TEST_SSL 1

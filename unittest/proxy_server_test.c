@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "hloop.h"
+#include "hsocket.h"
 
 int main() {
     hloop_t* loop = hloop_new(0);
@@ -20,7 +21,14 @@ int main() {
     assert(hloop_create_udp_proxy_server(loop, &setting) != NULL);
     setting.target_host[0] = '\0';
     setting.target_port = 0;
-    assert(hloop_create_socks5_proxy_server(loop, &setting) != NULL);
+    hio_t* socks5_server = hloop_create_socks5_proxy_server(loop, &setting);
+    assert(socks5_server != NULL);
+
+    strcpy(setting.target_host, "127.0.0.1");
+    setting.target_port = 1234;
+    setting.proxy_port = ntohs(((sockaddr_u*)hio_localaddr(socks5_server))->sin.sin_port);
+    setting.protocol = PROXY_PROTOCOL_NONE;
+    assert(hloop_create_socks5_client(loop, &setting, NULL, NULL) != NULL);
     hloop_free(&loop);
     return 0;
 }

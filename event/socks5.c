@@ -266,3 +266,21 @@ hio_t* hloop_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* se
     }
     return listener;
 }
+
+hio_t* hloop_create_socks5_client(hloop_t* loop, const proxy_setting_t* setting,
+                                   hconnect_cb connect_cb, hclose_cb close_cb) {
+    if (loop == NULL || !proxy_setting_valid(setting, true)) return NULL;
+
+    proxy_setting_t proxy = *setting;
+    proxy.protocol = PROXY_PROTOCOL_SOCKS5;
+    hio_t* io = hio_create_socket(loop, proxy.proxy_host, proxy.proxy_port,
+                                  HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    if (io == NULL) return NULL;
+    hio_setcb_connect(io, connect_cb);
+    hio_setcb_close(io, close_cb);
+    if (hio_set_proxy(io, &proxy) != 0 || hio_connect(io) != 0) {
+        hio_close(io);
+        return NULL;
+    }
+    return io;
+}
