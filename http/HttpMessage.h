@@ -284,11 +284,6 @@ public:
 
     virtual std::string Dump(bool is_dump_headers, bool is_dump_body);
 
-protected:
-    void DumpHeaders(std::string& str, const char* excluded_header);
-
-public:
-
     void* Content() {
         if (content == NULL && body.size() != 0) {
             content = (void*)body.data();

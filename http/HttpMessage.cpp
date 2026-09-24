@@ -498,18 +498,11 @@ const std::string& HttpMessage::Body() {
 }
 
 void HttpMessage::DumpHeaders(std::string& str) {
-    DumpHeaders(str, NULL);
-}
-
-void HttpMessage::DumpHeaders(std::string& str, const char* excluded_header) {
     FillContentType();
     FillContentLength();
 
     // headers
     for (auto& header: headers) {
-        if (excluded_header && stricmp(header.first.c_str(), excluded_header) == 0) {
-            continue;
-        }
         // http2 :method :path :scheme :authority :status
         if (*str.c_str() != ':') {
             // %s: %s\r\n
@@ -780,7 +773,6 @@ void HttpRequest::SetProxy(const char* host, int port) {
 }
 
 void HttpRequest::SetProxyAuth(const char* username, const char* password) {
-    headers.erase("Proxy-Authorization");
     if (username == NULL || *username == '\0') {
         proxy_username.clear();
         proxy_password.clear();
@@ -788,9 +780,6 @@ void HttpRequest::SetProxyAuth(const char* username, const char* password) {
     }
     proxy_username = username;
     proxy_password = password ? password : "";
-    std::string credentials = proxy_username + ':' + proxy_password;
-    headers["Proxy-Authorization"] = "Basic " +
-        hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
 }
 
 void HttpRequest::SetAuth(const std::string& auth) {
@@ -808,14 +797,42 @@ void HttpRequest::SetBearerTokenAuth(const std::string& token) {
 }
 
 void HttpRequest::DumpHeaders(std::string& str) {
-    // Proxy credentials are hop-by-hop. Never forward an explicitly supplied
-    // Proxy-Authorization header through a CONNECT tunnel to the origin.
+    auto iter = headers.find("Proxy-Authorization");
     if (!IsUriProxy()) {
-        HttpMessage::DumpHeaders(str, "Proxy-Authorization");
+        // Proxy credentials are hop-by-hop. Never forward an explicitly
+        // supplied Proxy-Authorization header through a CONNECT tunnel.
+        if (iter == headers.end()) {
+            HttpMessage::DumpHeaders(str);
+            return;
+        }
+        std::pair<std::string, std::string> proxy_auth = *iter;
+        headers.erase(iter);
+        HttpMessage::DumpHeaders(str);
+        headers.insert(proxy_auth);
         return;
     }
 
+    // With configured credentials, serialize exactly one Basic header. If
+    // credentials are absent, preserve a caller-supplied proxy auth header.
+    if (proxy_username.empty()) {
+        HttpMessage::DumpHeaders(str);
+        return;
+    }
+
+    std::pair<std::string, std::string> proxy_auth;
+    bool has_proxy_auth = iter != headers.end();
+    if (has_proxy_auth) {
+        proxy_auth = *iter;
+        headers.erase(iter);
+    }
     HttpMessage::DumpHeaders(str);
+    if (has_proxy_auth) {
+        headers.insert(proxy_auth);
+    }
+    std::string credentials = proxy_username + ':' + proxy_password;
+    str += "Proxy-Authorization: Basic ";
+    str += hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+    str += "\r\n";
 }
 
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
