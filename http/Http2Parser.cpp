@@ -4,6 +4,7 @@
 
 #include <list>
 #include <mutex>
+#include <set>
 
 static nghttp2_nv make_nv(const char* name, const char* value) {
     nghttp2_nv nv;
@@ -26,11 +27,11 @@ static nghttp2_nv make_nv2(const char* name, const char* value,
 }
 
 static bool http2_skip_header(const std::string& name) {
-    static const hv::StringList http2_skip_headers = {
+    static const std::set<std::string> http2_skip_headers = {
         "connection", "proxy-connection", "keep-alive",
         "transfer-encoding", "upgrade", "content-length",
     };
-    return std::find(http2_skip_headers.begin(), http2_skip_headers.end(), name) != http2_skip_headers.end();
+    return http2_skip_headers.find(name) != http2_skip_headers.end();
 }
 
 static void print_frame_hd(const nghttp2_frame_hd* hd) {
