@@ -498,11 +498,18 @@ const std::string& HttpMessage::Body() {
 }
 
 void HttpMessage::DumpHeaders(std::string& str) {
+    DumpHeaders(str, NULL);
+}
+
+void HttpMessage::DumpHeaders(std::string& str, const char* excluded_header) {
     FillContentType();
     FillContentLength();
 
     // headers
     for (auto& header: headers) {
+        if (excluded_header && stricmp(header.first.c_str(), excluded_header) == 0) {
+            continue;
+        }
         // http2 :method :path :scheme :authority :status
         if (*str.c_str() != ':') {
             // %s: %s\r\n
@@ -773,10 +780,10 @@ void HttpRequest::SetProxy(const char* host, int port) {
 }
 
 void HttpRequest::SetProxyAuth(const char* username, const char* password) {
+    headers.erase("Proxy-Authorization");
     if (username == NULL || *username == '\0') {
         proxy_username.clear();
         proxy_password.clear();
-        headers.erase("Proxy-Authorization");
         return;
     }
     proxy_username = username;
@@ -797,6 +804,29 @@ void HttpRequest::SetBearerTokenAuth(const std::string& token) {
     SetAuth(std::string("Bearer ") + token);
 }
 
+void HttpRequest::DumpHeaders(std::string& str) {
+    // Proxy credentials are hop-by-hop. Never forward an explicitly supplied
+    // Proxy-Authorization header through a CONNECT tunnel to the origin.
+    if (!IsUriProxy()) {
+        HttpMessage::DumpHeaders(str, "Proxy-Authorization");
+        return;
+    }
+
+    // SetProxyAuth owns this header when configured, so it is emitted exactly
+    // once. Without structured credentials, preserve a caller-supplied header
+    // for HTTP URI proxy authentication.
+    if (proxy_username.empty()) {
+        HttpMessage::DumpHeaders(str);
+        return;
+    }
+
+    HttpMessage::DumpHeaders(str, "Proxy-Authorization");
+    std::string credentials = proxy_username + ':' + proxy_password;
+    str += "Proxy-Authorization: Basic ";
+    str += hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+    str += "\r\n";
+}
+
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     ParseUrl();
 
@@ -809,12 +839,6 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
             (int)http_major, (int)http_minor);
     if (is_dump_headers) {
         DumpHeaders(str);
-    }
-    if (IsUriProxy() && !proxy_username.empty()) {
-        std::string credentials = proxy_username + ':' + proxy_password;
-        str += "Proxy-Authorization: Basic ";
-        str += hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
-        str += "\r\n";
     }
     str += "\r\n";
     if (is_dump_body) {

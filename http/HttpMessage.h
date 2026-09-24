@@ -274,7 +274,7 @@ public:
     const std::string& Body();
 
     // headers -> string
-    void DumpHeaders(std::string& str);
+    virtual void DumpHeaders(std::string& str);
     // structured content -> body
     void DumpBody();
     void DumpBody(std::string& str);
@@ -283,6 +283,11 @@ public:
     int  ParseBody();
 
     virtual std::string Dump(bool is_dump_headers, bool is_dump_body);
+
+protected:
+    void DumpHeaders(std::string& str, const char* excluded_header);
+
+public:
 
     void* Content() {
         if (content == NULL && body.size() != 0) {
@@ -401,6 +406,7 @@ public:
     virtual void Reset();
 
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
+    virtual void DumpHeaders(std::string& str);
 
     // method
     void SetMethod(const char* method) {
