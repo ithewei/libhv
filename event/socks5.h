@@ -43,6 +43,9 @@ int socks5_build_connect_request(const proxy_conn_t* s5, unsigned char* buf);
 // Returns bytes written (<0 on error / truncation).
 int http_connect_build_request(const proxy_conn_t* p, char* buf, int bufsize);
 
+// Server-side SOCKS5 context lifecycle (implemented in socks5.c).
+void socks5_server_ctx_free(void* ctx);
+
 END_EXTERN_C
 
 #endif // HV_SOCKS5_H_
