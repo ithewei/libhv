@@ -414,6 +414,11 @@ hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int port, hacce
 // 创建TCP客户端，示例代码见 examples/nc.c
 hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
 
+// 创建SOCKS5客户端，示例代码见 examples/socks5_client_test.c
+// setting会被复制并自动使用SOCKS5协议。
+hio_t* hloop_create_socks5_client(hloop_t* loop, const proxy_setting_t* setting,
+                                  hconnect_cb connect_cb, hclose_cb close_cb);
+
 // @ssl_server: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // 创建SSL服务端，示例代码见 examples/tcp_echo_server.c => #define TEST_SSL 1
 hio_t* hloop_create_ssl_server (hloop_t* loop, const char* host, int port, haccept_cb accept_cb);
@@ -429,6 +434,15 @@ hio_t* hloop_create_udp_server (hloop_t* loop, const char* host, int port);
 // @udp_server: hio_create_socket(loop, host, port, HIO_TYPE_UDP, HIO_CLIENT_SIDE)
 // 创建UDP客户端，示例代码见 examples/nc.c
 hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int port);
+
+//-----------------代理服务-----------------------------------------
+// 三个接口都会复制proxy_setting_t。服务端场景中proxy_host/proxy_port是监听地址。
+// TCP/UDP的target_host/target_port是固定上游；SOCKS5的目标由客户端CONNECT请求指定。
+// TCP/UDP只提供明文固定上游转发；UDP为单listener配对单upstream，不维护NAT会话表。
+// SOCKS5仅支持CONNECT；username非空时强制用户名密码认证，password可为空字符串。
+hio_t* hloop_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+hio_t* hloop_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+hio_t* hloop_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
 
 //-----------------pipe---------------------------------------------
 // 创建pipe，示例代码见 examples/pipe_test.c

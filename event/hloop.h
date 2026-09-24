@@ -344,24 +344,23 @@ HV_EXPORT hssl_ctx_t hio_get_ssl_ctx(hio_t* io);
 HV_EXPORT int         hio_set_hostname(hio_t* io, const char* hostname);
 HV_EXPORT const char* hio_get_hostname(hio_t* io);
 
-// Client-side proxy. When set, hio_connect() performs the proxy handshake
-// (issuing a CONNECT to setting->target_host:target_port) before SSL /
-// connect_cb; after it succeeds the connection is transparent and (if SSL was
-// enabled) the TLS handshake runs against the target. Because it hooks
-// hio_connect, all clients built on it (TcpClient, HttpClient, ...) can use it.
+// Install a copied proxy configuration on an io. For client-side io,
+// hio_connect() performs the configured proxy handshake before SSL/connect_cb;
+// after it succeeds the connection is transparent and TLS, when enabled, runs
+// against the target. Server proxy factories use this same API to attach their
+// copied listener configuration.
 //
 // IMPORTANT: create the io for the PROXY address, then set the target here:
 //   hio_create_socket(loop, proxy_host, proxy_port, ...);
 //   hio_set_proxy(io, &setting);   // setting carries the final target + auth
-// The socket connects to the proxy; the io layer only uses target_* and the
-// credentials. proxy_host/proxy_port are kept in the setting for reference /
-// higher-level use, but the SOCKS5 path does not require them (the socket is
-// already the proxy connection).
+// For a client socket, the socket connects to the proxy and the io layer uses
+// target_* plus credentials for the handshake. proxy_host/proxy_port are kept
+// for reference and higher-level use.
 //
 // The setting is copied. Leave username empty for no auth, or set
 // username/password for auth (SOCKS5 => RFC 1929, HTTP CONNECT => Basic).
-// Implemented protocols: PROXY_PROTOCOL_SOCKS5, PROXY_PROTOCOL_HTTP_CONNECT.
-// NOTE: set before hio_connect().
+// Client handshake protocols: PROXY_PROTOCOL_SOCKS5 and
+// PROXY_PROTOCOL_HTTP_CONNECT. Set before hio_connect().
 typedef enum {
     PROXY_PROTOCOL_NONE         = 0,
     PROXY_PROTOCOL_SOCKS5       = 1,
@@ -389,7 +388,14 @@ typedef struct proxy_setting_s {
     }
 #endif
 } proxy_setting_t;
-HV_EXPORT int  hio_set_proxy(hio_t* io, proxy_setting_t* setting);
+HV_EXPORT int  hio_set_proxy(hio_t* io, const proxy_setting_t* setting);
+
+// Server-side proxy factories. The setting is copied. Here proxy_host/proxy_port
+// is the local listening endpoint; target_host/target_port is the fixed upstream
+// for TCP and UDP. SOCKS5 gets its target from each client request.
+HV_EXPORT hio_t* hloop_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+HV_EXPORT hio_t* hloop_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+HV_EXPORT hio_t* hloop_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
 
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
@@ -492,6 +498,11 @@ HV_EXPORT hio_t* hloop_create_tcp_server (hloop_t* loop, const char* host, int p
 // @tcp_client: hio_create_socket(loop, host, port, HIO_TYPE_TCP, HIO_CLIENT_SIDE) -> hio_setcb_connect -> hio_setcb_close -> hio_connect
 // @see examples/nc.c
 HV_EXPORT hio_t* hloop_create_tcp_client (hloop_t* loop, const char* host, int port, hconnect_cb connect_cb, hclose_cb close_cb);
+// @socks5_client: hio_create_socket(proxy) -> hio_set_proxy -> hio_connect
+// The setting is copied; protocol is forced to PROXY_PROTOCOL_SOCKS5.
+// @see examples/socks5_client_test.c
+HV_EXPORT hio_t* hloop_create_socks5_client(hloop_t* loop, const proxy_setting_t* setting,
+                                            hconnect_cb connect_cb, hclose_cb close_cb);
 
 // @ssl_server: hio_create_socket(loop, host, port, HIO_TYPE_SSL, HIO_SERVER_SIDE) -> hio_setcb_accept -> hio_accept
 // @see examples/tcp_echo_server.c => #define TEST_SSL 1

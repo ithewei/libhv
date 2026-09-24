@@ -61,6 +61,8 @@ struct HttpConnKey {
     int target_port;
     std::string proxy_host;
     int proxy_port;
+    std::string proxy_username;
+    std::string proxy_password;
     bool tls;
 
     HttpConnKey()
@@ -72,20 +74,13 @@ struct HttpConnKey {
     explicit HttpConnKey(const HttpRequest& req)
         : HttpConnKey()
     {
-        tls = !req.proxy && (req.scheme.compare(0, 5, "https") == 0 ||
-                             req.url.compare(0, 8, "https://") == 0);
-
-        if (req.proxy) {
-            proxy_host = req.host;
-            proxy_port = req.port;
-        } else {
-            target_host = req.host;
-            target_port = req.port;
-            if (!req.tunnel_proxy_host.empty()) {
-                proxy_host = req.tunnel_proxy_host;
-                proxy_port = req.tunnel_proxy_port;
-            }
-        }
+        target_host = req.host;
+        target_port = req.port;
+        proxy_host = req.IsProxy() ? req.proxy_host : "";
+        proxy_port = req.IsProxy() ? req.proxy_port : 0;
+        proxy_username = req.IsProxy() ? req.proxy_username : "";
+        proxy_password = req.IsProxy() ? req.proxy_password : "";
+        tls = req.IsHttps();
     }
 
     static HttpConnKey Direct(const char* host, int port, bool tls) {
@@ -101,7 +96,9 @@ struct HttpConnKey {
                proxy_port == rhs.proxy_port &&
                tls == rhs.tls &&
                target_host == rhs.target_host &&
-               proxy_host == rhs.proxy_host;
+               proxy_host == rhs.proxy_host &&
+               proxy_username == rhs.proxy_username &&
+               proxy_password == rhs.proxy_password;
     }
 
     bool operator!=(const HttpConnKey& rhs) const {
@@ -109,8 +106,8 @@ struct HttpConnKey {
     }
 
     bool operator<(const HttpConnKey& rhs) const {
-        return std::tie(target_host, target_port, proxy_host, proxy_port, tls) <
-               std::tie(rhs.target_host, rhs.target_port, rhs.proxy_host, rhs.proxy_port, rhs.tls);
+        return std::tie(target_host, target_port, proxy_host, proxy_port, proxy_username, proxy_password, tls) <
+               std::tie(rhs.target_host, rhs.target_port, rhs.proxy_host, rhs.proxy_port, rhs.proxy_username, rhs.proxy_password, rhs.tls);
     }
 };
 

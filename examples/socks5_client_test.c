@@ -48,27 +48,22 @@ int main(int argc, char** argv) {
     const char* pass = argc > 6 ? argv[6] : NULL;
 
     hloop_t* loop = hloop_new(HLOOP_FLAG_AUTO_FREE);
-    // create the socket for the PROXY; the proxy handshake then CONNECTs to the
-    // target carried in proxy_setting below.
-    hio_t* io = hio_create_socket(loop, proxy_host, proxy_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
-    if (io == NULL) {
-        printf("create socket failed\n");
-        return -1;
-    }
-
-    // route through the SOCKS5 proxy: carry the target + optional auth
+    // Route through the SOCKS5 proxy. The factory connects to proxy_host:proxy_port
+    // and completes SOCKS5 CONNECT to target_host:target_port before on_connect.
     proxy_setting_t proxy;
     memset(&proxy, 0, sizeof(proxy));
-    proxy.protocol = PROXY_PROTOCOL_SOCKS5;
+    hv_strncpy(proxy.proxy_host, proxy_host, sizeof(proxy.proxy_host));
+    proxy.proxy_port = proxy_port;
     hv_strncpy(proxy.target_host, target_host, sizeof(proxy.target_host));
     proxy.target_port = target_port;
     if (user) hv_strncpy(proxy.username, user, sizeof(proxy.username));
     if (pass) hv_strncpy(proxy.password, pass, sizeof(proxy.password));
-    hio_set_proxy(io, &proxy);
-
-    hio_setcb_connect(io, on_connect);
-    hio_setcb_close(io, on_close);
-    hio_connect(io);
+    hio_t* io = hloop_create_socks5_client(loop, &proxy, on_connect, on_close);
+    if (io == NULL) {
+        printf("create socks5 client failed\n");
+        hloop_free(&loop);
+        return -1;
+    }
 
     hloop_run(loop);
     hloop_free(&loop);

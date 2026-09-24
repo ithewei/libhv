@@ -61,14 +61,11 @@ int AsyncHttpClient::doTask(const HttpClientTaskPtr& task) {
         }
     }
 
-    // Where to open the TCP connection: normally the origin, but for an HTTP
-    // CONNECT tunnel (https over proxy) it is the proxy. The origin is then
-    // reached via the proxy's CONNECT (see startConnect / hio_set_proxy).
     const char* host = req->host.c_str();
     int port = req->port;
-    if (req->IsTunnelProxy()) {
-        host = req->tunnel_proxy_host.c_str();
-        port = req->tunnel_proxy_port;
+    if (req->IsProxy()) {
+        host = req->proxy_host.c_str();
+        port = req->proxy_port;
     }
 
     // If host is a numeric IP (or UDS), resolve synchronously (fast path).
@@ -136,9 +133,9 @@ int AsyncHttpClient::startConnect(const HttpClientTaskPtr& task, const sockaddr_
         proxy.protocol = PROXY_PROTOCOL_HTTP_CONNECT;
         hv_strncpy(proxy.target_host, req->host.c_str(), sizeof(proxy.target_host));
         proxy.target_port = req->port;
-        if (!req->tunnel_proxy_username.empty()) {
-            hv_strncpy(proxy.username, req->tunnel_proxy_username.c_str(), sizeof(proxy.username));
-            hv_strncpy(proxy.password, req->tunnel_proxy_password.c_str(), sizeof(proxy.password));
+        if (!req->proxy_username.empty()) {
+            hv_strncpy(proxy.username, req->proxy_username.c_str(), sizeof(proxy.username));
+            hv_strncpy(proxy.password, req->proxy_password.c_str(), sizeof(proxy.password));
         }
         hio_set_proxy(connio, &proxy);
     }

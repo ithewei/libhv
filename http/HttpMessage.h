@@ -274,7 +274,7 @@ public:
     const std::string& Body();
 
     // headers -> string
-    void DumpHeaders(std::string& str);
+    virtual void DumpHeaders(std::string& str);
     // structured content -> body
     void DumpBody();
     void DumpBody(std::string& str);
@@ -386,16 +386,14 @@ public:
     uint32_t            retry_count;
     uint32_t            retry_delay;    // unit: ms
     unsigned            redirect: 1;
-    unsigned            proxy   : 1;    // absolute-URI forward proxy (plain HTTP)
+    unsigned            proxy   : 1;    // proxy configured
     unsigned            cancel  : 1;
-    // CONNECT-tunnel proxy (for https-over-proxy): when tunnel_proxy_host is set,
-    // the client connects to the proxy and issues an HTTP CONNECT to
-    // host:port, then does TLS end-to-end against the origin. Distinct from the
-    // `proxy` bit above, which is the plain-HTTP absolute-URI forward proxy.
-    std::string         tunnel_proxy_host;
-    int                 tunnel_proxy_port;
-    std::string         tunnel_proxy_username;
-    std::string         tunnel_proxy_password;
+    // proxy endpoint and optional credentials. The origin remains in
+    // scheme/host/port; HTTP uses URI forwarding and HTTPS uses CONNECT.
+    std::string         proxy_host;
+    int                 proxy_port;
+    std::string         proxy_username;
+    std::string         proxy_password;
 
     HttpRequest();
 
@@ -403,6 +401,7 @@ public:
     virtual void Reset();
 
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
+    virtual void DumpHeaders(std::string& str);
 
     // method
     void SetMethod(const char* method) {
@@ -413,7 +412,7 @@ public:
     }
 
     // scheme
-    bool IsHttps() {
+    bool IsHttps() const {
         return strncmp(scheme.c_str(), "https", 5) == 0 ||
                strncmp(url.c_str(), "https://", 8) == 0;
     }
@@ -454,25 +453,13 @@ public:
     void SetHost(const char* host, int port = DEFAULT_HTTP_PORT);
 
     void SetProxy(const char* host, int port);
-    bool IsProxy() { return proxy; }
-    // Basic authentication for an HTTP forward proxy request.
-    // Empty username removes Proxy-Authorization.
+    bool IsProxy() const { return proxy == 1; }
+    bool IsUriProxy() const { return proxy == 1 && scheme == "http"; }
+    bool IsTunnelProxy() const { return proxy == 1 && scheme == "https"; }
+    // Basic authentication for an HTTP proxy request. Empty username clears it.
     void SetProxyAuth(const char* username, const char* password = NULL);
-
-    // CONNECT-tunnel proxy (used for https-over-proxy). Unlike SetProxy (plain
-    // HTTP absolute-URI forwarding), this connects to the proxy and issues an
-    // HTTP CONNECT to the origin, then does end-to-end TLS with the origin.
-    // Mutually exclusive with the forward-proxy mode: clears the `proxy` bit.
-    void SetTunnelProxy(const char* host, int port,
-                        const char* username = NULL, const char* password = NULL) {
-        proxy = 0;   // not an absolute-URI forward proxy
-        headers.erase("Proxy-Authorization");
-        tunnel_proxy_host = host ? host : "";
-        tunnel_proxy_port = port;
-        tunnel_proxy_username = username ? username : "";
-        tunnel_proxy_password = password ? password : "";
-    }
-    bool IsTunnelProxy() { return !tunnel_proxy_host.empty(); }
+    // Prepare the proxy-only authorization header for the current request mode.
+    void FillProxyHeaders();
 
     // Auth
     void SetAuth(const std::string& auth);

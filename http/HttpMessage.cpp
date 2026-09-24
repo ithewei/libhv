@@ -660,10 +660,10 @@ void HttpRequest::Init() {
     redirect = 1;
     proxy = 0;
     cancel = 0;
-    tunnel_proxy_host.clear();
-    tunnel_proxy_port = 0;
-    tunnel_proxy_username.clear();
-    tunnel_proxy_password.clear();
+    proxy_host.clear();
+    proxy_port = 0;
+    proxy_username.clear();
+    proxy_password.clear();
 }
 
 void HttpRequest::Reset() {
@@ -724,21 +724,13 @@ void HttpRequest::ParseUrl() {
     DumpUrl();
     hurl_t parser;
     hv_parse_url(&parser, url.c_str());
-    // scheme
-    std::string scheme_ = url.substr(parser.fields[HV_URL_SCHEME].off, parser.fields[HV_URL_SCHEME].len);
-    // host
-    std::string host_(host);
+    scheme = url.substr(parser.fields[HV_URL_SCHEME].off, parser.fields[HV_URL_SCHEME].len);
     if (parser.fields[HV_URL_HOST].len > 0) {
-        host_ = url.substr(parser.fields[HV_URL_HOST].off, parser.fields[HV_URL_HOST].len);
+        host = url.substr(parser.fields[HV_URL_HOST].off, parser.fields[HV_URL_HOST].len);
     }
-    // port
-    int port_ = parser.port ? parser.port : strcmp(scheme_.c_str(), "https") ? DEFAULT_HTTP_PORT : DEFAULT_HTTPS_PORT;
-    if (!proxy) {
-        scheme = scheme_;
-        host = host_;
-        port = port_;
-    }
-    FillHost(host_.c_str(), port_);
+    port = parser.port ? parser.port :
+           (scheme == "https" ? DEFAULT_HTTPS_PORT : DEFAULT_HTTP_PORT);
+    FillHost(host.c_str(), port);
     // path
     if (parser.fields[HV_URL_PATH].len > 0) {
         path = url.substr(parser.fields[HV_URL_PATH].off);
@@ -775,30 +767,34 @@ void HttpRequest::SetHost(const char* host, int port) {
 }
 
 void HttpRequest::SetProxy(const char* host, int port) {
-    this->scheme = "http";
-    this->host = host;
-    this->port = port;
-    proxy = 1;
-    // mutually exclusive with the CONNECT-tunnel mode
-    tunnel_proxy_host.clear();
-    tunnel_proxy_port = 0;
-    tunnel_proxy_username.clear();
-    tunnel_proxy_password.clear();
+    proxy_host = host ? host : "";
+    proxy_port = port;
+    proxy = !proxy_host.empty();
 }
 
 void HttpRequest::SetProxyAuth(const char* username, const char* password) {
     if (username == NULL || *username == '\0') {
+        proxy_username.clear();
+        proxy_password.clear();
         headers.erase("Proxy-Authorization");
         return;
     }
+    proxy_username = username;
+    proxy_password = password ? password : "";
+}
 
-    std::string credentials = username;
-    credentials += ':';
-    if (password) {
-        credentials += password;
+void HttpRequest::FillProxyHeaders() {
+    if (IsUriProxy()) {
+        if (!proxy_username.empty()) {
+            std::string credentials = proxy_username + ':' + proxy_password;
+            headers["Proxy-Authorization"] = "Basic " +
+                hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+        }
+    } else {
+        // Proxy credentials are hop-by-hop and must not enter an HTTPS
+        // CONNECT tunnel or a direct request to the origin.
+        headers.erase("Proxy-Authorization");
     }
-    headers["Proxy-Authorization"] =
-        "Basic " + hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
 }
 
 void HttpRequest::SetAuth(const std::string& auth) {
@@ -815,6 +811,11 @@ void HttpRequest::SetBearerTokenAuth(const std::string& token) {
     SetAuth(std::string("Bearer ") + token);
 }
 
+void HttpRequest::DumpHeaders(std::string& str) {
+    FillProxyHeaders();
+    HttpMessage::DumpHeaders(str);
+}
+
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     ParseUrl();
 
@@ -823,7 +824,7 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     // GET / HTTP/1.1\r\n
     str = asprintf("%s %s HTTP/%d.%d\r\n",
             http_method_str(method),
-            proxy ? url.c_str() : path.c_str(),
+            IsUriProxy() ? url.c_str() : path.c_str(),
             (int)http_major, (int)http_minor);
     if (is_dump_headers) {
         DumpHeaders(str);

@@ -1175,7 +1175,10 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
     if (upstream_io == NULL) {
         return SetError(ERR_SOCKET, HTTP_STATUS_BAD_GATEWAY);
     }
-    if (url.scheme == "https") {
+    // CONNECT establishes a raw TCP tunnel. The client starts TLS only after
+    // receiving the 200 response, so enabling TLS on this upstream would
+    // incorrectly terminate and re-encrypt the tunnel.
+    if (url.scheme == "https" && req->method != HTTP_CONNECT) {
         hio_enable_ssl(upstream_io);
     }
     hevent_set_userdata(upstream_io, this);

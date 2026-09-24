@@ -11,6 +11,7 @@
 - mqtt client
 - redis client
 - async DNS
+- socks5 proxy
 - lua binding
 - js binding
 - hrpc = libhv + protobuf

@@ -186,10 +186,9 @@ struct hio_s {
     void*       ssl;        // for hio_set_ssl
     void*       ssl_ctx;    // for hio_set_ssl_ctx
     char*       hostname;   // for hssl_set_sni_hostname
-    // client-side proxy: if set, hio_connect performs the proxy handshake
-    // (CONNECT to the target) before the connection is handed to the upper
-    // layer / SSL handshake. The io itself connects to the proxy address.
-    struct proxy_conn_s* proxy;
+    // Proxy context. Client connections run a handshake before connect_cb;
+    // proxy server listeners and accepted connections use the same type.
+    struct proxy_ctx_s* proxy;
     // context
     void*       ctx; // for hio_context / hio_set_context
 // private:

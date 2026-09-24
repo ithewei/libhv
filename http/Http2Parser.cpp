@@ -4,6 +4,7 @@
 
 #include <list>
 #include <mutex>
+#include <set>
 
 static nghttp2_nv make_nv(const char* name, const char* value) {
     nghttp2_nv nv;
@@ -23,6 +24,14 @@ static nghttp2_nv make_nv2(const char* name, const char* value,
     nv.namelen = namelen; nv.valuelen = valuelen;
     nv.flags = NGHTTP2_NV_FLAG_NONE;
     return nv;
+}
+
+static bool http2_skip_header(const std::string& name) {
+    static const std::set<std::string> http2_skip_headers = {
+        "connection", "proxy-connection", "keep-alive",
+        "transfer-encoding", "upgrade", "content-length",
+    };
+    return http2_skip_headers.find(name) != http2_skip_headers.end();
 }
 
 static void print_frame_hd(const nghttp2_frame_hd* hd) {
@@ -166,6 +175,7 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
     std::vector<nghttp2_nv> nvs;
     char c_str[256] = {0};
     req->ParseUrl();
+    req->FillProxyHeaders();
     nvs.push_back(make_nv(":method", http_method_str(req->method)));
     nvs.push_back(make_nv(":path", req->path.c_str()));
     nvs.push_back(make_nv(":scheme", req->scheme.c_str()));
@@ -188,16 +198,7 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
         std::string& name = lower_names.back();
         hv_strlower(&name[0]);
         value = header.second.c_str();
-        if (name == "host") {
-            // :authority
-            continue;
-        }
-        if (name == "connection") {
-            // HTTP2 default keep-alive
-            continue;
-        }
-        if (name == "content-length") {
-            // HTTP2 have frame_hd.length
+        if (name == "host" || http2_skip_header(name)) {
             continue;
         }
         nvs.push_back(make_nv2(name.c_str(), value, name.size(), header.second.size()));
@@ -275,12 +276,7 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
         std::string& name = lower_names.back();
         hv_strlower(&name[0]);
         value = header.second.c_str();
-        if (name == "connection") {
-            // HTTP2 default keep-alive
-            continue;
-        }
-        if (name == "content-length") {
-            // HTTP2 have frame_hd.length
+        if (http2_skip_header(name)) {
             continue;
         }
         if (name == "grpc-status" || name == "grpc-message") {
