@@ -788,6 +788,9 @@ void HttpRequest::SetProxyAuth(const char* username, const char* password) {
     }
     proxy_username = username;
     proxy_password = password ? password : "";
+    std::string credentials = proxy_username + ':' + proxy_password;
+    headers["Proxy-Authorization"] = "Basic " +
+        hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
 }
 
 void HttpRequest::SetAuth(const std::string& auth) {
@@ -812,19 +815,7 @@ void HttpRequest::DumpHeaders(std::string& str) {
         return;
     }
 
-    // SetProxyAuth owns this header when configured, so it is emitted exactly
-    // once. Without structured credentials, preserve a caller-supplied header
-    // for HTTP URI proxy authentication.
-    if (proxy_username.empty()) {
-        HttpMessage::DumpHeaders(str);
-        return;
-    }
-
-    HttpMessage::DumpHeaders(str, "Proxy-Authorization");
-    std::string credentials = proxy_username + ':' + proxy_password;
-    str += "Proxy-Authorization: Basic ";
-    str += hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
-    str += "\r\n";
+    HttpMessage::DumpHeaders(str);
 }
 
 std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
