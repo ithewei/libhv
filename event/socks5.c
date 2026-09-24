@@ -10,7 +10,7 @@
 
 typedef enum {
     S5S_METHOD_HEAD, S5S_METHODS, S5S_AUTH_HEAD, S5S_AUTH_USER, S5S_AUTH_PASS_HEAD,
-    S5S_AUTH_PASS, S5S_REQUEST, S5S_ADDR, S5S_DOMAIN, S5S_PORT, S5S_RESOLVING, S5S_UPSTREAM,
+    S5S_AUTH_PASS, S5S_REQUEST, S5S_ADDR, S5S_DOMAIN, S5S_PORT, S5S_RESOLVING, S5S_UPSTREAM, S5S_FORWARDING,
 } socks5_server_state_e;
 
 typedef struct {
@@ -27,10 +27,6 @@ typedef struct {
     hio_t*                io;
 } socks5_server_conn_t;
 
-static void socks5_server_close(hio_t* io) {
-    hio_close_upstream(io);
-}
-
 static void socks5_server_ctx_free(void* ctx) {
     socks5_server_conn_t* conn = (socks5_server_conn_t*)ctx;
     if (conn) {
@@ -44,9 +40,36 @@ static void socks5_server_reply(hio_t* io, unsigned char rep) {
     hio_write(io, reply, sizeof(reply));
 }
 
+static unsigned char socks5_server_error_rep(int error) {
+    switch (error) {
+    case ENETUNREACH:  return 0x03;
+    case EHOSTUNREACH: return 0x04;
+    case ECONNREFUSED: return 0x05;
+    case ENOTCONN:      return 0x05;
+    case ETIMEDOUT:    return 0x06;
+    default:           return 0x01;
+    }
+}
+
+static void socks5_server_close(hio_t* io) {
+    hio_t* peer = hio_get_upstream(io);
+    if (peer == NULL || peer->closed) return;
+
+    // An upstream connect failure happens before the SOCKS5 reply. Return an
+    // RFC 1928 REP instead of making the client infer the error from EOF.
+    if (io->proxy == NULL && peer->proxy && peer->proxy->ctx) {
+        socks5_server_conn_t* conn = (socks5_server_conn_t*)peer->proxy->ctx;
+        if (conn->state == S5S_UPSTREAM) {
+            socks5_server_reply(peer, socks5_server_error_rep(hio_error(io)));
+        }
+    }
+    hio_close(peer);
+}
+
 static void socks5_server_upstream_connect(hio_t* upstream) {
     hio_t* io = hio_get_upstream(upstream);
     if (io == NULL || io->proxy == NULL || io->proxy->ctx == NULL) return;
+    ((socks5_server_conn_t*)io->proxy->ctx)->state = S5S_FORWARDING;
     socks5_server_reply(io, SOCKS5_REP_SUCCESS);
     hio_setcb_read(io, hio_write_upstream);
     hio_setcb_read(upstream, hio_write_upstream);
