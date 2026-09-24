@@ -797,11 +797,13 @@ void HttpRequest::SetBearerTokenAuth(const std::string& token) {
 }
 
 void HttpRequest::DumpHeaders(std::string& str) {
-    if (IsUriProxy() && !proxy_username.empty()) {
-        std::string credentials = proxy_username + ':' + proxy_password;
-        headers["Proxy-Authorization"] = "Basic " +
-            hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
-    } else if (!IsUriProxy()) {
+    if (IsUriProxy()) {
+        if (!proxy_username.empty()) {
+            std::string credentials = proxy_username + ':' + proxy_password;
+            headers["Proxy-Authorization"] = "Basic " +
+                hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+        }
+    } else {
         // Proxy credentials are hop-by-hop and must not enter an HTTPS
         // CONNECT tunnel or a direct request to the origin.
         headers.erase("Proxy-Authorization");
