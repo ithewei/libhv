@@ -35,14 +35,6 @@ int socks5_build_method_request (const proxy_ctx_t* s5, unsigned char* buf);
 int socks5_build_auth_request   (const proxy_ctx_t* s5, unsigned char* buf);
 int socks5_build_connect_request(const proxy_ctx_t* s5, unsigned char* buf);
 
-// Build an HTTP CONNECT request into buf (size bufsize). Sends
-//   CONNECT target_host:target_port HTTP/1.1
-//   Host: target_host:target_port
-//   [Proxy-Authorization: Basic base64(user:pass)]
-//   (blank line)
-// Returns bytes written (<0 on error / truncation).
-int http_connect_build_request(const proxy_ctx_t* p, char* buf, int bufsize);
-
 // Server-side SOCKS5 context lifecycle (implemented in socks5.c).
 void socks5_server_ctx_free(void* ctx);
 

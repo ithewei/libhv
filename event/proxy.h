@@ -20,4 +20,8 @@ proxy_ctx_t* proxy_ctx_dup(const proxy_ctx_t* proxy);
 void proxy_ctx_free(proxy_ctx_t* proxy);
 bool proxy_setting_valid(const proxy_setting_t* setting, bool need_target);
 
+// Build an HTTP CONNECT request for the configured target. Returns bytes
+// written, or a negative value when the buffer is insufficient.
+int http_connect_build_request(const proxy_ctx_t* proxy, char* buf, int bufsize);
+
 #endif // HV_PROXY_H_
