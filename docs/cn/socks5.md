@@ -1,4 +1,4 @@
-SOCKS5 代理客户端
+SOCKS5 代理
 
 在事件循环(io)层内置的客户端代理支持(目前实现 SOCKS5，RFC 1928 + RFC 1929 用户名/密码认证)。
 
@@ -7,10 +7,10 @@ SOCKS5 代理客户端
 由于挂在 `hio_connect` 上，所有基于它的客户端(`TcpClient`、`HttpClient` 等)都能直接使用。
 
 > 说明：
-> - 只做客户端代理(通过代理连出去)，服务端见 [examples/socks5_proxy_server.c](../../examples/socks5_proxy_server.c)。
+> - 支持客户端代理，以及通过 `hio_create_socks5_proxy_server` 创建的 SOCKS5 CONNECT 服务端。
 > - 支持无认证与用户名/密码认证(不支持 GSSAPI)。
 > - 目标为域名时以 ATYP=domain 发给代理解析(客户端本地不做 DNS)；为 IP 字面量时按 ATYP=ipv4/ipv6 发送。
-> - 目前仅实现 `PROXY_PROTOCOL_SOCKS5`。
+> - 客户端代理协议为 `PROXY_PROTOCOL_SOCKS5`；服务端仅支持 CONNECT，不支持 BIND 或 UDP ASSOCIATE。
 
 ## 配置结构 proxy_setting_t
 
@@ -40,6 +40,11 @@ typedef struct proxy_setting_s {
 // 设置代理(setting 会被拷贝)；在 hio_connect() 之前调用。
 // 注意：io 必须创建到代理地址，即 hio_create_socket(loop, proxy_host, proxy_port, ...)。
 int hio_set_proxy(hio_t* io, proxy_setting_t* setting);
+
+// 创建服务端时setting会被拷贝：proxy_host/proxy_port是监听地址；
+// target由每个客户端CONNECT请求指定。username非空即要求RFC 1929认证，
+// password可为空字符串。
+hio_t* hio_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
 ```
 
 ## C++ 接口
