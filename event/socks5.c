@@ -173,6 +173,7 @@ static void socks5_server_accept(hio_t* io) {
     HV_ALLOC_SIZEOF(conn);
     if (conn == NULL) { hio_close(io); return; }
     io->proxy->ctx = conn;
+    io->proxy->ctx_free = socks5_server_ctx_free;
     conn->io = io;
     conn->state = S5S_METHOD_HEAD;
     hio_setcb_read(io, socks5_server_read);
@@ -263,6 +264,5 @@ hio_t* hloop_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* se
         hio_close(listener);
         return NULL;
     }
-    listener->proxy->ctx_free = socks5_server_ctx_free;
     return listener;
 }
