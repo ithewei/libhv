@@ -326,8 +326,7 @@ int http_connect_build_request(const proxy_ctx_t* p, char* buf, int bufsize) {
 }
 
 hio_t* hio_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
-    if (loop == NULL || setting == NULL || setting->proxy_host[0] == '\0' ||
-        setting->proxy_port < 0 || setting->proxy_port > 65535) {
+    if (loop == NULL || !proxy_setting_valid(setting, false)) {
         return NULL;
     }
 

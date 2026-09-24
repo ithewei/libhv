@@ -18,5 +18,6 @@ typedef struct proxy_ctx_s {
 proxy_ctx_t* proxy_ctx_new(const proxy_setting_t* setting);
 proxy_ctx_t* proxy_ctx_dup(const proxy_ctx_t* proxy);
 void proxy_ctx_free(proxy_ctx_t* proxy);
+bool proxy_setting_valid(const proxy_setting_t* setting, bool need_target);
 
 #endif // HV_PROXY_H_

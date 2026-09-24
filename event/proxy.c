@@ -29,7 +29,7 @@ void proxy_ctx_free(proxy_ctx_t* proxy) {
     }
 }
 
-static bool proxy_server_setting_valid(const proxy_setting_t* setting, bool need_target) {
+bool proxy_setting_valid(const proxy_setting_t* setting, bool need_target) {
     if (setting == NULL || setting->proxy_host[0] == '\0' ||
         setting->proxy_port < 0 || setting->proxy_port > 65535) {
         return false;
@@ -48,7 +48,7 @@ static void on_tcp_proxy_accept(hio_t* io) {
 }
 
 hio_t* hio_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
-    if (loop == NULL || !proxy_server_setting_valid(setting, true)) return NULL;
+    if (loop == NULL || !proxy_setting_valid(setting, true)) return NULL;
     proxy_ctx_t* proxy = proxy_ctx_new(setting);
     if (proxy == NULL) return NULL;
     hio_t* listener = hloop_create_tcp_server(loop, setting->proxy_host, setting->proxy_port, on_tcp_proxy_accept);
@@ -58,7 +58,7 @@ hio_t* hio_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting
 }
 
 hio_t* hio_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
-    if (loop == NULL || !proxy_server_setting_valid(setting, true)) return NULL;
+    if (loop == NULL || !proxy_setting_valid(setting, true)) return NULL;
     proxy_ctx_t* proxy = proxy_ctx_new(setting);
     if (proxy == NULL) return NULL;
     hio_t* listener = hloop_create_udp_server(loop, setting->proxy_host, setting->proxy_port);
