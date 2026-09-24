@@ -30,6 +30,10 @@ static int on_frame_body(websocket_parser* parser, const char * at, size_t lengt
     // printf("on_frame_body length=%d\n", (int)length);
     WebSocketParser* wp = (WebSocketParser*)parser->data;
     wp->state = WS_FRAME_BODY;
+    if (length > (size_t)MAX_PAYLOAD_LENGTH ||
+        wp->message.size() + length > (size_t)MAX_PAYLOAD_LENGTH) {
+        return -1;
+    }
     if (wp->parser->flags & WS_HAS_MASK) {
         websocket_parser_decode((char*)at, at, length, wp->parser);
     }
