@@ -31,7 +31,7 @@ static void socks5_server_close(hio_t* io) {
     hio_close_upstream(io);
 }
 
-void socks5_server_ctx_free(void* ctx) {
+static void socks5_server_ctx_free(void* ctx) {
     socks5_server_conn_t* conn = (socks5_server_conn_t*)ctx;
     if (conn) {
         if (conn->dns) hdns_cancel(conn->dns);

@@ -35,8 +35,6 @@ int socks5_build_method_request (const proxy_ctx_t* s5, unsigned char* buf);
 int socks5_build_auth_request   (const proxy_ctx_t* s5, unsigned char* buf);
 int socks5_build_connect_request(const proxy_ctx_t* s5, unsigned char* buf);
 
-// Server-side SOCKS5 context lifecycle (implemented in socks5.c).
-void socks5_server_ctx_free(void* ctx);
 void socks5_client_handshake_start(hio_t* io);
 
 END_EXTERN_C
