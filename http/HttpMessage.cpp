@@ -776,6 +776,7 @@ void HttpRequest::SetProxyAuth(const char* username, const char* password) {
     if (username == NULL || *username == '\0') {
         proxy_username.clear();
         proxy_password.clear();
+        headers.erase("Proxy-Authorization");
         return;
     }
     proxy_username = username;
