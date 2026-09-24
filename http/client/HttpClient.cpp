@@ -207,7 +207,9 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
             const std::string& proxy_host = https ? cli->https_proxy_host : cli->http_proxy_host;
             int proxy_port = https ? cli->https_proxy_port : cli->http_proxy_port;
             req->SetProxy(proxy_host.c_str(), proxy_port);
-            req->SetProxyAuth(cli->proxy_username.c_str(), cli->proxy_password.c_str());
+            if (!cli->proxy_username.empty()) {
+                req->SetProxyAuth(cli->proxy_username.c_str(), cli->proxy_password.c_str());
+            }
         }
     }
 
