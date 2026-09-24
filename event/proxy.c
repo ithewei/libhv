@@ -1,7 +1,15 @@
 #include "proxy.h"
 
 #include "hevent.h"
-#include "socks5.h"
+
+proxy_ctx_t* proxy_ctx_new(const proxy_setting_t* setting) {
+    if (setting == NULL) return NULL;
+    proxy_ctx_t* proxy = NULL;
+    HV_ALLOC_SIZEOF(proxy);
+    if (proxy == NULL) return NULL;
+    proxy->setting = *setting;
+    return proxy;
+}
 
 proxy_ctx_t* proxy_ctx_dup(const proxy_ctx_t* proxy) {
     if (proxy == NULL) return NULL;
@@ -13,6 +21,7 @@ proxy_ctx_t* proxy_ctx_dup(const proxy_ctx_t* proxy) {
     }
     return copy;
 }
+
 void proxy_ctx_free(proxy_ctx_t* proxy) {
     if (proxy) {
         if (proxy->ctx && proxy->ctx_free) proxy->ctx_free(proxy->ctx);
@@ -28,15 +37,6 @@ static bool proxy_server_setting_valid(const proxy_setting_t* setting, bool need
     return !need_target ||
            (setting->target_host[0] != '\0' &&
             setting->target_port > 0 && setting->target_port <= 65535);
-}
-
-proxy_ctx_t* proxy_ctx_new(const proxy_setting_t* setting) {
-    if (setting == NULL) return NULL;
-    proxy_ctx_t* proxy = NULL;
-    HV_ALLOC_SIZEOF(proxy);
-    if (proxy == NULL) return NULL;
-    proxy->setting = *setting;
-    return proxy;
 }
 
 static void on_tcp_proxy_accept(hio_t* io) {
