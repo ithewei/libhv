@@ -30,6 +30,8 @@ static int lopt = 0;
 static const char* http_proxy   = NULL;
 static const char* https_proxy  = NULL;
 static const char* no_proxy     = NULL;
+static const char* proxy_username = NULL;
+static const char* proxy_password = NULL;
 
 static const char* options = "hVvX:H:r:d:F:n:";
 static const struct option long_options[] = {
@@ -51,6 +53,8 @@ static const struct option long_options[] = {
     {"retry",       required_argument,  &lopt,  4},
     {"delay",       required_argument,  &lopt,  5},
     {"timeout",     required_argument,  &lopt,  6},
+    {"proxy-username", required_argument,  &lopt,  7},
+    {"proxy-password", required_argument,  &lopt,  8},
     \
     {NULL,      0,                  NULL,   0}
 };
@@ -69,6 +73,8 @@ static const char* help = R"(Options:
        --http-proxy     Set http proxy
        --https-proxy    Set https proxy
        --no-proxy       Set no proxy
+       --proxy-username Set proxy username
+       --proxy-password Set proxy password
        --retry          Set fail retry count
        --timeout        Set timeout, unit(s)
 
@@ -85,6 +91,8 @@ Examples:
     curl -v localhost:8080/json     user=admin pswd=123456
     curl -v localhost:8080/form     -F file=@filename
     curl -v localhost:8080/upload   @filename
+    curl --http-proxy 127.0.0.1:8080 --proxy-username user --proxy-password pass http://example.com/
+    curl --https-proxy 127.0.0.1:8080 --proxy-username user --proxy-password pass https://example.com/
 )";
 
 static void print_usage() {
@@ -198,6 +206,8 @@ static int parse_cmdline(int argc, char* argv[], HttpRequest* req) {
             case  4: retry_count = atoi(optarg);break;
             case  5: retry_delay = atoi(optarg);break;
             case  6: timeout     = atoi(optarg);break;
+            case  7: proxy_username = optarg; break;
+            case  8: proxy_password = optarg; break;
             default: break;
             }
         }
@@ -240,7 +250,6 @@ static int parse_cmdline(int argc, char* argv[], HttpRequest* req) {
     if (timeout > 0) {
         req->timeout = timeout;
     }
-
     return 0;
 }
 
@@ -306,6 +315,10 @@ int main(int argc, char* argv[]) {
             cli.addNoProxy(s.c_str());
         }
         fprintf(stderr, "\n");
+    }
+    // Proxy credentials apply to the configured global HTTP/HTTPS proxy.
+    if (proxy_username) {
+        cli.setProxyAuth(proxy_username, proxy_password);
     }
 
 send:
