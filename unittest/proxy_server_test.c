@@ -18,6 +18,9 @@ int main() {
 
     assert(hio_create_tcp_proxy_server(loop, &setting) != NULL);
     assert(hio_create_udp_proxy_server(loop, &setting) != NULL);
+    setting.target_host[0] = '\0';
+    setting.target_port = 0;
+    assert(hio_create_socks5_proxy_server(loop, &setting) != NULL);
     hloop_free(&loop);
     return 0;
 }

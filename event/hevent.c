@@ -6,6 +6,7 @@
 
 #include "unpack.h"
 #include "socks5.h"
+#include "proxy.h"
 
 uint64_t hloop_next_event_id() {
     static hatomic_t s_id = HATOMIC_VAR_INIT(0);
@@ -137,7 +138,6 @@ void hio_ready(hio_t* io) {
     io->alloced_ssl_ctx = 0;
     io->hostname = NULL;
     io->proxy = NULL;
-    io->proxy_server = NULL;
     // context
     io->ctx = NULL;
     // private:
@@ -166,9 +166,6 @@ void hio_done(hio_t* io) {
     io->ready = 0;
 
     hio_del(io, HV_RDWR);
-
-    proxy_server_release(io->proxy_server);
-    io->proxy_server = NULL;
 
     // readbuf
     hio_free_readbuf(io);
@@ -514,6 +511,9 @@ int hio_set_proxy(hio_t* io, proxy_setting_t* setting) {
     }
     // copy the user config; runtime fields (state/accumulator) are filled at connect
     io->proxy->setting = *setting;
+    io->proxy->side = 0;
+    io->proxy->server_type = 0;
+    io->proxy->server_ctx = NULL;
     return 0;
 }
 

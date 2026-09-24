@@ -7,6 +7,7 @@
 #include "herr.h"
 #include "hthread.h"
 #include "socks5.h"
+#include "proxy.h"
 
 static void __connect_timeout_cb(htimer_t* timer) {
     hio_t* io = (hio_t*)timer->privdata;
@@ -154,7 +155,7 @@ static void nio_accept(hio_t* io) {
         // NOTE: inherit from listenio
         connio->accept_cb = io->accept_cb;
         connio->userdata = io->userdata;
-        connio->proxy_server = proxy_server_retain(io->proxy_server);
+        connio->proxy = proxy_conn_dup(io->proxy);
         if (io->unpack_setting) {
             hio_set_unpack(connio, io->unpack_setting);
         }
@@ -936,7 +937,8 @@ int hio_close (hio_t* io) {
         io->ssl_ctx = NULL;
     }
     SAFE_FREE(io->hostname);
-    SAFE_FREE(io->proxy);
+    proxy_conn_free(io->proxy);
+    io->proxy = NULL;
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     } else if (io->io_type == HIO_TYPE_PIPE) {

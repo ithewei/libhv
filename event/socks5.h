@@ -7,7 +7,7 @@
 // proxy_setting_t + hio_set_proxy() in hloop.h. Used internally by
 // hio_connect() to run the proxy handshake; see nio.c.
 
-#include "hloop.h"    // proxy_setting_t
+#include "proxy.h"
 
 #define SOCKS5_VERSION          0x05
 #define SOCKS5_AUTH_VERSION     0x01    // username/password auth subnegotiation
@@ -27,20 +27,6 @@
 
 // reply codes (0x00 = success)
 #define SOCKS5_REP_SUCCESS      0x00
-
-// Internal per-connection runtime state for the proxy handshake (held on
-// hio_t). Not part of the public configuration. Shared by SOCKS5 and HTTP
-// CONNECT.
-typedef struct proxy_conn_s {
-    proxy_setting_t setting;        // copied proxy config (target + auth)
-    int  state;                     // socks5_state_e (see nio.c)
-    // handshake read accumulator: replies may be fragmented across TCP
-    // segments, so bytes are buffered here until a full message is available.
-    // SOCKS5 max reply is small; HTTP CONNECT response headers can be larger.
-    unsigned char rbuf[1024];
-    int  rlen;                      // bytes currently in rbuf
-    int  want;                      // bytes needed to complete the current step (SOCKS5)
-} proxy_conn_t;
 
 BEGIN_EXTERN_C
 

@@ -430,6 +430,15 @@ hio_t* hloop_create_udp_server (hloop_t* loop, const char* host, int port);
 // 创建UDP客户端，示例代码见 examples/nc.c
 hio_t* hloop_create_udp_client (hloop_t* loop, const char* host, int port);
 
+//-----------------代理服务-----------------------------------------
+// 三个接口都会复制proxy_setting_t。服务端场景中proxy_host/proxy_port是监听地址。
+// TCP/UDP的target_host/target_port是固定上游；SOCKS5的目标由客户端CONNECT请求指定。
+// TCP/UDP只提供明文固定上游转发；UDP为单listener配对单upstream，不维护NAT会话表。
+// SOCKS5仅支持CONNECT；username非空时强制用户名密码认证，password可为空字符串。
+hio_t* hio_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+hio_t* hio_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+hio_t* hio_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+
 //-----------------pipe---------------------------------------------
 // 创建pipe，示例代码见 examples/pipe_test.c
 int hio_create_pipe(hloop_t* loop, hio_t* pipeio[2]);
