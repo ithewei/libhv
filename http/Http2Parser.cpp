@@ -189,13 +189,13 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
         nvs.push_back(make_nv(":authority", c_str));
     }
     const char* value;
-    // HTTP/2 requires lowercase field names. Build lowercased copies rather
-    // than mutating the caller's map keys in place (which is UB and a surprise
-    // side effect). std::list keeps element addresses stable for make_nv2.
-    std::list<std::string> lower_names;
+    // HTTP/2 requires lowercase field names. nghttp2_nv only retains pointers,
+    // so keep one preallocated, stable copy per request header.
+    std::vector<std::string> lower_names(req->headers.size());
+    size_t header_index = 0;
     for (auto& header : req->headers) {
-        lower_names.push_back(header.first);
-        std::string& name = lower_names.back();
+        std::string& name = lower_names[header_index++];
+        name = header.first;
         hv_strlower(&name[0]);
         value = header.second.c_str();
         if (name == "host" || http2_skip_header(name)) {
@@ -269,11 +269,12 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
     snprintf(c_str, sizeof(c_str), "%d", res->status_code);
     nvs.push_back(make_nv(":status", c_str));
     const char* value;
-    // lowercase field names without mutating the caller's map keys (see SubmitRequest).
-    std::list<std::string> lower_names;
+    // Keep one preallocated, stable lowercase copy per response header.
+    std::vector<std::string> lower_names(res->headers.size());
+    size_t header_index = 0;
     for (auto& header : res->headers) {
-        lower_names.push_back(header.first);
-        std::string& name = lower_names.back();
+        std::string& name = lower_names[header_index++];
+        name = header.first;
         hv_strlower(&name[0]);
         value = header.second.c_str();
         if (http2_skip_header(name)) {
