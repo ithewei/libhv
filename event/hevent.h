@@ -7,6 +7,7 @@
 
 #include "hbuf.h"
 #include "hmutex.h"
+#include "hatomic.h"
 
 #include "array.h"
 #include "list.h"
@@ -30,11 +31,11 @@ QUEUE_DECL(hevent_t, event_queue);
 
 struct hloop_s {
     uint32_t    flags;
-    hloop_status_e status;
+    atomic_int  status; // hloop_status_e; storing RUNNING publishes pid/tid to hloop_stop
     uint64_t    start_ms;       // ms
     uint64_t    start_hrtime;   // us
     uint64_t    end_hrtime;
-    uint64_t    cur_hrtime;
+    atomic_ullong cur_hrtime;   // read by hio_write from other threads
     uint64_t    loop_cnt;
     long        pid;
     long        tid;
@@ -115,13 +116,15 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=416 on linux-x64
+// sizeof(struct hio_s)=432 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
+    // read without a lock by hio_write/hio_close/hio_is_opened from other threads,
+    // so they cannot share a bitfield word with the flags the loop thread rewrites
+    atomic_bool ready;
+    atomic_bool connected;
+    atomic_bool closed;
     // flags
-    unsigned    ready       :1;
-    unsigned    connected   :1;
-    unsigned    closed      :1;
     unsigned    accept      :1;
     unsigned    connect     :1;
     unsigned    connectex   :1; // for ConnectEx/DisconnectEx
@@ -141,8 +144,8 @@ struct hio_s {
     int         revents;
     struct sockaddr*    localaddr;
     struct sockaddr*    peeraddr;
-    uint64_t            last_read_hrtime;
-    uint64_t            last_write_hrtime;
+    atomic_ullong       last_read_hrtime;
+    atomic_ullong       last_write_hrtime; // written by hio_write from other threads
     // read
     fifo_buf_t          readbuf;
     unsigned int        read_flags;
