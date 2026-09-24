@@ -424,6 +424,9 @@
 - hio_close
 - hio_accept
 - hio_connect
+- hio_create_tcp_proxy_server
+- hio_create_udp_proxy_server
+- hio_create_socks5_proxy_server
 - hio_fd
 - hio_id
 - hio_type

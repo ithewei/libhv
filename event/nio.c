@@ -154,6 +154,7 @@ static void nio_accept(hio_t* io) {
         // NOTE: inherit from listenio
         connio->accept_cb = io->accept_cb;
         connio->userdata = io->userdata;
+        connio->proxy_server = proxy_server_retain(io->proxy_server);
         if (io->unpack_setting) {
             hio_set_unpack(connio, io->unpack_setting);
         }

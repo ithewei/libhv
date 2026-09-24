@@ -391,6 +391,13 @@ typedef struct proxy_setting_s {
 } proxy_setting_t;
 HV_EXPORT int  hio_set_proxy(hio_t* io, proxy_setting_t* setting);
 
+// Server-side proxy factories. The setting is copied. Here proxy_host/proxy_port
+// is the local listening endpoint; target_host/target_port is the fixed upstream
+// for TCP and UDP. SOCKS5 gets its target from each client request.
+HV_EXPORT hio_t* hio_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+HV_EXPORT hio_t* hio_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+HV_EXPORT hio_t* hio_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* setting);
+
 // connect timeout => hclose_cb
 HV_EXPORT void hio_set_connect_timeout(hio_t* io, int timeout_ms DEFAULT(HIO_DEFAULT_CONNECT_TIMEOUT));
 // close timeout => hclose_cb

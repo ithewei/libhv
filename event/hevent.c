@@ -137,6 +137,7 @@ void hio_ready(hio_t* io) {
     io->alloced_ssl_ctx = 0;
     io->hostname = NULL;
     io->proxy = NULL;
+    io->proxy_server = NULL;
     // context
     io->ctx = NULL;
     // private:
@@ -165,6 +166,9 @@ void hio_done(hio_t* io) {
     io->ready = 0;
 
     hio_del(io, HV_RDWR);
+
+    proxy_server_release(io->proxy_server);
+    io->proxy_server = NULL;
 
     // readbuf
     hio_free_readbuf(io);

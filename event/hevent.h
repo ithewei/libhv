@@ -4,6 +4,7 @@
 #include "hloop.h"
 #include "iowatcher.h"
 #include "rudp.h"
+#include "proxy_server.h"
 
 #include "hbuf.h"
 #include "hmutex.h"
@@ -190,6 +191,9 @@ struct hio_s {
     // (CONNECT to the target) before the connection is handed to the upper
     // layer / SSL handshake. The io itself connects to the proxy address.
     struct proxy_conn_s* proxy;
+    // server-side proxy factory configuration, shared by a listener and its
+    // accepted connections. Kept private so application context is untouched.
+    proxy_server_t* proxy_server;
     // context
     void*       ctx; // for hio_context / hio_set_context
 // private:
