@@ -468,9 +468,9 @@ int hloop_run(hloop_t* loop) {
     if (loop == NULL) return -1;
     if (loop->status == HLOOP_STATUS_RUNNING) return -2;
 
-    loop->status = HLOOP_STATUS_RUNNING;
     loop->pid = hv_getpid();
     loop->tid = hv_gettid();
+    loop->status = HLOOP_STATUS_RUNNING;
     hlogd("hloop_run tid=%ld", loop->tid);
 
     if (loop->intern_nevents == 0) {
@@ -521,12 +521,12 @@ int hloop_wakeup(hloop_t* loop) {
 
 int hloop_stop(hloop_t* loop) {
     if (loop == NULL) return -1;
-    if (loop->status == HLOOP_STATUS_STOP) return -2;
+    // set the status before waking the loop, or it can wake, see RUNNING and block again
+    if (hatomic_exchange(&loop->status, HLOOP_STATUS_STOP) == HLOOP_STATUS_STOP) return -2;
     hlogd("hloop_stop tid=%ld", hv_gettid());
     if (hv_gettid() != loop->tid) {
         hloop_wakeup(loop);
     }
-    loop->status = HLOOP_STATUS_STOP;
     return 0;
 }
 
