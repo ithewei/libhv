@@ -511,9 +511,9 @@ int hio_set_proxy(hio_t* io, proxy_setting_t* setting) {
     }
     // copy the user config; runtime fields (state/accumulator) are filled at connect
     io->proxy->setting = *setting;
-    io->proxy->side = 0;
-    io->proxy->server_type = 0;
-    io->proxy->server_ctx = NULL;
+    if (io->proxy->ctx && io->proxy->ctx_free) io->proxy->ctx_free(io->proxy->ctx);
+    io->proxy->ctx = NULL;
+    io->proxy->ctx_free = NULL;
     return 0;
 }
 

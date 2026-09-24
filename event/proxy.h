@@ -3,24 +3,12 @@
 
 #include "hloop.h"
 
-typedef enum {
-    PROXY_SIDE_CLIENT,
-    PROXY_SIDE_SERVER,
-} proxy_side_e;
-
-typedef enum {
-    PROXY_SERVER_TCP,
-    PROXY_SERVER_UDP,
-    PROXY_SERVER_SOCKS5,
-} proxy_server_type_e;
-
-// Internal context held by hio_t::proxy. Client connections use the handshake
-// fields; server listeners and accepted connections use side/server_type.
+// Internal context held by hio_t::proxy. ctx is available to either client or
+// server proxy implementations; ctx_free, when set, owns its cleanup.
 typedef struct proxy_conn_s {
     proxy_setting_t setting;
-    proxy_side_e    side;
-    unsigned char   server_type;
-    void*           server_ctx;
+    void*           ctx;
+    void            (*ctx_free)(void* ctx);
     int             state;
     unsigned char   rbuf[1024];
     int             rlen;

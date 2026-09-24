@@ -187,8 +187,7 @@ struct hio_s {
     void*       ssl_ctx;    // for hio_set_ssl_ctx
     char*       hostname;   // for hssl_set_sni_hostname
     // Proxy context. Client connections run a handshake before connect_cb;
-    // proxy-server listeners and accepted connections use the same copied
-    // context with side == server.
+    // proxy server listeners and accepted connections use the same type.
     struct proxy_conn_s* proxy;
     // context
     void*       ctx; // for hio_context / hio_set_context

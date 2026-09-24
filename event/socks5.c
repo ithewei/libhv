@@ -45,7 +45,7 @@ static void socks5_server_reply(hio_t* io, unsigned char rep) {
 
 static void socks5_server_upstream_connect(hio_t* upstream) {
     hio_t* io = hio_get_upstream(upstream);
-    if (io == NULL || io->proxy == NULL || io->proxy->server_ctx == NULL) return;
+    if (io == NULL || io->proxy == NULL || io->proxy->ctx == NULL) return;
     socks5_server_reply(io, SOCKS5_REP_SUCCESS);
     hio_setcb_read(io, hio_write_upstream);
     hio_setcb_read(upstream, hio_write_upstream);
@@ -96,7 +96,7 @@ static void socks5_server_dns(hdns_t* query, const hdns_result_t* result, void* 
 }
 
 static void socks5_server_read(hio_t* io, void* buf, int len) {
-    socks5_server_conn_t* conn = io->proxy ? (socks5_server_conn_t*)io->proxy->server_ctx : NULL;
+    socks5_server_conn_t* conn = io->proxy ? (socks5_server_conn_t*)io->proxy->ctx : NULL;
     proxy_conn_t* proxy = io->proxy;
     unsigned char* data = (unsigned char*)buf;
     if (conn == NULL || proxy == NULL) { hio_close(io); return; }
@@ -172,7 +172,7 @@ static void socks5_server_accept(hio_t* io) {
     socks5_server_conn_t* conn = NULL;
     HV_ALLOC_SIZEOF(conn);
     if (conn == NULL) { hio_close(io); return; }
-    io->proxy->server_ctx = conn;
+    io->proxy->ctx = conn;
     conn->io = io;
     conn->state = S5S_METHOD_HEAD;
     hio_setcb_read(io, socks5_server_read);
@@ -335,8 +335,7 @@ hio_t* hio_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* sett
     HV_ALLOC_SIZEOF(proxy);
     if (proxy == NULL) return NULL;
     proxy->setting = *setting;
-    proxy->side = PROXY_SIDE_SERVER;
-    proxy->server_type = PROXY_SERVER_SOCKS5;
+    proxy->ctx_free = socks5_server_ctx_free;
 
     hio_t* listener = hloop_create_tcp_server(loop, setting->proxy_host,
                                                setting->proxy_port, socks5_server_accept);
