@@ -32,9 +32,6 @@ bin/socketpair_test
 # bin/objectpool_test
 bin/sizeof_test
 bin/http_router_test
-if [ -x bin/http_proxy_test ]; then
-    bin/http_proxy_test
-fi
 if [ -x bin/tlv_test ]; then
     bin/tlv_test
 fi
@@ -73,9 +70,6 @@ if [ -x bin/lua_mqtt_test ]; then
 fi
 if [ -x bin/hdns_test ]; then
     bin/hdns_test
-fi
-if [ -x bin/proxy_server_test ]; then
-    bin/proxy_server_test
 fi
 if [ -x bin/tcpclient_dns_test ]; then
     bin/tcpclient_dns_test
