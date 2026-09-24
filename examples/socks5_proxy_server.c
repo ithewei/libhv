@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
     }
 
     hloop_t* loop = hloop_new(0);
-    hio_t* listener = hio_create_socks5_proxy_server(loop, &setting);
+    hio_t* listener = hloop_create_socks5_proxy_server(loop, &setting);
     if (listener == NULL) {
         hloop_free(&loop);
         return -20;
