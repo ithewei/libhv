@@ -6,6 +6,7 @@
 #include "hsocket.h"    // is_ipv4 / is_ipv6 / inet_pton via hplatform
 #include "hevent.h"
 #include "hdns.h"
+#include "herr.h"
 
 typedef enum {
     S5S_METHOD_HEAD, S5S_METHODS, S5S_AUTH_HEAD, S5S_AUTH_USER, S5S_AUTH_PASS_HEAD,
@@ -179,6 +180,115 @@ static void socks5_server_accept(hio_t* io) {
     hio_setcb_read(io, socks5_server_read);
     hio_setcb_close(io, socks5_server_close);
     hio_readbytes(io, 2);
+}
+
+typedef enum {
+    S5C_RECV_METHOD = 0, S5C_RECV_AUTH, S5C_RECV_REPLY_HEAD,
+    S5C_RECV_REPLY_ADDR, S5C_RECV_REPLY_DADDR,
+} socks5_client_state_e;
+
+static void socks5_client_handshake(hio_t* io);
+
+static void socks5_client_expect(hio_t* io, int state, int want) {
+    proxy_ctx_t* proxy = io->proxy;
+    proxy->state = state;
+    proxy->rlen = 0;
+    proxy->want = want;
+}
+
+static void socks5_client_send_connect(hio_t* io) {
+    unsigned char buf[300];
+    int n = socks5_build_connect_request(io->proxy, buf);
+    if (n < 0 || proxy_handshake_send(io, buf, n) != 0) {
+        proxy_handshake_fail(io);
+        return;
+    }
+    socks5_client_expect(io, S5C_RECV_REPLY_HEAD, 4);
+}
+
+static void socks5_client_dispatch(hio_t* io) {
+    proxy_ctx_t* proxy = io->proxy;
+    unsigned char* buf = proxy->rbuf;
+
+    switch (proxy->state) {
+    case S5C_RECV_METHOD:
+        if (buf[0] != SOCKS5_VERSION) { proxy_handshake_fail(io); return; }
+        if (buf[1] == SOCKS5_AUTH_NONE) {
+            socks5_client_send_connect(io);
+        } else if (buf[1] == SOCKS5_AUTH_USERPASS && proxy->setting.username[0]) {
+            unsigned char req[640];
+            int n = socks5_build_auth_request(proxy, req);
+            if (proxy_handshake_send(io, req, n) != 0) { proxy_handshake_fail(io); return; }
+            socks5_client_expect(io, S5C_RECV_AUTH, 2);
+        } else {
+            proxy_handshake_fail(io);
+        }
+        return;
+
+    case S5C_RECV_AUTH:
+        if (buf[1] != 0x00) { proxy_handshake_fail(io); return; }
+        socks5_client_send_connect(io);
+        return;
+
+    case S5C_RECV_REPLY_HEAD: {
+        if (buf[0] != SOCKS5_VERSION) { proxy_handshake_fail(io); return; }
+        if (buf[1] != SOCKS5_REP_SUCCESS) { io->error = ERR_CONNECT; proxy_handshake_fail(io); return; }
+        unsigned char atyp = buf[3];
+        if (atyp == SOCKS5_ATYP_IPV4) {
+            socks5_client_expect(io, S5C_RECV_REPLY_ADDR, 4 + 2);
+        } else if (atyp == SOCKS5_ATYP_IPV6) {
+            socks5_client_expect(io, S5C_RECV_REPLY_ADDR, 16 + 2);
+        } else if (atyp == SOCKS5_ATYP_DOMAIN) {
+            socks5_client_expect(io, S5C_RECV_REPLY_DADDR, 1);
+        } else {
+            proxy_handshake_fail(io);
+        }
+        return;
+    }
+
+    case S5C_RECV_REPLY_ADDR:
+        proxy_handshake_established(io);
+        return;
+
+    case S5C_RECV_REPLY_DADDR:
+        if (proxy->want == 1) {
+            socks5_client_expect(io, S5C_RECV_REPLY_DADDR, buf[0] + 2);
+            return;
+        }
+        proxy_handshake_established(io);
+        return;
+
+    default:
+        proxy_handshake_fail(io);
+        return;
+    }
+}
+
+static void socks5_client_handshake(hio_t* io) {
+    proxy_ctx_t* proxy = io->proxy;
+    while (proxy->rlen < proxy->want) {
+        int need = proxy->want - proxy->rlen;
+        if (proxy->want > (int)sizeof(proxy->rbuf)) { proxy_handshake_fail(io); return; }
+        int n = recv(io->fd, (char*)proxy->rbuf + proxy->rlen, need, 0);
+        if (n == 0) { proxy_handshake_fail(io); return; }
+        if (n < 0) {
+            int err = socket_errno();
+            if (err == EAGAIN || err == EINTR) return;
+            io->error = err;
+            proxy_handshake_fail(io);
+            return;
+        }
+        proxy->rlen += n;
+    }
+    socks5_client_dispatch(io);
+}
+
+void socks5_client_handshake_start(hio_t* io) {
+    unsigned char buf[8];
+    int n = socks5_build_method_request(io->proxy, buf);
+    if (proxy_handshake_send(io, buf, n) != 0) { proxy_handshake_fail(io); return; }
+    socks5_client_expect(io, S5C_RECV_METHOD, 2);
+    hio_add(io, socks5_client_handshake, HV_READ);
 }
 
 // Build the SOCKS5 method-selection request.

@@ -52,7 +52,8 @@ int main(int argc, char** argv) {
     // and completes SOCKS5 CONNECT to target_host:target_port before on_connect.
     proxy_setting_t proxy;
     memset(&proxy, 0, sizeof(proxy));
-    proxy.protocol = PROXY_PROTOCOL_SOCKS5;
+    hv_strncpy(proxy.proxy_host, proxy_host, sizeof(proxy.proxy_host));
+    proxy.proxy_port = proxy_port;
     hv_strncpy(proxy.target_host, target_host, sizeof(proxy.target_host));
     proxy.target_port = target_port;
     if (user) hv_strncpy(proxy.username, user, sizeof(proxy.username));

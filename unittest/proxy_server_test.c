@@ -3,6 +3,7 @@
 
 #include "hloop.h"
 #include "hsocket.h"
+#include "proxy.h"
 
 int main() {
     hloop_t* loop = hloop_new(0);
@@ -29,6 +30,11 @@ int main() {
     setting.proxy_port = ntohs(((sockaddr_u*)hio_localaddr(socks5_server))->sin.sin_port);
     setting.protocol = PROXY_PROTOCOL_NONE;
     assert(hloop_create_socks5_client(loop, &setting, NULL, NULL) != NULL);
+
+    proxy_ctx_t* proxy = proxy_ctx_new(&setting);
+    assert(proxy != NULL);
+    assert(proxy->on_established == NULL);
+    proxy_ctx_free(proxy);
     hloop_free(&loop);
     return 0;
 }
