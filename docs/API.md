@@ -424,10 +424,10 @@
 - hio_close
 - hio_accept
 - hio_connect
-- hloop_create_socks5_client
 - hloop_create_tcp_proxy_server
 - hloop_create_udp_proxy_server
 - hloop_create_socks5_proxy_server
+- hloop_create_socks5_client
 - hio_fd
 - hio_id
 - hio_type
