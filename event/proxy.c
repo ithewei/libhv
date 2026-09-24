@@ -114,7 +114,7 @@ static void on_tcp_proxy_accept(hio_t* io) {
     }
 }
 
-hio_t* hio_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
+hio_t* hloop_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
     if (loop == NULL || !proxy_setting_valid(setting, true)) return NULL;
     proxy_ctx_t* proxy = proxy_ctx_new(setting);
     if (proxy == NULL) return NULL;
@@ -124,7 +124,7 @@ hio_t* hio_create_tcp_proxy_server(hloop_t* loop, const proxy_setting_t* setting
     return listener;
 }
 
-hio_t* hio_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
+hio_t* hloop_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
     if (loop == NULL || !proxy_setting_valid(setting, true)) return NULL;
     proxy_ctx_t* proxy = proxy_ctx_new(setting);
     if (proxy == NULL) return NULL;

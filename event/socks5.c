@@ -251,7 +251,7 @@ int socks5_build_connect_request(const proxy_ctx_t* s5, unsigned char* buf) {
     return n;
 }
 
-hio_t* hio_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
+hio_t* hloop_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* setting) {
     if (loop == NULL || !proxy_setting_valid(setting, false)) {
         return NULL;
     }
