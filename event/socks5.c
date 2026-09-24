@@ -256,16 +256,13 @@ hio_t* hloop_create_socks5_proxy_server(hloop_t* loop, const proxy_setting_t* se
         return NULL;
     }
 
-    proxy_ctx_t* proxy = proxy_ctx_new(setting);
-    if (proxy == NULL) return NULL;
-    proxy->ctx_free = socks5_server_ctx_free;
-
     hio_t* listener = hloop_create_tcp_server(loop, setting->proxy_host,
                                                setting->proxy_port, socks5_server_accept);
-    if (listener == NULL) {
-        proxy_ctx_free(proxy);
+    if (listener == NULL) return NULL;
+    if (hio_set_proxy(listener, setting) != 0) {
+        hio_close(listener);
         return NULL;
     }
-    listener->proxy = proxy;
+    listener->proxy->ctx_free = socks5_server_ctx_free;
     return listener;
 }

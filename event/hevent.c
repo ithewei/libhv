@@ -498,22 +498,12 @@ const char* hio_get_hostname(hio_t* io) {
     return io->hostname;
 }
 
-int hio_set_proxy(hio_t* io, proxy_setting_t* setting) {
+int hio_set_proxy(hio_t* io, const proxy_setting_t* setting) {
     if (io == NULL || setting == NULL) return -1;
-    // implemented: SOCKS5, HTTP CONNECT
-    if (setting->protocol != PROXY_PROTOCOL_SOCKS5 &&
-        setting->protocol != PROXY_PROTOCOL_HTTP_CONNECT) {
-        return -1;
-    }
-    if (io->proxy == NULL) {
-        HV_ALLOC_SIZEOF(io->proxy);
-        if (io->proxy == NULL) return -1;
-    }
-    // copy the user config; runtime fields (state/accumulator) are filled at connect
-    io->proxy->setting = *setting;
-    if (io->proxy->ctx && io->proxy->ctx_free) io->proxy->ctx_free(io->proxy->ctx);
-    io->proxy->ctx = NULL;
-    io->proxy->ctx_free = NULL;
+    proxy_ctx_t* proxy = proxy_ctx_new(setting);
+    if (proxy == NULL) return -1;
+    proxy_ctx_free(io->proxy);
+    io->proxy = proxy;
     return 0;
 }
 
