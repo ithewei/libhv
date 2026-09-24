@@ -4,7 +4,6 @@
 #ifdef EVENT_IOCP
 #include "overlapio.h"
 #include "hevent.h"
-#include "proxy.h"
 
 #define ACCEPTEX_NUM    10
 
@@ -406,8 +405,6 @@ int hio_close (hio_t* io) {
         io->close_cb(io);
         //printd("close_cb======\n");
     }
-    proxy_ctx_free(io->proxy);
-    io->proxy = NULL;
     if (io->io_type & HIO_TYPE_SOCKET) {
 #ifdef USE_DISCONNECTEX
         // DisconnectEx reuse socket
