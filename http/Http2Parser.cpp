@@ -25,13 +25,12 @@ static nghttp2_nv make_nv2(const char* name, const char* value,
     return nv;
 }
 
-static bool http2_skip_header(const std::string& name, bool is_request) {
+static bool http2_skip_header(const std::string& name) {
     static const hv::StringList http2_skip_headers = {
         "connection", "proxy-connection", "keep-alive",
         "transfer-encoding", "upgrade", "content-length",
     };
-    return std::find(http2_skip_headers.begin(), http2_skip_headers.end(), name) != http2_skip_headers.end() ||
-           (is_request && name == "host");
+    return std::find(http2_skip_headers.begin(), http2_skip_headers.end(), name) != http2_skip_headers.end();
 }
 
 static void print_frame_hd(const nghttp2_frame_hd* hd) {
@@ -198,7 +197,7 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
         std::string& name = lower_names.back();
         hv_strlower(&name[0]);
         value = header.second.c_str();
-        if (http2_skip_header(name, true)) {
+        if (name == "host" || http2_skip_header(name)) {
             continue;
         }
         nvs.push_back(make_nv2(name.c_str(), value, name.size(), header.second.size()));
@@ -276,7 +275,7 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
         std::string& name = lower_names.back();
         hv_strlower(&name[0]);
         value = header.second.c_str();
-        if (http2_skip_header(name, false)) {
+        if (http2_skip_header(name)) {
             continue;
         }
         if (name == "grpc-status" || name == "grpc-message") {
