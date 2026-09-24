@@ -25,6 +25,25 @@ static nghttp2_nv make_nv2(const char* name, const char* value,
     return nv;
 }
 
+static bool http2_skip_header(const std::string& name, const std::string& value, bool is_request) {
+    if (name == "connection" ||
+        name == "proxy-connection" ||
+        name == "keep-alive" ||
+        name == "transfer-encoding" ||
+        name == "upgrade" ||
+        name == "content-length") {
+        return true;
+    }
+    if (is_request && name == "host") {
+        return true;
+    }
+    // RFC 7540 permits TE only when its value is exactly "trailers".
+    if (name == "te" && stricmp(hv::trim(value).c_str(), "trailers") != 0) {
+        return true;
+    }
+    return false;
+}
+
 static void print_frame_hd(const nghttp2_frame_hd* hd) {
     printd("[frame] length=%d type=%x flags=%x stream_id=%d\n",
         (int)hd->length, (int)hd->type, (int)hd->flags, hd->stream_id);
@@ -166,6 +185,7 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
     std::vector<nghttp2_nv> nvs;
     char c_str[256] = {0};
     req->ParseUrl();
+    req->FillProxyHeaders();
     nvs.push_back(make_nv(":method", http_method_str(req->method)));
     nvs.push_back(make_nv(":path", req->path.c_str()));
     nvs.push_back(make_nv(":scheme", req->scheme.c_str()));
@@ -188,16 +208,7 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
         std::string& name = lower_names.back();
         hv_strlower(&name[0]);
         value = header.second.c_str();
-        if (name == "host") {
-            // :authority
-            continue;
-        }
-        if (name == "connection") {
-            // HTTP2 default keep-alive
-            continue;
-        }
-        if (name == "content-length") {
-            // HTTP2 have frame_hd.length
+        if (http2_skip_header(name, header.second, true)) {
             continue;
         }
         nvs.push_back(make_nv2(name.c_str(), value, name.size(), header.second.size()));
@@ -275,12 +286,7 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
         std::string& name = lower_names.back();
         hv_strlower(&name[0]);
         value = header.second.c_str();
-        if (name == "connection") {
-            // HTTP2 default keep-alive
-            continue;
-        }
-        if (name == "content-length") {
-            // HTTP2 have frame_hd.length
+        if (http2_skip_header(name, header.second, false)) {
             continue;
         }
         if (name == "grpc-status" || name == "grpc-message") {

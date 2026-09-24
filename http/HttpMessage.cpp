@@ -782,6 +782,20 @@ void HttpRequest::SetProxyAuth(const char* username, const char* password) {
     proxy_password = password ? password : "";
 }
 
+void HttpRequest::FillProxyHeaders() {
+    if (IsUriProxy()) {
+        if (!proxy_username.empty()) {
+            std::string credentials = proxy_username + ':' + proxy_password;
+            headers["Proxy-Authorization"] = "Basic " +
+                hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+        }
+    } else {
+        // Proxy credentials are hop-by-hop and must not enter an HTTPS
+        // CONNECT tunnel or a direct request to the origin.
+        headers.erase("Proxy-Authorization");
+    }
+}
+
 void HttpRequest::SetAuth(const std::string& auth) {
     SetHeader("Authorization", auth);
 }
@@ -797,17 +811,7 @@ void HttpRequest::SetBearerTokenAuth(const std::string& token) {
 }
 
 void HttpRequest::DumpHeaders(std::string& str) {
-    if (IsUriProxy()) {
-        if (!proxy_username.empty()) {
-            std::string credentials = proxy_username + ':' + proxy_password;
-            headers["Proxy-Authorization"] = "Basic " +
-                hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
-        }
-    } else {
-        // Proxy credentials are hop-by-hop and must not enter an HTTPS
-        // CONNECT tunnel or a direct request to the origin.
-        headers.erase("Proxy-Authorization");
-    }
+    FillProxyHeaders();
     HttpMessage::DumpHeaders(str);
 }
 

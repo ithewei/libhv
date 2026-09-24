@@ -458,6 +458,8 @@ public:
     bool IsTunnelProxy() const { return proxy == 1 && scheme == "https"; }
     // Basic authentication for an HTTP proxy request. Empty username clears it.
     void SetProxyAuth(const char* username, const char* password = NULL);
+    // Prepare the proxy-only authorization header for the current request mode.
+    void FillProxyHeaders();
 
     // Auth
     void SetAuth(const std::string& auth);
