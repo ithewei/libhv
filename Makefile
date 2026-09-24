@@ -403,6 +403,7 @@ unittest: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/threadpool_test   unittest/threadpool_test.cpp  -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/objectpool_test   unittest/objectpool_test.cpp  -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -Ihttp/server         -o bin/http_router_test  unittest/http_router_test.cpp
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Ievpp -Icpputil -Ihttp -Ihttp/client -Ihttp/server -o bin/http_proxy_test unittest/http_proxy_test.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Ievpp -Icpputil -Ihttp -Ihttp/client -Ihttp/server -o bin/sizeof_test unittest/sizeof_test.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Issl -Ievpp -o bin/tlv_test unittest/tlv_test.cpp
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c  base/hsocket.c base/htime.c

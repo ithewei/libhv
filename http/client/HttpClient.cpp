@@ -186,7 +186,7 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
     }
     req->ParseUrl();
 
-    if (!req->IsTunnelProxy() && !req->IsProxy()) {
+    if (!req->IsProxy()) {
         bool https = req->IsHttps();
         bool use_proxy = https ? (!cli->https_proxy_host.empty()) : (!cli->http_proxy_host.empty());
         if (use_proxy) {
@@ -204,19 +204,11 @@ static int http_client_make_request(http_client_t* cli, HttpRequest* req) {
         }
 
         if (use_proxy) {
-            if (https) {
-                req->SetTunnelProxy(cli->https_proxy_host.c_str(), cli->https_proxy_port,
-                                    cli->proxy_username.empty() ? NULL : cli->proxy_username.c_str(),
-                                    cli->proxy_password.empty() ? NULL : cli->proxy_password.c_str());
-            } else {
-                req->SetProxy(cli->http_proxy_host.c_str(), cli->http_proxy_port);
-                req->SetProxyAuth(cli->proxy_username.c_str(), cli->proxy_password.c_str());
-            }
+            const std::string& proxy_host = https ? cli->https_proxy_host : cli->http_proxy_host;
+            int proxy_port = https ? cli->https_proxy_port : cli->http_proxy_port;
+            req->SetProxy(proxy_host.c_str(), proxy_port);
+            req->SetProxyAuth(cli->proxy_username.c_str(), cli->proxy_password.c_str());
         }
-    }
-
-    if (!req->IsProxy()) {
-        req->SetProxyAuth(NULL);
     }
 
     if (req->timeout == 0) {
@@ -380,9 +372,9 @@ int http_client_connect(http_client_t* cli, HttpRequest* req) {
     }
 
     bool tunnel = req->IsTunnelProxy();
-    bool https = req->IsHttps() && !req->IsProxy();
-    const char* connect_host = tunnel ? req->tunnel_proxy_host.c_str() : req->host.c_str();
-    int connect_port = tunnel ? req->tunnel_proxy_port : req->port;
+    bool https = req->IsHttps();
+    const char* connect_host = req->IsProxy() ? req->proxy_host.c_str() : req->host.c_str();
+    int connect_port = req->IsProxy() ? req->proxy_port : req->port;
 
     unsigned int start_time = gettick_ms();
     int connfd = ConnectTimeout(connect_host, connect_port, blocktime);
@@ -399,7 +391,7 @@ int http_client_connect(http_client_t* cli, HttpRequest* req) {
             return NABS(ETIMEDOUT);
         }
         int ret = http_client_http_connect(connfd, req->host.c_str(), req->port,
-                                           req->tunnel_proxy_username, req->tunnel_proxy_password, left);
+                                           req->proxy_username, req->proxy_password, left);
         if (ret != 0) {
             closesocket(connfd);
             return ret;
@@ -464,7 +456,7 @@ static int http_client_exec(http_client_t* cli, HttpRequest* req, HttpResponse* 
     // connect -> send -> recv -> http_parser
     int err = 0;
     int connfd = cli->fd;
-    bool https = req->IsHttps() && !req->IsProxy();
+    bool https = req->IsHttps();
     bool keepalive = true;
 
     time_t connect_timeout = MIN(req->connect_timeout, req->timeout);
@@ -727,21 +719,18 @@ static int http_client_exec_curl(http_client_t* cli, HttpRequest* req, HttpRespo
     }
     CURL* curl = cli->curl;
 
-    // proxy: plain-http forward proxy (req->host is the proxy) or CONNECT
-    // tunnel (tunnel_proxy_* for https). libcurl handles both, incl. CONNECT.
+    // libcurl applies the configured proxy as URI forwarding for HTTP and
+    // CONNECT tunnelling for HTTPS.
     // cli->curl is reused across requests, so always reset proxy options first
     // (a stale PROXY / PROXYUSERPWD would otherwise leak into a later request
     // that uses a different or no proxy).
     curl_easy_setopt(curl, CURLOPT_PROXY, "");
     curl_easy_setopt(curl, CURLOPT_PROXYUSERPWD, "");
     if (req->IsProxy()) {
-        curl_easy_setopt(curl, CURLOPT_PROXY, req->host.c_str());
-        curl_easy_setopt(curl, CURLOPT_PROXYPORT, req->port);
-    } else if (req->IsTunnelProxy()) {
-        curl_easy_setopt(curl, CURLOPT_PROXY, req->tunnel_proxy_host.c_str());
-        curl_easy_setopt(curl, CURLOPT_PROXYPORT, req->tunnel_proxy_port);
-        if (!req->tunnel_proxy_username.empty()) {
-            std::string userpwd = req->tunnel_proxy_username + ":" + req->tunnel_proxy_password;
+        curl_easy_setopt(curl, CURLOPT_PROXY, req->proxy_host.c_str());
+        curl_easy_setopt(curl, CURLOPT_PROXYPORT, req->proxy_port);
+        if (!req->proxy_username.empty()) {
+            std::string userpwd = req->proxy_username + ":" + req->proxy_password;
             curl_easy_setopt(curl, CURLOPT_PROXYUSERPWD, userpwd.c_str());
         }
     }
@@ -891,20 +880,7 @@ static std::string http_client_redirect_url(const HttpRequest* req, const std::s
 }
 
 static void http_client_prepare_redirect(HttpRequest* req, const std::string& location) {
-    bool old_https = req->IsHttps();
     std::string redirect_url = http_client_redirect_url(req, location);
-    bool new_https = hv::startswith(redirect_url, "https://") ? true :
-                     hv::startswith(redirect_url, "http://") ? false : old_https;
-
-    if (new_https && req->IsProxy()) {
-        req->proxy = 0;
-    } else if (!new_https && req->IsTunnelProxy()) {
-        req->tunnel_proxy_host.clear();
-        req->tunnel_proxy_port = 0;
-        req->tunnel_proxy_username.clear();
-        req->tunnel_proxy_password.clear();
-    }
-
     req->url = redirect_url;
     req->headers.erase("Host");
     req->ParseUrl();

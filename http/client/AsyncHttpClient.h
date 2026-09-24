@@ -72,20 +72,11 @@ struct HttpConnKey {
     explicit HttpConnKey(const HttpRequest& req)
         : HttpConnKey()
     {
-        tls = !req.proxy && (req.scheme.compare(0, 5, "https") == 0 ||
-                             req.url.compare(0, 8, "https://") == 0);
-
-        if (req.proxy) {
-            proxy_host = req.host;
-            proxy_port = req.port;
-        } else {
-            target_host = req.host;
-            target_port = req.port;
-            if (!req.tunnel_proxy_host.empty()) {
-                proxy_host = req.tunnel_proxy_host;
-                proxy_port = req.tunnel_proxy_port;
-            }
-        }
+        target_host = req.host;
+        target_port = req.port;
+        proxy_host = req.IsProxy() ? req.proxy_host : "";
+        proxy_port = req.IsProxy() ? req.proxy_port : 0;
+        tls = req.IsHttps();
     }
 
     static HttpConnKey Direct(const char* host, int port, bool tls) {

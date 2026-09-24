@@ -45,7 +45,7 @@ class HttpClient {
 
 };
 
-当 `HttpRequest` 已通过 `SetProxy` 或 `SetTunnelProxy` 配置代理时，以请求级配置为准；否则使用 `HttpClient` 的全局代理配置。重定向后的连接目标未变化时复用当前连接，目标或代理变化时使用独立连接完成重定向，不会关闭调用方原有的 keep-alive 连接。
+当 `HttpRequest` 已通过 `SetProxy` 配置代理时，以请求级配置为准；否则使用 `HttpClient` 的全局代理配置。HTTP 请求自动走绝对URI转发，HTTPS 请求自动走 HTTP CONNECT 隧道；重定向保留代理配置并按新的 scheme 切换模式。连接目标或代理变化时使用独立连接完成重定向，不会关闭调用方原有的 keep-alive 连接。
 
 namespace requests {
 

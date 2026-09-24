@@ -78,12 +78,15 @@ class HttpRequest : public HttpMessage {
     void SetParam(const char* key, const T& t);
     std::string GetParam(const char* key, const std::string& defvalue = hv::empty_string);
 
-    // 设置代理
+    // 设置代理，HTTP请求自动使用绝对URI转发，HTTPS请求自动使用CONNECT隧道
+    // SetProxy不修改请求目标的scheme、host、port
     void SetProxy(const char* host, int port);
-    // 设置HTTP正向代理Basic认证，username为空时删除Proxy-Authorization
+    // 设置HTTP代理Basic认证，username为空时清除认证信息
     void SetProxyAuth(const char* username, const char* password = NULL);
-    // 设置HTTP CONNECT隧道代理及握手认证
-    void SetTunnelProxy(const char* host, int port, const char* username = NULL, const char* password = NULL);
+    // 是否配置代理 / 是否使用HTTP绝对URI代理 / 是否使用HTTPS CONNECT隧道
+    bool IsProxy();
+    bool IsUriProxy();
+    bool IsTunnelProxy();
 
     // 设置认证
     void SetAuth(const std::string& auth);

@@ -660,10 +660,10 @@ void HttpRequest::Init() {
     redirect = 1;
     proxy = 0;
     cancel = 0;
-    tunnel_proxy_host.clear();
-    tunnel_proxy_port = 0;
-    tunnel_proxy_username.clear();
-    tunnel_proxy_password.clear();
+    proxy_host.clear();
+    proxy_port = 0;
+    proxy_username.clear();
+    proxy_password.clear();
 }
 
 void HttpRequest::Reset() {
@@ -733,11 +733,9 @@ void HttpRequest::ParseUrl() {
     }
     // port
     int port_ = parser.port ? parser.port : strcmp(scheme_.c_str(), "https") ? DEFAULT_HTTP_PORT : DEFAULT_HTTPS_PORT;
-    if (!proxy) {
-        scheme = scheme_;
-        host = host_;
-        port = port_;
-    }
+    scheme = scheme_;
+    host = host_;
+    port = port_;
     FillHost(host_.c_str(), port_);
     // path
     if (parser.fields[HV_URL_PATH].len > 0) {
@@ -775,30 +773,19 @@ void HttpRequest::SetHost(const char* host, int port) {
 }
 
 void HttpRequest::SetProxy(const char* host, int port) {
-    this->scheme = "http";
-    this->host = host;
-    this->port = port;
-    proxy = 1;
-    // mutually exclusive with the CONNECT-tunnel mode
-    tunnel_proxy_host.clear();
-    tunnel_proxy_port = 0;
-    tunnel_proxy_username.clear();
-    tunnel_proxy_password.clear();
+    proxy_host = host ? host : "";
+    proxy_port = port;
+    proxy = !proxy_host.empty();
 }
 
 void HttpRequest::SetProxyAuth(const char* username, const char* password) {
     if (username == NULL || *username == '\0') {
-        headers.erase("Proxy-Authorization");
+        proxy_username.clear();
+        proxy_password.clear();
         return;
     }
-
-    std::string credentials = username;
-    credentials += ':';
-    if (password) {
-        credentials += password;
-    }
-    headers["Proxy-Authorization"] =
-        "Basic " + hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+    proxy_username = username;
+    proxy_password = password ? password : "";
 }
 
 void HttpRequest::SetAuth(const std::string& auth) {
@@ -823,10 +810,16 @@ std::string HttpRequest::Dump(bool is_dump_headers, bool is_dump_body) {
     // GET / HTTP/1.1\r\n
     str = asprintf("%s %s HTTP/%d.%d\r\n",
             http_method_str(method),
-            proxy ? url.c_str() : path.c_str(),
+            IsUriProxy() ? url.c_str() : path.c_str(),
             (int)http_major, (int)http_minor);
     if (is_dump_headers) {
         DumpHeaders(str);
+    }
+    if (IsUriProxy() && !proxy_username.empty()) {
+        std::string credentials = proxy_username + ':' + proxy_password;
+        str += "Proxy-Authorization: Basic ";
+        str += hv::Base64Encode((const unsigned char*)credentials.data(), credentials.size());
+        str += "\r\n";
     }
     str += "\r\n";
     if (is_dump_body) {
