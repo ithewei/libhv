@@ -22,6 +22,15 @@ static hio_t* s_listener = NULL;
 static hio_t* s_client = NULL;
 static const char s_preconnect_message[] = "queued before connect";
 
+static void test_hio_init_phase() {
+    hio_t io;
+    memset(&io, 0, sizeof(io));
+    io.phase = HIO_PHASE_CLOSED;
+    hio_init(&io);
+    assert(io.phase == HIO_PHASE_NONE);
+    hrecursive_mutex_destroy(&io.write_mutex);
+}
+
 static void test_proxy_established_transition() {
     hloop_t* loop = hloop_new(0);
     assert(loop != NULL);
@@ -146,6 +155,7 @@ static void on_connect(hio_t* io) {
 }
 
 int main() {
+    test_hio_init_phase();
     test_proxy_established_transition();
     test_tls_phase_contract();
 #ifdef WITH_OPENSSL

@@ -65,6 +65,7 @@ static void hio_socket_init(hio_t* io) {
 }
 
 void hio_init(hio_t* io) {
+    io->phase = HIO_PHASE_NONE;
     // alloc localaddr,peeraddr when hio_socket_init
     /*
     if (io->localaddr == NULL) {

@@ -27,7 +27,8 @@
 // Internal NIO transport lifecycle. hio_handle_events is the single readiness
 // dispatcher; phase selects its current transport or handshake action.
 typedef enum {
-    HIO_PHASE_READY = 0,
+    HIO_PHASE_NONE = 0,
+    HIO_PHASE_READY,
     HIO_PHASE_ACCEPTING,
     HIO_PHASE_CONNECTING,
     HIO_PHASE_PROXY_HANDSHAKING,
