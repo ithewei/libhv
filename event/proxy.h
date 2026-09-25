@@ -3,8 +3,6 @@
 
 #include "hloop.h"
 
-typedef void (*proxy_established_cb)(hio_t* io);
-
 // Internal context held by hio_t::proxy. ctx is available to either client or
 // server proxy implementations; ctx_free, when set, owns its cleanup.
 typedef struct proxy_ctx_s {
@@ -15,7 +13,6 @@ typedef struct proxy_ctx_s {
     unsigned char   rbuf[1024];
     int             rlen;
     int             want;
-    proxy_established_cb on_established;
 } proxy_ctx_t;
 
 proxy_ctx_t* proxy_ctx_new(const proxy_setting_t* setting);
@@ -27,7 +24,7 @@ bool proxy_setting_valid(const proxy_setting_t* setting, bool need_target);
 // written, or a negative value when the buffer is insufficient.
 int http_connect_build_request(const proxy_ctx_t* proxy, char* buf, int bufsize);
 
-void proxy_handshake_start(hio_t* io, proxy_established_cb on_established);
+void proxy_handshake_start(hio_t* io);
 void proxy_handshake_read(hio_t* io);
 void proxy_handshake_fail(hio_t* io);
 int  proxy_handshake_send(hio_t* io, const void* buf, int len);

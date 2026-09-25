@@ -71,6 +71,7 @@ static void hio_handle_events(hio_t* io);
 static bool nio_write_deferred(hio_t* io) {
     return io->phase == HIO_PHASE_CONNECTING ||
            io->phase == HIO_PHASE_PROXY_HANDSHAKING ||
+           io->phase == HIO_PHASE_PROXY_ESTABLISHED ||
            io->phase == HIO_PHASE_TLS_CLIENT_HANDSHAKING ||
            io->phase == HIO_PHASE_TLS_SERVER_HANDSHAKING;
 }
@@ -263,7 +264,7 @@ static void nio_connect(hio_t* io) {
         // Proxy: the TCP connection is to the proxy; run its protocol handshake
         // before TLS or the user connect callback.
         if (io->proxy) {
-            proxy_handshake_start(io, nio_connect_established);
+            proxy_handshake_start(io);
             return;
         }
 
@@ -468,6 +469,11 @@ static void hio_handle_events(hio_t* io) {
     if ((io->events & HV_READ) && (io->revents & HV_READ)) {
         if (io->phase == HIO_PHASE_PROXY_HANDSHAKING) {
             proxy_handshake_read(io);
+            if (io->phase == HIO_PHASE_PROXY_ESTABLISHED) {
+                io->revents = 0;
+                nio_connect_established(io);
+                return;
+            }
         }
         else if (io->phase == HIO_PHASE_TLS_SERVER_HANDSHAKING ||
                  io->phase == HIO_PHASE_TLS_CLIENT_HANDSHAKING) {

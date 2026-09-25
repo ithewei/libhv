@@ -4,6 +4,7 @@
 
 #include "hevent.h"
 #include "hsocket.h"
+#include "proxy.h"
 
 #ifdef EVENT_IOCP
 int main() {
@@ -19,6 +20,26 @@ static hloop_t* s_loop = NULL;
 static hio_t* s_listener = NULL;
 static hio_t* s_client = NULL;
 static const char s_preconnect_message[] = "queued before connect";
+
+static void test_proxy_established_transition() {
+    hloop_t* loop = hloop_new(0);
+    assert(loop != NULL);
+    hio_t* io = hio_create_socket(loop, "127.0.0.1", 1, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+    assert(io != NULL);
+
+    proxy_setting_t setting;
+    memset(&setting, 0, sizeof(setting));
+    setting.protocol = PROXY_PROTOCOL_SOCKS5;
+    assert(hio_set_proxy(io, &setting) == 0);
+    io->phase = HIO_PHASE_PROXY_HANDSHAKING;
+
+    proxy_handshake_established(io);
+    assert(io->phase == HIO_PHASE_PROXY_ESTABLISHED);
+    assert(!io->closed);
+
+    hio_close(io);
+    hloop_free(&loop);
+}
 
 static void finish_if_ready() {
     if (s_accept_count != 1 || s_connect_count != 1 || s_read_count != 1) return;
@@ -56,6 +77,8 @@ static void on_connect(hio_t* io) {
 }
 
 int main() {
+    test_proxy_established_transition();
+
     s_loop = hloop_new(0);
     assert(s_loop != NULL);
 

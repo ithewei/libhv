@@ -126,12 +126,11 @@ int proxy_handshake_send(hio_t* io, const void* buf, int len) {
 void proxy_handshake_established(hio_t* io) {
     proxy_ctx_t* proxy = io->proxy;
     hio_del(io, HV_READ);
-    if (proxy == NULL || proxy->on_established == NULL) {
+    if (proxy == NULL) {
         proxy_handshake_fail(io);
         return;
     }
-    io->phase = HIO_PHASE_CONNECTING;
-    proxy->on_established(io);
+    io->phase = HIO_PHASE_PROXY_ESTABLISHED;
 }
 
 static void http_connect_client_handshake(hio_t* io) {
@@ -211,9 +210,9 @@ void proxy_handshake_read(hio_t* io) {
     }
 }
 
-void proxy_handshake_start(hio_t* io, proxy_established_cb on_established) {
+void proxy_handshake_start(hio_t* io) {
     proxy_ctx_t* proxy = io->proxy;
-    if (proxy == NULL || on_established == NULL) {
+    if (proxy == NULL) {
         proxy_handshake_fail(io);
         return;
     }
@@ -221,7 +220,6 @@ void proxy_handshake_start(hio_t* io, proxy_established_cb on_established) {
     if (io->events & HV_WRITE) {
         hio_del(io, HV_WRITE);
     }
-    proxy->on_established = on_established;
     switch (proxy->setting.protocol) {
     case PROXY_PROTOCOL_SOCKS5:
         socks5_client_handshake_start(io);
