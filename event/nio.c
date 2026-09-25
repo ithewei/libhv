@@ -69,16 +69,12 @@ static void __close_cb(hio_t* io) {
 
 static void hio_handle_events(hio_t* io);
 
-static bool nio_write_deferred(hio_t* io) {
-    return io->phase == HIO_PHASE_CONNECTING ||
-           io->phase == HIO_PHASE_PROXY_HANDSHAKING ||
-           io->phase == HIO_PHASE_PROXY_ESTABLISHED ||
-           io->phase == HIO_PHASE_TLS_CLIENT_HANDSHAKING ||
-           io->phase == HIO_PHASE_TLS_SERVER_HANDSHAKING ||
-           io->phase == HIO_PHASE_TLS_ESTABLISHED;
+static bool nio_is_establishing(hio_t* io) {
+    return io->phase >= HIO_PHASE_CONNECTING &&
+           io->phase < HIO_PHASE_ESTABLISHED;
 }
 
-static void nio_flush_deferred_writes(hio_t* io) {
+static void nio_flush_write_queue(hio_t* io) {
     hrecursive_mutex_lock(&io->write_mutex);
     bool pending = !write_queue_empty(&io->write_queue);
     hrecursive_mutex_unlock(&io->write_mutex);
@@ -90,7 +86,7 @@ static void nio_flush_deferred_writes(hio_t* io) {
 static void nio_connect_ready(hio_t* io) {
     io->phase = HIO_PHASE_ESTABLISHED;
     __connect_cb(io);
-    nio_flush_deferred_writes(io);
+    nio_flush_write_queue(io);
 }
 
 static void nio_accept_ready(hio_t* io) {
@@ -497,7 +493,7 @@ static int hio_write4 (hio_t* io, const void* buf, size_t len, struct sockaddr* 
     }
 #endif
     if (write_queue_empty(&io->write_queue)) {
-        if (nio_write_deferred(io)) {
+        if (nio_is_establishing(io)) {
             nwrite = 0;
             goto enqueue;
         }
@@ -523,7 +519,7 @@ try_write:
             goto disconnect;
         }
 enqueue:
-        if (!nio_write_deferred(io)) {
+        if (!nio_is_establishing(io)) {
             hio_add(io, hio_handle_events, HV_WRITE);
         }
     }
