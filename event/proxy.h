@@ -28,6 +28,7 @@ bool proxy_setting_valid(const proxy_setting_t* setting, bool need_target);
 int http_connect_build_request(const proxy_ctx_t* proxy, char* buf, int bufsize);
 
 void proxy_handshake_start(hio_t* io, proxy_established_cb on_established);
+void proxy_handshake_read(hio_t* io);
 void proxy_handshake_fail(hio_t* io);
 int  proxy_handshake_send(hio_t* io, const void* buf, int len);
 void proxy_handshake_established(hio_t* io);

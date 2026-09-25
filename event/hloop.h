@@ -30,6 +30,14 @@ typedef void (*hread_cb)    (hio_t* io, void* buf, int readbytes);
 typedef void (*hwrite_cb)   (hio_t* io, const void* buf, int writebytes);
 typedef void (*hclose_cb)   (hio_t* io);
 
+/*
+ * Callback buffer lifetime: buf passed to hread_cb/hwrite_cb is borrowed from
+ * libhv and is valid only until the callback returns. Copy it before retaining
+ * it or using it asynchronously. hio_read/hio_write can deliver a callback
+ * synchronously (for buffered data or an immediately writable socket), so
+ * callback code must tolerate re-entry.
+ */
+
 typedef enum {
     HLOOP_STATUS_STOP,
     HLOOP_STATUS_RUNNING,
@@ -423,6 +431,9 @@ HV_EXPORT void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_
 HV_EXPORT int hio_accept (hio_t* io);
 
 // connect => hio_add(io, HV_WRITE) => hconnect_cb
+// On non-IOCP NIO backends, hconnect_cb means the application connection is
+// ready: any configured proxy and TLS handshakes have completed. It is not
+// merely TCP connect completion.
 HV_EXPORT int hio_connect(hio_t* io);
 
 // hio_add(io, HV_READ) => read => hread_cb
@@ -444,12 +455,15 @@ HV_EXPORT int hio_read_remain(hio_t* io);
 #define hio_read_until(io, len) hio_read_until_length(io, len)
 
 // NOTE: hio_write is thread-safe, locked by recursive_mutex, allow to be called by other threads.
-// hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
+// hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb. hwrite_cb
+// reports bytes written, not completion of a logical application message; use
+// hio_write_is_complete(io) to determine whether the write queue is empty.
 HV_EXPORT int hio_write  (hio_t* io, const void* buf, size_t len);
 HV_EXPORT int hio_sendto (hio_t* io, const void* buf, size_t len, struct sockaddr* addr);
 
 // NOTE: hio_close is thread-safe, hio_close_async will be called actually in other thread.
-// hio_del(io, HV_RDWR) => close => hclose_cb
+// hio_del(io, HV_RDWR) => close => hclose_cb. hclose_cb is invoked at most once
+// per hio lifecycle and is the place to release connection-associated state.
 HV_EXPORT int hio_close  (hio_t* io);
 // NOTE: hloop_post_event(hio_close_event)
 HV_EXPORT int hio_close_async(hio_t* io);

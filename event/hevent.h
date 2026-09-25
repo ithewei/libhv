@@ -24,6 +24,19 @@
 #define HIO_READ_UNTIL_LENGTH   0x2
 #define HIO_READ_UNTIL_DELIM    0x4
 
+// Internal NIO transport lifecycle. hio_handle_events is the single readiness
+// dispatcher; phase selects its current transport or handshake action.
+typedef enum {
+    HIO_PHASE_READY = 0,
+    HIO_PHASE_ACCEPTING,
+    HIO_PHASE_CONNECTING,
+    HIO_PHASE_PROXY_HANDSHAKING,
+    HIO_PHASE_TLS_SERVER_HANDSHAKING,
+    HIO_PHASE_TLS_CLIENT_HANDSHAKING,
+    HIO_PHASE_ESTABLISHED,
+    HIO_PHASE_CLOSED,
+} hio_phase_e;
+
 ARRAY_DECL(hio_t*, io_array);
 ARRAY_DECL(hsignal_t*, signal_array);
 QUEUE_DECL(hevent_t, event_queue);
@@ -115,7 +128,7 @@ struct hperiod_s {
 };
 
 QUEUE_DECL(offset_buf_t, write_queue);
-// sizeof(struct hio_s)=416 on linux-x64
+// sizeof(struct hio_s)=424 on linux-x64
 struct hio_s {
     HEVENT_FIELDS
     // flags
@@ -134,6 +147,7 @@ struct hio_s {
     unsigned    alloced_ssl_ctx :1; // for hio_new_ssl_ctx
 // public:
     hio_type_e  io_type;
+    hio_phase_e phase;
     uint32_t    id; // fd cannot be used as unique identifier, so we provide an id
     int         fd;
     int         error;

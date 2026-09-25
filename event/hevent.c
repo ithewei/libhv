@@ -94,6 +94,7 @@ void hio_ready(hio_t* io) {
     // public:
     io->id = hio_next_id();
     io->io_type = HIO_TYPE_UNKNOWN;
+    io->phase = HIO_PHASE_READY;
     io->error = 0;
     io->events = io->revents = 0;
     io->last_read_hrtime = io->last_write_hrtime = io->loop->cur_hrtime;
@@ -426,6 +427,7 @@ void hio_write_cb(hio_t* io, const void* buf, int len) {
 void hio_close_cb(hio_t* io) {
     io->connected = 0;
     io->closed = 1;
+    io->phase = HIO_PHASE_CLOSED;
     hclose_cb close_cb = io->close_cb;
     if (close_cb) {
         // printd("close_cb------\n");

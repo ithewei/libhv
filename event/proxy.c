@@ -130,6 +130,7 @@ void proxy_handshake_established(hio_t* io) {
         proxy_handshake_fail(io);
         return;
     }
+    io->phase = HIO_PHASE_CONNECTING;
     proxy->on_established(io);
 }
 
@@ -189,7 +190,25 @@ static void http_connect_client_start(hio_t* io) {
         return;
     }
     io->proxy->rlen = 0;
-    hio_add(io, http_connect_client_handshake, HV_READ);
+    hio_add(io, NULL, HV_READ);
+}
+
+void proxy_handshake_read(hio_t* io) {
+    if (io->proxy == NULL) {
+        proxy_handshake_fail(io);
+        return;
+    }
+    switch (io->proxy->setting.protocol) {
+    case PROXY_PROTOCOL_SOCKS5:
+        socks5_client_handshake_read(io);
+        return;
+    case PROXY_PROTOCOL_HTTP_CONNECT:
+        http_connect_client_handshake(io);
+        return;
+    default:
+        proxy_handshake_fail(io);
+        return;
+    }
 }
 
 void proxy_handshake_start(hio_t* io, proxy_established_cb on_established) {
@@ -197,6 +216,10 @@ void proxy_handshake_start(hio_t* io, proxy_established_cb on_established) {
     if (proxy == NULL || on_established == NULL) {
         proxy_handshake_fail(io);
         return;
+    }
+    io->phase = HIO_PHASE_PROXY_HANDSHAKING;
+    if (io->events & HV_WRITE) {
+        hio_del(io, HV_WRITE);
     }
     proxy->on_established = on_established;
     switch (proxy->setting.protocol) {

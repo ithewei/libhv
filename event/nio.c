@@ -66,53 +66,51 @@ static void __close_cb(hio_t* io) {
     hio_close_cb(io);
 }
 
-static void ssl_server_handshake(hio_t* io) {
-    printd("ssl server handshake...\n");
-    int ret = hssl_accept(io->ssl);
-    if (ret == 0) {
-        // handshake finish
-        hio_del(io, HV_RDWR);
-        printd("ssl handshake finished.\n");
-        __accept_cb(io);
-    }
-    else if (ret == HSSL_WANT_READ) {
-        if (io->events & HV_WRITE) {
-            hio_del(io, HV_WRITE);
-        }
-        if ((io->events & HV_READ) == 0) {
-            hio_add(io, ssl_server_handshake, HV_READ);
-        }
-    }
-    else if (ret == HSSL_WANT_WRITE) {
-        if (io->events & HV_READ) {
-            hio_del(io, HV_READ);
-        }
-        if ((io->events & HV_WRITE) == 0) {
-            hio_add(io, ssl_server_handshake, HV_WRITE);
-        }
-    }
-    else {
-        hloge("ssl server handshake failed: %d", ret);
-        io->error = ERR_SSL_HANDSHAKE;
-        hio_close(io);
+static void hio_handle_events(hio_t* io);
+
+static bool nio_write_deferred(hio_t* io) {
+    return io->phase == HIO_PHASE_CONNECTING ||
+           io->phase == HIO_PHASE_PROXY_HANDSHAKING ||
+           io->phase == HIO_PHASE_TLS_CLIENT_HANDSHAKING ||
+           io->phase == HIO_PHASE_TLS_SERVER_HANDSHAKING;
+}
+
+static void nio_flush_deferred_writes(hio_t* io) {
+    hrecursive_mutex_lock(&io->write_mutex);
+    bool pending = !write_queue_empty(&io->write_queue);
+    hrecursive_mutex_unlock(&io->write_mutex);
+    if (!io->closed && pending) {
+        hio_add(io, hio_handle_events, HV_WRITE);
     }
 }
 
-static void ssl_client_handshake(hio_t* io) {
-    printd("ssl client handshake...\n");
-    int ret = hssl_connect(io->ssl);
+static void nio_connect_ready(hio_t* io) {
+    io->phase = HIO_PHASE_ESTABLISHED;
+    __connect_cb(io);
+    nio_flush_deferred_writes(io);
+}
+
+static void nio_tls_handshake(hio_t* io) {
+    bool server = io->phase == HIO_PHASE_TLS_SERVER_HANDSHAKING;
+    printd("ssl %s handshake...\n", server ? "server" : "client");
+    int ret = server ? hssl_accept(io->ssl) : hssl_connect(io->ssl);
     if (ret == 0) {
         // handshake finish
         hio_del(io, HV_RDWR);
         printd("ssl handshake finished.\n");
-        __connect_cb(io);
+        io->phase = HIO_PHASE_ESTABLISHED;
+        if (server) {
+            __accept_cb(io);
+        } else {
+            nio_connect_ready(io);
+        }
     }
     else if (ret == HSSL_WANT_READ) {
         if (io->events & HV_WRITE) {
             hio_del(io, HV_WRITE);
         }
         if ((io->events & HV_READ) == 0) {
-            hio_add(io, ssl_client_handshake, HV_READ);
+            hio_add(io, hio_handle_events, HV_READ);
         }
     }
     else if (ret == HSSL_WANT_WRITE) {
@@ -120,11 +118,11 @@ static void ssl_client_handshake(hio_t* io) {
             hio_del(io, HV_READ);
         }
         if ((io->events & HV_WRITE) == 0) {
-            hio_add(io, ssl_client_handshake, HV_WRITE);
+            hio_add(io, hio_handle_events, HV_WRITE);
         }
     }
     else {
-        hloge("ssl client handshake failed: %d", ret);
+        hloge("ssl %s handshake failed: %d", server ? "server" : "client", ret);
         io->error = ERR_SSL_HANDSHAKE;
         hio_close(io);
     }
@@ -183,10 +181,12 @@ static void nio_accept(hio_t* io) {
                 connio->ssl = ssl;
             }
             hio_enable_ssl(connio);
-            ssl_server_handshake(connio);
+            connio->phase = HIO_PHASE_TLS_SERVER_HANDSHAKING;
+            nio_tls_handshake(connio);
         }
         else {
             // NOTE: SSL call accept_cb after handshake finished
+            connio->phase = HIO_PHASE_ESTABLISHED;
             __accept_cb(connio);
         }
     }
@@ -239,11 +239,12 @@ static void nio_connect_established(hio_t* io) {
         if (sni) {
             hssl_set_sni_hostname(io->ssl, sni);
         }
-        ssl_client_handshake(io);
+        io->phase = HIO_PHASE_TLS_CLIENT_HANDSHAKING;
+        nio_tls_handshake(io);
     }
     else {
         // NOTE: SSL call connect_cb after handshake finished
-        __connect_cb(io);
+        nio_connect_ready(io);
     }
 }
 
@@ -465,7 +466,14 @@ disconnect:
 
 static void hio_handle_events(hio_t* io) {
     if ((io->events & HV_READ) && (io->revents & HV_READ)) {
-        if (io->accept) {
+        if (io->phase == HIO_PHASE_PROXY_HANDSHAKING) {
+            proxy_handshake_read(io);
+        }
+        else if (io->phase == HIO_PHASE_TLS_SERVER_HANDSHAKING ||
+                 io->phase == HIO_PHASE_TLS_CLIENT_HANDSHAKING) {
+            nio_tls_handshake(io);
+        }
+        else if (io->accept) {
             nio_accept(io);
         }
         else {
@@ -480,7 +488,15 @@ static void hio_handle_events(hio_t* io) {
             hio_del(io, HV_WRITE);
         }
         hrecursive_mutex_unlock(&io->write_mutex);
-        if (io->connect) {
+        if (io->phase == HIO_PHASE_PROXY_HANDSHAKING) {
+            // Proxy negotiation only consumes readable events. Application
+            // writes remain queued until the connection becomes established.
+        }
+        else if (io->phase == HIO_PHASE_TLS_SERVER_HANDSHAKING ||
+            io->phase == HIO_PHASE_TLS_CLIENT_HANDSHAKING) {
+            nio_tls_handshake(io);
+        }
+        else if (io->connect) {
             // NOTE: connect just do once
             // ONESHOT
             io->connect = 0;
@@ -497,10 +513,12 @@ static void hio_handle_events(hio_t* io) {
 
 int hio_accept(hio_t* io) {
     io->accept = 1;
+    io->phase = HIO_PHASE_ACCEPTING;
     return hio_add(io, hio_handle_events, HV_READ);
 }
 
 int hio_connect(hio_t* io) {
+    io->phase = HIO_PHASE_CONNECTING;
     int ret = connect(io->fd, io->peeraddr, SOCKADDR_LEN(io->peeraddr));
 #ifdef OS_WIN
     if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
@@ -553,6 +571,10 @@ static int hio_write4 (hio_t* io, const void* buf, size_t len, struct sockaddr* 
     }
 #endif
     if (write_queue_empty(&io->write_queue)) {
+        if (nio_write_deferred(io)) {
+            nwrite = 0;
+            goto enqueue;
+        }
 try_write:
         nwrite = __nio_write(io, buf, len, addr);
         // printd("write retval=%d\n", nwrite);
@@ -575,7 +597,9 @@ try_write:
             goto disconnect;
         }
 enqueue:
-        hio_add(io, hio_handle_events, HV_WRITE);
+        if (!nio_write_deferred(io)) {
+            hio_add(io, hio_handle_events, HV_WRITE);
+        }
     }
     if (nwrite < len) {
         size_t unwritten_len = len - nwrite;

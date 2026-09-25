@@ -157,6 +157,10 @@ endif()
 endif()
 
 # ------event: async dns------
+add_executable(hio_phase_test hio_phase_test.c)
+target_include_directories(hio_phase_test PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(hio_phase_test ${HV_LIBRARIES})
+
 add_executable(hdns_test hdns_test.c)
 target_include_directories(hdns_test PRIVATE .. ../base ../ssl ../event)
 target_link_libraries(hdns_test ${HV_LIBRARIES})
@@ -223,6 +227,7 @@ add_custom_target(unittest DEPENDS
     http_router_test
     ${HTTP_LUA_UNITTEST_TARGETS}
     ${HTTP_JS_UNITTEST_TARGETS}
+    hio_phase_test
     hdns_test
     hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}

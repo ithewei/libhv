@@ -898,7 +898,13 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
     io->events |= add_events;
 
     if (!io->active) {
-        EVENT_ADD(loop, io, cb);
+        // A NULL callback only changes the watched mask. Keep the transport
+        // dispatcher installed by the initial hio_add call.
+        hio_cb handler = cb ? cb : (hio_cb)io->cb;
+        io->loop = loop;
+        io->event_id = hloop_next_event_id();
+        io->cb = (hevent_cb)handler;
+        EVENT_ACTIVE(io);
         loop->nios++;
     }
     return 0;

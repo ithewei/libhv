@@ -210,7 +210,7 @@ typedef enum {
     S5C_RECV_REPLY_ADDR, S5C_RECV_REPLY_DADDR,
 } socks5_client_state_e;
 
-static void socks5_client_handshake(hio_t* io);
+void socks5_client_handshake_read(hio_t* io);
 
 static void socks5_client_expect(hio_t* io, int state, int want) {
     proxy_ctx_t* proxy = io->proxy;
@@ -287,7 +287,7 @@ static void socks5_client_dispatch(hio_t* io) {
     }
 }
 
-static void socks5_client_handshake(hio_t* io) {
+void socks5_client_handshake_read(hio_t* io) {
     proxy_ctx_t* proxy = io->proxy;
     while (proxy->rlen < proxy->want) {
         int need = proxy->want - proxy->rlen;
@@ -311,7 +311,7 @@ void socks5_client_handshake_start(hio_t* io) {
     int n = socks5_build_method_request(io->proxy, buf);
     if (proxy_handshake_send(io, buf, n) != 0) { proxy_handshake_fail(io); return; }
     socks5_client_expect(io, S5C_RECV_METHOD, 2);
-    hio_add(io, socks5_client_handshake, HV_READ);
+    hio_add(io, NULL, HV_READ);
 }
 
 // Build the SOCKS5 method-selection request.
