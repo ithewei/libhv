@@ -89,6 +89,8 @@ void hio_ready(hio_t* io) {
     io->connected = 0;
     io->closed = 0;
     io->accept = io->connect = 0;
+    io->recv = io->send = 0;
+    io->recvfrom = io->sendto = 0;
     io->close = 0;
     // public:
     io->id = hio_next_id();

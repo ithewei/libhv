@@ -140,6 +140,10 @@ struct hio_s {
     unsigned    closed      :1;
     unsigned    accept      :1;
     unsigned    connect     :1;
+    unsigned    recv        :1;
+    unsigned    send        :1;
+    unsigned    recvfrom    :1;
+    unsigned    sendto      :1;
     unsigned    close       :1;
     unsigned    alloced_readbuf :1; // for hio_alloc_readbuf
     unsigned    alloced_ssl_ctx :1; // for hio_new_ssl_ctx
