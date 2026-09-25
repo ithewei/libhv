@@ -46,7 +46,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 endif()
 
 if(WIN32 OR MINGW)
-    option(WITH_WEPOLL "compile event/wepoll -> use iocp" ON)
+    option(WITH_WEPOLL "use wepoll on Windows" ON)
     option(ENABLE_WINDUMP "Windows MiniDumpWriteDump" OFF)
     option(BUILD_FOR_MT "build for /MT" OFF)
     if(BUILD_FOR_MT)

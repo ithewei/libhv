@@ -1,7 +1,7 @@
 事件循环和IO多路复用机制介绍
 
 事件循环是`libevent、libev、libuv、libhv`这类网络库里最核心的概念，即在事件循环里处理IO读写事件、定时器事件、自定义事件等各种事件；<br>
-IO多路复用即在一个IO线程监听多个fd，如最早期的`select`、后来的`poll`，`linux的epoll`、`windows的iocp`、`bsd的kqueue`、`solaris的port`等，都属于IO多路复用机制。<br>
+IO多路复用即在一个IO线程监听多个fd，如最早期的`select`、后来的`poll`，`linux的epoll`、`windows的wepoll/WSAPoll`、`bsd的kqueue`、`solaris的port`等，都属于IO多路复用机制。<br>
 非阻塞NIO搭配IO多路复用机制就是高并发的钥匙。<br>
 `libhv`下的`event`模块正是封装了多种平台的IO多路复用机制，提供了统一的事件接口，是`libhv`的核心模块。<br>
 

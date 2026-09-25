@@ -8,7 +8,6 @@
     !defined(EVENT_POLL) &&     \
     !defined(EVENT_EPOLL) &&    \
     !defined(EVENT_KQUEUE) &&   \
-    !defined(EVENT_IOCP) &&     \
     !defined(EVENT_PORT) &&     \
     !defined(EVENT_IO_URING) && \
     !defined(EVENT_NOEVENT)

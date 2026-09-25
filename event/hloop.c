@@ -805,8 +805,6 @@ const char* hio_engine() {
     return  "epoll";
 #elif defined(EVENT_KQUEUE)
     return  "kqueue";
-#elif defined(EVENT_IOCP)
-    return  "iocp";
 #elif defined(EVENT_PORT)
     return  "evport";
 #elif defined(EVENT_IO_URING)
@@ -1005,7 +1003,6 @@ void hclose (hloop_t* loop, int fd) {
 hio_t* hrecv (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb) {
     //hio_t* io = hio_get(loop, connfd);
     //assert(io != NULL);
-    //io->recv = 1;
     //if (io->io_type != HIO_TYPE_SSL) {
         //io->io_type = HIO_TYPE_TCP;
     //}
@@ -1015,7 +1012,6 @@ hio_t* hrecv (hloop_t* loop, int connfd, void* buf, size_t len, hread_cb read_cb
 hio_t* hsend (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb write_cb) {
     //hio_t* io = hio_get(loop, connfd);
     //assert(io != NULL);
-    //io->send = 1;
     //if (io->io_type != HIO_TYPE_SSL) {
         //io->io_type = HIO_TYPE_TCP;
     //}
@@ -1025,7 +1021,6 @@ hio_t* hsend (hloop_t* loop, int connfd, const void* buf, size_t len, hwrite_cb 
 hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb read_cb) {
     //hio_t* io = hio_get(loop, sockfd);
     //assert(io != NULL);
-    //io->recvfrom = 1;
     //io->io_type = HIO_TYPE_UDP;
     return hread(loop, sockfd, buf, len, read_cb);
 }
@@ -1033,7 +1028,6 @@ hio_t* hrecvfrom (hloop_t* loop, int sockfd, void* buf, size_t len, hread_cb rea
 hio_t* hsendto (hloop_t* loop, int sockfd, const void* buf, size_t len, hwrite_cb write_cb) {
     //hio_t* io = hio_get(loop, sockfd);
     //assert(io != NULL);
-    //io->sendto = 1;
     //io->io_type = HIO_TYPE_UDP;
     return hwrite(loop, sockfd, buf, len, write_cb);
 }
