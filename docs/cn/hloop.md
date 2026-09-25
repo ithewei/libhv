@@ -271,6 +271,8 @@ hwrite_cb   hio_getcb_write(hio_t* io);
 // 获取关闭回调
 hclose_cb   hio_getcb_close(hio_t* io);
 
+// 回调语义见下文“IO回调语义与缓冲区生命周期”。
+
 // 开启SSL/TLS加密通信
 int  hio_enable_ssl(hio_t* io);
 // 是否SSL/TLS加密通信
@@ -311,6 +313,7 @@ int hio_accept (hio_t* io);
 
 // 连接
 // connect => hio_add(io, HV_WRITE) => hconnect_cb
+// connect_cb表示应用层连接可用；配置代理或TLS时会在相应握手全部成功后才调用。
 int hio_connect(hio_t* io);
 
 // 读
@@ -347,10 +350,12 @@ int hio_read_until_delim (hio_t* io, unsigned char delim);
 
 // 写
 // hio_try_write => hio_add(io, HV_WRITE) => write => hwrite_cb
+// write_cb报告实际写出的字节数；使用hio_write_is_complete判断写队列是否排空。
 int hio_write  (hio_t* io, const void* buf, size_t len);
 
 // 关闭
 // hio_del(io, HV_RDWR) => close => hclose_cb
+// close_cb在一次hio生命周期中最多调用一次，适合释放连接关联的上下文。
 int hio_close  (hio_t* io);
 
 // 异步关闭 (投递一个close事件)
@@ -643,6 +648,14 @@ void kcp_setting_init_with_fast3_mode(kcp_setting_t* setting);
 int hio_set_kcp(hio_t* io, kcp_setting_t* setting DEFAULT(NULL));
 
 ```
+
+### IO回调语义与缓冲区生命周期
+
+- `connect_cb` 表示应用层连接已可用：若设置了代理或TLS，代理握手和TLS握手均已成功；它并不只是TCP三次握手完成。
+- `write_cb` 的 `writebytes` 表示本次实际写出的字节数，不表示一条业务消息已经全部发送；需要通过 `hio_write_is_complete(io)` 判断写队列是否排空。
+- `read_cb` 和 `write_cb` 都可能同步触发：例如 `hio_read` 处理已有读缓存，或 `hio_write` 立即写入成功时。因此回调代码必须能处理可重入调用。
+- `close_cb` 在一次 `hio_t` 生命周期内最多触发一次，是释放连接关联上下文的合适位置。
+- `read_cb` / `write_cb` 收到的 `buf` 由libhv借用提供，只保证在本次回调返回前有效；需要保存或跨异步边界使用时必须自行复制。
 
 示例代码：
 

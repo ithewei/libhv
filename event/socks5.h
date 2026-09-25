@@ -36,6 +36,7 @@ int socks5_build_auth_request   (const proxy_ctx_t* s5, unsigned char* buf);
 int socks5_build_connect_request(const proxy_ctx_t* s5, unsigned char* buf);
 
 void socks5_client_handshake_start(hio_t* io);
+void socks5_client_handshake_read(hio_t* io);
 
 END_EXTERN_C
 

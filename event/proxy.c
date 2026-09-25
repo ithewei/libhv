@@ -115,7 +115,7 @@ void proxy_handshake_fail(hio_t* io) {
     hio_close(io);
 }
 
-int proxy_handshake_send(hio_t* io, const void* buf, int len) {
+int proxy_handshake_write(hio_t* io, const void* buf, int len) {
     int flag = 0;
 #ifdef MSG_NOSIGNAL
     flag |= MSG_NOSIGNAL;
@@ -126,11 +126,11 @@ int proxy_handshake_send(hio_t* io, const void* buf, int len) {
 void proxy_handshake_established(hio_t* io) {
     proxy_ctx_t* proxy = io->proxy;
     hio_del(io, HV_READ);
-    if (proxy == NULL || proxy->on_established == NULL) {
+    if (proxy == NULL) {
         proxy_handshake_fail(io);
         return;
     }
-    proxy->on_established(io);
+    io->phase = HIO_PHASE_PROXY_ESTABLISHED;
 }
 
 static void http_connect_client_handshake(hio_t* io) {
@@ -184,21 +184,42 @@ static void http_connect_client_handshake(hio_t* io) {
 static void http_connect_client_start(hio_t* io) {
     char buf[2048];
     int n = http_connect_build_request(io->proxy, buf, (int)sizeof(buf));
-    if (n < 0 || proxy_handshake_send(io, buf, n) != 0) {
+    if (n < 0 || proxy_handshake_write(io, buf, n) != 0) {
         proxy_handshake_fail(io);
         return;
     }
     io->proxy->rlen = 0;
-    hio_add(io, http_connect_client_handshake, HV_READ);
+    hio_add(io, NULL, HV_READ);
 }
 
-void proxy_handshake_start(hio_t* io, proxy_established_cb on_established) {
-    proxy_ctx_t* proxy = io->proxy;
-    if (proxy == NULL || on_established == NULL) {
+void proxy_handshake_read(hio_t* io) {
+    if (io->proxy == NULL) {
         proxy_handshake_fail(io);
         return;
     }
-    proxy->on_established = on_established;
+    switch (io->proxy->setting.protocol) {
+    case PROXY_PROTOCOL_SOCKS5:
+        socks5_client_handshake_read(io);
+        return;
+    case PROXY_PROTOCOL_HTTP_CONNECT:
+        http_connect_client_handshake(io);
+        return;
+    default:
+        proxy_handshake_fail(io);
+        return;
+    }
+}
+
+void proxy_handshake_start(hio_t* io) {
+    proxy_ctx_t* proxy = io->proxy;
+    if (proxy == NULL) {
+        proxy_handshake_fail(io);
+        return;
+    }
+    io->phase = HIO_PHASE_PROXY_HANDSHAKING;
+    if (io->events & HV_WRITE) {
+        hio_del(io, HV_WRITE);
+    }
     switch (proxy->setting.protocol) {
     case PROXY_PROTOCOL_SOCKS5:
         socks5_client_handshake_start(io);
@@ -218,6 +239,11 @@ static void on_tcp_proxy_accept(hio_t* io) {
     if (proxy == NULL || hio_setup_tcp_upstream(io, proxy->setting.target_host,
                                                  proxy->setting.target_port, 0) == NULL) {
         hio_close(io);
+        return;
+    }
+    if (io->proxy) {
+        proxy_ctx_free(io->proxy);
+        io->proxy = NULL;
     }
 }
 
@@ -243,6 +269,10 @@ hio_t* hloop_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setti
     if (hio_setup_udp_upstream(listener, setting->target_host, setting->target_port) == NULL) {
         hio_close(listener);
         return NULL;
+    }
+    if (listener->proxy) {
+        proxy_ctx_free(listener->proxy);
+        listener->proxy = NULL;
     }
     return listener;
 }
