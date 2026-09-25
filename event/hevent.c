@@ -88,7 +88,7 @@ void hio_ready(hio_t* io) {
     io->ready = 1;
     io->connected = 0;
     io->closed = 0;
-    io->accept = io->connect = io->connectex = 0;
+    io->accept = io->connect = 0;
     io->recv = io->send = 0;
     io->recvfrom = io->sendto = 0;
     io->close = 0;
@@ -146,10 +146,6 @@ void hio_ready(hio_t* io) {
 #if defined(EVENT_POLL) || defined(EVENT_KQUEUE)
     io->event_index[0] = io->event_index[1] = -1;
 #endif
-#ifdef EVENT_IOCP
-    io->hovlp = NULL;
-#endif
-
     // io_type
     fill_io_type(io);
     if (io->io_type & HIO_TYPE_SOCKET) {

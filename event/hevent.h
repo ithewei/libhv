@@ -140,7 +140,6 @@ struct hio_s {
     unsigned    closed      :1;
     unsigned    accept      :1;
     unsigned    connect     :1;
-    unsigned    connectex   :1; // for ConnectEx/DisconnectEx
     unsigned    recv        :1;
     unsigned    send        :1;
     unsigned    recvfrom    :1;
@@ -211,10 +210,6 @@ struct hio_s {
 // private:
 #if defined(EVENT_POLL) || defined(EVENT_KQUEUE)
     int         event_index[2]; // for poll,kqueue
-#endif
-
-#ifdef EVENT_IOCP
-    void*       hovlp;          // for iocp/overlapio
 #endif
 
 #if WITH_RUDP

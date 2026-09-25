@@ -805,8 +805,6 @@ const char* hio_engine() {
     return  "epoll";
 #elif defined(EVENT_KQUEUE)
     return  "kqueue";
-#elif defined(EVENT_IOCP)
-    return  "iocp";
 #elif defined(EVENT_PORT)
     return  "evport";
 #elif defined(EVENT_IO_URING)

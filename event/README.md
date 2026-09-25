@@ -14,12 +14,11 @@
 ├── iowatcher.h IO多路复用统一抽象接口
 ├── select.c    EVENT_SELECT实现
 ├── poll.c      EVENT_POLL实现
-├── epoll.c     EVENT_EPOLL实现 (for OS_LINUX)
+├── epoll.c     EVENT_EPOLL实现 (for OS_LINUX/OS_WIN with wepoll)
+├── wepoll/     Windows epoll兼容实现
 ├── io_uring.c  EVENT_IO_URING实现 (for OS_LINUX, with liburing)
-├── iocp.c      EVENT_IOCP实现  (for OS_WIN)
 ├── kqueue.c    EVENT_KQUEUE实现(for OS_BSD/OS_MAC)
 ├── evport.c    EVENT_PORT实现  (for OS_SOLARIS)
-├── nio.c       非阻塞IO
-└── overlapio.c 重叠IO
+└── nio.c       非阻塞IO
 
 ```

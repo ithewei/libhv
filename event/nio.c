@@ -1,5 +1,4 @@
 #include "iowatcher.h"
-#ifndef EVENT_IOCP
 #include "hevent.h"
 #include "hsocket.h"
 #include "hssl.h"
@@ -635,4 +634,3 @@ int hio_close (hio_t* io) {
     }
     return 0;
 }
-#endif
