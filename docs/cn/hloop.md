@@ -313,7 +313,7 @@ int hio_accept (hio_t* io);
 
 // 连接
 // connect => hio_add(io, HV_WRITE) => hconnect_cb
-// 在非IOCP的NIO后端，connect_cb表示应用层连接可用；配置代理或TLS时会在相应握手全部成功后才调用。
+// connect_cb表示应用层连接可用；配置代理或TLS时会在相应握手全部成功后才调用。
 int hio_connect(hio_t* io);
 
 // 读
@@ -651,7 +651,7 @@ int hio_set_kcp(hio_t* io, kcp_setting_t* setting DEFAULT(NULL));
 
 ### IO回调语义与缓冲区生命周期
 
-- 在非IOCP的NIO后端，`connect_cb` 表示应用层连接已可用：若设置了代理或TLS，代理握手和TLS握手均已成功；它并不只是TCP三次握手完成。
+- `connect_cb` 表示应用层连接已可用：若设置了代理或TLS，代理握手和TLS握手均已成功；它并不只是TCP三次握手完成。
 - `write_cb` 的 `writebytes` 表示本次实际写出的字节数，不表示一条业务消息已经全部发送；需要通过 `hio_write_is_complete(io)` 判断写队列是否排空。
 - `read_cb` 和 `write_cb` 都可能同步触发：例如 `hio_read` 处理已有读缓存，或 `hio_write` 立即写入成功时。因此回调代码必须能处理可重入调用。
 - `close_cb` 在一次 `hio_t` 生命周期内最多触发一次，是释放连接关联上下文的合适位置。

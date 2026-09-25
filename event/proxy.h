@@ -27,7 +27,7 @@ int http_connect_build_request(const proxy_ctx_t* proxy, char* buf, int bufsize)
 void proxy_handshake_start(hio_t* io);
 void proxy_handshake_read(hio_t* io);
 void proxy_handshake_fail(hio_t* io);
-int  proxy_handshake_send(hio_t* io, const void* buf, int len);
+int  proxy_handshake_write(hio_t* io, const void* buf, int len);
 void proxy_handshake_established(hio_t* io);
 
 #endif // HV_PROXY_H_

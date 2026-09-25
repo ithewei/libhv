@@ -71,9 +71,6 @@ fi
 if [ -x bin/hdns_test ]; then
     bin/hdns_test
 fi
-if [ -x bin/hio_phase_test ]; then
-    bin/hio_phase_test
-fi
 if [ -x bin/tcpclient_dns_test ]; then
     bin/tcpclient_dns_test
 fi

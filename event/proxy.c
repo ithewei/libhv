@@ -115,7 +115,7 @@ void proxy_handshake_fail(hio_t* io) {
     hio_close(io);
 }
 
-int proxy_handshake_send(hio_t* io, const void* buf, int len) {
+int proxy_handshake_write(hio_t* io, const void* buf, int len) {
     int flag = 0;
 #ifdef MSG_NOSIGNAL
     flag |= MSG_NOSIGNAL;
@@ -184,7 +184,7 @@ static void http_connect_client_handshake(hio_t* io) {
 static void http_connect_client_start(hio_t* io) {
     char buf[2048];
     int n = http_connect_build_request(io->proxy, buf, (int)sizeof(buf));
-    if (n < 0 || proxy_handshake_send(io, buf, n) != 0) {
+    if (n < 0 || proxy_handshake_write(io, buf, n) != 0) {
         proxy_handshake_fail(io);
         return;
     }

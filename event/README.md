@@ -9,7 +9,7 @@
 ├── unpack.h    拆包
 ├── rudp.h      可靠UDP
 ├── proxy.c     代理
-├── tls.c       TLS握手状态机
+├── tls.c       TLS握手
 ├── socks5.c    SOCKS5代理
 ├── iowatcher.h IO多路复用统一抽象接口
 ├── select.c    EVENT_SELECT实现

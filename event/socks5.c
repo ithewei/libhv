@@ -222,7 +222,7 @@ static void socks5_client_expect(hio_t* io, int state, int want) {
 static void socks5_client_send_connect(hio_t* io) {
     unsigned char buf[300];
     int n = socks5_build_connect_request(io->proxy, buf);
-    if (n < 0 || proxy_handshake_send(io, buf, n) != 0) {
+    if (n < 0 || proxy_handshake_write(io, buf, n) != 0) {
         proxy_handshake_fail(io);
         return;
     }
@@ -241,7 +241,7 @@ static void socks5_client_dispatch(hio_t* io) {
         } else if (buf[1] == SOCKS5_AUTH_USERPASS && proxy->setting.username[0]) {
             unsigned char req[640];
             int n = socks5_build_auth_request(proxy, req);
-            if (proxy_handshake_send(io, req, n) != 0) { proxy_handshake_fail(io); return; }
+            if (proxy_handshake_write(io, req, n) != 0) { proxy_handshake_fail(io); return; }
             socks5_client_expect(io, S5C_RECV_AUTH, 2);
         } else {
             proxy_handshake_fail(io);
@@ -309,7 +309,7 @@ void socks5_client_handshake_read(hio_t* io) {
 void socks5_client_handshake_start(hio_t* io) {
     unsigned char buf[8];
     int n = socks5_build_method_request(io->proxy, buf);
-    if (proxy_handshake_send(io, buf, n) != 0) { proxy_handshake_fail(io); return; }
+    if (proxy_handshake_write(io, buf, n) != 0) { proxy_handshake_fail(io); return; }
     socks5_client_expect(io, S5C_RECV_METHOD, 2);
     hio_add(io, NULL, HV_READ);
 }

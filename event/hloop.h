@@ -431,9 +431,8 @@ HV_EXPORT void hio_set_heartbeat(hio_t* io, int interval_ms, hio_send_heartbeat_
 HV_EXPORT int hio_accept (hio_t* io);
 
 // connect => hio_add(io, HV_WRITE) => hconnect_cb
-// On non-IOCP NIO backends, hconnect_cb means the application connection is
-// ready: any configured proxy and TLS handshakes have completed. It is not
-// merely TCP connect completion.
+// hconnect_cb means the application connection is ready: any configured proxy
+// and TLS handshakes have completed. It is not merely TCP connect completion.
 HV_EXPORT int hio_connect(hio_t* io);
 
 // hio_add(io, HV_READ) => read => hread_cb
