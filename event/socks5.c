@@ -75,6 +75,10 @@ static void socks5_server_upstream_connect(hio_t* upstream) {
     hio_setcb_read(upstream, hio_write_upstream);
     hio_setcb_close(io, socks5_server_close);
     hio_setcb_close(upstream, socks5_server_close);
+    if (io->proxy) {
+        proxy_ctx_free(io->proxy);
+        io->proxy = NULL;
+    }
     hio_read(io);
     hio_read(upstream);
 }

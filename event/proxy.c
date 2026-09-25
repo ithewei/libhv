@@ -239,6 +239,11 @@ static void on_tcp_proxy_accept(hio_t* io) {
     if (proxy == NULL || hio_setup_tcp_upstream(io, proxy->setting.target_host,
                                                  proxy->setting.target_port, 0) == NULL) {
         hio_close(io);
+        return;
+    }
+    if (io->proxy) {
+        proxy_ctx_free(io->proxy);
+        io->proxy = NULL;
     }
 }
 
@@ -264,6 +269,10 @@ hio_t* hloop_create_udp_proxy_server(hloop_t* loop, const proxy_setting_t* setti
     if (hio_setup_udp_upstream(listener, setting->target_host, setting->target_port) == NULL) {
         hio_close(listener);
         return NULL;
+    }
+    if (listener->proxy) {
+        proxy_ctx_free(listener->proxy);
+        listener->proxy = NULL;
     }
     return listener;
 }
