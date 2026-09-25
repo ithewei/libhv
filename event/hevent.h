@@ -208,6 +208,10 @@ struct hio_s {
     struct proxy_ctx_s* proxy;
     // context
     void*       ctx; // for hio_context / hio_set_context
+    // sendfile
+    int         sendfile_fd;        // file descriptor for sendfile, -1 when inactive
+    off_t       sendfile_offset;    // current offset in file
+    size_t      sendfile_remain;    // remaining bytes to send
 // private:
 #if defined(EVENT_POLL) || defined(EVENT_KQUEUE)
     int         event_index[2]; // for poll,kqueue
