@@ -86,6 +86,12 @@ static void nio_flush_write_queue(hio_t* io) {
 static void nio_connect_ready(hio_t* io) {
     io->phase = HIO_PHASE_ESTABLISHED;
     __connect_cb(io);
+    // Keep proxy metadata available during connect_cb. The transport no longer
+    // needs it after the application has accepted the established connection.
+    if (io->proxy) {
+        proxy_ctx_free(io->proxy);
+        io->proxy = NULL;
+    }
     nio_flush_write_queue(io);
 }
 
@@ -618,8 +624,10 @@ int hio_close (hio_t* io) {
         io->ssl_ctx = NULL;
     }
     SAFE_FREE(io->hostname);
-    proxy_ctx_free(io->proxy);
-    io->proxy = NULL;
+    if (io->proxy) {
+        proxy_ctx_free(io->proxy);
+        io->proxy = NULL;
+    }
     if (io->io_type & HIO_TYPE_SOCKET) {
         closesocket(io->fd);
     } else if (io->io_type == HIO_TYPE_PIPE) {
