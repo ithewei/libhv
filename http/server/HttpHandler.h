@@ -40,6 +40,9 @@ public:
     unsigned proxy_connected    :1;
     unsigned forward_proxy      :1;
     unsigned reverse_proxy      :1;
+    // set by SwitchWebSocket: after the 101 the handler parses ws frames
+    // (see FeedRecvData), even for bytes riding the handshake's TCP segment
+    unsigned ws_upgraded        :1;
 
     // peeraddr
     char                    ip[64];

@@ -36,6 +36,7 @@ HttpHandler::HttpHandler(hio_t* io) :
     proxy_connected(0),
     forward_proxy(0),
     reverse_proxy(0),
+    ws_upgraded(0),
     ip{'\0'},
     port(0),
     pid(0),
@@ -203,8 +204,21 @@ bool HttpHandler::SwitchWebSocket() {
     if(!io) return false;
 
     protocol = WEBSOCKET;
+    // A client may wrap its first ws frame (or a close) in the SAME TCP
+    // segment as the handshake request; onMessageComplete() then returns with
+    // state==SEND_DONE and FeedRecvData's HTTP_V1 branch would feed those
+    // bytes to the http parser (consuming 0 -> "http parse error" -> the io is
+    // closed and the channel never works). Seed both pong bookkeeping
+    // variables so the first heartbeat tick passes, and remember the
+    // upgrade is complete so the HTTP_V1 recv path can hand the leftover
+    // bytes to ws_parser instead.
+    ws_upgraded = true;
     ws_parser  = std::make_shared<WebSocketParser>();
     ws_channel = std::make_shared<WebSocketChannel>(io, WS_SERVER);
+    // Base timestamps: both are 0 at upgrade, so initialize them NOW; the
+    // first heartbeat tick must see last_recv_pong_time >= last_send_ping_time
+    // or it closes a healthy channel before any round-trip happened.
+    last_recv_pong_time = last_send_ping_time = gethrtime_us();
     ws_parser->onMessage = [this](int opcode, const std::string& msg){
         ws_channel->opcode = (enum ws_opcode)opcode;
         switch(opcode) {
@@ -808,7 +822,25 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
             Reset();
         }
         nfeed = parser->FeedRecvData(data, len);
-        // printf("FeedRecvData %d=>%d\n", (int)len, nfeed);
+        // A websocket upgrade may complete INSIDE that parse (the
+        // http_cb MESSAGE_COMPLETE hook runs synchronously, sends the 101 and
+        // flips protocol to WEBSOCKET). If the client wrapped its first ws
+        // frame in the SAME TCP segment as the handshake, that frame is the
+        // unparsed tail of this very buffer: hand it to ws_parser instead of
+        // reporting an http parse error below (which would close a perfectly
+        // healthy upgraded channel).
+        if (ws_upgraded && protocol == HttpHandler::WEBSOCKET
+                && nfeed >= 0 && (size_t)nfeed < len) {
+            const char* ws_data = data + nfeed;
+            size_t ws_len = len - nfeed;
+            int nws = ws_parser->FeedRecvData(ws_data, ws_len);
+            if (nws != (int)ws_len) {
+                hloge("[%s:%d] websocket parse error!", ip, port);
+                error = ERR_PARSE;
+                return -1;
+            }
+            nfeed = (int)len;
+        }
         if (nfeed != len) {
             hloge("[%s:%d] http parse error: %s", ip, port, parser->StrError(parser->GetError()));
             error = ERR_PARSE;
