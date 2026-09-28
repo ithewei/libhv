@@ -195,6 +195,7 @@ void logger_enable_color(logger_t* logger, int on) {
 void logger_set_file(logger_t* logger, const char* filepath) {
     hmutex_lock(&logger->mutex_);
     strncpy(logger->filepath, filepath, sizeof(logger->filepath) - 1);
+    logger->filepath[sizeof(logger->filepath) - 1] = '\0';
     // remove suffix .log
     char* suffix = strrchr(logger->filepath, '.');
     if (suffix && strcmp(suffix, ".log") == 0) {

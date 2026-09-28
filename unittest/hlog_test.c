@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
     hloge("%s", "show error");
     hlogf("%s", "show fatal");
 
-    // test switch log file after the first write
+    // test switch log file after the log file is opened
     hlog_set_file("hlog_test_switch.log");
     hlogi("%s", "show info in the switched file");
     const char* curfile = hlog_get_cur_file();
