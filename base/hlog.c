@@ -206,6 +206,7 @@ void logger_set_file(logger_t* logger, const char* filepath) {
         fclose(logger->fp_);
         logger->fp_ = NULL;
     }
+    logger->cur_logfile[0] = '\0';
     logger->last_logfile_ts = 0;
     logger->can_write_cnt = -1;
     hmutex_unlock(&logger->mutex_);
