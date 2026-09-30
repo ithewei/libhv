@@ -83,6 +83,7 @@ public:
     // for proxy
     std::string             proxy_host;
     int                     proxy_port;
+    uint64_t                proxy_connect_start_ms;
 
     HttpHandler(hio_t* io = NULL);
     ~HttpHandler();

@@ -54,7 +54,8 @@ HttpHandler::HttpHandler(hio_t* io) :
     files(NULL),
     file(NULL),
     // for proxy
-    proxy_port(0)
+    proxy_port(0),
+    proxy_connect_start_ms(0)
 {
     // Init();
 }
@@ -1172,6 +1173,7 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
     proxy_host = url.host;
     proxy_port = url.port;
     proxy_ssl = url.scheme == "https" && req->method != HTTP_CONNECT;
+    proxy_connect_start_ms = hloop_now_hrtime(hevent_loop(io)) / 1000;
 
     if (is_ipaddr(proxy_host.c_str())) {
         hio_t* upstream_io = hio_create_socket(hevent_loop(io), proxy_host.c_str(),
@@ -1188,9 +1190,9 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
 
     hdns_setting_t dns_setting;
     if (service->proxy_connect_timeout > 0) {
-        dns_setting.timeout_ms = service->proxy_connect_timeout;
+        int dns_attempts = HDNS_DEFAULT_RETRIES + 1;
+        dns_setting.timeout_ms = MAX(1, service->proxy_connect_timeout / dns_attempts);
     }
-    dns_setting.retries = 0;
     hio_t* downstream_io = io;
     uint32_t downstream_id = hio_id(io);
     std::string target_host = proxy_host;
@@ -1227,9 +1229,7 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
                 hio_close(downstream_io);
                 return;
             }
-            if (!is_ipaddr(handler->proxy_host.c_str())) {
-                hio_set_hostname(upstream_io, target_host.c_str());
-            }
+            hio_set_hostname(upstream_io, target_host.c_str());
             handler->connectProxy(upstream_io);
         }, &dns_setting);
     if (dns_id == INVALID_DNS_ID) {
@@ -1243,6 +1243,18 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
 
 int HttpHandler::connectProxy(hio_t* upstream_io) {
     if (!io || !upstream_io) return ERR_NULL_POINTER;
+    int timeout_ms = service->proxy_connect_timeout;
+    if (timeout_ms > 0) {
+        uint64_t elapsed_ms = hloop_now_hrtime(hevent_loop(io)) / 1000 - proxy_connect_start_ms;
+        if (elapsed_ms >= (uint64_t)timeout_ms) {
+            hio_close(upstream_io);
+            SetError(ETIMEDOUT, HTTP_STATUS_GATEWAY_TIMEOUT);
+            SendHttpStatusResponse(HTTP_STATUS_GATEWAY_TIMEOUT);
+            hio_close(io);
+            return ETIMEDOUT;
+        }
+        timeout_ms -= (int)elapsed_ms;
+    }
     // CONNECT establishes a raw TCP tunnel. The client starts TLS only after
     // receiving the 200 response, so enabling TLS on this upstream would
     // incorrectly terminate and re-encrypt the tunnel.
@@ -1253,8 +1265,8 @@ int HttpHandler::connectProxy(hio_t* upstream_io) {
     hio_setup_upstream(io, upstream_io);
     hio_setcb_connect(upstream_io, HttpHandler::onProxyConnect);
     hio_setcb_close(upstream_io, HttpHandler::onProxyClose);
-    if (service->proxy_connect_timeout > 0) {
-        hio_set_connect_timeout(upstream_io, service->proxy_connect_timeout);
+    if (timeout_ms > 0) {
+        hio_set_connect_timeout(upstream_io, timeout_ms);
     }
     if (service->proxy_read_timeout > 0) {
         hio_set_read_timeout(upstream_io, service->proxy_read_timeout);
