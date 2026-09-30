@@ -64,6 +64,7 @@
 - WebSocket服务端/客户端
 - MQTT客户端
 - Redis客户端
+- 邮件客户端(SMTP发送 / IMAP接收)
 
 ## ⌛️ 构建
 
