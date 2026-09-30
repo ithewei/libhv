@@ -38,6 +38,7 @@ public:
     unsigned upgrade            :1;
     unsigned proxy              :1;
     unsigned proxy_connected    :1;
+    unsigned proxy_ssl          :1;
     unsigned forward_proxy      :1;
     unsigned reverse_proxy      :1;
 
@@ -82,6 +83,7 @@ public:
     // for proxy
     std::string             proxy_host;
     int                     proxy_port;
+    uint64_t                proxy_connect_start_ms;
 
     HttpHandler(hio_t* io = NULL);
     ~HttpHandler();
@@ -178,6 +180,7 @@ private:
     int handleForwardProxy();
     int handleReverseProxy();
     int connectProxy(const std::string& url);
+    int connectProxy(hio_t* upstream_io);
     int closeProxy();
     int sendProxyRequest();
     static void onProxyConnect(hio_t* upstream_io);

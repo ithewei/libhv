@@ -34,6 +34,7 @@ HttpHandler::HttpHandler(hio_t* io) :
     upgrade(0),
     proxy(0),
     proxy_connected(0),
+    proxy_ssl(0),
     forward_proxy(0),
     reverse_proxy(0),
     ip{'\0'},
@@ -53,7 +54,8 @@ HttpHandler::HttpHandler(hio_t* io) :
     files(NULL),
     file(NULL),
     // for proxy
-    proxy_port(0)
+    proxy_port(0),
+    proxy_connect_start_ms(0)
 {
     // Init();
 }
@@ -1167,26 +1169,104 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
         return SendHttpStatusResponse(HTTP_STATUS_FORBIDDEN);
     }
 
-    hloop_t* loop = hevent_loop(io);
     proxy = 1;
     proxy_host = url.host;
     proxy_port = url.port;
-    hio_t* upstream_io = hio_create_socket(loop, proxy_host.c_str(), proxy_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
-    if (upstream_io == NULL) {
-        return SetError(ERR_SOCKET, HTTP_STATUS_BAD_GATEWAY);
+    proxy_ssl = url.scheme == "https" && req->method != HTTP_CONNECT;
+    proxy_connect_start_ms = hloop_now_hrtime(hevent_loop(io)) / 1000;
+
+    if (is_ipaddr(proxy_host.c_str())) {
+        hio_t* upstream_io = hio_create_socket(hevent_loop(io), proxy_host.c_str(),
+                                                proxy_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+        if (upstream_io == NULL) {
+            return SetError(ERR_SOCKET, HTTP_STATUS_BAD_GATEWAY);
+        }
+        return connectProxy(upstream_io);
+    }
+    hio_read_stop(io);
+
+    EventLoop* loop = currentThreadEventLoop;
+    assert(loop != NULL);
+
+    hdns_setting_t dns_setting;
+    if (service->proxy_connect_timeout > 0) {
+        int dns_attempts = HDNS_DEFAULT_RETRIES + 1;
+        dns_setting.timeout_ms = MAX(1, service->proxy_connect_timeout / dns_attempts);
+    }
+    hio_t* downstream_io = io;
+    uint32_t downstream_id = hio_id(io);
+    std::string target_host = proxy_host;
+    int target_port = proxy_port;
+    DnsID dns_id = loop->resolveDns(target_host.c_str(),
+        [downstream_io, downstream_id, target_host, target_port](int status, int naddrs, const sockaddr_u* addrs) {
+            if (!hio_is_opened(downstream_io) || hio_id(downstream_io) != downstream_id) {
+                return;
+            }
+            HttpHandler* handler = (HttpHandler*)hevent_userdata(downstream_io);
+            if (handler == NULL || handler->proxy_host != target_host ||
+                handler->proxy_port != target_port) return;
+            if (status != HDNS_STATUS_OK || naddrs <= 0) {
+                int dns_error = status == HDNS_STATUS_TIMEOUT ? ETIMEDOUT : ERR_DNS_RESOLVE;
+                http_status http_error = dns_error == ETIMEDOUT ?
+                                         HTTP_STATUS_GATEWAY_TIMEOUT : HTTP_STATUS_BAD_GATEWAY;
+                handler->SetError(dns_error, http_error);
+                handler->SendHttpStatusResponse(http_error);
+                hio_close(downstream_io);
+                return;
+            }
+
+            hio_t* upstream_io = NULL;
+            char resolved_ip[SOCKADDR_STRLEN] = {0};
+            for (int i = 0; i < naddrs; ++i) {
+                if (sockaddr_ip((sockaddr_u*)&addrs[i], resolved_ip, sizeof(resolved_ip)) == NULL) continue;
+                upstream_io = hio_create_socket(hevent_loop(downstream_io), resolved_ip,
+                                                target_port, HIO_TYPE_TCP, HIO_CLIENT_SIDE);
+                if (upstream_io) break;
+            }
+            if (upstream_io == NULL) {
+                handler->SetError(ERR_SOCKET, HTTP_STATUS_BAD_GATEWAY);
+                handler->SendHttpStatusResponse(HTTP_STATUS_BAD_GATEWAY);
+                hio_close(downstream_io);
+                return;
+            }
+            hio_set_hostname(upstream_io, target_host.c_str());
+            handler->connectProxy(upstream_io);
+        }, &dns_setting);
+    if (dns_id == INVALID_DNS_ID) {
+        SetError(ERR_DNS_RESOLVE, HTTP_STATUS_BAD_GATEWAY);
+        SendHttpStatusResponse(HTTP_STATUS_BAD_GATEWAY);
+        hio_close(io);
+        return ERR_DNS_RESOLVE;
+    }
+    return 0;
+}
+
+int HttpHandler::connectProxy(hio_t* upstream_io) {
+    if (!io || !upstream_io) return ERR_NULL_POINTER;
+    int timeout_ms = service->proxy_connect_timeout;
+    if (timeout_ms > 0) {
+        uint64_t elapsed_ms = hloop_now_hrtime(hevent_loop(io)) / 1000 - proxy_connect_start_ms;
+        if (elapsed_ms >= (uint64_t)timeout_ms) {
+            hio_close(upstream_io);
+            SetError(ETIMEDOUT, HTTP_STATUS_GATEWAY_TIMEOUT);
+            SendHttpStatusResponse(HTTP_STATUS_GATEWAY_TIMEOUT);
+            hio_close(io);
+            return ETIMEDOUT;
+        }
+        timeout_ms -= (int)elapsed_ms;
     }
     // CONNECT establishes a raw TCP tunnel. The client starts TLS only after
     // receiving the 200 response, so enabling TLS on this upstream would
     // incorrectly terminate and re-encrypt the tunnel.
-    if (url.scheme == "https" && req->method != HTTP_CONNECT) {
+    if (proxy_ssl) {
         hio_enable_ssl(upstream_io);
     }
     hevent_set_userdata(upstream_io, this);
     hio_setup_upstream(io, upstream_io);
     hio_setcb_connect(upstream_io, HttpHandler::onProxyConnect);
     hio_setcb_close(upstream_io, HttpHandler::onProxyClose);
-    if (service->proxy_connect_timeout > 0) {
-        hio_set_connect_timeout(upstream_io, service->proxy_connect_timeout);
+    if (timeout_ms > 0) {
+        hio_set_connect_timeout(upstream_io, timeout_ms);
     }
     if (service->proxy_read_timeout > 0) {
         hio_set_read_timeout(upstream_io, service->proxy_read_timeout);
@@ -1201,7 +1281,7 @@ int HttpHandler::connectProxy(const std::string& strUrl) {
 }
 
 int HttpHandler::closeProxy() {
-    if (proxy && proxy_connected) {
+    if (proxy) {
         proxy_connected = 0;
         if (io) hio_close_upstream(io);
     }

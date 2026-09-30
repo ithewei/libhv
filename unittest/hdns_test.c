@@ -14,6 +14,7 @@
  *   6. NXDOMAIN handling
  *   7. cancel before completion (callback not invoked)
  *   8. auto nameserver list is refreshed (throttled) between resolves
+ *   9. IO close callback can cancel pending DNS during loop cleanup
  */
 
 #include <assert.h>
@@ -174,6 +175,42 @@ static void stop_after(htimer_t* timer) {
     hloop_stop(hevent_loop(timer));
 }
 
+typedef struct {
+    hdns_t* query;
+} cleanup_cancel_ctx_t;
+
+static void cleanup_cancel_close(hio_t* io) {
+    cleanup_cancel_ctx_t* ctx = (cleanup_cancel_ctx_t*)hevent_userdata(io);
+    if (ctx->query) {
+        hdns_cancel(ctx->query);
+        ctx->query = NULL;
+    }
+}
+
+static void test_cleanup_cancel_pending_dns(void) {
+    hloop_t* loop = hloop_new(0);
+    cleanup_cancel_ctx_t ctx;
+    memset(&ctx, 0, sizeof(ctx));
+
+    hio_t* io = hloop_create_udp_server(loop, "127.0.0.1", 0);
+    assert(io != NULL);
+    hevent_set_userdata(io, &ctx);
+    hio_setcb_close(io, cleanup_cancel_close);
+
+    hdns_setting_t opt;
+    memset(&opt, 0, sizeof(opt));
+    opt.family = HDNS_QUERY_A;
+    opt.timeout_ms = 10000;
+    opt.retries = 0;
+    opt.use_cache = 0;
+    opt.nameserver = "127.0.0.1:1";
+    ctx.query = hdns_resolve_ex(loop, "cleanup.test", &opt, on_never, NULL);
+    assert(ctx.query != NULL);
+
+    hloop_free(&loop);
+    assert(ctx.query == NULL);
+}
+
 int main() {
     hloop_t* loop = hloop_new(0);
 
@@ -270,6 +307,8 @@ int main() {
 
     hio_close(mock);
     hloop_free(&loop);
+
+    test_cleanup_cancel_pending_dns();
     printf("\nALL hdns_test PASSED\n");
     return 0;
 }
