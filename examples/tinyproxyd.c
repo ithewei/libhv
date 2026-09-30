@@ -41,6 +41,7 @@ static hloop_t** worker_loops = NULL;
 #define HTTP_KEEPALIVE_TIMEOUT  60000 // ms
 #define HTTP_MAX_URL_LENGTH     256
 #define HTTP_MAX_HEAD_LENGTH    1024
+#define HTTP_CONNECT_RESPONSE   "HTTP/1.1 200 Connection Established\r\n\r\n"
 
 typedef enum {
     s_begin,
@@ -166,9 +167,16 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
 }
 
 static void on_upstream_connect(hio_t* upstream_io) {
-    // printf("on_upstream_connect\n");
     http_conn_t* conn = (http_conn_t*)hevent_userdata(upstream_io);
     http_msg_t* req = &conn->request;
+    if (stricmp(req->method, "CONNECT") == 0) {
+        hio_write(conn->io, HTTP_CONNECT_RESPONSE, strlen(HTTP_CONNECT_RESPONSE));
+        hio_setcb_read(conn->io, hio_write_upstream);
+        hio_setcb_read(upstream_io, hio_write_upstream);
+        hio_read_start(conn->io);
+        hio_read_start(upstream_io);
+        return;
+    }
     // send head
     char stackbuf[HTTP_MAX_HEAD_LENGTH + 1024] = {0};
     char* buf = stackbuf;
@@ -194,17 +202,25 @@ static void on_upstream_connect(hio_t* upstream_io) {
 
 static int on_head_end(http_conn_t* conn) {
     http_msg_t* req = &conn->request;
-    if (req->host[0] == '\0') {
+    bool is_connect = stricmp(req->method, "CONNECT") == 0;
+    const char* authority = is_connect ? req->path : req->host;
+    if (authority[0] == '\0') {
         fprintf(stderr, "No Host header!\n");
         return -1;
     }
     char backend_host[64] = {0};
-    strcpy(backend_host, req->host);
-    int backend_port = 80;
-    char* pos = strchr(backend_host, ':');
-    if (pos) {
-        *pos = '\0';
-        backend_port = atoi(pos + 1);
+    int backend_port = is_connect ? 443 : 80;
+    if (authority[0] == '[') {
+        const char* end = strchr(authority + 1, ']');
+        if (end == NULL || end - authority - 1 >= (int)sizeof(backend_host)) return -1;
+        memcpy(backend_host, authority + 1, end - authority - 1);
+        if (end[1] == ':') backend_port = atoi(end + 2);
+    } else {
+        const char* colon = strrchr(authority, ':');
+        size_t host_len = colon ? (size_t)(colon - authority) : strlen(authority);
+        if (host_len == 0 || host_len >= sizeof(backend_host)) return -1;
+        memcpy(backend_host, authority, host_len);
+        if (colon) backend_port = atoi(colon + 1);
     }
     if (backend_port == proxy_port &&
         (strcmp(backend_host, proxy_host) == 0 ||
@@ -215,7 +231,7 @@ static int on_head_end(http_conn_t* conn) {
     }
     // NOTE: blew for proxy
     req->proxy = 1;
-    int backend_ssl = strncmp(req->path, "https", 5) == 0 ? 1 : 0;
+    int backend_ssl = !is_connect && strncmp(req->path, "https", 5) == 0 ? 1 : 0;
     // printf("upstream %s:%d\n", backend_host, backend_port);
     hloop_t* loop = hevent_loop(conn->io);
     // hio_t* upstream_io = hio_setup_tcp_upstream(conn->io, backend_host, backend_port, backend_ssl);
@@ -327,6 +343,7 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
             conn->state = s_end;
             if (req->proxy) {
                 // NOTE: wait upstream connect!
+                break;
             } else {
                 goto s_end;
             }
@@ -361,6 +378,7 @@ s_end:
         // received complete request
         if (req->proxy) {
             // NOTE: reply by upstream
+            if (stricmp(req->method, "CONNECT") == 0) break;
         } else {
             on_request(conn);
         }

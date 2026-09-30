@@ -360,10 +360,6 @@ static void hloop_cleanup(hloop_t* loop) {
         loop->pendings[i] = NULL;
     }
 
-    // async dns resolver
-    printd("cleanup dns_resolver...\n");
-    hdns_resolver_free(loop);
-
     // per-loop lua_State (opaque; destructor supplied by lua/ layer)
     if (loop->lua_state && loop->lua_state_dtor) {
         printd("cleanup lua_state...\n");
@@ -389,6 +385,12 @@ static void hloop_cleanup(hloop_t* loop) {
         }
     }
     io_array_cleanup(&loop->ios);
+
+    // IO close callbacks may cancel pending DNS queries, so keep the resolver
+    // alive until every IO has been closed. DNS query timers are still valid
+    // here because the timer sweep happens below.
+    printd("cleanup dns_resolver...\n");
+    hdns_resolver_free(loop);
 
     // idles
     printd("cleanup idles...\n");

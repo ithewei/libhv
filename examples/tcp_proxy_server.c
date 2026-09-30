@@ -7,6 +7,7 @@
  */
 
 #include "hloop.h"
+#include "hsocket.h"
 
 int main(int argc, char** argv) {
     if (argc < 3) {
@@ -30,6 +31,17 @@ int main(int argc, char** argv) {
     } else {
         strncpy(setting.target_host, target, sizeof(setting.target_host) - 1);
         setting.target_port = 80;
+    }
+
+    if (!is_ipaddr(setting.target_host)) {
+        sockaddr_u target_addr;
+        char target_ip[SOCKADDR_STRLEN] = {0};
+        if (ResolveAddr(setting.target_host, &target_addr) != 0 ||
+            sockaddr_ip(&target_addr, target_ip, sizeof(target_ip)) == NULL) {
+            fprintf(stderr, "Could not resolve target host: %s\n", setting.target_host);
+            return -20;
+        }
+        strncpy(setting.target_host, target_ip, sizeof(setting.target_host) - 1);
     }
 
     hloop_t* loop = hloop_new(0);
