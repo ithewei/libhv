@@ -427,6 +427,11 @@ endif
 appletls_pem_test: prepare
 	$(CC) -g -Wall -Wextra -O0 -std=c99 -I. -Ibase -Issl \
 		-o bin/appletls_pem_test unittest/appletls_pem_test.c ssl/appletls_pem.c
+
+appletls_test: prepare libhv
+	$(CC) -g -Wall -Wextra -O0 -std=c99 -I. -Ibase -Issl -Ievent \
+		-o bin/appletls_test unittest/appletls_test.c \
+		-Llib -lhv -framework CoreFoundation -framework Security
 ifeq ($(WITH_LUA), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_io_test unittest/lua_io_test.cpp -Llib -lhv -pthread $(LUA_LIBS)

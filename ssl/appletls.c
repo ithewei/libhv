@@ -11,6 +11,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CommonCrypto/CommonDigest.h>
 
+#include "appletls_pem.h"
 #include "hsocket.h"
 
 /* The Security framework has changed greatly between iOS and different macOS
@@ -762,25 +763,228 @@ const char* hssl_backend() {
 }
 
 typedef struct appletls_ctx {
-    SecIdentityRef  cert;
-    hssl_ctx_opt_t* param;
+    SecIdentityRef identity;
+    CFArrayRef certificate_chain;
+    CFArrayRef trust_anchors;
+    short verify_peer;
+    short configured_endpoint;
 } appletls_ctx_t;
 
+static CFDataRef appletls_cfdata(const appletls_der_t* der) {
+    return CFDataCreate(NULL, der->data, (CFIndex)der->len);
+}
+
+static int appletls_create_identity(appletls_ctx_t* ctx, const char* cert_file, const char* key_file) {
+    appletls_der_list_t certificates = {0};
+    appletls_der_t key_data = {0};
+    CFMutableArrayRef chain = NULL;
+    SecCertificateRef leaf = NULL;
+    SecKeyRef private_key = NULL;
+    SecIdentityRef identity = NULL;
+    CFDataRef data = NULL;
+    CFDictionaryRef attributes = NULL;
+    CFErrorRef error = NULL;
+    int ret = APPLETLS_PEM_ERROR_FORMAT;
+    size_t i;
+
+    ret = appletls_pem_load_certificates(cert_file, 0, 64, &certificates);
+    if (ret != APPLETLS_PEM_OK) {
+        fprintf(stderr, "Apple TLS certificate file failed: %s\n", appletls_pem_error_string(ret));
+        goto cleanup;
+    }
+    ret = appletls_pem_load_rsa_private_key(key_file, &key_data);
+    if (ret != APPLETLS_PEM_OK) {
+        fprintf(stderr, "Apple TLS RSA private key failed: %s\n", appletls_pem_error_string(ret));
+        goto cleanup;
+    }
+
+#if defined(__has_builtin)
+#if __has_builtin(__builtin_available)
+    if (!__builtin_available(macOS 10.12, iOS 11.2, *)) {
+        fprintf(stderr, "Apple TLS local identities require macOS 10.12 or iOS 11.2\n");
+        ret = APPLETLS_PEM_ERROR_UNSUPPORTED;
+        goto cleanup;
+    }
+#endif
+#endif
+
+    data = appletls_cfdata(&certificates.items[0]);
+    if (data == NULL) goto cleanup;
+    leaf = SecCertificateCreateWithData(NULL, data);
+    CFRelease(data);
+    data = NULL;
+    if (leaf == NULL) {
+        fprintf(stderr, "Apple TLS leaf certificate is invalid\n");
+        goto cleanup;
+    }
+
+    data = appletls_cfdata(&key_data);
+    if (data == NULL) goto cleanup;
+    {
+        const void* keys[] = {kSecAttrKeyType, kSecAttrKeyClass};
+        const void* values[] = {kSecAttrKeyTypeRSA, kSecAttrKeyClassPrivate};
+        attributes = CFDictionaryCreate(NULL, keys, values, 2,
+                                        &kCFTypeDictionaryKeyCallBacks,
+                                        &kCFTypeDictionaryValueCallBacks);
+    }
+    if (attributes == NULL) goto cleanup;
+    private_key = SecKeyCreateWithData(data, attributes, &error);
+    CFRelease(data);
+    data = NULL;
+    if (private_key == NULL) {
+        fprintf(stderr, "Apple TLS could not create the RSA private key\n");
+        goto cleanup;
+    }
+    identity = SecIdentityCreate(NULL, leaf, private_key);
+    if (identity == NULL) {
+        fprintf(stderr, "Apple TLS certificate and private key do not match\n");
+        goto cleanup;
+    }
+
+    chain = CFArrayCreateMutable(NULL, (CFIndex)certificates.count, &kCFTypeArrayCallBacks);
+    if (chain == NULL) goto cleanup;
+    CFArrayAppendValue(chain, identity);
+    for (i = 1; i < certificates.count; ++i) {
+        SecCertificateRef certificate;
+        data = appletls_cfdata(&certificates.items[i]);
+        if (data == NULL) goto cleanup;
+        certificate = SecCertificateCreateWithData(NULL, data);
+        CFRelease(data);
+        data = NULL;
+        if (certificate == NULL) {
+            fprintf(stderr, "Apple TLS certificate chain contains an invalid certificate\n");
+            goto cleanup;
+        }
+        CFArrayAppendValue(chain, certificate);
+        CFRelease(certificate);
+    }
+
+    ctx->identity = identity;
+    ctx->certificate_chain = chain;
+    identity = NULL;
+    chain = NULL;
+    ret = APPLETLS_PEM_OK;
+
+cleanup:
+    if (error) CFRelease(error);
+    if (attributes) CFRelease(attributes);
+    if (data) CFRelease(data);
+    if (identity) CFRelease(identity);
+    if (private_key) CFRelease(private_key);
+    if (leaf) CFRelease(leaf);
+    if (chain) CFRelease(chain);
+    appletls_der_free(&key_data);
+    appletls_der_list_free(&certificates);
+    return ret == APPLETLS_PEM_OK ? HSSL_OK : HSSL_ERROR;
+}
+
+static int appletls_append_anchor_file(CFMutableArrayRef anchors, const char* path,
+                                       size_t* anchor_count, int strict) {
+    appletls_der_list_t certificates = {0};
+    int ret;
+    size_t i;
+
+    if (*anchor_count >= APPLETLS_PEM_MAX_CERTIFICATES) return HSSL_ERROR;
+    ret = appletls_pem_load_certificates(path, 1,
+        APPLETLS_PEM_MAX_CERTIFICATES - *anchor_count, &certificates);
+    if (ret != APPLETLS_PEM_OK) {
+        if (strict) {
+            fprintf(stderr, "Apple TLS CA file failed: %s\n", appletls_pem_error_string(ret));
+        }
+        return strict ? HSSL_ERROR : HSSL_OK;
+    }
+    for (i = 0; i < certificates.count; ++i) {
+        CFDataRef data = appletls_cfdata(&certificates.items[i]);
+        SecCertificateRef certificate = data ? SecCertificateCreateWithData(NULL, data) : NULL;
+        if (data) CFRelease(data);
+        if (certificate == NULL) {
+            if (strict) fprintf(stderr, "Apple TLS CA file contains an invalid certificate\n");
+            appletls_der_list_free(&certificates);
+            return strict ? HSSL_ERROR : HSSL_OK;
+        }
+        CFArrayAppendValue(anchors, certificate);
+        CFRelease(certificate);
+        ++*anchor_count;
+    }
+    appletls_der_list_free(&certificates);
+    return HSSL_OK;
+}
+
+static int appletls_load_anchors(appletls_ctx_t* ctx, const char* ca_file, const char* ca_path) {
+    CFMutableArrayRef anchors = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    size_t anchor_count = 0;
+    if (anchors == NULL) return HSSL_ERROR;
+
+    if (ca_file && *ca_file && appletls_append_anchor_file(anchors, ca_file, &anchor_count, 1) != HSSL_OK) {
+        CFRelease(anchors);
+        return HSSL_ERROR;
+    }
+    if (ca_path && *ca_path) {
+        DIR* dir = opendir(ca_path);
+        struct dirent* entry;
+        if (dir == NULL) {
+            fprintf(stderr, "Apple TLS CA directory could not be opened\n");
+            CFRelease(anchors);
+            return HSSL_ERROR;
+        }
+        while ((entry = readdir(dir)) != NULL) {
+            struct stat st;
+            char path[PATH_MAX];
+            int length;
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+            length = snprintf(path, sizeof(path), "%s/%s", ca_path, entry->d_name);
+            if (length < 0 || (size_t)length >= sizeof(path)) continue;
+            if (lstat(path, &st) != 0 || !S_ISREG(st.st_mode)) continue;
+            if (appletls_append_anchor_file(anchors, path, &anchor_count, 0) != HSSL_OK) {
+                closedir(dir);
+                CFRelease(anchors);
+                return HSSL_ERROR;
+            }
+        }
+        closedir(dir);
+    }
+    if (anchor_count == 0) {
+        fprintf(stderr, "Apple TLS custom CA source contains no valid certificates\n");
+        CFRelease(anchors);
+        return HSSL_ERROR;
+    }
+    ctx->trust_anchors = anchors;
+    return HSSL_OK;
+}
+
 hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
-    appletls_ctx_t* ctx = (appletls_ctx_t*)malloc(sizeof(appletls_ctx_t));
+    const char* crt_file = param && param->crt_file && *param->crt_file ? param->crt_file : NULL;
+    const char* key_file = param && param->key_file && *param->key_file ? param->key_file : NULL;
+    const char* ca_file = param && param->ca_file && *param->ca_file ? param->ca_file : NULL;
+    const char* ca_path = param && param->ca_path && *param->ca_path ? param->ca_path : NULL;
+    appletls_ctx_t* ctx = (appletls_ctx_t*)calloc(1, sizeof(appletls_ctx_t));
     if (ctx == NULL) return NULL;
-    ctx->cert = NULL;
-    ctx->param = param;
+    ctx->verify_peer = param ? param->verify_peer : 0;
+    ctx->configured_endpoint = param ? param->endpoint : HSSL_CLIENT;
+
+    if ((crt_file == NULL) != (key_file == NULL)) {
+        fprintf(stderr, "Apple TLS requires both crt_file and key_file\n");
+        goto error;
+    }
+    if (crt_file && appletls_create_identity(ctx, crt_file, key_file) != HSSL_OK) goto error;
+    if (param && param->endpoint == HSSL_SERVER && ctx->identity == NULL) {
+        fprintf(stderr, "Apple TLS server requires an RSA certificate and private key\n");
+        goto error;
+    }
+    if ((ca_file || ca_path) && appletls_load_anchors(ctx, ca_file, ca_path) != HSSL_OK) goto error;
     return ctx;
+
+error:
+    hssl_ctx_free(ctx);
+    return NULL;
 }
 
 void hssl_ctx_free(hssl_ctx_t ssl_ctx) {
     if (ssl_ctx == NULL) return;
     appletls_ctx_t* ctx = (appletls_ctx_t*)ssl_ctx;
-    if (ctx->cert) {
-        CFRelease(ctx->cert);
-        ctx->cert = NULL;
-    }
+    if (ctx->certificate_chain) CFRelease(ctx->certificate_chain);
+    if (ctx->trust_anchors) CFRelease(ctx->trust_anchors);
+    if (ctx->identity) CFRelease(ctx->identity);
     free(ctx);
 }
 
@@ -897,7 +1101,7 @@ static int hssl_init(hssl_t ssl, int endpoint) {
     }
 
     bool verify_peer = false;
-    if (appletls->ctx->param && appletls->ctx->param->verify_peer) {
+    if (appletls->ctx->verify_peer) {
         verify_peer = true;
     }
 #if defined(__MAC_10_8)
@@ -910,14 +1114,8 @@ static int hssl_init(hssl_t ssl, int endpoint) {
         return HSSL_ERROR;
     }
 
-    if (appletls->ctx->cert) {
-        CFArrayRef certs = CFArrayCreate(NULL, (const void**)&appletls->ctx->cert, 1, NULL);
-        if (!certs) {
-            fprintf(stderr, "CFArrayCreate failed!\n");
-            return HSSL_ERROR;
-        }
-        ret = SSLSetCertificate(appletls->session, certs);
-        CFRelease(certs);
+    if (appletls->ctx->certificate_chain) {
+        ret = SSLSetCertificate(appletls->session, appletls->ctx->certificate_chain);
         if (ret != noErr) {
             fprintf(stderr, "SSLSetCertificate failed!\n");
             return HSSL_ERROR;

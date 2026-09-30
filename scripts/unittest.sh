@@ -31,6 +31,9 @@ bin/socketpair_test
 if [ -x bin/appletls_pem_test ]; then
     bin/appletls_pem_test || exit $?
 fi
+if [ -x bin/appletls_test ]; then
+    bin/appletls_test || exit $?
+fi
 # bin/threadpool_test
 # bin/objectpool_test
 bin/sizeof_test
