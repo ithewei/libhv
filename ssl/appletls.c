@@ -813,12 +813,10 @@ static int appletls_create_identity(appletls_ctx_t* ctx, const char* cert_file, 
         }
     } else {
         fprintf(stderr, "Apple TLS local identities require macOS 10.12 or iOS 11.2\n");
-        ret = APPLETLS_PEM_ERROR_UNSUPPORTED;
         goto cleanup;
     }
 #else
     fprintf(stderr, "Apple TLS local identities require an SDK with SecIdentityCreate\n");
-    ret = APPLETLS_PEM_ERROR_UNSUPPORTED;
     goto cleanup;
 #endif
 
