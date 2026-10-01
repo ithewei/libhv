@@ -24,7 +24,7 @@ printf '%s\n' \
     'keyUsage=critical,keyCertSign,cRLSign' \
     'subjectKeyIdentifier=hash' \
     'authorityKeyIdentifier=keyid,issuer' > "$tmp_dir/intermediate.ext"
-openssl x509 -req -sha256 -days 36500 \
+openssl x509 -req -sha256 -days 365 \
     -in "$tmp_dir/intermediate.csr" -CA "$fixture_dir/root.crt" \
     -CAkey "$tmp_dir/root.key" -CAserial "$tmp_dir/root.srl" -CAcreateserial \
     -out "$fixture_dir/intermediate.crt" -extfile "$tmp_dir/intermediate.ext"
@@ -39,7 +39,7 @@ printf '%s\n' \
     'keyUsage=critical,digitalSignature,keyEncipherment' \
     'extendedKeyUsage=serverAuth' \
     'subjectAltName=DNS:localhost' > "$tmp_dir/server.ext"
-openssl x509 -req -sha256 -days 36500 \
+openssl x509 -req -sha256 -days 365 \
     -in "$tmp_dir/server.csr" -CA "$fixture_dir/intermediate.crt" \
     -CAkey "$tmp_dir/intermediate.key" -CAserial "$tmp_dir/intermediate.srl" -CAcreateserial \
     -out "$fixture_dir/server.crt" -extfile "$tmp_dir/server.ext"
@@ -51,7 +51,7 @@ printf '%s\n' \
     'basicConstraints=critical,CA:false' \
     'keyUsage=critical,digitalSignature,keyEncipherment' \
     'extendedKeyUsage=clientAuth' > "$tmp_dir/client.ext"
-openssl x509 -req -sha256 -days 36500 \
+openssl x509 -req -sha256 -days 365 \
     -in "$tmp_dir/client.csr" -CA "$fixture_dir/root.crt" \
     -CAkey "$tmp_dir/root.key" -CAserial "$tmp_dir/root.srl" \
     -out "$fixture_dir/client.crt" -extfile "$tmp_dir/client.ext"

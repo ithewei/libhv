@@ -107,7 +107,7 @@ static int decode_base64(const unsigned char* begin, const unsigned char* end, a
         b = base64_value(quartet[1]);
         c = quartet[2] == '=' ? -2 : base64_value(quartet[2]);
         d = quartet[3] == '=' ? -2 : base64_value(quartet[3]);
-        if (a < 0 || b < 0 || c < -2 || d < -2 || (c == -2 && d != -2)) {
+        if (a < 0 || b < 0 || c == -1 || d == -1 || (c == -2 && d != -2)) {
             free(out);
             return APPLETLS_PEM_ERROR_FORMAT;
         }
