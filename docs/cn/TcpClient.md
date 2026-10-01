@@ -73,11 +73,11 @@ ssl.verify_peer = 1;
 client.withTLS(&ssl);
 ```
 
-未设置 `ca_file` 和 `ca_path` 时，Apple TLS、OpenSSL 和 GnuTLS 后端使用
-系统信任根。设置了任一项时，仅信任指定的自定义 CA，不再使用系统信任根。
-`ca_file` 可以包含多个 PEM `CERTIFICATE` 块，`ca_path` 指向包含 PEM 或
-DER CA 证书的目录。通过域名连接时还会校验证书中的 DNS 主机名。
-Apple TLS 的证书验证不会在线下载缺失的中间证书，服务端应发送完整证书链。
+Apple TLS 后端在未设置 `ca_file` 和 `ca_path` 时使用系统信任根；设置了
+任一项时，仅信任指定的自定义 CA，不再使用系统信任根。`ca_file` 可以
+包含多个 PEM `CERTIFICATE` 块，`ca_path` 指向包含 PEM 或 DER CA 证书的
+普通文件目录。通过域名连接时，Apple TLS 后端还会校验证书中的 DNS
+主机名。验证时不会在线下载缺失的中间证书，服务端应发送完整证书链。
 
 客户端双向 TLS 示例：
 

@@ -74,8 +74,8 @@ server.withTLS(&ssl);
 
 证书链文件使用 PEM 格式，第一张为服务端证书，后续依次为中间证书。
 
-将 `verify_peer` 设为 `1` 会启用强制双向 TLS：客户端必须提供受信任的
-证书，否则握手失败。
+Apple TLS 后端将 `verify_peer` 设为 `1` 时会启用强制双向 TLS：客户端
+必须提供受信任的证书，否则握手失败。
 
 ```cpp
 hssl_ctx_opt_t ssl = {};
@@ -86,9 +86,10 @@ ssl.verify_peer = 1;
 server.withTLS(&ssl);
 ```
 
-未设置 `ca_file` 和 `ca_path` 时使用系统信任根；设置了任一项时，仅信任
-指定的自定义 CA。`ca_file` 可以包含多张 PEM 证书，`ca_path` 可以包含
-PEM 或 DER CA 证书。
+Apple TLS 后端在未设置 `ca_file` 和 `ca_path` 时使用系统信任根；设置了
+任一项时，仅信任指定的自定义 CA。`ca_file` 可以包含多张 PEM 证书，
+`ca_path` 指向包含 PEM 或 DER CA 证书的普通文件目录。其他 TLS 后端的
+证书验证和 CA 目录格式由相应后端实现决定。
 
 Apple TLS 后端的本地身份目前只支持未加密的 RSA 私钥：
 `RSA PRIVATE KEY`（PKCS#1）或 RSA `PRIVATE KEY`（PKCS#8）。不支持 EC
