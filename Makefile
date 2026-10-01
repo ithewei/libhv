@@ -379,10 +379,10 @@ hrpc_calc_server: prepare hrpc_calc_protoc
 
 APPLE_TLS_UNITTESTS =
 ifeq ($(shell uname -s),Darwin)
-APPLE_TLS_UNITTESTS += appletls_test
+APPLE_TLS_UNITTESTS += appletls_pem_test appletls_test
 endif
 
-unittest: prepare libhv appletls_pem_test $(APPLE_TLS_UNITTESTS)
+unittest: prepare libhv $(APPLE_TLS_UNITTESTS)
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rbtree_test       unittest/rbtree_test.c        base/rbtree.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hbase_test        unittest/hbase_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
