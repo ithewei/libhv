@@ -3,6 +3,15 @@
 #ifdef WITH_APPLETLS
 
 /* Disclaimer: excerpted from curl */
+/*
+ * Secure Transport is deprecated, but Network.framework cannot adopt the
+ * connected socket owned by libhv's event loop. Keep this compatibility
+ * warning local to the Apple TLS backend instead of weakening global flags.
+ */
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 #include <Security/Security.h>
 /* For some reason, when building for iOS, the omnibus header above does
@@ -11,6 +20,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <CommonCrypto/CommonDigest.h>
 
+#include "appletls_pem.h"
 #include "hsocket.h"
 
 /* The Security framework has changed greatly between iOS and different macOS
@@ -84,18 +94,6 @@ static const SSLProtocol kTLSProtocol12 = (SSLProtocol)8;
 #if !defined(__MAC_10_13)
 static const SSLProtocol kTLSProtocol13 = (SSLProtocol)10;
 #endif
-
-static inline const char* SSLProtocolToString(SSLProtocol proto) {
-    switch(proto) {
-    case kSSLProtocol2:  return "SSLv2";
-    case kSSLProtocol3:  return "SSLv3";
-    case kTLSProtocol1:  return "TLSv1";
-    case kTLSProtocol11: return "TLSv1.1";
-    case kTLSProtocol12: return "TLSv1.2";
-    case kTLSProtocol13: return "TLSv1.3";
-    default:             return "Unknown";
-    }
-}
 
 struct st_cipher {
   const char *name; /* Cipher suite IANA name. It starts with "TLS_" prefix */
@@ -725,25 +723,6 @@ const static struct st_cipher ciphertable[] = {
 
 #define NUM_OF_CIPHERS sizeof(ciphertable)/sizeof(ciphertable[0])
 
-static const char* SSLCipherSuiteToString(SSLCipherSuite cipher)
-{
-  /* The first ciphers in the ciphertable are continuos. Here we do small
-     optimization and instead of loop directly get SSL name by cipher number.
-   */
-  if(cipher <= SSL_FORTEZZA_DMS_WITH_FORTEZZA_CBC_SHA) {
-    return ciphertable[cipher].name;
-  }
-  /* Iterate through the rest of the ciphers */
-  for(size_t i = SSL_FORTEZZA_DMS_WITH_FORTEZZA_CBC_SHA + 1;
-      i < NUM_OF_CIPHERS;
-      ++i) {
-    if(ciphertable[i].num == cipher) {
-      return ciphertable[i].name;
-    }
-  }
-  return ciphertable[SSL_NULL_WITH_NULL_NULL].name;
-}
-
 static bool is_cipher_suite_strong(SSLCipherSuite suite_num)
 {
   for(size_t i = 0; i < NUM_OF_CIPHERS; ++i) {
@@ -762,121 +741,338 @@ const char* hssl_backend() {
 }
 
 typedef struct appletls_ctx {
-    SecIdentityRef  cert;
-    hssl_ctx_opt_t* param;
+    SecIdentityRef identity;
+    CFArrayRef certificate_chain;
+    CFArrayRef trust_anchors;
+    short verify_peer;
 } appletls_ctx_t;
 
+static CFDataRef appletls_cfdata(const appletls_der_t* der) {
+    return CFDataCreate(NULL, der->data, (CFIndex)der->len);
+}
+
+static int appletls_create_identity(appletls_ctx_t* ctx, const char* cert_file, const char* key_file) {
+    appletls_der_list_t certificates = {0};
+    appletls_der_t key_data = {0};
+    CFMutableArrayRef chain = NULL;
+    SecCertificateRef leaf = NULL;
+    SecKeyRef private_key = NULL;
+    SecIdentityRef identity = NULL;
+    CFDataRef data = NULL;
+    CFDictionaryRef attributes = NULL;
+    CFErrorRef error = NULL;
+    int ret;
+    int result = HSSL_ERROR;
+    size_t i;
+
+    ret = appletls_pem_load_certificates(cert_file, 0, 64, &certificates);
+    if (ret != APPLETLS_PEM_OK) {
+        fprintf(stderr, "Apple TLS certificate file failed: %s\n", appletls_pem_error_string(ret));
+        goto cleanup;
+    }
+    ret = appletls_pem_load_rsa_private_key(key_file, &key_data);
+    if (ret != APPLETLS_PEM_OK) {
+        fprintf(stderr, "Apple TLS RSA private key failed: %s\n", appletls_pem_error_string(ret));
+        goto cleanup;
+    }
+
+#if (TARGET_OS_MAC && MAC_OS_X_VERSION_MAX_ALLOWED >= 101200) || \
+    ((TARGET_OS_EMBEDDED || TARGET_OS_IPHONE) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110200)
+    if (__builtin_available(macOS 10.12, iOS 11.2, *)) {
+        data = appletls_cfdata(&certificates.items[0]);
+        if (data == NULL) goto cleanup;
+        leaf = SecCertificateCreateWithData(NULL, data);
+        CFRelease(data);
+        data = NULL;
+        if (leaf == NULL) {
+            fprintf(stderr, "Apple TLS leaf certificate is invalid\n");
+            goto cleanup;
+        }
+
+        data = appletls_cfdata(&key_data);
+        if (data == NULL) goto cleanup;
+        {
+            const void* keys[] = {kSecAttrKeyType, kSecAttrKeyClass};
+            const void* values[] = {kSecAttrKeyTypeRSA, kSecAttrKeyClassPrivate};
+            attributes = CFDictionaryCreate(NULL, keys, values, 2,
+                                            &kCFTypeDictionaryKeyCallBacks,
+                                            &kCFTypeDictionaryValueCallBacks);
+        }
+        if (attributes == NULL) goto cleanup;
+        private_key = SecKeyCreateWithData(data, attributes, &error);
+        CFRelease(data);
+        data = NULL;
+        if (private_key == NULL) {
+            fprintf(stderr, "Apple TLS could not create the RSA private key\n");
+            goto cleanup;
+        }
+        identity = SecIdentityCreate(NULL, leaf, private_key);
+        if (identity == NULL) {
+            fprintf(stderr, "Apple TLS certificate and private key do not match\n");
+            goto cleanup;
+        }
+    } else {
+        fprintf(stderr, "Apple TLS local identities require macOS 10.12 or iOS 11.2\n");
+        goto cleanup;
+    }
+#else
+    fprintf(stderr, "Apple TLS local identities require an SDK with SecIdentityCreate\n");
+    goto cleanup;
+#endif
+
+    chain = CFArrayCreateMutable(NULL, (CFIndex)certificates.count, &kCFTypeArrayCallBacks);
+    if (chain == NULL) goto cleanup;
+    CFArrayAppendValue(chain, identity);
+    for (i = 1; i < certificates.count; ++i) {
+        SecCertificateRef certificate;
+        data = appletls_cfdata(&certificates.items[i]);
+        if (data == NULL) goto cleanup;
+        certificate = SecCertificateCreateWithData(NULL, data);
+        CFRelease(data);
+        data = NULL;
+        if (certificate == NULL) {
+            fprintf(stderr, "Apple TLS certificate chain contains an invalid certificate\n");
+            goto cleanup;
+        }
+        CFArrayAppendValue(chain, certificate);
+        CFRelease(certificate);
+    }
+
+    ctx->identity = identity;
+    ctx->certificate_chain = chain;
+    identity = NULL;
+    chain = NULL;
+    result = HSSL_OK;
+
+cleanup:
+    if (error) CFRelease(error);
+    if (attributes) CFRelease(attributes);
+    if (data) CFRelease(data);
+    if (identity) CFRelease(identity);
+    if (private_key) CFRelease(private_key);
+    if (leaf) CFRelease(leaf);
+    if (chain) CFRelease(chain);
+    appletls_der_free(&key_data);
+    appletls_der_list_free(&certificates);
+    return result;
+}
+
+static int appletls_append_anchor_file(CFMutableArrayRef anchors, const char* path,
+                                       size_t* anchor_count, int strict) {
+    appletls_der_list_t certificates = {0};
+    int ret;
+    size_t i;
+
+    if (*anchor_count >= APPLETLS_PEM_MAX_CERTIFICATES) return HSSL_ERROR;
+    ret = appletls_pem_load_certificates(path, 1,
+        APPLETLS_PEM_MAX_CERTIFICATES - *anchor_count, &certificates);
+    if (ret != APPLETLS_PEM_OK) {
+        if (!strict && (ret == APPLETLS_PEM_ERROR_LIMIT || ret == APPLETLS_PEM_ERROR_NOMEM)) {
+            return HSSL_ERROR;
+        }
+        if (strict) {
+            fprintf(stderr, "Apple TLS CA file failed: %s\n", appletls_pem_error_string(ret));
+        }
+        return strict ? HSSL_ERROR : HSSL_OK;
+    }
+    for (i = 0; i < certificates.count; ++i) {
+        CFDataRef data = appletls_cfdata(&certificates.items[i]);
+        SecCertificateRef certificate = data ? SecCertificateCreateWithData(NULL, data) : NULL;
+        if (data) CFRelease(data);
+        if (certificate == NULL) {
+            if (strict) fprintf(stderr, "Apple TLS CA file contains an invalid certificate\n");
+            appletls_der_list_free(&certificates);
+            return strict ? HSSL_ERROR : HSSL_OK;
+        }
+        CFArrayAppendValue(anchors, certificate);
+        CFRelease(certificate);
+        ++*anchor_count;
+    }
+    appletls_der_list_free(&certificates);
+    return HSSL_OK;
+}
+
+static int appletls_load_anchors(appletls_ctx_t* ctx, const char* ca_file, const char* ca_path) {
+    CFMutableArrayRef anchors = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    size_t anchor_count = 0;
+    if (anchors == NULL) return HSSL_ERROR;
+
+    if (ca_file && *ca_file && appletls_append_anchor_file(anchors, ca_file, &anchor_count, 1) != HSSL_OK) {
+        CFRelease(anchors);
+        return HSSL_ERROR;
+    }
+    if (ca_path && *ca_path) {
+        DIR* dir = opendir(ca_path);
+        struct dirent* entry;
+        if (dir == NULL) {
+            fprintf(stderr, "Apple TLS CA directory could not be opened\n");
+            CFRelease(anchors);
+            return HSSL_ERROR;
+        }
+        while ((entry = readdir(dir)) != NULL) {
+            struct stat st;
+            char path[PATH_MAX];
+            int length;
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+            length = snprintf(path, sizeof(path), "%s/%s", ca_path, entry->d_name);
+            if (length < 0 || (size_t)length >= sizeof(path)) continue;
+            if (lstat(path, &st) != 0 || !S_ISREG(st.st_mode)) continue;
+            if (appletls_append_anchor_file(anchors, path, &anchor_count, 0) != HSSL_OK) {
+                closedir(dir);
+                CFRelease(anchors);
+                return HSSL_ERROR;
+            }
+        }
+        closedir(dir);
+    }
+    if (anchor_count == 0) {
+        fprintf(stderr, "Apple TLS custom CA source contains no valid certificates\n");
+        CFRelease(anchors);
+        return HSSL_ERROR;
+    }
+    ctx->trust_anchors = anchors;
+    return HSSL_OK;
+}
+
 hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
-    appletls_ctx_t* ctx = (appletls_ctx_t*)malloc(sizeof(appletls_ctx_t));
+    const char* crt_file = param && param->crt_file && *param->crt_file ? param->crt_file : NULL;
+    const char* key_file = param && param->key_file && *param->key_file ? param->key_file : NULL;
+    const char* ca_file = param && param->ca_file && *param->ca_file ? param->ca_file : NULL;
+    const char* ca_path = param && param->ca_path && *param->ca_path ? param->ca_path : NULL;
+    appletls_ctx_t* ctx = (appletls_ctx_t*)calloc(1, sizeof(appletls_ctx_t));
     if (ctx == NULL) return NULL;
-    ctx->cert = NULL;
-    ctx->param = param;
+    ctx->verify_peer = param ? param->verify_peer : 0;
+
+    if ((crt_file == NULL) != (key_file == NULL)) {
+        fprintf(stderr, "Apple TLS requires both crt_file and key_file\n");
+        goto error;
+    }
+    if (crt_file && appletls_create_identity(ctx, crt_file, key_file) != HSSL_OK) goto error;
+    if (param && param->endpoint == HSSL_SERVER && ctx->identity == NULL) {
+        fprintf(stderr, "Apple TLS server requires an RSA certificate and private key\n");
+        goto error;
+    }
+    if ((ca_file || ca_path) && appletls_load_anchors(ctx, ca_file, ca_path) != HSSL_OK) goto error;
     return ctx;
+
+error:
+    hssl_ctx_free(ctx);
+    return NULL;
 }
 
 void hssl_ctx_free(hssl_ctx_t ssl_ctx) {
     if (ssl_ctx == NULL) return;
     appletls_ctx_t* ctx = (appletls_ctx_t*)ssl_ctx;
-    if (ctx->cert) {
-        CFRelease(ctx->cert);
-        ctx->cert = NULL;
-    }
+    if (ctx->certificate_chain) CFRelease(ctx->certificate_chain);
+    if (ctx->trust_anchors) CFRelease(ctx->trust_anchors);
+    if (ctx->identity) CFRelease(ctx->identity);
     free(ctx);
 }
 
 typedef struct appletls_s {
     SSLContextRef session;
     appletls_ctx_t* ctx;
+    char* hostname;
     int fd;
+    int endpoint;
+    int blocked_on;
+    bool peer_auth_handled;
 } appletls_t;
 
 hssl_t hssl_new(hssl_ctx_t ssl_ctx, int fd) {
     if (ssl_ctx == NULL) return NULL;
-    appletls_t* appletls = (appletls_t*)malloc(sizeof(appletls_t));
+    appletls_t* appletls = (appletls_t*)calloc(1, sizeof(appletls_t));
     if (appletls == NULL) return NULL;
-    appletls->session = NULL;
     appletls->ctx = (appletls_ctx_t*)ssl_ctx;
     appletls->fd = fd;
+    appletls->endpoint = -1;
     return (hssl_t)appletls;
 }
 
 static OSStatus SocketRead(SSLConnectionRef conn, void* data, size_t* len) {
-    // printf("SocketRead(%d)\n", (int)*len);
     appletls_t* appletls = (appletls_t*)conn;
     uint8_t* buffer = (uint8_t*)data;
     size_t remain = *len;
     *len = 0;
     int fd = appletls->fd;
-    // int timeout = 1000;
-    // struct timeval tv = { timeout / 1000, (timeout % 1000) * 1000 };
-    // fd_set readfds;
     while (remain) {
-        /*
-        FD_ZERO(&readfds);
-        FD_SET(fd, &readfds);
-        int nselect = select(fd + 1, &readfds, 0, 0, &tv);
-        printf("nselect=%d\n", nselect);
-        if (nselect < 0) {
-            return errSSLClosedAbort;
-        }
-        if (nselect == 0) {
-            return errSSLWouldBlock;
-        }
-        */
-        // printf("read(%d)\n", (int)remain);
-        // NOTE: avoid blocking
-        if (remain < 16) {
-            so_rcvtimeo(fd, 1000);
-        }
         ssize_t nread = read(fd, buffer, remain);
-        // printf("nread=%d errno=%d\n", (int)nread, (int)errno);
         if (nread == 0) return errSSLClosedGraceful;
         if (nread < 0) {
             switch (errno) {
             case ENOENT:    return errSSLClosedGraceful;
             case ECONNRESET:return errSSLClosedAbort;
-            case EAGAIN:    return errSSLWouldBlock;
+            case EINTR:
+                continue;
+            case EAGAIN:
+#if EWOULDBLOCK != EAGAIN
+            case EWOULDBLOCK:
+#endif
+                appletls->blocked_on = HSSL_WANT_READ;
+                return errSSLWouldBlock;
             default:        return errSSLClosedAbort;
             }
         }
-        *len += nread;
-        remain -= nread;
+        *len += (size_t)nread;
+        remain -= (size_t)nread;
         buffer += nread;
     }
     return noErr;
 }
 
 static OSStatus SocketWrite(SSLConnectionRef conn, const void* data, size_t* len) {
-    // printf("SocketWrite(%d)\n", (int)*len);
     appletls_t* appletls = (appletls_t*)conn;
     uint8_t* buffer = (uint8_t*)data;
     size_t remain = *len;
     *len = 0;
     int fd = appletls->fd;
     while (remain) {
-        if (remain < 16) {
-            so_sndtimeo(fd, 1000);
-        }
-        // printf("write(%d)\n", (int)remain);
         ssize_t nwrite = write(fd, buffer, remain);
-        // printf("nwrite=%d errno=%d\n", (int)nwrite, (int)errno);
         if (nwrite <= 0) {
             switch (errno) {
-            case EAGAIN:    return errSSLWouldBlock;
+            case EINTR:
+                continue;
+            case EAGAIN:
+#if EWOULDBLOCK != EAGAIN
+            case EWOULDBLOCK:
+#endif
+                appletls->blocked_on = HSSL_WANT_WRITE;
+                return errSSLWouldBlock;
             default:        return errSSLClosedAbort;
             }
         }
-        remain -= nwrite;
+        remain -= (size_t)nwrite;
         buffer += nwrite;
-        *len += nwrite;
+        *len += (size_t)nwrite;
     }
     return noErr;
+}
+
+static void appletls_free_session(appletls_t* appletls) {
+    if (appletls->session == NULL) return;
+#if defined(__MAC_10_8)
+    CFRelease(appletls->session);
+#else
+    SSLDisposeContext(appletls->session);
+#endif
+    appletls->session = NULL;
+    appletls->endpoint = -1;
+    appletls->peer_auth_handled = false;
 }
 
 static int hssl_init(hssl_t ssl, int endpoint) {
     if (ssl == NULL) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
     OSStatus ret = noErr;
+    size_t all_ciphers_count = 0;
+    size_t allowed_ciphers_count = 0;
+    SSLCipherSuite* all_ciphers = NULL;
+    SSLCipherSuite* allowed_ciphers = NULL;
+    if (appletls->endpoint != -1 && appletls->endpoint != endpoint) return HSSL_ERROR;
+    if (endpoint == HSSL_SERVER && appletls->ctx->identity == NULL) {
+        fprintf(stderr, "Apple TLS server requires a local identity\n");
+        return HSSL_ERROR;
+    }
     if (appletls->session == NULL) {
 #if defined(__MAC_10_8)
         appletls->session = SSLCreateContext(NULL, endpoint == HSSL_SERVER ? kSSLServerSide : kSSLClientSide, kSSLStreamType);
@@ -893,39 +1089,34 @@ static int hssl_init(hssl_t ssl, int endpoint) {
     ret = SSLSetProtocolVersionMin(appletls->session, kTLSProtocol12);
     if (ret != noErr) {
         fprintf(stderr, "SSLSetProtocolVersionMin failed!\n");
-        return HSSL_ERROR;
+        goto error;
     }
 
-    bool verify_peer = false;
-    if (appletls->ctx->param && appletls->ctx->param->verify_peer) {
-        verify_peer = true;
-    }
 #if defined(__MAC_10_8)
-    ret = SSLSetSessionOption(appletls->session, kSSLSessionOptionBreakOnServerAuth, !verify_peer);
+    if (endpoint == HSSL_CLIENT) {
+        ret = SSLSetSessionOption(appletls->session, kSSLSessionOptionBreakOnServerAuth, true);
+    } else if (appletls->ctx->verify_peer) {
+        ret = SSLSetClientSideAuthenticate(appletls->session, kAlwaysAuthenticate);
+        if (ret == noErr) {
+            ret = SSLSetSessionOption(appletls->session, kSSLSessionOptionBreakOnClientAuth, true);
+        }
+    }
 #else
-    ret = SSLSetEnableCertVerify(appletls->session, verify_peer);
+    ret = SSLSetEnableCertVerify(appletls->session, appletls->ctx->verify_peer);
 #endif
     if (ret != noErr) {
-        fprintf(stderr, "SSLSetEnableCertVerify failed!\n");
-        return HSSL_ERROR;
+        fprintf(stderr, "Apple TLS authentication setup failed\n");
+        goto error;
     }
 
-    if (appletls->ctx->cert) {
-        CFArrayRef certs = CFArrayCreate(NULL, (const void**)&appletls->ctx->cert, 1, NULL);
-        if (!certs) {
-            fprintf(stderr, "CFArrayCreate failed!\n");
-            return HSSL_ERROR;
-        }
-        ret = SSLSetCertificate(appletls->session, certs);
-        CFRelease(certs);
+    if (appletls->ctx->certificate_chain) {
+        ret = SSLSetCertificate(appletls->session, appletls->ctx->certificate_chain);
         if (ret != noErr) {
             fprintf(stderr, "SSLSetCertificate failed!\n");
-            return HSSL_ERROR;
+            goto error;
         }
     }
 
-    size_t all_ciphers_count = 0, allowed_ciphers_count = 0;
-    SSLCipherSuite *all_ciphers = NULL, *allowed_ciphers = NULL;
     ret = SSLGetNumberSupportedCiphers(appletls->session, &all_ciphers_count);
     if (ret != noErr) {
         fprintf(stderr, "SSLGetNumberSupportedCiphers failed!\n");
@@ -964,12 +1155,12 @@ static int hssl_init(hssl_t ssl, int endpoint) {
     ret = SSLSetIOFuncs(appletls->session, SocketRead, SocketWrite);
     if (ret != noErr) {
         fprintf(stderr, "SSLSetIOFuncs failed!\n");
-        return HSSL_ERROR;
+        goto error;
     }
     ret = SSLSetConnection(appletls->session, appletls);
     if (ret != noErr) {
         fprintf(stderr, "SSLSetConnection failed!\n");
-        return HSSL_ERROR;
+        goto error;
     }
 
     /*
@@ -982,6 +1173,7 @@ static int hssl_init(hssl_t ssl, int endpoint) {
     }
     */
 
+    appletls->endpoint = endpoint;
     return HSSL_OK;
 error:
     if (all_ciphers) {
@@ -990,57 +1182,121 @@ error:
     if (allowed_ciphers) {
         free(allowed_ciphers);
     }
+    appletls_free_session(appletls);
     return HSSL_ERROR;
 }
 
 void hssl_free(hssl_t ssl) {
     if (ssl == NULL) return;
     appletls_t* appletls = (appletls_t*)ssl;
-    if (appletls->session) {
-#if defined(__MAC_10_8)
-        CFRelease(appletls->session);
-#else
-        SSLDisposeContext(appletls->session);
-#endif
-        appletls->session = NULL;
-    }
+    appletls_free_session(appletls);
+    free(appletls->hostname);
     free(appletls);
+}
+
+static int appletls_evaluate_trust(SecTrustRef trust) {
+#ifdef APPLETLS_TESTING
+    /* Keep checked-in TLS fixtures deterministic instead of making tests
+     * depend on their wall-clock validity at runtime. */
+    CFDateRef verify_date = CFDateCreate(NULL, 812592000.0); /* 2026-10-02 UTC */
+    if (verify_date == NULL || SecTrustSetVerifyDate(trust, verify_date) != errSecSuccess) {
+        if (verify_date) CFRelease(verify_date);
+        return HSSL_ERROR;
+    }
+    CFRelease(verify_date);
+#endif
+#if (TARGET_OS_MAC && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400) || \
+    ((TARGET_OS_EMBEDDED || TARGET_OS_IPHONE) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000)
+    if (__builtin_available(macOS 10.14, iOS 12.0, *)) {
+        CFErrorRef error = NULL;
+        bool trusted = SecTrustEvaluateWithError(trust, &error);
+        if (error) CFRelease(error);
+        return trusted ? HSSL_OK : HSSL_ERROR;
+    }
+#endif
+    {
+        SecTrustResultType result = kSecTrustResultInvalid;
+        OSStatus status = SecTrustEvaluate(trust, &result);
+        if (status != errSecSuccess) return HSSL_ERROR;
+        return result == kSecTrustResultProceed || result == kSecTrustResultUnspecified
+            ? HSSL_OK : HSSL_ERROR;
+    }
+}
+
+static int appletls_verify_peer(appletls_t* appletls, int peer_is_server) {
+    SecTrustRef trust = NULL;
+    SecPolicyRef policy = NULL;
+    CFStringRef hostname = NULL;
+    int result = HSSL_ERROR;
+
+    if (SSLCopyPeerTrust(appletls->session, &trust) != errSecSuccess || trust == NULL) {
+        fprintf(stderr, "Apple TLS peer did not provide a certificate\n");
+        goto cleanup;
+    }
+    if (peer_is_server && appletls->hostname) {
+        hostname = CFStringCreateWithCString(NULL, appletls->hostname, kCFStringEncodingUTF8);
+        if (hostname == NULL) goto cleanup;
+    }
+    policy = SecPolicyCreateSSL((Boolean)peer_is_server, hostname);
+    if (policy == NULL || SecTrustSetPolicies(trust, policy) != errSecSuccess) goto cleanup;
+#if (TARGET_OS_MAC && MAC_OS_X_VERSION_MAX_ALLOWED >= 1090) || \
+    ((TARGET_OS_EMBEDDED || TARGET_OS_IPHONE) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 70000)
+    if (__builtin_available(macOS 10.9, iOS 7.0, *)) {
+        if (SecTrustSetNetworkFetchAllowed(trust, false) != errSecSuccess) goto cleanup;
+    }
+#endif
+    if (appletls->ctx->trust_anchors) {
+        if (SecTrustSetAnchorCertificates(trust, appletls->ctx->trust_anchors) != errSecSuccess ||
+            SecTrustSetAnchorCertificatesOnly(trust, true) != errSecSuccess) {
+            goto cleanup;
+        }
+    }
+    result = appletls_evaluate_trust(trust);
+    if (result != HSSL_OK) fprintf(stderr, "Apple TLS peer certificate verification failed\n");
+
+cleanup:
+    if (policy) CFRelease(policy);
+    if (hostname) CFRelease(hostname);
+    if (trust) CFRelease(trust);
+    return result;
 }
 
 static int hssl_handshake(hssl_t ssl) {
     if (ssl == NULL) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
-    OSStatus ret = SSLHandshake(appletls->session);
-    // printf("SSLHandshake retval=%d\n", (int)ret);
-    switch(ret) {
-    case noErr:
-        break;
-    case errSSLWouldBlock:
-        return HSSL_WANT_READ;
-    case errSSLPeerAuthCompleted: /* peer cert is valid, or was ignored if verification disabled */
-        return hssl_handshake(ssl);
-    case errSSLBadConfiguration:
-        return HSSL_WANT_READ;
-    default:
-        return HSSL_ERROR;
+    int continuation;
+    for (continuation = 0; continuation < 3; ++continuation) {
+        OSStatus ret;
+        appletls->blocked_on = HSSL_WANT_READ;
+        ret = SSLHandshake(appletls->session);
+        switch(ret) {
+        case noErr:
+            return HSSL_OK;
+        case errSSLWouldBlock:
+            return appletls->blocked_on;
+        case errSSLPeerAuthCompleted:
+            if (appletls->peer_auth_handled) return HSSL_ERROR;
+            if (appletls->ctx->verify_peer &&
+                appletls_verify_peer(appletls, appletls->endpoint == HSSL_CLIENT) != HSSL_OK) {
+                return HSSL_ERROR;
+            }
+            appletls->peer_auth_handled = true;
+            break;
+        case errSSLClientCertRequested:
+            if (appletls->ctx->identity == NULL) return HSSL_ERROR;
+            break;
+        default:
+            return HSSL_ERROR;
+        }
     }
-
-    /*
-    SSLProtocol protocol = kSSLProtocolUnknown;
-    SSLGetNegotiatedProtocolVersion(appletls->session, &protocol);
-    SSLCipherSuite cipher = SSL_NO_SUCH_CIPHERSUITE;
-    SSLGetNegotiatedCipher(appletls->session, &cipher);
-    printf("* %s connection using %s\n", SSLProtocolToString(protocol), SSLCipherSuiteToString(cipher));
-    */
-
-    return HSSL_OK;
+    return HSSL_ERROR;
 }
 
 int hssl_accept(hssl_t ssl) {
     if (ssl == NULL) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
     if (appletls->session == NULL) {
-        hssl_init(ssl, HSSL_SERVER);
+        if (hssl_init(ssl, HSSL_SERVER) != HSSL_OK) return HSSL_ERROR;
     }
     return hssl_handshake(ssl);
 }
@@ -1049,47 +1305,55 @@ int hssl_connect(hssl_t ssl) {
     if (ssl == NULL) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
     if (appletls->session == NULL) {
-        hssl_init(ssl, HSSL_CLIENT);
+        if (hssl_init(ssl, HSSL_CLIENT) != HSSL_OK) return HSSL_ERROR;
     }
     return hssl_handshake(ssl);
 }
 
 int hssl_read(hssl_t ssl, void* buf, int len) {
-    if (ssl == NULL) return HSSL_ERROR;
+    if (ssl == NULL || buf == NULL || len <= 0) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
+    if (appletls->session == NULL) return HSSL_ERROR;
     size_t processed = 0;
     // printf("SSLRead(%d)\n", len);
-    OSStatus ret = SSLRead(appletls->session, buf, len, &processed);
+    OSStatus ret = SSLRead(appletls->session, buf, (size_t)len, &processed);
     // printf("SSLRead retval=%d processed=%d\n", (int)ret, (int)processed);
     switch (ret) {
     case noErr:
-        return processed;
+        return (int)processed;
     case errSSLWouldBlock:
-        return processed ? processed : HSSL_WOULD_BLOCK;
+        if (processed) return (int)processed;
+        errno = EAGAIN;
+        return HSSL_WOULD_BLOCK;
     case errSSLClosedGraceful:
     case errSSLClosedNoNotify:
         return 0;
     default:
+        errno = EIO;
         return HSSL_ERROR;
     }
 }
 
 int hssl_write(hssl_t ssl, const void* buf, int len) {
-    if (ssl == NULL) return HSSL_ERROR;
+    if (ssl == NULL || buf == NULL || len <= 0) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
+    if (appletls->session == NULL) return HSSL_ERROR;
     size_t processed = 0;
     // printf("SSLWrite(%d)\n", len);
-    OSStatus ret = SSLWrite(appletls->session, buf, len, &processed);
+    OSStatus ret = SSLWrite(appletls->session, buf, (size_t)len, &processed);
     // printf("SSLWrite retval=%d processed=%d\n", (int)ret, (int)processed);
     switch (ret) {
     case noErr:
-        return processed;
+        return (int)processed;
     case errSSLWouldBlock:
-        return processed ? processed : HSSL_WOULD_BLOCK;
+        if (processed) return (int)processed;
+        errno = EAGAIN;
+        return HSSL_WOULD_BLOCK;
     case errSSLClosedGraceful:
     case errSSLClosedNoNotify:
         return 0;
     default:
+        errno = EIO;
         return HSSL_ERROR;
     }
 }
@@ -1097,18 +1361,35 @@ int hssl_write(hssl_t ssl, const void* buf, int len) {
 int hssl_close(hssl_t ssl) {
     if (ssl == NULL) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
-    SSLClose(appletls->session);
+    if (appletls->session) SSLClose(appletls->session);
     return 0;
 }
 
 int hssl_set_sni_hostname(hssl_t ssl, const char* hostname) {
-    if (ssl == NULL) return HSSL_ERROR;
+    size_t len;
+    char* copy;
+    OSStatus status;
+    if (ssl == NULL || hostname == NULL || *hostname == '\0') return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
     if (appletls->session == NULL) {
-        hssl_init(ssl, HSSL_CLIENT);
+        if (hssl_init(ssl, HSSL_CLIENT) != HSSL_OK) return HSSL_ERROR;
     }
-    SSLSetPeerDomainName(appletls->session, hostname, strlen(hostname));
-    return 0;
+    len = strlen(hostname);
+    copy = (char*)malloc(len + 1);
+    if (copy == NULL) return HSSL_ERROR;
+    memcpy(copy, hostname, len + 1);
+    status = SSLSetPeerDomainName(appletls->session, hostname, len);
+    if (status != noErr) {
+        free(copy);
+        return HSSL_ERROR;
+    }
+    free(appletls->hostname);
+    appletls->hostname = copy;
+    return HSSL_OK;
 }
+
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 
 #endif // WITH_APPLETLS
