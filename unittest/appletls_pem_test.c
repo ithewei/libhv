@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +16,7 @@ static void assert_file_equal(const appletls_der_t* lhs, const appletls_der_t* r
 }
 
 static char* write_temp(const void* data, size_t len) {
-    char* path = strdup("/private/tmp/libhv-appletls-pem-XXXXXX");
+    char* path = strdup("/tmp/libhv-appletls-pem-XXXXXX");
     assert(path != NULL);
     int fd = mkstemp(path);
     assert(fd >= 0);
@@ -129,7 +131,7 @@ static void test_enforce_file_block_and_count_limits(void) {
     int fd;
     assert(appletls_pem_load_certificates(FIXTURE("server-chain.pem"), 0, 1, &certs) == APPLETLS_PEM_ERROR_LIMIT);
 
-    path = strdup("/private/tmp/libhv-appletls-large-XXXXXX");
+    path = strdup("/tmp/libhv-appletls-large-XXXXXX");
     assert(path != NULL);
     fd = mkstemp(path);
     assert(fd >= 0);

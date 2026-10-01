@@ -266,7 +266,11 @@ static int http_client_ssl_handshake(http_client_t* cli, int connfd, const char*
         return NABS(ERR_NEW_SSL);
     }
     if (sni_host && !is_ipaddr(sni_host)) {
-        hssl_set_sni_hostname(cli->ssl, sni_host);
+        if (hssl_set_sni_hostname(cli->ssl, sni_host) != HSSL_OK) {
+            hssl_free(cli->ssl);
+            cli->ssl = NULL;
+            return NABS(ERR_SSL_HANDSHAKE);
+        }
     }
 #ifdef WITH_OPENSSL
     // Offer ALPN "h2" only when HTTP/2 is intended, so an h2-capable server

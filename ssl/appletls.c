@@ -761,7 +761,8 @@ static int appletls_create_identity(appletls_ctx_t* ctx, const char* cert_file, 
     CFDataRef data = NULL;
     CFDictionaryRef attributes = NULL;
     CFErrorRef error = NULL;
-    int ret = APPLETLS_PEM_ERROR_FORMAT;
+    int ret;
+    int result = HSSL_ERROR;
     size_t i;
 
     ret = appletls_pem_load_certificates(cert_file, 0, 64, &certificates);
@@ -843,7 +844,7 @@ static int appletls_create_identity(appletls_ctx_t* ctx, const char* cert_file, 
     ctx->certificate_chain = chain;
     identity = NULL;
     chain = NULL;
-    ret = APPLETLS_PEM_OK;
+    result = HSSL_OK;
 
 cleanup:
     if (error) CFRelease(error);
@@ -855,7 +856,7 @@ cleanup:
     if (chain) CFRelease(chain);
     appletls_der_free(&key_data);
     appletls_der_list_free(&certificates);
-    return ret == APPLETLS_PEM_OK ? HSSL_OK : HSSL_ERROR;
+    return result;
 }
 
 static int appletls_append_anchor_file(CFMutableArrayRef anchors, const char* path,
@@ -868,6 +869,9 @@ static int appletls_append_anchor_file(CFMutableArrayRef anchors, const char* pa
     ret = appletls_pem_load_certificates(path, 1,
         APPLETLS_PEM_MAX_CERTIFICATES - *anchor_count, &certificates);
     if (ret != APPLETLS_PEM_OK) {
+        if (!strict && (ret == APPLETLS_PEM_ERROR_LIMIT || ret == APPLETLS_PEM_ERROR_NOMEM)) {
+            return HSSL_ERROR;
+        }
         if (strict) {
             fprintf(stderr, "Apple TLS CA file failed: %s\n", appletls_pem_error_string(ret));
         }
@@ -1193,6 +1197,16 @@ void hssl_free(hssl_t ssl) {
 }
 
 static int appletls_evaluate_trust(SecTrustRef trust) {
+#ifdef APPLETLS_TESTING
+    /* Keep checked-in TLS fixtures deterministic instead of making tests
+     * depend on their wall-clock validity at runtime. */
+    CFDateRef verify_date = CFDateCreate(NULL, 812592000.0); /* 2026-10-02 UTC */
+    if (verify_date == NULL || SecTrustSetVerifyDate(trust, verify_date) != errSecSuccess) {
+        if (verify_date) CFRelease(verify_date);
+        return HSSL_ERROR;
+    }
+    CFRelease(verify_date);
+#endif
 #if (TARGET_OS_MAC && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400) || \
     ((TARGET_OS_EMBEDDED || TARGET_OS_IPHONE) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000)
     if (__builtin_available(macOS 10.14, iOS 12.0, *)) {
@@ -1363,11 +1377,14 @@ int hssl_set_sni_hostname(hssl_t ssl, const char* hostname) {
         if (hssl_init(ssl, HSSL_CLIENT) != HSSL_OK) return HSSL_ERROR;
     }
     len = strlen(hostname);
-    status = SSLSetPeerDomainName(appletls->session, hostname, len);
-    if (status != noErr) return HSSL_ERROR;
     copy = (char*)malloc(len + 1);
     if (copy == NULL) return HSSL_ERROR;
     memcpy(copy, hostname, len + 1);
+    status = SSLSetPeerDomainName(appletls->session, hostname, len);
+    if (status != noErr) {
+        free(copy);
+        return HSSL_ERROR;
+    }
     free(appletls->hostname);
     appletls->hostname = copy;
     return HSSL_OK;

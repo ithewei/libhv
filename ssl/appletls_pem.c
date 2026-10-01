@@ -1,4 +1,7 @@
 #include "appletls_pem.h"
+#include "hssl.h"
+
+#if defined(WITH_APPLETLS) || defined(APPLETLS_PEM_TESTING)
 
 #include <ctype.h>
 #include <limits.h>
@@ -440,3 +443,5 @@ const char* appletls_pem_error_string(int error) {
     default: return "unknown parser error";
     }
 }
+
+#endif

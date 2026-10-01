@@ -3,6 +3,12 @@
 
 #include <stddef.h>
 
+#if defined(__GNUC__)
+#define APPLETLS_PRIVATE __attribute__((visibility("hidden")))
+#else
+#define APPLETLS_PRIVATE
+#endif
+
 #define APPLETLS_PEM_MAX_FILE_SIZE (16u * 1024u * 1024u)
 #define APPLETLS_PEM_MAX_BLOCK_SIZE (4u * 1024u * 1024u)
 #define APPLETLS_PEM_MAX_CERTIFICATES 1024u
@@ -26,14 +32,16 @@ typedef enum {
     APPLETLS_PEM_ERROR_NOMEM = -5
 } appletls_pem_error_t;
 
-int appletls_pem_load_certificates(const char* path,
-                                    int allow_der,
-                                    size_t max_certificates,
-                                    appletls_der_list_t* certificates);
-int appletls_pem_load_rsa_private_key(const char* path,
-                                      appletls_der_t* pkcs1_key);
-void appletls_der_free(appletls_der_t* der);
-void appletls_der_list_free(appletls_der_list_t* list);
-const char* appletls_pem_error_string(int error);
+APPLETLS_PRIVATE int appletls_pem_load_certificates(const char* path,
+                                                     int allow_der,
+                                                     size_t max_certificates,
+                                                     appletls_der_list_t* certificates);
+APPLETLS_PRIVATE int appletls_pem_load_rsa_private_key(const char* path,
+                                                       appletls_der_t* pkcs1_key);
+APPLETLS_PRIVATE void appletls_der_free(appletls_der_t* der);
+APPLETLS_PRIVATE void appletls_der_list_free(appletls_der_list_t* list);
+APPLETLS_PRIVATE const char* appletls_pem_error_string(int error);
+
+#undef APPLETLS_PRIVATE
 
 #endif
