@@ -254,7 +254,7 @@ static const unsigned char* find_bytes(const unsigned char* begin, const unsigne
     size_t needle_len = strlen(needle);
     const unsigned char* ptr;
     if ((size_t)(end - begin) < needle_len) return NULL;
-    for (ptr = begin; ptr + needle_len <= end; ++ptr) {
+    for (ptr = begin; (size_t)(end - ptr) >= needle_len; ++ptr) {
         if (memcmp(ptr, needle, needle_len) == 0) return ptr;
     }
     return NULL;
