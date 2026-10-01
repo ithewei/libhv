@@ -223,6 +223,34 @@ static void test_empty_read_is_nonblocking(void) {
     tls_pair_close(&pair);
 }
 
+static void test_handshake_reports_write_block(void) {
+    hssl_ctx_opt_t options;
+    hssl_ctx_t ctx;
+    hssl_t ssl;
+    int fds[2];
+    char fill[4096] = {0};
+    ssize_t nwrite;
+
+    memset(&options, 0, sizeof(options));
+    options.endpoint = HSSL_CLIENT;
+    ctx = hssl_ctx_new(&options);
+    assert(ctx != NULL);
+    assert(socketpair(AF_UNIX, SOCK_STREAM, 0, fds) == 0);
+    assert(nonblocking(fds[0]) == 0 && nonblocking(fds[1]) == 0);
+    do {
+        nwrite = write(fds[0], fill, sizeof(fill));
+    } while (nwrite > 0);
+    assert(errno == EAGAIN || errno == EWOULDBLOCK);
+
+    ssl = hssl_new(ctx, fds[0]);
+    assert(ssl != NULL);
+    assert(hssl_connect(ssl) == HSSL_WANT_WRITE);
+    hssl_free(ssl);
+    hssl_ctx_free(ctx);
+    close(fds[0]);
+    close(fds[1]);
+}
+
 static void test_wrong_hostname_fails(void) {
     hssl_ctx_opt_t server = server_options(FIXTURE("server-pkcs1.key"));
     hssl_ctx_opt_t client = verified_client_options(FIXTURE("root.crt"));
@@ -273,6 +301,7 @@ int main(void) {
     test_custom_ca_and_matching_hostname_succeed();
     test_custom_ca_directory_and_matching_hostname_succeed();
     test_empty_read_is_nonblocking();
+    test_handshake_reports_write_block();
     test_wrong_hostname_fails();
     test_wrong_custom_ca_fails();
     test_server_mtls_rejects_missing_client_certificate();

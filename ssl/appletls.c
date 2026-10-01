@@ -745,7 +745,6 @@ typedef struct appletls_ctx {
     CFArrayRef certificate_chain;
     CFArrayRef trust_anchors;
     short verify_peer;
-    short configured_endpoint;
 } appletls_ctx_t;
 
 static CFDataRef appletls_cfdata(const appletls_der_t* der) {
@@ -941,7 +940,6 @@ hssl_ctx_t hssl_ctx_new(hssl_ctx_opt_t* param) {
     appletls_ctx_t* ctx = (appletls_ctx_t*)calloc(1, sizeof(appletls_ctx_t));
     if (ctx == NULL) return NULL;
     ctx->verify_peer = param ? param->verify_peer : 0;
-    ctx->configured_endpoint = param ? param->endpoint : HSSL_CLIENT;
 
     if ((crt_file == NULL) != (key_file == NULL)) {
         fprintf(stderr, "Apple TLS requires both crt_file and key_file\n");
@@ -1048,12 +1046,27 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void* data, size_t* len
     return noErr;
 }
 
+static void appletls_free_session(appletls_t* appletls) {
+    if (appletls->session == NULL) return;
+#if defined(__MAC_10_8)
+    CFRelease(appletls->session);
+#else
+    SSLDisposeContext(appletls->session);
+#endif
+    appletls->session = NULL;
+    appletls->endpoint = -1;
+    appletls->peer_auth_handled = false;
+}
+
 static int hssl_init(hssl_t ssl, int endpoint) {
     if (ssl == NULL) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
     OSStatus ret = noErr;
+    size_t all_ciphers_count = 0;
+    size_t allowed_ciphers_count = 0;
+    SSLCipherSuite* all_ciphers = NULL;
+    SSLCipherSuite* allowed_ciphers = NULL;
     if (appletls->endpoint != -1 && appletls->endpoint != endpoint) return HSSL_ERROR;
-    if (appletls->ctx->configured_endpoint != endpoint) return HSSL_ERROR;
     if (endpoint == HSSL_SERVER && appletls->ctx->identity == NULL) {
         fprintf(stderr, "Apple TLS server requires a local identity\n");
         return HSSL_ERROR;
@@ -1074,7 +1087,7 @@ static int hssl_init(hssl_t ssl, int endpoint) {
     ret = SSLSetProtocolVersionMin(appletls->session, kTLSProtocol12);
     if (ret != noErr) {
         fprintf(stderr, "SSLSetProtocolVersionMin failed!\n");
-        return HSSL_ERROR;
+        goto error;
     }
 
 #if defined(__MAC_10_8)
@@ -1091,19 +1104,17 @@ static int hssl_init(hssl_t ssl, int endpoint) {
 #endif
     if (ret != noErr) {
         fprintf(stderr, "Apple TLS authentication setup failed\n");
-        return HSSL_ERROR;
+        goto error;
     }
 
     if (appletls->ctx->certificate_chain) {
         ret = SSLSetCertificate(appletls->session, appletls->ctx->certificate_chain);
         if (ret != noErr) {
             fprintf(stderr, "SSLSetCertificate failed!\n");
-            return HSSL_ERROR;
+            goto error;
         }
     }
 
-    size_t all_ciphers_count = 0, allowed_ciphers_count = 0;
-    SSLCipherSuite *all_ciphers = NULL, *allowed_ciphers = NULL;
     ret = SSLGetNumberSupportedCiphers(appletls->session, &all_ciphers_count);
     if (ret != noErr) {
         fprintf(stderr, "SSLGetNumberSupportedCiphers failed!\n");
@@ -1142,12 +1153,12 @@ static int hssl_init(hssl_t ssl, int endpoint) {
     ret = SSLSetIOFuncs(appletls->session, SocketRead, SocketWrite);
     if (ret != noErr) {
         fprintf(stderr, "SSLSetIOFuncs failed!\n");
-        return HSSL_ERROR;
+        goto error;
     }
     ret = SSLSetConnection(appletls->session, appletls);
     if (ret != noErr) {
         fprintf(stderr, "SSLSetConnection failed!\n");
-        return HSSL_ERROR;
+        goto error;
     }
 
     /*
@@ -1169,34 +1180,27 @@ error:
     if (allowed_ciphers) {
         free(allowed_ciphers);
     }
+    appletls_free_session(appletls);
     return HSSL_ERROR;
 }
 
 void hssl_free(hssl_t ssl) {
     if (ssl == NULL) return;
     appletls_t* appletls = (appletls_t*)ssl;
-    if (appletls->session) {
-#if defined(__MAC_10_8)
-        CFRelease(appletls->session);
-#else
-        SSLDisposeContext(appletls->session);
-#endif
-        appletls->session = NULL;
-    }
+    appletls_free_session(appletls);
     free(appletls->hostname);
     free(appletls);
 }
 
 static int appletls_evaluate_trust(SecTrustRef trust) {
-#if defined(__has_builtin)
-#if __has_builtin(__builtin_available)
+#if (TARGET_OS_MAC && MAC_OS_X_VERSION_MAX_ALLOWED >= 101400) || \
+    ((TARGET_OS_EMBEDDED || TARGET_OS_IPHONE) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000)
     if (__builtin_available(macOS 10.14, iOS 12.0, *)) {
         CFErrorRef error = NULL;
         bool trusted = SecTrustEvaluateWithError(trust, &error);
         if (error) CFRelease(error);
         return trusted ? HSSL_OK : HSSL_ERROR;
     }
-#endif
 #endif
     {
         SecTrustResultType result = kSecTrustResultInvalid;
