@@ -70,6 +70,13 @@ static void test_load_certificate_chain_in_order(void) {
     appletls_der_list_free(&intermediate);
 }
 
+static void test_load_der_certificate(void) {
+    appletls_der_list_t certificates = {0};
+    assert(appletls_pem_load_certificates(FIXTURE("root.der"), 1, 1, &certificates) == APPLETLS_PEM_OK);
+    assert(certificates.count == 1);
+    appletls_der_list_free(&certificates);
+}
+
 static void test_reject_ec_and_encrypted_keys(void) {
     appletls_der_t key = {0};
     assert(appletls_pem_load_rsa_private_key(FIXTURE("ec-sec1.key"), &key) == APPLETLS_PEM_ERROR_UNSUPPORTED);
@@ -145,6 +152,7 @@ int main(void) {
     test_load_pkcs1_rsa();
     test_unwrap_pkcs8_rsa();
     test_load_certificate_chain_in_order();
+    test_load_der_certificate();
     test_reject_ec_and_encrypted_keys();
     test_reject_invalid_base64();
     test_reject_invalid_der_lengths();

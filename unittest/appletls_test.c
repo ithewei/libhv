@@ -264,6 +264,13 @@ static void test_wrong_custom_ca_fails(void) {
     assert(tls_pair_open(&pair, &server, &client, "localhost") != 0);
 }
 
+static void test_system_roots_reject_fixture_server(void) {
+    hssl_ctx_opt_t server = server_options(FIXTURE("server-pkcs1.key"));
+    hssl_ctx_opt_t client = verified_client_options(NULL);
+    tls_pair_t pair;
+    assert(tls_pair_open(&pair, &server, &client, "localhost") != 0);
+}
+
 static void test_server_mtls_rejects_missing_client_certificate(void) {
     hssl_ctx_opt_t server = server_options(FIXTURE("server-pkcs1.key"));
     hssl_ctx_opt_t client = verified_client_options(FIXTURE("root.crt"));
@@ -303,6 +310,7 @@ int main(void) {
     test_handshake_reports_write_block();
     test_wrong_hostname_fails();
     test_wrong_custom_ca_fails();
+    test_system_roots_reject_fixture_server();
     test_server_mtls_rejects_missing_client_certificate();
     test_server_mtls_accepts_trusted_client_certificate();
     puts("appletls_test: PASS");

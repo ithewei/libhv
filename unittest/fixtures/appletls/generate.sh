@@ -122,6 +122,7 @@ cat "$fixture_dir/root.crt" "$fixture_dir/wrong-root.crt" \
 
 mkdir -p "$fixture_dir/ca-dir"
 cp "$fixture_dir/root.crt" "$fixture_dir/ca-dir/root.crt"
+openssl x509 -in "$fixture_dir/root.crt" -outform DER -out "$fixture_dir/root.der"
 printf '%s\n' 'not a certificate' > "$fixture_dir/ca-dir/README.txt"
 mkdir -p "$fixture_dir/empty-ca-dir"
 printf '%s\n' 'not a certificate' > "$fixture_dir/empty-ca-dir/README.txt"

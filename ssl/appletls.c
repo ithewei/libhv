@@ -1013,8 +1013,8 @@ static OSStatus SocketRead(SSLConnectionRef conn, void* data, size_t* len) {
             default:        return errSSLClosedAbort;
             }
         }
-        *len += nread;
-        remain -= nread;
+        *len += (size_t)nread;
+        remain -= (size_t)nread;
         buffer += nread;
     }
     return noErr;
@@ -1041,9 +1041,9 @@ static OSStatus SocketWrite(SSLConnectionRef conn, const void* data, size_t* len
             default:        return errSSLClosedAbort;
             }
         }
-        remain -= nwrite;
+        remain -= (size_t)nwrite;
         buffer += nwrite;
-        *len += nwrite;
+        *len += (size_t)nwrite;
     }
     return noErr;
 }
@@ -1237,7 +1237,7 @@ static int appletls_verify_peer(appletls_t* appletls, int peer_is_server) {
         hostname = CFStringCreateWithCString(NULL, appletls->hostname, kCFStringEncodingUTF8);
         if (hostname == NULL) goto cleanup;
     }
-    policy = SecPolicyCreateSSL(peer_is_server, hostname);
+    policy = SecPolicyCreateSSL((Boolean)peer_is_server, hostname);
     if (policy == NULL || SecTrustSetPolicies(trust, policy) != errSecSuccess) goto cleanup;
 #if (TARGET_OS_MAC && MAC_OS_X_VERSION_MAX_ALLOWED >= 1090) || \
     ((TARGET_OS_EMBEDDED || TARGET_OS_IPHONE) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 70000)
@@ -1311,16 +1311,16 @@ int hssl_connect(hssl_t ssl) {
 }
 
 int hssl_read(hssl_t ssl, void* buf, int len) {
-    if (ssl == NULL) return HSSL_ERROR;
+    if (ssl == NULL || buf == NULL || len <= 0) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
     if (appletls->session == NULL) return HSSL_ERROR;
     size_t processed = 0;
     // printf("SSLRead(%d)\n", len);
-    OSStatus ret = SSLRead(appletls->session, buf, len, &processed);
+    OSStatus ret = SSLRead(appletls->session, buf, (size_t)len, &processed);
     // printf("SSLRead retval=%d processed=%d\n", (int)ret, (int)processed);
     switch (ret) {
     case noErr:
-        return processed;
+        return (int)processed;
     case errSSLWouldBlock:
         if (processed) return (int)processed;
         errno = EAGAIN;
@@ -1335,16 +1335,16 @@ int hssl_read(hssl_t ssl, void* buf, int len) {
 }
 
 int hssl_write(hssl_t ssl, const void* buf, int len) {
-    if (ssl == NULL) return HSSL_ERROR;
+    if (ssl == NULL || buf == NULL || len <= 0) return HSSL_ERROR;
     appletls_t* appletls = (appletls_t*)ssl;
     if (appletls->session == NULL) return HSSL_ERROR;
     size_t processed = 0;
     // printf("SSLWrite(%d)\n", len);
-    OSStatus ret = SSLWrite(appletls->session, buf, len, &processed);
+    OSStatus ret = SSLWrite(appletls->session, buf, (size_t)len, &processed);
     // printf("SSLWrite retval=%d processed=%d\n", (int)ret, (int)processed);
     switch (ret) {
     case noErr:
-        return processed;
+        return (int)processed;
     case errSSLWouldBlock:
         if (processed) return (int)processed;
         errno = EAGAIN;
