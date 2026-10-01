@@ -32,12 +32,8 @@ typedef enum {
     APPLETLS_PEM_ERROR_NOMEM = -5
 } appletls_pem_error_t;
 
-APPLETLS_PRIVATE int appletls_pem_load_certificates(const char* path,
-                                                     int allow_der,
-                                                     size_t max_certificates,
-                                                     appletls_der_list_t* certificates);
-APPLETLS_PRIVATE int appletls_pem_load_rsa_private_key(const char* path,
-                                                       appletls_der_t* pkcs1_key);
+APPLETLS_PRIVATE int appletls_pem_load_certificates(const char* path, int allow_der, size_t max_certificates, appletls_der_list_t* certificates);
+APPLETLS_PRIVATE int appletls_pem_load_rsa_private_key(const char* path, appletls_der_t* pkcs1_key);
 APPLETLS_PRIVATE void appletls_der_free(appletls_der_t* der);
 APPLETLS_PRIVATE void appletls_der_list_free(appletls_der_list_t* list);
 APPLETLS_PRIVATE const char* appletls_pem_error_string(int error);

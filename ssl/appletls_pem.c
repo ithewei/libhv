@@ -15,9 +15,7 @@ typedef struct {
     const unsigned char* end;
 } der_cursor_t;
 
-static const unsigned char rsa_encryption_oid[] = {
-    0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01
-};
+static const unsigned char rsa_encryption_oid[] = {0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01};
 
 static int read_file(const char* path, unsigned char** data, size_t* len) {
     FILE* fp = NULL;
@@ -118,12 +116,14 @@ static int decode_base64(const unsigned char* begin, const unsigned char* end, a
         if (c == -2) {
             if ((b & 0x0f) != 0) goto invalid_padding;
             padded = 1;
-        } else {
+        }
+        else {
             out[out_len++] = (unsigned char)((b << 4) | (c >> 2));
             if (d == -2) {
                 if ((c & 0x03) != 0) goto invalid_padding;
                 padded = 1;
-            } else {
+            }
+            else {
                 out[out_len++] = (unsigned char)((c << 6) | d);
             }
         }
@@ -195,8 +195,7 @@ static int validate_pkcs1_rsa(const unsigned char* data, size_t len) {
     int ret = der_read_tlv(&outer, 0x30, &sequence);
     if (ret != APPLETLS_PEM_OK || outer.ptr != outer.end) return APPLETLS_PEM_ERROR_FORMAT;
     ret = der_read_tlv(&sequence, 0x02, &integer);
-    if (ret != APPLETLS_PEM_OK || !der_integer_is_minimal(&integer) ||
-        integer.end - integer.ptr != 1 || integer.ptr[0] != 0) {
+    if (ret != APPLETLS_PEM_OK || !der_integer_is_minimal(&integer) || integer.end - integer.ptr != 1 || integer.ptr[0] != 0) {
         return APPLETLS_PEM_ERROR_FORMAT;
     }
     for (i = 0; i < 8; ++i) {
@@ -233,8 +232,7 @@ static int unwrap_pkcs8_rsa(const unsigned char* data, size_t len, appletls_der_
     if (ret != APPLETLS_PEM_OK) return ret;
     ret = der_read_tlv(&algorithm, 0x06, &oid);
     if (ret != APPLETLS_PEM_OK) return ret;
-    if ((size_t)(oid.end - oid.ptr) != sizeof(rsa_encryption_oid) ||
-        memcmp(oid.ptr, rsa_encryption_oid, sizeof(rsa_encryption_oid)) != 0) {
+    if ((size_t)(oid.end - oid.ptr) != sizeof(rsa_encryption_oid) || memcmp(oid.ptr, rsa_encryption_oid, sizeof(rsa_encryption_oid)) != 0) {
         return APPLETLS_PEM_ERROR_UNSUPPORTED;
     }
     if (algorithm.ptr != algorithm.end) {
@@ -371,8 +369,7 @@ int appletls_pem_load_rsa_private_key(const char* path, appletls_der_t* pkcs1_ke
     ret = read_file(path, &file, &file_len);
     if (ret != APPLETLS_PEM_OK) return ret;
     end = file + file_len;
-    if (find_bytes(file, end, encrypted_begin) || find_bytes(file, end, ec_begin) ||
-        find_bytes(file, end, "Proc-Type: 4,ENCRYPTED")) {
+    if (find_bytes(file, end, encrypted_begin) || find_bytes(file, end, ec_begin) || find_bytes(file, end, "Proc-Type: 4,ENCRYPTED")) {
         ret = APPLETLS_PEM_ERROR_UNSUPPORTED;
         goto done;
     }
@@ -401,7 +398,8 @@ int appletls_pem_load_rsa_private_key(const char* path, appletls_der_t* pkcs1_ke
     if (ret != APPLETLS_PEM_OK) goto done;
     if (pkcs8) {
         ret = unwrap_pkcs8_rsa(decoded.data, decoded.len, pkcs1_key);
-    } else {
+    }
+    else {
         ret = validate_pkcs1_rsa(decoded.data, decoded.len);
         if (ret == APPLETLS_PEM_OK) {
             *pkcs1_key = decoded;

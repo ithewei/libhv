@@ -119,8 +119,7 @@ static void tls_pair_close(tls_pair_t* pair) {
     pair->fds[0] = pair->fds[1] = -1;
 }
 
-static int tls_pair_open(tls_pair_t* pair, const hssl_ctx_opt_t* server_options,
-                         const hssl_ctx_opt_t* client_options, const char* hostname) {
+static int tls_pair_open(tls_pair_t* pair, const hssl_ctx_opt_t* server_options, const hssl_ctx_opt_t* client_options, const char* hostname) {
     int i;
     int server_status = HSSL_WANT_READ;
     int client_status = HSSL_WANT_READ;
