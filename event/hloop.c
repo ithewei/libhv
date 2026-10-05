@@ -332,8 +332,9 @@ static void hloop_init(hloop_t* loop) {
     heap_init(&loop->realtimers, timers_compare);
 
     // ios
-    // NOTE: io_array_init when hio_get -> io_array_resize
-    // io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
+    // NOTE: not lazily in hio_get: hio_get may run on another thread
+    // (e.g. TcpClient::createsocket) while hloop_run creates the eventfd io.
+    io_array_init(&loop->ios, IO_ARRAY_INIT_SIZE);
 
     // readbuf
     // NOTE: alloc readbuf when hio_use_loop_readbuf
