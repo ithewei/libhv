@@ -189,6 +189,12 @@ add_executable(tcpclient_dns_test tcpclient_dns_test.cpp)
 target_include_directories(tcpclient_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
 target_link_libraries(tcpclient_dns_test ${HV_LIBRARIES})
 set(EVPP_DNS_UNITTEST_TARGETS tcpclient_dns_test)
+if(WITH_HTTP AND WITH_HTTP_CLIENT)
+add_executable(websocket_reconnect_test websocket_reconnect_test.cpp)
+target_include_directories(websocket_reconnect_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/client)
+target_link_libraries(websocket_reconnect_test ${HV_LIBRARIES})
+set(EVPP_WS_UNITTEST_TARGETS websocket_reconnect_test)
+endif()
 endif()
 
 if(UNIX)
@@ -227,4 +233,5 @@ add_custom_target(unittest DEPENDS
     hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}
     ${EVPP_DNS_UNITTEST_TARGETS}
+    ${EVPP_WS_UNITTEST_TARGETS}
 )

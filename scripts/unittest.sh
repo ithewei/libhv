@@ -74,6 +74,9 @@ fi
 if [ -x bin/tcpclient_dns_test ]; then
     bin/tcpclient_dns_test
 fi
+if [ -x bin/websocket_reconnect_test ]; then
+    bin/websocket_reconnect_test
+fi
 for redis_test in redis_async_client_test redis_client_test redis_batch_test redis_subscriber_test lua_redis_test; do
     if [ -x bin/${redis_test} ]; then
         if [ "${redis_test}" = "lua_redis_test" ]; then
