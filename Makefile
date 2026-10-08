@@ -413,6 +413,9 @@ unittest: prepare libhv
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_benchmark unittest/hdns_benchmark.c -Llib -lhv -pthread
 ifeq ($(WITH_EVPP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
+ifeq ($(WITH_HTTP_CLIENT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/client -o bin/websocket_reconnect_test unittest/websocket_reconnect_test.cpp -Llib -lhv -pthread
+endif
 endif
 ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_REDIS), yes)
