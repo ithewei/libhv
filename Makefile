@@ -377,7 +377,12 @@ hrpc_calc_server: prepare hrpc_calc_protoc
 
 
 
-unittest: prepare libhv
+APPLE_TLS_UNITTESTS =
+ifeq ($(shell uname -s),Darwin)
+APPLE_TLS_UNITTESTS += appletls_pem_test appletls_test
+endif
+
+unittest: prepare libhv $(APPLE_TLS_UNITTESTS)
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rbtree_test       unittest/rbtree_test.c        base/rbtree.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hbase_test        unittest/hbase_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
@@ -422,6 +427,18 @@ ifeq ($(WITH_REDIS), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_batch_test unittest/redis_batch_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_subscriber_test unittest/redis_subscriber_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
 endif
+endif
+
+appletls_pem_test: prepare
+	$(CC) -g -Wall -Wextra -O0 -std=c99 -DAPPLETLS_PEM_TESTING -I. -Ibase -Issl \
+		-o bin/appletls_pem_test unittest/appletls_pem_test.c ssl/appletls_pem.c
+
+ifeq ($(shell uname -s),Darwin)
+appletls_test: prepare
+	$(CC) -g -Wall -Wextra -O0 -std=c99 -DAPPLETLS_TESTING \
+		-I. -Ibase -Issl -Ievent -o bin/appletls_test \
+		unittest/appletls_test.c ssl/appletls.c ssl/appletls_pem.c \
+		-framework CoreFoundation -framework Security
 endif
 ifeq ($(WITH_LUA), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -DWITH_LUA $(LUA_CFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ilua -o bin/lua_binding_test unittest/lua_binding_test.cpp -Llib -lhv -pthread $(LUA_LIBS)
