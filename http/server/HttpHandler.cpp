@@ -795,8 +795,11 @@ int HttpHandler::GetSendData(char** data, size_t* len) {
                     pResp->headers["Accept-Ranges"] = "bytes";
                     pResp->headers["Content-Length"] = hv::to_string(fc->st.st_size);
                 } else {
-                    pResp->headers["Content-Type"] = "text/html";
-                    pResp->headers["Content-Length"] = "0";
+                    // Preserve entity length set by handlers (RFC 9110 HEAD mirrors GET metadata).
+                    if (pResp->headers.find("Content-Length") == pResp->headers.end()) {
+                        pResp->headers["Content-Type"] = "text/html";
+                        pResp->headers["Content-Length"] = "0";
+                    }
                 }
                 state = SEND_DONE;
                 goto return_nobody;
