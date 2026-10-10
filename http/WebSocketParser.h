@@ -22,6 +22,7 @@ public:
     websocket_parser_state              state;
     int                                 opcode;
     std::string                         message;
+    std::string                         control_message;
     std::function<void(int opcode, const std::string& msg)> onMessage;
 
     WebSocketParser();

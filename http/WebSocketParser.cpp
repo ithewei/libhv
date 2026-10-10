@@ -4,11 +4,27 @@
 #include "hdef.h"
 
 #define MAX_PAYLOAD_LENGTH  (1 << 24)   // 16M
+#define MAX_CONTROL_PAYLOAD_LENGTH  125
+
+// Control frames may be injected between the fragments of a data message
+// (RFC 6455 5.4), so they must not touch the data message state.
+static bool is_control_frame(websocket_parser* parser) {
+    return (parser->flags & WS_OP_MASK) >= WS_OP_CLOSE;
+}
 
 static int on_frame_header(websocket_parser* parser) {
     WebSocketParser* wp = (WebSocketParser*)parser->data;
     int opcode = parser->flags & WS_OP_MASK;
     // printf("on_frame_header opcode=%d\n", opcode);
+    if (is_control_frame(parser)) {
+        // RFC 6455 5.5: control frames MUST NOT be fragmented and MUST have
+        // a payload length of 125 bytes or less.
+        if (!(parser->flags & WS_FIN) || parser->length > MAX_CONTROL_PAYLOAD_LENGTH) {
+            return -1;
+        }
+        wp->control_message.clear();
+        return 0;
+    }
     if (opcode != WS_OP_CONTINUE) {
         wp->opcode = opcode;
     }
@@ -29,10 +45,14 @@ static int on_frame_header(websocket_parser* parser) {
 static int on_frame_body(websocket_parser* parser, const char * at, size_t length) {
     // printf("on_frame_body length=%d\n", (int)length);
     WebSocketParser* wp = (WebSocketParser*)parser->data;
-    wp->state = WS_FRAME_BODY;
     if (wp->parser->flags & WS_HAS_MASK) {
         websocket_parser_decode((char*)at, at, length, wp->parser);
     }
+    if (is_control_frame(parser)) {
+        wp->control_message.append(at, length);
+        return 0;
+    }
+    wp->state = WS_FRAME_BODY;
     wp->message.append(at, length);
     return 0;
 }
@@ -40,6 +60,12 @@ static int on_frame_body(websocket_parser* parser, const char * at, size_t lengt
 static int on_frame_end(websocket_parser* parser) {
     // printf("on_frame_end\n");
     WebSocketParser* wp = (WebSocketParser*)parser->data;
+    if (is_control_frame(parser)) {
+        if (wp->onMessage) {
+            wp->onMessage(parser->flags & WS_OP_MASK, wp->control_message);
+        }
+        return 0;
+    }
     wp->state = WS_FRAME_END;
     if (wp->parser->flags & WS_FIN) {
         wp->state = WS_FRAME_FIN;
