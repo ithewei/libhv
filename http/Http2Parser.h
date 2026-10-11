@@ -7,7 +7,7 @@
 #include "grpcdef.h"
 
 #include "nghttp2/nghttp2ver.h"
-#if NGHTTP2_VERSION_NUM >= 0x013c00
+#if NGHTTP2_VERSION_NUM >= 0x013c00 && defined(_MSC_VER)
 #ifndef NGHTTP2_NO_SSIZE_T
 #define NGHTTP2_NO_SSIZE_T
 #endif
