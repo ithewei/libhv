@@ -75,6 +75,7 @@ enum http_parser_state {
   XX(429, TOO_MANY_REQUESTS,               Too Many Requests)               \
   XX(431, REQUEST_HEADER_FIELDS_TOO_LARGE, Request Header Fields Too Large) \
   XX(451, UNAVAILABLE_FOR_LEGAL_REASONS,   Unavailable For Legal Reasons)   \
+  XX(499, REQUEST_CANCELLED,               Request Cancelled)               \
   XX(500, INTERNAL_SERVER_ERROR,           Internal Server Error)           \
   XX(501, NOT_IMPLEMENTED,                 Not Implemented)                 \
   XX(502, BAD_GATEWAY,                     Bad Gateway)                     \

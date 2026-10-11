@@ -6,6 +6,22 @@
 #include <mutex>
 #include <set>
 
+#if NGHTTP2_VERSION_NUM >= 0x013c00
+using Http2SSize = nghttp2_ssize;
+using Http2DataProvider = nghttp2_data_provider2;
+#define HV_NGHTTP2_MEM_SEND nghttp2_session_mem_send2
+#define HV_NGHTTP2_MEM_RECV nghttp2_session_mem_recv2
+#define HV_NGHTTP2_SUBMIT_REQUEST nghttp2_submit_request2
+#define HV_NGHTTP2_SUBMIT_RESPONSE nghttp2_submit_response2
+#else
+using Http2SSize = decltype(nghttp2_session_mem_send(nullptr, nullptr));
+using Http2DataProvider = nghttp2_data_provider;
+#define HV_NGHTTP2_MEM_SEND nghttp2_session_mem_send
+#define HV_NGHTTP2_MEM_RECV nghttp2_session_mem_recv
+#define HV_NGHTTP2_SUBMIT_REQUEST nghttp2_submit_request
+#define HV_NGHTTP2_SUBMIT_RESPONSE nghttp2_submit_response
+#endif
+
 static nghttp2_nv make_nv(const char* name, const char* value) {
     nghttp2_nv nv;
     nv.name = (uint8_t*)name;
@@ -53,9 +69,8 @@ static int on_frame_recv_callback(nghttp2_session *session,
 // the DATA framing, splitting to SETTINGS_MAX_FRAME_SIZE and flow control.
 // (One copy into nghttp2's buffer; the safe/simple path vs. NO_COPY framing.)
 // For gRPC, send_body holds the 5-byte-length-prefixed payload.
-static ssize_t data_source_read_callback(nghttp2_session *session,
-        int32_t stream_id, uint8_t *buf, size_t length,
-        uint32_t *data_flags, nghttp2_data_source *source, void *userdata) {
+static Http2SSize data_source_read_callback(nghttp2_session *session, int32_t stream_id, uint8_t *buf,
+        size_t length, uint32_t *data_flags, nghttp2_data_source *source, void *userdata) {
     Http2Parser* hp = (Http2Parser*)userdata;
     size_t remain = hp->send_len - hp->send_off;
     size_t n = remain < length ? remain : length;
@@ -89,7 +104,7 @@ static ssize_t data_source_read_callback(nghttp2_session *session,
             nghttp2_submit_trailer(session, stream_id, nvs, n);
         }
     }
-    return (ssize_t)n;
+    return (Http2SSize)n;
 }
 
 
@@ -131,21 +146,21 @@ int Http2Parser::GetSendData(char** data, size_t* len) {
     // nghttp2 produces everything: magic, SETTINGS, HEADERS, DATA (framed and
     // flow-controlled via the data_provider), SETTINGS/PING ACK, WINDOW_UPDATE,
     // trailers. Just drain it.
-    ssize_t ret = nghttp2_session_mem_send(session, (const uint8_t**)data);
+    Http2SSize ret = HV_NGHTTP2_MEM_SEND(session, (const uint8_t**)data);
     if (ret < 0) {
         error = (int)ret;
         *len = 0;
         return 0;
     }
     *len = (size_t)ret;
-    printd("nghttp2_session_mem_send %zu\n", *len);
+    printd("nghttp2 memory send %zu\n", *len);
     return (int)*len;
 }
 
 int Http2Parser::FeedRecvData(const char* data, size_t len) {
-    printd("nghttp2_session_mem_recv %zu\n", len);
+    printd("nghttp2 memory receive %zu\n", len);
     state = H2_WANT_RECV;
-    ssize_t ret = nghttp2_session_mem_recv(session, (const uint8_t*)data, len);
+    Http2SSize ret = HV_NGHTTP2_MEM_RECV(session, (const uint8_t*)data, len);
     if (ret < 0) {
         // nghttp2 error (e.g. NGHTTP2_ERR_*): surface it, caller closes.
         error = (int)ret;
@@ -208,11 +223,10 @@ int Http2Parser::SubmitRequest(HttpRequest* req) {
     // 5-byte length-prefix into an owned buffer.
     is_grpc = (req->ContentType() == APPLICATION_GRPC);
     prepareSendBody();
-    nghttp2_data_provider data_prd;
+    Http2DataProvider data_prd;
     data_prd.source.ptr = this;
     data_prd.read_callback = data_source_read_callback;
-    stream_id = nghttp2_submit_request(session, NULL, &nvs[0], nvs.size(),
-                                       send_len > 0 ? &data_prd : NULL, NULL);
+    stream_id = HV_NGHTTP2_SUBMIT_REQUEST(session, NULL, &nvs[0], nvs.size(), send_len > 0 ? &data_prd : NULL, NULL);
     if (stream_id < 0) {
         error = stream_id;
         return -1;
@@ -287,18 +301,21 @@ int Http2Parser::SubmitResponse(HttpResponse* res) {
     }
     if (stream_id == -1) {
         // h2c upgrade: the HTTP/1.1 request maps to stream 1.
+#if NGHTTP2_VERSION_NUM >= 0x010500
+        nghttp2_session_upgrade2(session, NULL, 0, parsed && ((HttpRequest*)parsed)->method == HTTP_HEAD, NULL);
+#else
         nghttp2_session_upgrade(session, NULL, 0, NULL);
+#endif
         stream_id = 1;
     }
     // Set up the outgoing body as an nghttp2 data_provider (framing + splitting
     // + flow control handled by nghttp2). For gRPC, prepend the length-prefix.
     is_grpc = (parsed && parsed->ContentType() == APPLICATION_GRPC);
     prepareSendBody();
-    nghttp2_data_provider data_prd;
+    Http2DataProvider data_prd;
     data_prd.source.ptr = this;
     data_prd.read_callback = data_source_read_callback;
-    int ret = nghttp2_submit_response(session, stream_id, &nvs[0], nvs.size(),
-                                      send_len > 0 ? &data_prd : NULL);
+    int ret = HV_NGHTTP2_SUBMIT_RESPONSE(session, stream_id, &nvs[0], nvs.size(), send_len > 0 ? &data_prd : NULL);
     if (ret != 0) {
         error = ret;
         return -1;
