@@ -6,7 +6,22 @@
 #include "http2def.h"
 #include "grpcdef.h"
 
+#include "nghttp2/nghttp2ver.h"
+#if NGHTTP2_VERSION_NUM >= 0x013c00 && defined(_MSC_VER)
+#ifndef NGHTTP2_NO_SSIZE_T
+#define NGHTTP2_NO_SSIZE_T
+#endif
+#elif defined(_MSC_VER)
+#pragma push_macro("ssize_t")
+#ifndef ssize_t
+// Older nghttp2 CMake builds use int for ssize_t on MSVC.
+#define ssize_t int
+#endif
+#endif
 #include "nghttp2/nghttp2.h"
+#if NGHTTP2_VERSION_NUM < 0x013c00 && defined(_MSC_VER)
+#pragma pop_macro("ssize_t")
+#endif
 
 enum http2_session_state {
     H2_WANT_RECV,

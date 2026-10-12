@@ -7,6 +7,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 set(LIBHV_FIND_DEPENDENCY_OPENSSL FALSE)
+set(LIBHV_FIND_DEPENDENCY_NGHTTP2 FALSE)
 set(LIBHV_FIND_DEPENDENCY_QUICKJS FALSE)
 
 option(BUILD_SHARED "build shared library" ON)
@@ -160,7 +161,13 @@ endif()
 
 if(WITH_NGHTTP2)
     add_definitions(-DWITH_NGHTTP2)
-    set(LIBS ${LIBS} nghttp2)
+    find_package(nghttp2 CONFIG QUIET)
+    if(TARGET nghttp2::nghttp2)
+        set(LIBS ${LIBS} nghttp2::nghttp2)
+        set(LIBHV_FIND_DEPENDENCY_NGHTTP2 TRUE)
+    else()
+        set(LIBS ${LIBS} nghttp2)
+    endif()
 endif()
 
 if(WITH_OPENSSL)
