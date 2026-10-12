@@ -90,6 +90,13 @@ target_include_directories(sendmail PRIVATE .. ../base ../protocol ../util)
 add_executable(http_router_test http_router_test.cpp)
 target_include_directories(http_router_test PRIVATE ../http/server)
 
+if(WITH_HTTP)
+add_executable(websocket_parser_test websocket_parser_test.cpp)
+target_include_directories(websocket_parser_test PRIVATE .. ../base ../http)
+target_link_libraries(websocket_parser_test ${HV_LIBRARIES})
+set(HTTP_UNITTEST_TARGETS websocket_parser_test)
+endif()
+
 if(WITH_LUA)
 add_executable(lua_binding_test lua_binding_test.cpp)
 target_include_directories(lua_binding_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../lua)
@@ -221,6 +228,7 @@ add_custom_target(unittest DEPENDS
     ftp
     sendmail
     http_router_test
+    ${HTTP_UNITTEST_TARGETS}
     ${HTTP_LUA_UNITTEST_TARGETS}
     ${HTTP_JS_UNITTEST_TARGETS}
     hdns_test
