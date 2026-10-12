@@ -367,10 +367,9 @@ int http_client_connect(http_client_t* cli, HttpRequest* req) {
         req->ParseUrl();
     }
     cli->Close();
-    int blocktime = DEFAULT_CONNECT_TIMEOUT;
-    int timeout = MIN(req->connect_timeout, req->timeout);
-    if (timeout > 0) {
-        blocktime = MIN(timeout*1000, blocktime);
+    int blocktime = req->connect_timeout > 0 ? req->connect_timeout * 1000 : DEFAULT_CONNECT_TIMEOUT;
+    if (req->timeout > 0) {
+        blocktime = MIN(blocktime, req->timeout * 1000);
     }
 
     bool tunnel = req->IsTunnelProxy();
