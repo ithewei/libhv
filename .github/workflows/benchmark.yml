@@ -9,10 +9,15 @@ on:
     paths-ignore:
       - '**.md'
 
+defaults:
+  run:
+    shell: bash -eo pipefail {0}
+
 jobs:
   benchmark:
     name: benchmark
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -34,14 +39,18 @@ jobs:
 
       - name: benchmark echo-servers
         run: |
-          bash echo-servers/benchmark.sh
+          bash echo-servers/benchmark.sh | tee echo.log
 
       - name: benchmark tcp_proxy_server
         run: |
           iperf -s -p 5001 > /dev/null &
           bin/tcp_proxy_server 1212 127.0.0.1:5001 &
-          iperf -c 127.0.0.1 -p 5001 -l 8K
-          iperf -c 127.0.0.1 -p 1212 -l 8K
+          for i in $(seq 50); do
+            ss -ltn | grep -q ':5001 ' && ss -ltn | grep -q ':1212 ' && break
+            sleep 0.1
+          done
+          iperf -c 127.0.0.1 -p 5001 -l 8K -y C | tee iperf_direct.csv
+          iperf -c 127.0.0.1 -p 1212 -l 8K -y C | tee iperf_proxy.csv
 
       - name: webbench
         run: |
@@ -49,22 +58,34 @@ jobs:
           sudo cp html/index.html index.html
           sudo cp html/index.html /var/www/html/index.html
           bin/httpd -c etc/httpd.conf -d
-          ps aux | grep nginx
-          ps aux | grep httpd
           bin/tinyhttpd 9090 &
-          echo -e "\n======Test nginx send file==============================="
-          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/
-          echo -e "\n======Test libhv/httpd send file (with FileCache)========"
-          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/
-          echo -e "\n======Test libhv/tinyhttpd send file (no FileCache)======"
-          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/
-          echo -e "\n======Test nginx 404 Not Found==========================="
-          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:80/404
-          echo -e "\n======Test libhv/httpd 404 Not Found====================="
-          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/404
-          echo -e "\n======Test libhv/tinyhttpd 404 Not found================="
-          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/404
-          echo -e "\n======Test libhv/httpd /ping============================="
-          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:8080/ping
-          echo -e "\n======Test libhv/tinyhttpd /ping========================="
-          bin/wrk -c 100 -t 2 -d 10s http://127.0.0.1:9090/ping
+          sleep 1
+          ps aux | grep -E 'nginx|httpd' | grep -v grep
+          expect() {
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$2")
+            echo "$2 -> $code (expect $1)"
+            [ "$code" = "$1" ]
+          }
+          for port in 80 8080 9090; do
+            expect 200 http://127.0.0.1:$port/
+            expect 404 http://127.0.0.1:$port/404
+          done
+          expect 200 http://127.0.0.1:8080/ping
+          expect 200 http://127.0.0.1:9090/ping
+          run_wrk() {
+            name=$1; shift
+            echo -e "\n====== $name"
+            bin/wrk -c 100 -t 2 -d 10s "$@" 2>&1 | tee "wrk_$name.log"
+          }
+          run_wrk nginx_file     http://127.0.0.1:80/
+          run_wrk httpd_file     http://127.0.0.1:8080/
+          run_wrk tinyhttpd_file http://127.0.0.1:9090/
+          run_wrk nginx_404      http://127.0.0.1:80/404
+          run_wrk httpd_404      http://127.0.0.1:8080/404
+          run_wrk tinyhttpd_404  http://127.0.0.1:9090/404
+          run_wrk httpd_ping     http://127.0.0.1:8080/ping
+          run_wrk tinyhttpd_ping http://127.0.0.1:9090/ping
+
+      - name: check results
+        run: |
+          bash .github/scripts/benchmark_check.sh .
