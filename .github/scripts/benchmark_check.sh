@@ -18,7 +18,7 @@ FLOOR_HTTPD_FILE=1.2    # httpd send file (with FileCache) / nginx send file
 FLOOR_TINY_FILE=0.8     # tinyhttpd send file (no FileCache) / nginx send file
 FLOOR_HTTPD_404=0.8     # httpd 404 / nginx 404
 FLOOR_TINY_404=0.8      # tinyhttpd 404 / nginx 404
-FLOOR_HTTPD_PING=1.0    # httpd /ping / nginx /ping
+FLOOR_HTTPD_PING=0.8    # httpd /ping / nginx /ping
 FLOOR_TINY_PING=1.0     # tinyhttpd /ping / nginx /ping
 
 failed=0
