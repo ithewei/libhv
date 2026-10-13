@@ -54,9 +54,16 @@ jobs:
 
       - name: webbench
         run: |
-          sudo tee /etc/nginx/conf.d/ping.conf > /dev/null <<'EOF'
+          sudo tee /etc/nginx/sites-available/default > /dev/null <<'EOF'
           server {
-              listen 8000;
+              listen 80 default_server;
+              listen [::]:80 default_server;
+              root /var/www/html;
+              index index.html;
+              server_name _;
+              location / {
+                  try_files $uri $uri/ =404;
+              }
               location = /ping {
                   default_type text/plain;
                   return 200 "pong";
@@ -78,10 +85,8 @@ jobs:
           for port in 80 8080 9090; do
             expect 200 http://127.0.0.1:$port/
             expect 404 http://127.0.0.1:$port/404
+            expect 200 http://127.0.0.1:$port/ping
           done
-          expect 200 http://127.0.0.1:8000/ping
-          expect 200 http://127.0.0.1:8080/ping
-          expect 200 http://127.0.0.1:9090/ping
           run_wrk() {
             name=$1; shift
             echo -e "\n====== $name"
@@ -93,7 +98,7 @@ jobs:
           run_wrk nginx_404      http://127.0.0.1:80/404
           run_wrk httpd_404      http://127.0.0.1:8080/404
           run_wrk tinyhttpd_404  http://127.0.0.1:9090/404
-          run_wrk nginx_ping     http://127.0.0.1:8000/ping
+          run_wrk nginx_ping     http://127.0.0.1:80/ping
           run_wrk httpd_ping     http://127.0.0.1:8080/ping
           run_wrk tinyhttpd_ping http://127.0.0.1:9090/ping
 
