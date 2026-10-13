@@ -18,6 +18,8 @@ FLOOR_HTTPD_FILE=1.2    # httpd send file (with FileCache) / nginx send file
 FLOOR_TINY_FILE=0.8     # tinyhttpd send file (no FileCache) / nginx send file
 FLOOR_HTTPD_404=0.8     # httpd 404 / nginx 404
 FLOOR_TINY_404=0.8      # tinyhttpd 404 / nginx 404
+FLOOR_HTTPD_PING=1.0    # httpd /ping / nginx /ping
+FLOOR_TINY_PING=1.0     # tinyhttpd /ping / nginx /ping
 
 failed=0
 summary() { [ -n "$GITHUB_STEP_SUMMARY" ] && echo "$1" >> "$GITHUB_STEP_SUMMARY"; }
@@ -74,6 +76,8 @@ check_ratio "httpd file (with FileCache) / nginx file"   "$(rps httpd_file)"    
 check_ratio "tinyhttpd file (no FileCache) / nginx file" "$(rps tinyhttpd_file)" "$(rps nginx_file)"   $FLOOR_TINY_FILE
 check_ratio "httpd 404 / nginx 404"                      "$(rps httpd_404)"      "$(rps nginx_404)"    $FLOOR_HTTPD_404
 check_ratio "tinyhttpd 404 / nginx 404"                  "$(rps tinyhttpd_404)"  "$(rps nginx_404)"    $FLOOR_TINY_404
+check_ratio "httpd ping / nginx ping"                    "$(rps httpd_ping)"     "$(rps nginx_ping)"   $FLOOR_HTTPD_PING
+check_ratio "tinyhttpd ping / nginx ping"                "$(rps tinyhttpd_ping)" "$(rps nginx_ping)"   $FLOOR_TINY_PING
 
 echo
 if [ $failed -gt 0 ]; then
