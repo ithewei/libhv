@@ -155,6 +155,20 @@ static int http_reply(http_conn_t* conn,
     return nwrite < 0 ? nwrite : msglen;
 }
 
+static void http_request_done(http_conn_t* conn) {
+    if (conn->request.keepalive) {
+        // Connection: keep-alive\r\n
+        // reset and receive next request
+        memset(&conn->request,  0, sizeof(http_msg_t));
+        memset(&conn->response, 0, sizeof(http_msg_t));
+        conn->state = s_first_line;
+        hio_readline(conn->io);
+    } else {
+        // Connection: close\r\n
+        hio_close(conn->io);
+    }
+}
+
 static void http_send_file(http_conn_t* conn) {
     if (!conn || !conn->fp) return;
     // alloc filebuf
@@ -167,8 +181,16 @@ static void http_send_file(http_conn_t* conn) {
     // read file
     int nread = fread(filebuf, 1, filebuflen, conn->fp);
     if (nread <= 0) {
-        // eof or error
-        hio_close(conn->io);
+        int error = ferror(conn->fp);
+        fclose(conn->fp);
+        conn->fp = NULL;
+        hio_setcb_write(conn->io, NULL);
+        if (error) {
+            hio_close(conn->io);
+        } else {
+            // eof: the whole file has been sent
+            http_request_done(conn);
+        }
         return;
     }
     // send file
@@ -366,16 +388,10 @@ s_end:
         // received complete request
         on_request(conn);
         if (hio_is_closed(io)) return;
-        if (req->keepalive) {
-            // Connection: keep-alive\r\n
-            // reset and receive next request
-            memset(&conn->request,  0, sizeof(http_msg_t));
-            memset(&conn->response, 0, sizeof(http_msg_t));
-            conn->state = s_first_line;
-            hio_readline(io);
-        } else {
-            // Connection: close\r\n
-            hio_close(io);
+        // A file response finishes the request once the whole file is sent,
+        // which may already have happened inside on_request.
+        if (conn->state == s_end && conn->fp == NULL) {
+            http_request_done(conn);
         }
         break;
     default: break;
@@ -397,6 +413,9 @@ static void new_conn_event(hevent_t* ev) {
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
 
+    // A file response is written as a head and then the body; without this,
+    // Nagle holds the body until the peer's delayed ACK on keep-alive connections.
+    tcp_nodelay(hio_fd(io), 1);
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_set_keepalive_timeout(io, HTTP_KEEPALIVE_TIMEOUT);
