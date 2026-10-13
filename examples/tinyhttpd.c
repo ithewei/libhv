@@ -413,6 +413,9 @@ static void new_conn_event(hevent_t* ev) {
             SOCKADDR_STR(hio_peeraddr(io), peeraddrstr));
     */
 
+    // A file response is written as a head and then the body; without this,
+    // Nagle holds the body until the peer's delayed ACK on keep-alive connections.
+    tcp_nodelay(hio_fd(io), 1);
     hio_setcb_close(io, on_close);
     hio_setcb_read(io, on_recv);
     hio_set_keepalive_timeout(io, HTTP_KEEPALIVE_TIMEOUT);
