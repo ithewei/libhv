@@ -101,6 +101,12 @@ config_setting(
 )
 
 config_setting(
+    name = "with_mail",
+    define_values = {"WITH_MAIL": "ON"},
+    visibility = [":__subpackages__"],
+)
+
+config_setting(
     name = "with_redis",
     define_values = {
         "WITH_EVPP": "ON",
@@ -212,6 +218,9 @@ HEADERS_DIRS = ["base", "ssl", "event"] + select({
     "//conditions:default": [],
 }) + select({
     "with_mqtt": ["mqtt"],
+    "//conditions:default": [],
+}) + select({
+    "with_mail": ["mail"],
     "//conditions:default": [],
 })
 
@@ -388,6 +397,12 @@ MQTT_HEADERS = [
     "mqtt/mqtt_client.h",
 ]
 
+MAIL_HEADERS = [
+    "mail/mime.h",
+    "mail/smtp_client.h",
+    "mail/imap_client.h",
+]
+
 
 HEADERS = ["hv.h", ":config", "hexport.h"] + BASE_HEADERS + SSL_HEADERS + EVENT_HEADERS + UTIL_HEADERS + select({
     "with_protocol": PROTOCOL_HEADERS,
@@ -412,6 +427,9 @@ HEADERS = ["hv.h", ":config", "hexport.h"] + BASE_HEADERS + SSL_HEADERS + EVENT_
     "//conditions:default": [],
 }) + select({
     "with_mqtt": MQTT_HEADERS,
+    "//conditions:default": [],
+}) + select({
+    "with_mail": MAIL_HEADERS,
     "//conditions:default": [],
 })
 
@@ -452,6 +470,9 @@ SRCS = CORE_SRCS + glob(["util/*.h", "util/*.c", "util/*.cpp"], exclude = ["util
     "//conditions:default": [],
 }) + select({
     "with_mqtt": glob(["mqtt/*.h", "mqtt/*.c", "mqtt/*.cpp"], exclude = ["mqtt/*_test.c"]),
+    "//conditions:default": [],
+}) + select({
+    "with_mail": glob(["mail/*.h", "mail/*.c", "mail/*.cpp"], exclude = ["mail/*_test.c"]),
     "//conditions:default": [],
 })
 

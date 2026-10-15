@@ -40,6 +40,7 @@ but simpler api and richer protocols.
 - WebSocket client/server
 - MQTT client
 - Redis client
+- Mail client (SMTP send / IMAP recv)
 
 ## ⌛️ Build
 
