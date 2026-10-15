@@ -61,7 +61,11 @@ int tls_client_handshake_start(hio_t* io) {
         sni = io->hostname;
     }
     if (sni) {
-        hssl_set_sni_hostname(io->ssl, sni);
+        if (hssl_set_sni_hostname(io->ssl, sni) != HSSL_OK) {
+            io->error = ERR_SSL_HANDSHAKE;
+            hio_close(io);
+            return -1;
+        }
     }
 
     io->phase = HIO_PHASE_TLS_CLIENT_HANDSHAKING;
