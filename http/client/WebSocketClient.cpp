@@ -13,6 +13,9 @@ WebSocketClient::WebSocketClient(EventLoopPtr loop)
     state = WS_CLOSED;
     ping_interval = DEFAULT_WS_PING_INTERVAL;
     ping_cnt = 0;
+    reconn_cur_delay_ = 0;
+    reconn_cur_retry_cnt_ = 0;
+    reconn_upgrading_ = false;
 }
 
 WebSocketClient::~WebSocketClient() {
@@ -72,6 +75,13 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
 
     onConnection = [this](const WebSocketChannelPtr& channel) {
         if (channel->isConnected()) {
+            // NOTE: TcpClient resets reconn_setting after onConnection returns,
+            // restore it on close unless the websocket upgrade succeeds.
+            if (reconn_setting) {
+                reconn_cur_delay_ = reconn_setting->cur_delay;
+                reconn_cur_retry_cnt_ = reconn_setting->cur_retry_cnt;
+                reconn_upgrading_ = true;
+            }
             state = CONNECTED;
             // websocket_handshake
             http_req_->headers["Connection"] = "Upgrade";
@@ -100,6 +110,11 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
             http_resp_ = std::make_shared<HttpResponse>();
             http_parser_->InitResponse(http_resp_.get());
         } else {
+            if (reconn_upgrading_ && reconn_setting) {
+                reconn_setting->cur_delay = reconn_cur_delay_;
+                reconn_setting->cur_retry_cnt = reconn_cur_retry_cnt_;
+            }
+            reconn_upgrading_ = false;
             state = WS_CLOSED;
             if (onclose) onclose();
         }
@@ -175,6 +190,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                     }
                 };
                 state = WS_OPENED;
+                reconn_upgrading_ = false;
                 // ping
                 if (ping_interval > 0) {
                     ping_cnt = 0;
