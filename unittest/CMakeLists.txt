@@ -168,8 +168,14 @@ if(WIN32 AND WITH_WEPOLL)
 add_executable(epoll_init_test epoll_init_test.c ../event/wepoll/wepoll.c)
 target_include_directories(epoll_init_test PRIVATE .. ../base ../ssl ../event)
 target_link_libraries(epoll_init_test ${HV_LIBRARIES})
-set(EVENT_UNITTEST_TARGETS epoll_init_test)
+list(APPEND EVENT_UNITTEST_TARGETS epoll_init_test)
 endif()
+
+# ------event: timer reset and lifetime------
+add_executable(timer_reset_test timer_reset_test.c)
+target_include_directories(timer_reset_test PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(timer_reset_test ${HV_LIBRARIES})
+list(APPEND EVENT_UNITTEST_TARGETS timer_reset_test)
 
 # ------event: async dns------
 add_executable(hdns_test hdns_test.c)
@@ -198,12 +204,17 @@ endforeach()
 list(APPEND REDIS_UNITTEST_TARGETS ${REDIS_LINKED_UNITTEST_TARGETS})
 endif()
 
-# ------evpp: async dns in connect path (connect/reconnect, lifetime, resolve-fail)------
+# ------evpp: async dns and timer lifetime------
 if(WITH_EVPP)
 add_executable(tcpclient_dns_test tcpclient_dns_test.cpp)
 target_include_directories(tcpclient_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
 target_link_libraries(tcpclient_dns_test ${HV_LIBRARIES})
-set(EVPP_DNS_UNITTEST_TARGETS tcpclient_dns_test)
+list(APPEND EVPP_UNITTEST_TARGETS tcpclient_dns_test)
+
+add_executable(eventloop_timer_test eventloop_timer_test.cpp)
+target_include_directories(eventloop_timer_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
+target_link_libraries(eventloop_timer_test ${HV_LIBRARIES})
+list(APPEND EVPP_UNITTEST_TARGETS eventloop_timer_test)
 endif()
 
 if(UNIX)
@@ -243,5 +254,5 @@ add_custom_target(unittest DEPENDS
     hdns_test
     hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}
-    ${EVPP_DNS_UNITTEST_TARGETS}
+    ${EVPP_UNITTEST_TARGETS}
 )

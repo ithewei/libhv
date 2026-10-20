@@ -106,11 +106,12 @@ struct hidle_s {
     struct list_node node;
 };
 
-#define HTIMER_FIELDS                   \
-    HEVENT_FIELDS                       \
-    uint32_t    repeat;                 \
-    uint64_t    next_timeout;           \
-    struct heap_node node;
+#define HTIMER_FIELDS      \
+    HEVENT_FIELDS          \
+    uint32_t repeat;       \
+    uint64_t next_timeout; \
+    struct heap_node node; \
+    unsigned pending_reset : 1;
 
 struct htimer_s {
     HTIMER_FIELDS
@@ -313,13 +314,12 @@ void hio_memmove_readbuf(hio_t* io);
         }\
     } while(0)
 
-#define EVENT_RESET(ev) \
-    do {\
-        ev->destroy = 0;\
-        EVENT_ACTIVE(ev);\
-        ev->pending = 0;\
-    } while(0)
-    
+#define EVENT_RESET(ev)   \
+    do {                  \
+        ev->destroy = 0;  \
+        EVENT_ACTIVE(ev); \
+    } while (0)
+
 #define EVENT_UNPENDING(ev) \
     do {\
         if (ev->pending) {\

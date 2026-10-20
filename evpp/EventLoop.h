@@ -159,13 +159,11 @@ public:
 
     // resetTimer thread-safe
     void resetTimer(TimerID timerID, int timeout_ms = 0) {
-        runInLoop([timerID, timeout_ms, this](){
+        runInLoop([timerID, timeout_ms, this]() {
             auto iter = timers.find(timerID);
             if (iter != timers.end()) {
                 htimer_reset(iter->second->timer, timeout_ms);
-                if (iter->second->repeat == 0) {
-                    iter->second->repeat = 1;
-                }
+                iter->second->repeat = htimer_repeat(iter->second->timer);
             }
         });
     }
@@ -267,7 +265,10 @@ private:
             if (timer->cb) timer->cb(timerID);
             if (timer->repeat == 0) {
                 // htimer_t alloc and free by hloop, but timers[timerID] managed by EventLoop.
-                loop->timers.erase(timerID);
+                auto current = loop->timers.find(timerID);
+                if (current != loop->timers.end() && current->second == timer) {
+                    loop->timers.erase(current);
+                }
             }
         }
     }

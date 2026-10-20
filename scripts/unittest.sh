@@ -32,6 +32,9 @@ bin/socketpair_test
 # bin/objectpool_test
 bin/sizeof_test
 bin/http_router_test
+if [ -x bin/timer_reset_test ]; then
+    bin/timer_reset_test || exit $?
+fi
 if [ -x bin/websocket_parser_test ]; then
     bin/websocket_parser_test || exit $?
 fi
@@ -76,6 +79,9 @@ if [ -x bin/hdns_test ]; then
 fi
 if [ -x bin/tcpclient_dns_test ]; then
     bin/tcpclient_dns_test
+fi
+if [ -x bin/eventloop_timer_test ]; then
+    bin/eventloop_timer_test || exit $?
 fi
 for redis_test in redis_async_client_test redis_client_test redis_batch_test redis_subscriber_test lua_redis_test; do
     if [ -x bin/${redis_test} ]; then

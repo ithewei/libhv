@@ -236,6 +236,21 @@ HV_EXPORT htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
 
 HV_EXPORT void htimer_del(htimer_t* timer);
 HV_EXPORT void htimer_reset(htimer_t* timer, uint32_t timeout_ms DEFAULT(0));
+/*
+ * Returns the native remaining expiration count of a timer, or INFINITE.
+ *
+ * Contract:
+ * - The caller must supply a valid, live timer handle; the function does not
+ *   validate pointers or make using a freed timer safe.
+ * - Must be read under the timer's normal owner-loop/thread rules. The getter
+ *   provides no cross-thread synchronization.
+ * - A finite repetition is consumed when its expiration becomes pending,
+ *   before callback delivery. Resetting away that pending callback does not
+ *   refund it.
+ * - A final callback can observe zero while dispatch still keeps the timer
+ *   alive. Resetting that live timer can revive its count from zero to one.
+ */
+HV_EXPORT uint32_t htimer_repeat(const htimer_t* timer);
 
 // io
 //-----------------------low-level apis---------------------------------------

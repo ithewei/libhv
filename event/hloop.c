@@ -118,9 +118,14 @@ static int hloop_process_pendings(hloop_t* loop) {
         while (cur) {
             next = cur->pending_next;
             if (cur->pending && cur->loop == loop) {
-                if (cur->active && cur->cb) {
+                // A reset cancels delivery, not the pending allocation reference.
+                bool reset_timer = (cur->event_type & HEVENT_TYPE_TIMER) && ((htimer_t*)cur)->pending_reset;
+                if (cur->active && cur->cb && !reset_timer) {
                     cur->cb(cur);
                     ++ncbs;
+                }
+                if (cur->event_type & HEVENT_TYPE_TIMER) {
+                    ((htimer_t*)cur)->pending_reset = 0;
                 }
                 cur->pending = 0;
                 // NOTE: Now we can safely delete event marked as destroy.
@@ -756,6 +761,8 @@ void htimer_reset(htimer_t* timer, uint32_t timeout_ms) {
         timer->next_timeout = timer->next_timeout / 100000 * 100000;
     }
     heap_insert(&loop->timers, &timer->node);
+    // Keep pending ownership until dispatch releases its current/next pointer.
+    timer->pending_reset = timer->pending;
     EVENT_RESET(timer);
 }
 
@@ -797,6 +804,10 @@ void htimer_del(htimer_t* timer) {
     if (!timer->active) return;
     __htimer_del(timer);
     EVENT_DEL(timer);
+}
+
+uint32_t htimer_repeat(const htimer_t* timer) {
+    return timer->repeat;
 }
 
 const char* hio_engine() {
