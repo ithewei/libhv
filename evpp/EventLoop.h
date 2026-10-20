@@ -159,13 +159,11 @@ public:
 
     // resetTimer thread-safe
     void resetTimer(TimerID timerID, int timeout_ms = 0) {
-        runInLoop([timerID, timeout_ms, this](){
+        runInLoop([timerID, timeout_ms, this]() {
             auto iter = timers.find(timerID);
             if (iter != timers.end()) {
                 htimer_reset(iter->second->timer, timeout_ms);
-                if (iter->second->repeat == 0) {
-                    iter->second->repeat = 1;
-                }
+                iter->second->repeat = htimer_repeat(iter->second->timer);
             }
         });
     }

@@ -236,6 +236,7 @@ HV_EXPORT htimer_t* htimer_add_period(hloop_t* loop, htimer_cb cb,
 
 HV_EXPORT void htimer_del(htimer_t* timer);
 HV_EXPORT void htimer_reset(htimer_t* timer, uint32_t timeout_ms DEFAULT(0));
+HV_EXPORT uint32_t htimer_repeat(const htimer_t* timer);
 
 // io
 //-----------------------low-level apis---------------------------------------

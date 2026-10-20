@@ -806,6 +806,10 @@ void htimer_del(htimer_t* timer) {
     EVENT_DEL(timer);
 }
 
+uint32_t htimer_repeat(const htimer_t* timer) {
+    return timer->repeat;
+}
+
 const char* hio_engine() {
 #ifdef EVENT_SELECT
     return  "select";

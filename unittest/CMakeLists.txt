@@ -209,7 +209,12 @@ if(WITH_EVPP)
 add_executable(tcpclient_dns_test tcpclient_dns_test.cpp)
 target_include_directories(tcpclient_dns_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
 target_link_libraries(tcpclient_dns_test ${HV_LIBRARIES})
-set(EVPP_DNS_UNITTEST_TARGETS tcpclient_dns_test)
+list(APPEND EVPP_DNS_UNITTEST_TARGETS tcpclient_dns_test)
+
+add_executable(eventloop_timer_test eventloop_timer_test.cpp)
+target_include_directories(eventloop_timer_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp)
+target_link_libraries(eventloop_timer_test ${HV_LIBRARIES})
+list(APPEND EVPP_DNS_UNITTEST_TARGETS eventloop_timer_test)
 endif()
 
 if(UNIX)
