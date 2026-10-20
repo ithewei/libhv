@@ -92,11 +92,15 @@ static void test_reset_timer_not_due(void) {
 
     require(hloop_ntimers(loop) == 2);
     require(hloop_nactives(loop) == 2);
-    uint64_t old_target_deadline = target->next_timeout;
     uint64_t unrelated_deadline = unrelated->next_timeout;
+
+    // Capture cached clock before reset
+    uint64_t reset_base_us = loop->cur_hrtime;
 
     // Reset target to a new, further deadline (40000 ms)
     htimer_reset(target, 40000);
+
+    uint64_t expected_deadline = ((reset_base_us + UINT64_C(40000000)) / UINT64_C(100000)) * UINT64_C(100000);
 
     // Reset does not create an additional timer or change unrelated timers
     require(hloop_ntimers(loop) == 2);
@@ -105,8 +109,7 @@ static void test_reset_timer_not_due(void) {
     require(unrelated->next_timeout == unrelated_deadline);
     // Target replacement deadline matches the newly requested timeout
     require(((htimeout_t*)target)->timeout == 40000);
-    require(target->next_timeout > old_target_deadline);
-    require(target->next_timeout >= old_target_deadline + 20000000ULL - 100000ULL);
+    require(target->next_timeout == expected_deadline);
     require(!target->destroy);
     require(!target->pending);
     require(!target->pending_reset);
@@ -119,7 +122,7 @@ static void test_reset_timer_not_due(void) {
     require(hloop_ntimers(loop) == 2);
     require(hloop_nactives(loop) == 2);
 
-    // Step 2: Advance clock to replacement deadline; target fires while unrelated does not.
+    // Step 2: Force target due at its replacement deadline; target fires while unrelated does not.
     make_timer_due_now(loop, target);
     hloop_process_events(loop, 0);
     require(s_case1_target_calls == 1);
@@ -127,7 +130,7 @@ static void test_reset_timer_not_due(void) {
     require(hloop_ntimers(loop) == 1);
     require(hloop_nactives(loop) == 1);
 
-    // Step 3: Advance clock for unrelated timer; unrelated fires.
+    // Step 3: Force unrelated timer due; unrelated fires.
     make_timer_due_now(loop, unrelated);
     hloop_process_events(loop, 0);
     require(s_case1_unrelated_calls == 1);
