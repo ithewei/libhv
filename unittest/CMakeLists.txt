@@ -163,6 +163,14 @@ set(HTTP_JS_UNITTEST_TARGETS ${HTTP_JS_UNITTEST_TARGETS} http_js_mqtt_test)
 endif()
 endif()
 
+# ------event: Windows epoll initialization------
+if(WIN32 AND WITH_WEPOLL)
+add_executable(epoll_init_test epoll_init_test.c ../event/wepoll/wepoll.c)
+target_include_directories(epoll_init_test PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(epoll_init_test ${HV_LIBRARIES})
+set(EVENT_UNITTEST_TARGETS epoll_init_test)
+endif()
+
 # ------event: async dns------
 add_executable(hdns_test hdns_test.c)
 target_include_directories(hdns_test PRIVATE .. ../base ../ssl ../event)
@@ -231,6 +239,7 @@ add_custom_target(unittest DEPENDS
     ${HTTP_UNITTEST_TARGETS}
     ${HTTP_LUA_UNITTEST_TARGETS}
     ${HTTP_JS_UNITTEST_TARGETS}
+    ${EVENT_UNITTEST_TARGETS}
     hdns_test
     hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}
