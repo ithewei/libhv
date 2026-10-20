@@ -122,7 +122,7 @@ static void test_reset_timer_not_due(void) {
     require(hloop_ntimers(loop) == 2);
     require(hloop_nactives(loop) == 2);
 
-    // Step 2: Force target due at its replacement deadline; target fires while unrelated does not.
+    // Step 2: Move the target deadline into the past; target fires while unrelated does not.
     make_timer_due_now(loop, target);
     hloop_process_events(loop, 0);
     require(s_case1_target_calls == 1);
@@ -229,11 +229,11 @@ static void test_reset_pending_expiration(void) {
     require(hloop_ntimers(loop) == 1);
     require(hloop_nactives(loop) == 1);
 
-    // Advance clock to replacement deadline
+    // Move the reset timer's deadline into the past to force delivery.
     make_timer_due_now(loop, ctx.target);
     hloop_process_events(loop, 0);
 
-    require(ctx.target_calls == 1); // fires at replacement deadline
+    require(ctx.target_calls == 1); // reset timer fires once when forced due
     require(hloop_ntimers(loop) == 0);
     require(hloop_nactives(loop) == 0);
 
