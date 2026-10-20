@@ -7,6 +7,9 @@
  * Case 3: Reset a finite timer between delivered occurrences.
  * Case 4: One-shot self-rearm inside callback (zero-to-one revival).
  * Case 5: Infinite timer reset and cancellation (INFINITE sentinel preserved).
+ * Case 6: Completing callback cancels itself and creates same-ID replacement.
+ * Case 7: Replacement remains cancellable via killTimer(id).
+ * Case 8: Callback cancels itself without replacement, plus normal control.
  */
 
 #include "EventLoop.h"
@@ -477,6 +480,227 @@ static void test_case5_infinite_reset_and_cancellation() {
     hloop_free(&loop);
 }
 
+/*
+ * Case 6: Completing callback cancels itself and creates a one-shot replacement
+ * with the same ID.
+ * After old dispatch returns, the old callback probe must expire and the
+ * replacement probe must remain alive. Its next expiration must invoke the
+ * replacement callback exactly once and then release that probe.
+ * This is the direct regression for Bug B.
+ */
+static void test_case6_replacement_with_same_id() {
+    hloop_t* loop = hloop_new(HLOOP_FLAG_RUN_ONCE);
+    require(loop != NULL);
+    {
+        EventLoop evloop(loop);
+        int old_cb_count = 0;
+        int new_cb_count = 0;
+        TimerID target_id = INVALID_TIMER_ID;
+
+        std::weak_ptr<int> old_weak;
+        std::weak_ptr<int> new_weak;
+        {
+            auto old_probe = std::make_shared<int>(601);
+            old_weak = old_probe;
+            target_id = evloop.setTimer(
+                40000,
+                [&old_cb_count, &new_cb_count, &evloop, &new_weak, old_probe](TimerID id) {
+                    old_cb_count++;
+                    require(evloop.isRunning());
+                    require(evloop.isInLoopThread());
+                    evloop.killTimer(id);
+
+                    auto new_probe = std::make_shared<int>(602);
+                    new_weak = new_probe;
+                    TimerID rep_id = evloop.setTimer(
+                        40000,
+                        [&new_cb_count, new_probe](TimerID rid) {
+                            (void)rid;
+                            new_cb_count++;
+                        },
+                        1, id);
+                    require(rep_id == id);
+                },
+                1);
+        }
+        require(target_id != INVALID_TIMER_ID);
+        require(!old_weak.expired());
+
+        htimer_t* target_timer = find_native_timer(loop, target_id);
+        require(target_timer != NULL);
+
+        // Dispatch 1: Old callback executes, cancels old, creates replacement with same ID
+        make_timer_due_now(loop, target_timer);
+        evloop.run();
+
+        require(old_cb_count == 1);
+        require(new_cb_count == 0);
+        // Old callback probe must expire and replacement probe must remain alive
+        require(old_weak.expired());
+        require(!new_weak.expired());
+
+        htimer_t* rep_timer = find_native_timer(loop, target_id);
+        require(rep_timer != NULL);
+        require(htimer_repeat(rep_timer) == 1);
+
+        // Dispatch 2: Replacement callback executes once and releases probe
+        make_timer_due_now(loop, rep_timer);
+        evloop.run();
+
+        require(new_cb_count == 1);
+        require(new_weak.expired());
+        require(find_native_timer(loop, target_id) == NULL);
+    }
+    hloop_free(&loop);
+}
+
+/*
+ * Case 7: Replacement remains cancellable.
+ * Repeat case 6, but cancel the new timer by its ID before it becomes due.
+ * The replacement callback must not execute; its probe must expire and its
+ * native schedule must be gone. This proves that the replacement was retained
+ * in the map, not merely kept in a heap.
+ */
+static void test_case7_replacement_cancellable() {
+    hloop_t* loop = hloop_new(HLOOP_FLAG_RUN_ONCE);
+    require(loop != NULL);
+    {
+        EventLoop evloop(loop);
+        int old_cb_count = 0;
+        int new_cb_count = 0;
+        TimerID target_id = INVALID_TIMER_ID;
+
+        std::weak_ptr<int> old_weak;
+        std::weak_ptr<int> new_weak;
+        {
+            auto old_probe = std::make_shared<int>(701);
+            old_weak = old_probe;
+            target_id = evloop.setTimer(
+                40000,
+                [&old_cb_count, &new_cb_count, &evloop, &new_weak, old_probe](TimerID id) {
+                    old_cb_count++;
+                    require(evloop.isRunning());
+                    require(evloop.isInLoopThread());
+                    evloop.killTimer(id);
+
+                    auto new_probe = std::make_shared<int>(702);
+                    new_weak = new_probe;
+                    TimerID rep_id = evloop.setTimer(
+                        40000,
+                        [&new_cb_count, new_probe](TimerID rid) {
+                            (void)rid;
+                            new_cb_count++;
+                        },
+                        1, id);
+                    require(rep_id == id);
+                },
+                1);
+        }
+        require(target_id != INVALID_TIMER_ID);
+        require(!old_weak.expired());
+
+        htimer_t* target_timer = find_native_timer(loop, target_id);
+        require(target_timer != NULL);
+
+        // Dispatch 1: Old callback executes and creates replacement
+        make_timer_due_now(loop, target_timer);
+        evloop.run();
+
+        require(old_cb_count == 1);
+        require(new_cb_count == 0);
+        require(old_weak.expired());
+        require(!new_weak.expired());
+        require(find_native_timer(loop, target_id) != NULL);
+
+        // Cancel the replacement by its ID before it becomes due
+        evloop.killTimer(target_id);
+        evloop.run(); // drive queued cancellation
+
+        // Replacement probe must expire and native schedule must be gone
+        require(new_weak.expired());
+        require(find_native_timer(loop, target_id) == NULL);
+        require(new_cb_count == 0);
+    }
+    hloop_free(&loop);
+}
+
+/*
+ * Case 8: Callback cancels itself without replacement, and normal completion control.
+ * Completion must tolerate the missing map entry, release the retained callback
+ * record after return, and avoid double deletion or reuse of an invalidated iterator.
+ * Also includes a normal completion control case.
+ */
+static void test_case8_cancel_without_replacement_and_control() {
+    hloop_t* loop = hloop_new(HLOOP_FLAG_RUN_ONCE);
+    require(loop != NULL);
+    {
+        EventLoop evloop(loop);
+
+        // Subcase 8a: Callback cancels itself without replacement
+        {
+            int cb_count = 0;
+            TimerID target_id = INVALID_TIMER_ID;
+            std::weak_ptr<int> weak_probe;
+            {
+                auto probe = std::make_shared<int>(801);
+                weak_probe = probe;
+                target_id = evloop.setTimer(
+                    40000,
+                    [&cb_count, &evloop, probe](TimerID id) {
+                        cb_count++;
+                        require(evloop.isRunning());
+                        require(evloop.isInLoopThread());
+                        evloop.killTimer(id);
+                    },
+                    1);
+            }
+            require(target_id != INVALID_TIMER_ID);
+            require(!weak_probe.expired());
+
+            htimer_t* target_timer = find_native_timer(loop, target_id);
+            require(target_timer != NULL);
+
+            make_timer_due_now(loop, target_timer);
+            evloop.run();
+
+            require(cb_count == 1);
+            require(weak_probe.expired());
+            require(find_native_timer(loop, target_id) == NULL);
+        }
+
+        // Subcase 8b: Normal completion control case
+        {
+            int control_cb_count = 0;
+            TimerID control_id = INVALID_TIMER_ID;
+            std::weak_ptr<int> control_weak;
+            {
+                auto control_probe = std::make_shared<int>(802);
+                control_weak = control_probe;
+                control_id = evloop.setTimer(
+                    40000,
+                    [&control_cb_count, control_probe](TimerID id) {
+                        (void)id;
+                        control_cb_count++;
+                    },
+                    1);
+            }
+            require(control_id != INVALID_TIMER_ID);
+            require(!control_weak.expired());
+
+            htimer_t* control_timer = find_native_timer(loop, control_id);
+            require(control_timer != NULL);
+
+            make_timer_due_now(loop, control_timer);
+            evloop.run();
+
+            require(control_cb_count == 1);
+            require(control_weak.expired());
+            require(find_native_timer(loop, control_id) == NULL);
+        }
+    }
+    hloop_free(&loop);
+}
+
 int main() {
     printf("Running test_case1_finite_count_two_pending_suppressed...\n");
     test_case1_finite_count_two_pending_suppressed();
@@ -493,6 +717,15 @@ int main() {
     printf("Running test_case5_infinite_reset_and_cancellation...\n");
     test_case5_infinite_reset_and_cancellation();
 
-    printf("All EventLoop timer tests (Cases 1-5) passed!\n");
+    printf("Running test_case6_replacement_with_same_id...\n");
+    test_case6_replacement_with_same_id();
+
+    printf("Running test_case7_replacement_cancellable...\n");
+    test_case7_replacement_cancellable();
+
+    printf("Running test_case8_cancel_without_replacement_and_control...\n");
+    test_case8_cancel_without_replacement_and_control();
+
+    printf("All EventLoop timer tests (Cases 1-8) passed!\n");
     return 0;
 }

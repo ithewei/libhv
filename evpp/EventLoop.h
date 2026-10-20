@@ -265,7 +265,10 @@ private:
             if (timer->cb) timer->cb(timerID);
             if (timer->repeat == 0) {
                 // htimer_t alloc and free by hloop, but timers[timerID] managed by EventLoop.
-                loop->timers.erase(timerID);
+                auto current = loop->timers.find(timerID);
+                if (current != loop->timers.end() && current->second == timer) {
+                    loop->timers.erase(current);
+                }
             }
         }
     }
