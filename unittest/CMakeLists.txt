@@ -168,8 +168,14 @@ if(WIN32 AND WITH_WEPOLL)
 add_executable(epoll_init_test epoll_init_test.c ../event/wepoll/wepoll.c)
 target_include_directories(epoll_init_test PRIVATE .. ../base ../ssl ../event)
 target_link_libraries(epoll_init_test ${HV_LIBRARIES})
-set(EVENT_UNITTEST_TARGETS epoll_init_test)
+list(APPEND EVENT_UNITTEST_TARGETS epoll_init_test)
 endif()
+
+# ------event: timer reset and lifetime------
+add_executable(timer_reset_test timer_reset_test.c)
+target_include_directories(timer_reset_test PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(timer_reset_test ${HV_LIBRARIES})
+list(APPEND EVENT_UNITTEST_TARGETS timer_reset_test)
 
 # ------event: async dns------
 add_executable(hdns_test hdns_test.c)

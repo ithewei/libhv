@@ -32,6 +32,9 @@ bin/socketpair_test
 # bin/objectpool_test
 bin/sizeof_test
 bin/http_router_test
+if [ -x bin/timer_reset_test ]; then
+    bin/timer_reset_test || exit $?
+fi
 if [ -x bin/websocket_parser_test ]; then
     bin/websocket_parser_test || exit $?
 fi
