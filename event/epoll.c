@@ -28,7 +28,11 @@ typedef struct epoll_ctx_s {
 int iowatcher_init(hloop_t* loop) {
     if (loop->iowatcher) return 0;
     epoll_handle_t epfd = epoll_create(EVENTS_INIT_SIZE);
+#ifdef OS_WIN
+    if (epfd == NULL) {
+#else
     if (epfd < 0) {
+#endif
         hloge("epoll_create failed: %d", socket_errno());
         return -1;
     }
