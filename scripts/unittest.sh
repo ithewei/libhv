@@ -32,8 +32,9 @@ bin/socketpair_test
 # bin/objectpool_test
 bin/sizeof_test
 bin/http_router_test
+file_cache_status=0
 if [ -x bin/file_cache_test ]; then
-    bin/file_cache_test
+    bin/file_cache_test || file_cache_status=$?
 fi
 for redis_test in redis_async_client_test redis_client_test redis_batch_test redis_subscriber_test; do
     if [ -x bin/${redis_test} ]; then
@@ -43,3 +44,4 @@ done
 if [ -x bin/redis_protocol_test ]; then
     bin/redis_protocol_test
 fi
+exit "$file_cache_status"
