@@ -844,8 +844,13 @@ return_header:
         }
         case SEND_BODY:
         {
-            *data = (char*)pResp->Content();
-            *len = pResp->ContentLength();
+            if (fc) {
+                *data = fc->filebuf.base;
+                *len = fc->filebuf.len;
+            } else {
+                *data = (char*)pResp->Content();
+                *len = pResp->ContentLength();
+            }
             state = SEND_DONE;
             return *len;
         }
