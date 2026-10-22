@@ -5,6 +5,8 @@
 #include <map>
 #include <string>
 #include <mutex>
+#include <condition_variable>
+#include <set>
 
 #include "hbuf.h"
 #include "hstring.h"
@@ -15,6 +17,7 @@
 #define FILE_CACHE_MAX_SIZE         (1 << 22)   // 4M
 
 typedef struct file_cache_s {
+    mutable std::mutex mutex;
     std::string filepath;
     struct stat st;
     time_t      open_time;
@@ -101,6 +104,14 @@ public:
 
 protected:
     file_cache_ptr Get(const char* filepath);
+
+private:
+    void BeginPathAccess(const std::string& filepath);
+    void EndPathAccess(const std::string& filepath);
+
+    std::mutex loading_mutex_;
+    std::condition_variable loading_cv_;
+    std::set<std::string> loading_files_;
 };
 
 #endif // HV_FILE_CACHE_H_
