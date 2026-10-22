@@ -34,7 +34,7 @@ typedef struct file_cache_s {
         stat_cnt = 0;
     }
 
-    bool is_modified() {
+    bool is_modified() const {
         struct stat new_st;
         // stat failed: treat as modified to force re-validation via reopen
 #ifdef OS_WIN
@@ -44,9 +44,9 @@ typedef struct file_cache_s {
         if (stat(filepath.c_str(), &new_st) != 0)
             return true;
 #endif
-        time_t mtime = st.st_mtime;
-        st = new_st;
-        return mtime != st.st_mtime;
+        return st.st_mtime != new_st.st_mtime ||
+               st.st_size != new_st.st_size ||
+               st.st_mode != new_st.st_mode;
     }
 
     bool is_complete() {
