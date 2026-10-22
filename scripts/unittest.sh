@@ -35,6 +35,9 @@ bin/http_router_test
 if [ -x bin/websocket_parser_test ]; then
     bin/websocket_parser_test || exit $?
 fi
+if [ -x bin/file_cache_concurrency_test ]; then
+    bin/file_cache_concurrency_test || exit $?
+fi
 if [ -x bin/tlv_test ]; then
     bin/tlv_test
 fi

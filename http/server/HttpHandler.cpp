@@ -957,6 +957,13 @@ int HttpHandler::SendHttpResponse(bool submit) {
     if (!io || !parser) return -1;
     char* data = NULL;
     size_t len = 0, total_len = 0;
+    // Keep the cache entry alive until the mutex is released. GetSendData may
+    // evict the entry after its buffer has been handed to the writer.
+    file_cache_ptr fc_keepalive = fc;
+    std::unique_lock<std::mutex> file_cache_lock;
+    if (fc_keepalive) {
+        file_cache_lock = std::unique_lock<std::mutex>(fc_keepalive->mutex);
+    }
     if (submit) parser->SubmitResponse(resp.get());
     while (GetSendData(&data, &len)) {
         // printf("GetSendData %d\n", (int)len);
