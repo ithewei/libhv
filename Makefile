@@ -418,6 +418,13 @@ ifeq ($(WITH_HTTP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ihttp -o bin/websocket_parser_test unittest/websocket_parser_test.cpp -Llib -lhv -pthread
 endif
 ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_HTTP_SERVER), yes)
+ifeq ($(WITH_HTTP_CLIENT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -o bin/http_static_range_test unittest/http_static_range_test.cpp -Llib -lhv -pthread
+endif
+endif
+endif
+ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_REDIS), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Icpputil -Iredis -o bin/redis_protocol_test unittest/redis_protocol_test.cpp redis/RedisMessage.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Iredis -Ievpp -o bin/redis_async_client_test unittest/redis_async_client_test.cpp unittest/redis_test_server.cpp -Llib -lhv -pthread
