@@ -414,6 +414,13 @@ unittest: prepare libhv
 ifeq ($(WITH_EVPP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
 endif
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_HTTP_SERVER), yes)
+ifeq ($(WITH_HTTP_CLIENT), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -Ihttp/client -o bin/http_static_not_modified_test unittest/http_static_not_modified_test.cpp -Llib -lhv -pthread
+endif
+endif
+endif
 ifeq ($(WITH_HTTP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ihttp -o bin/websocket_parser_test unittest/websocket_parser_test.cpp -Llib -lhv -pthread
 endif
