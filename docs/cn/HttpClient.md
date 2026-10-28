@@ -7,6 +7,12 @@ class HttpClient {
     // 设置超时
     int setTimeout(int timeout);
 
+    // 设置本地地址，连接前先 bind，出包的源地址固定为该地址
+    // 多网卡场景下内核会按路由表选源地址，这里可以显式指定
+    // @param host 本地 IP 地址，如 "192.168.1.10" 或 "fe80::1"
+    // @param port 本地端口，0 表示由内核分配
+    int setLocalAddr(const char* host, int port = 0);
+
     // 设置SSL/TLS
     int setSslCtx(hssl_ctx_t ssl_ctx);
     // 新建SSL/TLS

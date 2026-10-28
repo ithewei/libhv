@@ -377,6 +377,59 @@ int ConnectTimeout(const char* host, int port, int ms) {
     return ConnectFDTimeout(connfd, remaining);
 }
 
+int ConnectTimeoutWithLocalAddr(const char* host, int port, int ms, const char* local_host, int local_port) {
+#ifdef OS_WIN
+    WSAInit();
+#endif
+    unsigned int start_time = gettick_ms();
+
+    sockaddr_u peeraddr;
+    memset(&peeraddr, 0, sizeof(peeraddr));
+    int ret = sockaddr_set_ipport(&peeraddr, host, port);
+    if (ret != 0) {
+        return NABS(ret);
+    }
+
+    sockaddr_u localaddr;
+    memset(&localaddr, 0, sizeof(localaddr));
+    ret = sockaddr_set_ipport(&localaddr, local_host, local_port);
+    if (ret != 0) {
+        return NABS(ret);
+    }
+
+    int connfd = socket(peeraddr.sa.sa_family, SOCK_STREAM, 0);
+    if (connfd < 0) {
+        return socket_errno_negative(connfd);
+    }
+
+    // bind the local address before connect, so that the source address of
+    // the outgoing packets is the one we asked for.
+    if (bind(connfd, &localaddr.sa, sockaddr_len(&localaddr)) < 0) {
+        closesocket(connfd);
+        return socket_errno_negative(connfd);
+    }
+
+    nonblocking(connfd);
+
+    ret = connect(connfd, &peeraddr.sa, sockaddr_len(&peeraddr));
+#ifdef OS_WIN
+    if (ret < 0 && socket_errno() != WSAEWOULDBLOCK) {
+#else
+    if (ret < 0 && socket_errno() != EINPROGRESS) {
+#endif
+        closesocket(connfd);
+        return socket_errno_negative(connfd);
+    }
+
+    unsigned int elapsed = gettick_ms() - start_time;
+    int remaining = ms - (int)elapsed;
+    if (remaining <= 0) {
+        closesocket(connfd);
+        return -ETIMEDOUT;
+    }
+    return ConnectFDTimeout(connfd, remaining);
+}
+
 #ifdef ENABLE_UDS
 int BindUnix(const char* path, int type) {
     sockaddr_u localaddr;

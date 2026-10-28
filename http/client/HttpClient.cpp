@@ -27,6 +27,10 @@ struct http_client_s {
     unsigned char https;         // 0/1
     unsigned char http_version;  // intended HTTP version for the next connect (1 or 2)
     int          timeout; // s
+    // local address to bind before connecting
+    std::string  local_host;
+    int          local_port;
+    bool         has_local_addr;
     http_headers headers;
     // http_proxy
     std::string  http_proxy_host;
@@ -60,6 +64,8 @@ struct http_client_s {
         port = DEFAULT_HTTP_PORT;
         https = 0;
         timeout = DEFAULT_HTTP_TIMEOUT;
+        local_port = 0;
+        has_local_addr = false;
         http_proxy_port = DEFAULT_HTTP_PORT;
         https_proxy_port = DEFAULT_HTTP_PORT;
 #ifdef WITH_CURL
@@ -113,6 +119,14 @@ int http_client_del(http_client_t* cli) {
 
 int http_client_set_timeout(http_client_t* cli, int timeout) {
     cli->timeout = timeout;
+    return 0;
+}
+
+int http_client_set_local_addr(http_client_t* cli, const char* host, int port) {
+    if (cli == NULL || host == NULL) return ERR_NULL_POINTER;
+    cli->local_host = host;
+    cli->local_port = port;
+    cli->has_local_addr = true;
     return 0;
 }
 
@@ -378,7 +392,13 @@ int http_client_connect(http_client_t* cli, HttpRequest* req) {
     int connect_port = req->IsProxy() ? req->proxy_port : req->port;
 
     unsigned int start_time = gettick_ms();
-    int connfd = ConnectTimeout(connect_host, connect_port, blocktime);
+    int connfd;
+    if (cli->has_local_addr) {
+        connfd = ConnectTimeoutWithLocalAddr(connect_host, connect_port, blocktime,
+                                              cli->local_host.c_str(), cli->local_port);
+    } else {
+        connfd = ConnectTimeout(connect_host, connect_port, blocktime);
+    }
     if (connfd < 0) {
         hloge("connect %s:%d failed!", connect_host, connect_port);
         return connfd;
