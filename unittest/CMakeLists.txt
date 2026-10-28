@@ -41,6 +41,10 @@ target_include_directories(md5 PRIVATE .. ../util)
 add_executable(sha1 sha1_test.c ../util/sha1.c)
 target_include_directories(sha1 PRIVATE .. ../util)
 
+# ------mqtt------
+add_executable(mqtt_protocol_test mqtt_protocol_test.c ../mqtt/mqtt_protocol.c)
+target_include_directories(mqtt_protocol_test PRIVATE .. ../base ../mqtt)
+
 # ------cpputil------
 add_executable(hstring_test hstring_test.cpp ../cpputil/hstring.cpp)
 target_include_directories(hstring_test PRIVATE .. ../base ../cpputil)

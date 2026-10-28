@@ -77,6 +77,9 @@ HV_INLINE int mqtt_estimate_length(mqtt_head_t* head) {
 
 HV_EXPORT int mqtt_head_pack(mqtt_head_t* head, unsigned char buf[]);
 HV_EXPORT int mqtt_head_unpack(mqtt_head_t* head, const unsigned char* buf, int len);
+// Check the fixed header flags (dup, qos, retain) required for the packet type.
+// Returns 1 if valid, 0 if the connection should be closed.
+HV_EXPORT int mqtt_head_flags_valid(const mqtt_head_t* head);
 
 END_EXTERN_C
 
