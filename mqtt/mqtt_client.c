@@ -246,7 +246,12 @@ static void on_packet(hio_t* io, void* buf, int len) {
     unsigned char* end = p + len;
     memset(&cli->head, 0, sizeof(mqtt_head_t));
     int headlen = mqtt_head_unpack(&cli->head, p, len);
-    if (headlen <= 0) return;
+    if (headlen < 0 || (headlen > 0 && !mqtt_head_flags_valid(&cli->head))) {
+        hloge("MQTT malformed fixed header!");
+        hio_close(io);
+        return;
+    }
+    if (headlen == 0) return;
     p += headlen;
     switch (cli->head.type) {
     // case MQTT_TYPE_CONNECT:

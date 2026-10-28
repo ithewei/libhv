@@ -393,6 +393,7 @@ unittest: prepare libhv
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/base64            unittest/base64_test.c        util/base64.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/md5               unittest/md5_test.c           util/md5.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/sha1              unittest/sha1_test.c          util/sha1.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Imqtt     -o bin/mqtt_protocol_test unittest/mqtt_protocol_test.c mqtt/mqtt_protocol.c
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/hstring_test      unittest/hstring_test.cpp     cpputil/hstring.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/hpath_test        unittest/hpath_test.cpp       cpputil/hpath.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/hurl_test         unittest/hurl_test.cpp        cpputil/hurl.cpp base/hbase.c

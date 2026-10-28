@@ -18,5 +18,22 @@ int mqtt_head_unpack(mqtt_head_t* head, const unsigned char* buf, int len) {
     int bytes = len - 1;
     head->length = varint_decode(buf + 1, &bytes);
     if (bytes <= 0) return bytes;
+    // Remaining Length is at most 4 bytes
+    if (bytes > 4) return -1;
     return 1 + bytes;
+}
+
+int mqtt_head_flags_valid(const mqtt_head_t* head) {
+    int flags = (head->dup << 3) | (head->qos << 1) | head->retain;
+    switch (head->type) {
+    case MQTT_TYPE_PUBLISH:
+        // QoS 3 is reserved
+        return head->qos != 3;
+    case MQTT_TYPE_PUBREL:
+    case MQTT_TYPE_SUBSCRIBE:
+    case MQTT_TYPE_UNSUBSCRIBE:
+        return flags == 0x2;
+    default:
+        return flags == 0;
+    }
 }
