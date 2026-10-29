@@ -296,6 +296,9 @@ void HttpHandler::onHeadersComplete() {
         }
         if (status_code != HTTP_STATUS_OK && status_code != HTTP_STATUS_NEXT) {
             SetError(ERR_REQUEST, static_cast<http_status>(status_code));
+            // NOTE: send the status before receiving the body
+            keepalive = false;
+            SendHttpStatusResponse(static_cast<http_status>(status_code));
             return;
         }
     }
