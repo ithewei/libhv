@@ -296,9 +296,7 @@ void HttpHandler::onHeadersComplete() {
         }
         if (status_code != HTTP_STATUS_OK && status_code != HTTP_STATUS_NEXT) {
             SetError(ERR_REQUEST, static_cast<http_status>(status_code));
-            // A header handler can reject a request before its body arrives,
-            // for example during authentication or request-size checks. Send
-            // that response now instead of reading a potentially large body.
+            // NOTE: send the status before receiving the body
             keepalive = false;
             SendHttpStatusResponse(static_cast<http_status>(status_code));
             return;
