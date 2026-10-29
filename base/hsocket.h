@@ -165,6 +165,11 @@ HV_EXPORT int ConnectNonblock(const char* host, int port);
 // Connect(host, port, 1) -> select -> blocking
 #define DEFAULT_CONNECT_TIMEOUT 10000 // ms
 HV_EXPORT int ConnectTimeout(const char* host, int port, int ms DEFAULT(DEFAULT_CONNECT_TIMEOUT));
+// ConnectTimeout with a local address bound before connecting, so that the
+// source address of the outgoing packets is fixed.
+// @param local_host local IP address to bind, e.g. "192.168.1.10" or "fe80::1"
+// @param local_port local port to bind, 0 means let the kernel choose one
+HV_EXPORT int ConnectTimeoutWithLocalAddr(const char* host, int port, int ms, const char* local_host, int local_port);
 
 #ifdef ENABLE_UDS
 HV_EXPORT int BindUnix(const char* path, int type DEFAULT(SOCK_STREAM));

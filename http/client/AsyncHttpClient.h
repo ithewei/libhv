@@ -52,7 +52,12 @@ private:
 struct HttpClientTask {
     HttpRequestPtr          req;
     HttpResponseCallback    cb;
-    uint64_t                start_time;
+    uint64_t                start_time = 0;
+    // 出包源地址（可选）：连接前 bind 到该地址，固定出包的源 IP。
+    // 多网卡环境下内核按路由表选源地址，绑定后出包一定从指定地址出去。
+    // 由 http_client_set_local_addr() 填入，为空表示不绑定。
+    std::string             local_host;
+    int                     local_port = 0;
 };
 typedef std::shared_ptr<HttpClientTask> HttpClientTaskPtr;
 
@@ -185,7 +190,9 @@ public:
     }
 
     // thread-safe
-    int send(const HttpRequestPtr& req, HttpResponseCallback resp_cb);
+    // local_host 非空时，连接前 bind 到 local_host:local_port，固定出包源 IP；
+    // 为空（默认）表示不绑定，由内核按路由表选择源地址。
+    int send(const HttpRequestPtr& req, HttpResponseCallback resp_cb, const char* local_host = NULL, int local_port = 0);
     int send(const HttpClientTaskPtr& task) {
         EventLoopThread::loop()->queueInLoop(std::bind(&AsyncHttpClient::sendInLoop, this, task));
         return 0;

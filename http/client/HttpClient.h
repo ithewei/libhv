@@ -36,6 +36,16 @@ HV_EXPORT const char* http_client_strerror(int errcode);
 // timeout: s
 HV_EXPORT int http_client_set_timeout(http_client_t* cli, int timeout);
 
+// Set the local address to bind before connecting, so that the source address
+// of the outgoing packets is fixed. Useful on multi-NIC hosts, where the
+// kernel would otherwise pick the source address by the routing table.
+// Applies to both the synchronous and the asynchronous client paths.
+// NOTE: set it once, before sending any request -- connections that were
+// already established keep the source address they were created with.
+// @param host local IP address to bind, e.g. "192.168.1.10" or "fe80::1"
+// @param port local port to bind, 0 means let the kernel choose one
+HV_EXPORT int http_client_set_local_addr(http_client_t* cli, const char* host, int port);
+
 // SSL/TLS
 HV_EXPORT int http_client_set_ssl_ctx(http_client_t* cli, hssl_ctx_t ssl_ctx);
 // hssl_ctx_new(opt) -> http_client_set_ssl_ctx
@@ -92,6 +102,14 @@ public:
     // timeout: s
     int setTimeout(int timeout) {
         return http_client_set_timeout(client_.get(), timeout);
+    }
+
+    // Set the local address to bind before connecting, so that the source
+    // address of the outgoing packets is fixed.
+    // @param host local IP address to bind, e.g. "192.168.1.10" or "fe80::1"
+    // @param port local port to bind, 0 means let the kernel choose one
+    int setLocalAddr(const char* host, int port = 0) {
+        return http_client_set_local_addr(client_.get(), host, port);
     }
 
     // SSL/TLS
