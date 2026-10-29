@@ -94,6 +94,10 @@ add_executable(http_client_local_addr_test http_client_local_addr_test.cpp)
 target_include_directories(http_client_local_addr_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/client ../http/server)
 target_link_libraries(http_client_local_addr_test ${HV_LIBRARIES})
 
+add_executable(http_client_local_addr_async_test http_client_local_addr_async_test.cpp)
+target_include_directories(http_client_local_addr_async_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/client ../http/server)
+target_link_libraries(http_client_local_addr_async_test ${HV_LIBRARIES})
+
 if(WITH_HTTP)
 add_executable(websocket_parser_test websocket_parser_test.cpp)
 target_include_directories(websocket_parser_test PRIVATE .. ../base ../http)

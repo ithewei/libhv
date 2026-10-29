@@ -129,7 +129,6 @@ int http_client_set_local_addr(http_client_t* cli, const char* host, int port) {
     cli->has_local_addr = true;
     return 0;
 }
-
 int http_client_set_ssl_ctx(http_client_t* cli, hssl_ctx_t ssl_ctx) {
     cli->ssl_ctx = ssl_ctx;
     return 0;
@@ -970,6 +969,11 @@ static int http_client_exec_async(http_client_t* cli, HttpRequestPtr req, HttpRe
         cli->mutex_.unlock();
     }
 
+    // 源地址绑定：异步路径也要和同步路径（http_client_connect）一样固定出包源 IP。
+    // cli->local_host/local_port 由 http_client_set_local_addr() 设置。
+    if (cli->has_local_addr) {
+        return cli->async_client_->send(req, std::move(resp_cb), cli->local_host.c_str(), cli->local_port);
+    }
     return cli->async_client_->send(req, std::move(resp_cb));
 }
 

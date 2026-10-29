@@ -2,13 +2,17 @@
 
 namespace hv {
 
-int AsyncHttpClient::send(const HttpRequestPtr& req, HttpResponseCallback resp_cb) {
+int AsyncHttpClient::send(const HttpRequestPtr& req, HttpResponseCallback resp_cb, const char* local_host, int local_port) {
     hloop_t* loop = EventLoopThread::hloop();
     if (loop == NULL) return -1;
     auto task = std::make_shared<HttpClientTask>();
     task->req = req;
     task->cb = std::move(resp_cb);
     task->start_time = hloop_now_hrtime(loop);
+    if (local_host && *local_host) {
+        task->local_host = local_host;
+        task->local_port = local_port;
+    }
     if (req->retry_count > 0 && req->retry_delay > 0) {
         req->retry_count = MIN(req->retry_count, req->timeout * 1000 / req->retry_delay - 1);
     }
@@ -122,8 +126,34 @@ int AsyncHttpClient::startConnect(const HttpClientTaskPtr& task, const sockaddr_
         perror("socket");
         return -30;
     }
+
+    // 绑定出包源地址（可选）：多网卡环境下内核按路由表选源 IP 不可控，
+    // 绑定后出包一定从指定地址出去，对端看到的源 IP 才是预期的。
+    // 必须在 hio_get() 之前做：socket 尚未交给 hloop，此时失败可以直接关闭；
+    // 交给 hloop 之后再 close 会和 hloop 自己的清理撞车（double close）。
+    // 绑定失败与同步路径 http_client_connect() 保持一致：直接让本次连接失败。
+    sockaddr_u localaddr;
+    memset(&localaddr, 0, sizeof(localaddr));
+    bool bind_localaddr = false;
+    if (!task->local_host.empty()) {
+        if (sockaddr_set_ipport(&localaddr, task->local_host.c_str(), task->local_port) != 0) {
+            closesocket(connfd);
+            return -1;
+        }
+        if (::bind(connfd, &localaddr.sa, sockaddr_len(&localaddr)) < 0) {
+            // errno 必须在 closesocket 之前取：close 可能改写 errno。
+            int err = socket_errno();
+            closesocket(connfd);
+            return -err;
+        }
+        bind_localaddr = true;
+    }
+
     hio_t* connio = hio_get(EventLoopThread::hloop(), connfd);
     assert(connio != NULL);
+    if (bind_localaddr) {
+        hio_set_localaddr(connio, &localaddr.sa, sockaddr_len(&localaddr));
+    }
     hio_set_peeraddr(connio, &peeraddr.sa, sockaddr_len(&peeraddr));
     const SocketChannelPtr& channel = addChannel(connio);
     channel->getContext<HttpClientContext>()->conn_key = HttpConnKey(*req);
