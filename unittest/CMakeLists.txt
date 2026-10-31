@@ -171,6 +171,17 @@ target_link_libraries(epoll_init_test ${HV_LIBRARIES})
 set(EVENT_UNITTEST_TARGETS epoll_init_test)
 endif()
 
+# ------event: overdue timer fairness------
+add_executable(hloop_timer_fairness_test hloop_timer_fairness_test.c)
+target_include_directories(hloop_timer_fairness_test PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(hloop_timer_fairness_test ${HV_LIBRARIES})
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT BUILD_SHARED AND CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_definitions(hloop_timer_fairness_test PRIVATE HLOOP_TEST_WRAP)
+    set_property(TARGET hloop_timer_fairness_test APPEND_STRING PROPERTY LINK_FLAGS
+        " -Wl,--wrap=iowatcher_poll_events,--wrap=gethrtime_us,--wrap=usleep")
+endif()
+list(APPEND EVENT_UNITTEST_TARGETS hloop_timer_fairness_test)
+
 # ------event: async dns------
 add_executable(hdns_test hdns_test.c)
 target_include_directories(hdns_test PRIVATE .. ../base ../ssl ../event)

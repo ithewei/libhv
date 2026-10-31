@@ -6,6 +6,8 @@ export DYLD_LIBRARY_PATH=${ROOT_DIR}/lib:${DYLD_LIBRARY_PATH}
 export LD_LIBRARY_PATH=${ROOT_DIR}/lib:${LD_LIBRARY_PATH}
 cd ${ROOT_DIR}
 
+bin/hloop_timer_fairness_test || exit $?
+
 bin/rbtree_test
 bin/hbase_test
 bin/date

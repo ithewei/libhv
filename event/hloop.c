@@ -155,9 +155,14 @@ int hloop_process_events(hloop_t* loop, int timeout_ms) {
             int64_t min_timeout = TIMER_ENTRY(loop->realtimers.root)->next_timeout - hloop_now_us(loop);
             blocktime_us = MIN(blocktime_us, min_timeout);
         }
-        if (blocktime_us < 0) goto process_timers;
-        blocktime_ms = blocktime_us / 1000 + 1;
-        blocktime_ms = MIN(blocktime_ms, timeout_ms);
+        if (blocktime_us <= 0) {
+            // Poll ready I/O even when a timer is already due.
+            blocktime_ms = 0;
+        }
+        else {
+            blocktime_ms = blocktime_us / 1000 + 1;
+            blocktime_ms = MIN(blocktime_ms, timeout_ms);
+        }
     }
 
     if (loop->nios) {
@@ -171,7 +176,6 @@ int hloop_process_events(hloop_t* loop, int timeout_ms) {
         return 0;
     }
 
-process_timers:
     if (loop->ntimers) {
         ntimers = hloop_process_timers(loop);
     }
