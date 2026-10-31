@@ -64,6 +64,10 @@ private:
     // ping/pong
     int                 ping_interval;
     int                 ping_cnt;
+    // reconnect backoff saved until upgraded
+    uint32_t            reconn_cur_delay_;
+    uint32_t            reconn_cur_retry_cnt_;
+    bool                reconn_upgrading_;
 };
 
 }
