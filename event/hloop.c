@@ -553,14 +553,19 @@ hloop_status_e hloop_status(hloop_t* loop) {
 
 void hloop_update_time(hloop_t* loop) {
     loop->cur_hrtime = gethrtime_us();
-    if (hloop_now(loop) != time(NULL)) {
+    uint64_t elapsed_ms = (loop->cur_hrtime - loop->start_hrtime) / 1000;
+    uint64_t now_ms = loop->start_ms + elapsed_ms;
+    uint64_t system_ms = gettimeofday_ms();
+    uint64_t drift_ms = system_ms >= now_ms ? system_ms - now_ms : now_ms - system_ms;
+    // Compare complete timestamps: separately truncated seconds can differ without a clock change.
+    if (drift_ms >= 1000) {
         // systemtime changed, we adjust start_ms
-        loop->start_ms = gettimeofday_ms() - (loop->cur_hrtime - loop->start_hrtime) / 1000;
+        loop->start_ms = system_ms - elapsed_ms;
     }
 }
 
 uint64_t hloop_now(hloop_t* loop) {
-    return loop->start_ms / 1000 + (loop->cur_hrtime - loop->start_hrtime) / 1000000;
+    return hloop_now_ms(loop) / 1000;
 }
 
 uint64_t hloop_now_ms(hloop_t* loop) {
