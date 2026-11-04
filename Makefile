@@ -377,7 +377,10 @@ hrpc_calc_server: prepare hrpc_calc_protoc
 
 
 
-unittest: prepare libhv
+hloop_clock_test: prepare libhv
+	$(CC) -g -Wall -O0 -std=c99 -I. -Ibase -Issl -Ievent -o bin/hloop_clock_test unittest/hloop_clock_test.c -Llib -lhv -pthread
+
+unittest: prepare libhv hloop_clock_test
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rbtree_test       unittest/rbtree_test.c        base/rbtree.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hbase_test        unittest/hbase_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
@@ -505,4 +508,4 @@ echo-servers:
 echo-benchmark: echo-servers
 	bash echo-servers/benchmark.sh
 
-.PHONY: clean prepare install uninstall libhv examples unittest evpp echo-servers
+.PHONY: clean prepare install uninstall libhv examples unittest hloop_clock_test evpp echo-servers

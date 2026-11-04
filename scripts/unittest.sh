@@ -28,6 +28,7 @@ bin/hurl_test
 # bin/hthread_test
 # bin/hmutex_test
 bin/socketpair_test
+bin/hloop_clock_test || exit $?
 # bin/threadpool_test
 # bin/objectpool_test
 bin/sizeof_test

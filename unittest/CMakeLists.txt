@@ -163,6 +163,18 @@ set(HTTP_JS_UNITTEST_TARGETS ${HTTP_JS_UNITTEST_TARGETS} http_js_mqtt_test)
 endif()
 endif()
 
+# ------event: cached clocks and wall-clock adjustment------
+add_executable(hloop_clock_test hloop_clock_test.c)
+target_include_directories(hloop_clock_test PRIVATE .. ../base ../ssl ../event)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND TARGET hv_static)
+    target_compile_definitions(hloop_clock_test PRIVATE HLOOP_CLOCK_TEST_WRAPPED)
+    target_link_libraries(hloop_clock_test hv_static)
+    set_property(TARGET hloop_clock_test APPEND_STRING PROPERTY LINK_FLAGS
+        " -Wl,--wrap=gethrtime_us -Wl,--wrap=gettimeofday -Wl,--wrap=time")
+else()
+    target_link_libraries(hloop_clock_test ${HV_LIBRARIES})
+endif()
+
 # ------event: Windows epoll initialization------
 if(WIN32 AND WITH_WEPOLL)
 add_executable(epoll_init_test epoll_init_test.c ../event/wepoll/wepoll.c)
@@ -240,6 +252,7 @@ add_custom_target(unittest DEPENDS
     ${HTTP_LUA_UNITTEST_TARGETS}
     ${HTTP_JS_UNITTEST_TARGETS}
     ${EVENT_UNITTEST_TARGETS}
+    hloop_clock_test
     hdns_test
     hdns_benchmark
     ${REDIS_UNITTEST_TARGETS}
