@@ -16,6 +16,18 @@ static int on_frame_header(websocket_parser* parser) {
     WebSocketParser* wp = (WebSocketParser*)parser->data;
     int opcode = parser->flags & WS_OP_MASK;
     // printf("on_frame_header opcode=%d\n", opcode);
+    switch (opcode) {
+    case WS_OP_CONTINUE:
+    case WS_OP_TEXT:
+    case WS_OP_BINARY:
+    case WS_OP_CLOSE:
+    case WS_OP_PING:
+    case WS_OP_PONG: break;
+    default: return -1;
+    }
+    if (wp->is_server && !(parser->flags & WS_HAS_MASK)) {
+        return -1;
+    }
     if (is_control_frame(parser)) {
         // RFC 6455 5.5: control frames MUST NOT be fragmented and MUST have
         // a payload length of 125 bytes or less.
@@ -88,6 +100,7 @@ WebSocketParser::WebSocketParser() {
     parser->data = this;
     state = WS_FRAME_BEGIN;
     opcode = WS_OP_CLOSE;
+    is_server = false;
 }
 
 WebSocketParser::~WebSocketParser() {
