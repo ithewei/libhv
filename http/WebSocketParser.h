@@ -21,6 +21,7 @@ public:
     websocket_parser*                   parser;
     websocket_parser_state              state;
     int                                 opcode;
+    bool                                is_server; // Require masked incoming frames; false by default.
     std::string                         message;
     std::string                         control_message;
     std::function<void(int opcode, const std::string& msg)> onMessage;
