@@ -180,6 +180,11 @@ add_executable(hdns_benchmark hdns_benchmark.c)
 target_include_directories(hdns_benchmark PRIVATE .. ../base ../ssl ../event)
 target_link_libraries(hdns_benchmark ${HV_LIBRARIES})
 
+# ------event: graceful TCP close------
+add_executable(tcp_eof_drain_test tcp_eof_drain_test.c)
+target_include_directories(tcp_eof_drain_test PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(tcp_eof_drain_test ${HV_LIBRARIES})
+
 # ------redis------
 if(WITH_EVPP AND WITH_REDIS)
 add_executable(redis_protocol_test redis_protocol_test.cpp ../redis/RedisMessage.cpp)
@@ -219,6 +224,7 @@ add_custom_target(unittest DEPENDS
     hmutex_test
     connect_test
     socketpair_test
+    tcp_eof_drain_test
     base64
     md5
     sha1

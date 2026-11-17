@@ -296,6 +296,16 @@ read:
         }
     }
     if (nread == 0 && (io->io_type & HIO_TYPE_SOCK_STREAM)) {
+        if (io->io_type == HIO_TYPE_TCP) {
+            // FIN stays readable, but the peer can still receive queued writes.
+            if (hio_read_stop(io) != 0) {
+                io->error = socket_errno();
+            }
+            else if (io->close && io->error == 0) {
+                // A graceful close is already draining with its own timeout.
+                return;
+            }
+        }
         goto disconnect;
     }
     if (nread < len) {
