@@ -86,7 +86,7 @@ struct hevent_s {
 };
 
 #define hevent_set_id(ev, id)           ((hevent_t*)(ev))->event_id = id
-#define hevent_set_cb(ev, cb)           ((hevent_t*)(ev))->cb = cb
+#define hevent_set_cb(ev, callback)     ((hevent_t*)(ev))->cb = (callback)
 #define hevent_set_priority(ev, prio)   ((hevent_t*)(ev))->priority = prio
 #define hevent_set_userdata(ev, udata)  ((hevent_t*)(ev))->userdata = (void*)udata
 

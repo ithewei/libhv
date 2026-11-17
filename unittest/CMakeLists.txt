@@ -72,6 +72,10 @@ add_executable(objectpool_test objectpool_test.cpp)
 target_include_directories(objectpool_test PRIVATE .. ../base ../cpputil)
 target_link_libraries(objectpool_test -lpthread)
 
+# ------event: public callback setter------
+add_executable(hevent_set_cb_test hevent_set_cb_test.c)
+target_include_directories(hevent_set_cb_test PRIVATE .. ../base ../ssl ../event)
+
 # ------protocol------
 add_executable(nslookup nslookup_test.c ../protocol/dns.c ../base/hsocket.c ../base/htime.c)
 target_include_directories(nslookup PRIVATE .. ../base ../protocol)
@@ -214,6 +218,7 @@ add_custom_target(unittest DEPENDS
     mkdir_p
     rmdir_p
     date
+    hevent_set_cb_test
     hatomic_test
     hthread_test
     hmutex_test
