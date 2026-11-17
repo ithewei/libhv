@@ -231,6 +231,7 @@ struct hio_s {
  *
  * hloop_stop => hloop_free => hio_free => HV_FREE(io)
  */
+int hio_watch_read(hio_t* io);
 void hio_init(hio_t* io);
 void hio_ready(hio_t* io);
 void hio_done(hio_t* io);

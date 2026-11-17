@@ -8,6 +8,9 @@ cd ${ROOT_DIR}
 
 bin/rbtree_test
 bin/hbase_test
+if [ -x bin/read_registration_test ]; then
+    bin/read_registration_test || exit $?
+fi
 bin/date
 bin/ifconfig
 bin/mkdir_p 123/456

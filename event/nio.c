@@ -469,18 +469,12 @@ int hio_connect(hio_t* io) {
     return hio_add(io, hio_handle_events, HV_WRITE);
 }
 
-int hio_read (hio_t* io) {
+int hio_watch_read(hio_t* io) {
     if (io->closed) {
         hloge("hio_read called but fd[%d] already closed!", io->fd);
         return -1;
     }
-    hio_add(io, hio_handle_events, HV_READ);
-    if (io->readbuf.tail > io->readbuf.head &&
-        io->unpack_setting == NULL &&
-        io->read_flags == 0) {
-        hio_read_remain(io);
-    }
-    return 0;
+    return hio_add(io, hio_handle_events, HV_READ);
 }
 
 static int hio_write4 (hio_t* io, const void* buf, size_t len, struct sockaddr* addr) {

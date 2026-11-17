@@ -31,6 +31,13 @@ target_include_directories(connect_test PRIVATE .. ../base)
 add_executable(socketpair_test socketpair_test.c ../base/hsocket.c ../base/htime.c)
 target_include_directories(socketpair_test PRIVATE .. ../base)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND NOT WITH_IO_URING)
+add_executable(read_registration_test read_registration_test.c)
+target_include_directories(read_registration_test PRIVATE .. ../base ../ssl ../event)
+target_link_libraries(read_registration_test ${HV_LIBRARIES})
+set(READ_REGISTRATION_UNITTEST_TARGET read_registration_test)
+endif()
+
 # ------util------
 add_executable(base64 base64_test.c ../util/base64.c)
 target_include_directories(base64 PRIVATE .. ../util)
@@ -235,6 +242,7 @@ add_custom_target(unittest DEPENDS
     ping
     ftp
     sendmail
+    ${READ_REGISTRATION_UNITTEST_TARGET}
     http_router_test
     ${HTTP_UNITTEST_TARGETS}
     ${HTTP_LUA_UNITTEST_TARGETS}
