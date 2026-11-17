@@ -384,6 +384,7 @@ unittest: prepare libhv
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rmdir_p           unittest/rmdir_test.c         base/hbase.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/date              unittest/date_test.c          base/htime.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hlog_test         unittest/hlog_test.c          base/hlog.c
+	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hevent_set_cb_test unittest/hevent_set_cb_test.c
 	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hatomic_test      unittest/hatomic_test.c       -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase            -o bin/hatomic_cpp_test  unittest/hatomic_test.cpp     -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase            -o bin/hthread_test      unittest/hthread_test.cpp     -pthread

@@ -14,6 +14,7 @@ bin/mkdir_p 123/456
 bin/ls
 bin/rmdir_p 123/456
 bin/hlog_test
+bin/hevent_set_cb_test || exit $?
 
 bin/base64
 bin/md5
