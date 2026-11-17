@@ -71,6 +71,7 @@ fi
 if [ -x bin/lua_mqtt_test ]; then
     bin/lua_mqtt_test || exit $?
 fi
+bin/tcp_eof_drain_test || exit $?
 if [ -x bin/hdns_test ]; then
     bin/hdns_test
 fi
