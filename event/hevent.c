@@ -767,8 +767,9 @@ size_t hio_write_bufsize(hio_t* io) {
 }
 
 int hio_read_once (hio_t* io) {
+    if (hio_watch_read(io) != 0) return -1;
     io->read_flags |= HIO_READ_ONCE;
-    return hio_read_start(io);
+    return 0;
 }
 
 int hio_read_until_length(hio_t* io, unsigned int len) {
@@ -782,7 +783,8 @@ int hio_read_until_length(hio_t* io, unsigned int len) {
         hio_read_cb(io, buf, len);
         return len;
     }
-    io->read_flags = HIO_READ_UNTIL_LENGTH;
+    if (hio_watch_read(io) != 0) return -1;
+    io->read_flags = HIO_READ_ONCE | HIO_READ_UNTIL_LENGTH;
     io->read_until_length = len;
     if (io->readbuf.head > 1024 || io->readbuf.tail - io->readbuf.head < 1024) {
         hio_memmove_readbuf(io);
@@ -793,7 +795,7 @@ int hio_read_until_length(hio_t* io, unsigned int len) {
         io->readbuf.len < need_len) {
         hio_alloc_readbuf(io, need_len);
     }
-    return hio_read_once(io);
+    return 0;
 }
 
 int hio_read_until_delim(hio_t* io, unsigned char delim) {
@@ -814,14 +816,15 @@ int hio_read_until_delim(hio_t* io, unsigned char delim) {
             ++p;
         }
     }
-    io->read_flags = HIO_READ_UNTIL_DELIM;
+    if (hio_watch_read(io) != 0) return -1;
+    io->read_flags = HIO_READ_ONCE | HIO_READ_UNTIL_DELIM;
     io->read_until_length = delim;
     // NOTE: prepare readbuf
     if (hio_is_loop_readbuf(io) ||
         io->readbuf.len < HLOOP_READ_BUFSIZE) {
         hio_alloc_readbuf(io, HLOOP_READ_BUFSIZE);
     }
-    return hio_read_once(io);
+    return 0;
 }
 
 int hio_read_remain(hio_t* io) {

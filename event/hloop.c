@@ -233,6 +233,8 @@ unlock:
     hmutex_unlock(&loop->custom_events_mutex);
 }
 
+static void hloop_destroy_eventfds(hloop_t* loop);
+
 static int hloop_create_eventfds(hloop_t* loop) {
 #if defined(OS_UNIX) && HAVE_EVENTFD
     int efd = eventfd(0, 0);
@@ -252,7 +254,14 @@ static int hloop_create_eventfds(hloop_t* loop) {
         return -1;
     }
 #endif
-    hio_t* io = hread(loop, loop->eventfds[EVENTFDS_READ_INDEX], NULL, 0, eventfd_read_cb);
+    hio_t* io = hio_get(loop, loop->eventfds[EVENTFDS_READ_INDEX]);
+    if (hio_watch_read(io) != 0) {
+        hio_detach(io);
+        hio_free(io);
+        hloop_destroy_eventfds(loop);
+        return -1;
+    }
+    io->read_cb = eventfd_read_cb;
     io->priority = HEVENT_HIGH_PRIORITY;
     ++loop->intern_nevents;
     return 0;
@@ -266,8 +275,7 @@ static void hloop_destroy_eventfds(hloop_t* loop) {
     SAFE_CLOSE(loop->eventfds[0]);
     SAFE_CLOSE(loop->eventfds[1]);
 #else
-    // NOTE: Avoid duplication closesocket in hio_cleanup
-    // SAFE_CLOSESOCKET(loop->eventfds[EVENTFDS_READ_INDEX]);
+    // The read hio closes the socketpair reader.
     SAFE_CLOSESOCKET(loop->eventfds[EVENTFDS_WRITE_INDEX]);
 #endif
     loop->eventfds[0] = loop->eventfds[1] = -1;
@@ -476,12 +484,14 @@ int hloop_run(hloop_t* loop) {
     loop->tid = hv_gettid();
     hlogd("hloop_run tid=%ld", loop->tid);
 
+    int ret = 0;
     if (loop->intern_nevents == 0) {
         hmutex_lock(&loop->custom_events_mutex);
         if (loop->eventfds[EVENTFDS_WRITE_INDEX] == -1) {
-            hloop_create_eventfds(loop);
+            ret = hloop_create_eventfds(loop);
         }
         hmutex_unlock(&loop->custom_events_mutex);
+        if (ret != 0) goto done;
 
 #ifdef DEBUG
         htimer_add(loop, hloop_stat_timer_cb, HLOOP_STAT_TIMEOUT, INFINITE);
@@ -506,13 +516,14 @@ int hloop_run(hloop_t* loop) {
         }
     }
 
+done:
     loop->status = HLOOP_STATUS_STOP;
     loop->end_hrtime = gethrtime_us();
 
     if (loop->flags & HLOOP_FLAG_AUTO_FREE) {
         hloop_free(&loop);
     }
-    return 0;
+    return ret;
 }
 
 int hloop_wakeup(hloop_t* loop) {
@@ -886,10 +897,6 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
         hio_ready(io);
     }
 
-    if (cb) {
-        io->cb = (hevent_cb)cb;
-    }
-
     int add_events = events & ~io->events;
     if (add_events && iowatcher_add_event(loop, io->fd, add_events) != 0) {
         hlogd("iowatcher_add_event failed fd=%d add_events=%d io->events=%d err=%d",
@@ -897,6 +904,9 @@ int hio_add(hio_t* io, hio_cb cb, int events) {
         return -1;
     }
     io->events |= add_events;
+    if (cb) {
+        io->cb = (hevent_cb)cb;
+    }
 
     if (!io->active) {
         // A NULL callback only changes the watched mask. Keep the transport
@@ -953,9 +963,8 @@ int hio_close_async(hio_t* io) {
 }
 
 //------------------high-level apis-------------------------------------------
-hio_t* hread(hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
-    hio_t* io = hio_get(loop, fd);
-    assert(io != NULL);
+static int hio_start_read(hio_t* io, void* buf, size_t len, hread_cb read_cb) {
+    if (hio_watch_read(io) != 0) return -1;
     if (buf && len) {
         io->readbuf.base = (char*)buf;
         io->readbuf.len = len;
@@ -963,8 +972,20 @@ hio_t* hread(hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
     if (read_cb) {
         io->read_cb = read_cb;
     }
-    hio_read(io);
-    return io;
+    if (io->readbuf.tail > io->readbuf.head && io->unpack_setting == NULL && io->read_flags == 0) {
+        hio_read_remain(io);
+    }
+    return 0;
+}
+
+int hio_read(hio_t* io) {
+    return hio_start_read(io, NULL, 0, NULL);
+}
+
+hio_t* hread(hloop_t* loop, int fd, void* buf, size_t len, hread_cb read_cb) {
+    hio_t* io = hio_get(loop, fd);
+    assert(io != NULL);
+    return hio_start_read(io, buf, len, read_cb) == 0 ? io : NULL;
 }
 
 hio_t* hwrite(hloop_t* loop, int fd, const void* buf, size_t len, hwrite_cb write_cb) {
