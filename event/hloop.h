@@ -433,7 +433,7 @@ HV_EXPORT int hio_accept (hio_t* io);
 // and TLS handshakes have completed. It is not merely TCP connect completion.
 HV_EXPORT int hio_connect(hio_t* io);
 
-// Returns -1 if the read watch could not be installed. Buffered input is preserved on failure.
+// Returns -1 if the backend reports a read-watch registration failure. Buffered input is preserved on failure.
 // hio_add(io, HV_READ) => read => hread_cb
 HV_EXPORT int hio_read   (hio_t* io);
 #define hio_read_start(io) hio_read(io)
