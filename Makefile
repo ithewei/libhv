@@ -416,6 +416,13 @@ ifeq ($(WITH_EVPP), yes)
 endif
 ifeq ($(WITH_HTTP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ihttp -o bin/websocket_parser_test unittest/websocket_parser_test.cpp -Llib -lhv -pthread
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_HTTP_CLIENT), yes)
+ifeq ($(WITH_HTTP_SERVER), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/client -Ihttp/server -o bin/websocket_client_close_test unittest/websocket_client_close_test.cpp -Llib -lhv -pthread
+endif
+endif
+endif
 endif
 ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_REDIS), yes)

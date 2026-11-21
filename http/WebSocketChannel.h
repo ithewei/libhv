@@ -1,6 +1,7 @@
 #ifndef HV_WEBSOCKET_CHANNEL_H_
 #define HV_WEBSOCKET_CHANNEL_H_
 
+#include <atomic>
 #include <mutex>
 
 #include "Channel.h"
@@ -12,6 +13,12 @@ namespace hv {
 
 class HV_EXPORT WebSocketChannel : public SocketChannel {
 public:
+    enum CloseCode {
+        NoCloseFrame  = -1, // no peer CLOSE received
+        NoCloseStatus = -2, // peer CLOSE without a complete status code
+        LocalClose    = -3, // application closed the client
+    };
+
     ws_session_type type;
     WebSocketChannel(hio_t* io, ws_session_type type = WS_CLIENT)
         : SocketChannel(io)
@@ -35,6 +42,11 @@ public:
     int sendPong();
 
     int close() {
+        if (type == WS_CLIENT && isOpened()) {
+            // A write callback can request a local close while echoing a peer CLOSE.
+            int expected = NoCloseFrame;
+            close_code_.compare_exchange_strong(expected, LocalClose);
+        }
         return SocketChannel::close(type == WS_SERVER);
     }
 
@@ -44,6 +56,8 @@ protected:
 public:
     enum ws_opcode  opcode;
 private:
+    friend class WebSocketClient;
+    std::atomic<int> close_code_{NoCloseFrame};
     Buffer      sendbuf_;
     std::mutex  mutex_;
 };
