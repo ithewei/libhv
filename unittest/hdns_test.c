@@ -8,7 +8,7 @@
  * Covered:
  *   1. numeric IPv4 fast path
  *   2. numeric IPv6 fast path
- *   3. /etc/hosts lookup (localhost)
+ *   3. local localhost answers
  *   4. real query round-trip against a mock nameserver (wire build + parse)
  *   5. cache hit (second resolve does not hit the mock server)
  *   6. NXDOMAIN handling
@@ -17,6 +17,9 @@
  *   9. IO close callback can cancel pending DNS during loop cleanup
  */
 
+#ifdef NDEBUG
+#undef NDEBUG
+#endif
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,6 +32,7 @@
 #include "htime.h"
 
 #ifdef OS_WIN
+#include "hdns_win.h"
 #define test_setenv(name, value)   _putenv_s(name, value)
 #define test_unsetenv(name)        _putenv_s(name, "")
 #else
@@ -165,6 +169,101 @@ static void run_expect(hloop_t* loop, const char* host, const hdns_setting_t* op
     assert(e.got == 1);
 }
 
+static void on_localhost(hdns_t* query, const hdns_result_t* result, void* userdata) {
+    expect_t* e = (expect_t*)userdata;
+    (void)query;
+    assert(!e->got);
+    e->got = 1;
+    assert(result->status == HDNS_STATUS_OK);
+    assert(result->naddrs == e->want_min_addrs);
+    for (int i = 0; i < result->naddrs; ++i) {
+        sockaddr_u expected;
+        memset(&expected, 0, sizeof(expected));
+        if (result->addrs[i].sa.sa_family == AF_INET) {
+            expected.sin.sin_family = AF_INET;
+            expected.sin.sin_addr.s_addr = htonl(0x7f000001);
+        } else {
+            assert(result->addrs[i].sa.sa_family == AF_INET6);
+            expected.sin6.sin6_family = AF_INET6;
+            ((unsigned char*)&expected.sin6.sin6_addr)[15] = 1;
+        }
+        assert(sockaddr_compare(&result->addrs[i], &expected) == 0);
+        if (result->naddrs == 1) assert(result->addrs[i].sa.sa_family == e->want_status);
+        if (result->naddrs == 2) assert(result->addrs[i].sa.sa_family == (i == 0 ? AF_INET : AF_INET6));
+    }
+    hloop_stop(e->loop);
+}
+
+static void test_localhost(hloop_t* loop, const char* host, hdns_setting_t* opt, int family, int count) {
+    expect_t e;
+    memset(&e, 0, sizeof(e));
+    e.loop = loop;
+    e.want_status = family;
+    e.want_min_addrs = count;
+    int before = g_mock_queries;
+    hdns_t* q = hdns_resolve_ex(loop, host, opt, on_localhost, &e);
+    assert(q != NULL);
+    assert(!e.got);
+    hloop_run(loop);
+    assert(e.got && g_mock_queries == before);
+}
+
+#ifdef OS_WIN
+static void test_windows_nameservers(void) {
+    IP_ADAPTER_ADDRESSES adapters[3];
+    IP_ADAPTER_DNS_SERVER_ADDRESS dns[6];
+    IP_ADAPTER_GATEWAY_ADDRESS gateway;
+    struct sockaddr_in6 ip6[4];
+    struct sockaddr_in ip4[2];
+    sockaddr_u out[4];
+    memset(adapters, 0, sizeof(adapters));
+    memset(dns, 0, sizeof(dns));
+    memset(&gateway, 0, sizeof(gateway));
+    memset(ip6, 0, sizeof(ip6));
+    memset(ip4, 0, sizeof(ip4));
+    for (int i = 0; i < 3; ++i) {
+        adapters[i].OperStatus = IfOperStatusUp;
+        if (i < 2) adapters[i].Next = &adapters[i + 1];
+    }
+    adapters[0].FirstDnsServerAddress = &dns[0];
+    adapters[1].FirstDnsServerAddress = &dns[4];
+    adapters[1].FirstGatewayAddress = &gateway;
+    adapters[1].Ipv6IfIndex = 42;
+    adapters[2].OperStatus = IfOperStatusDown;
+    adapters[2].FirstDnsServerAddress = &dns[5];
+    for (int i = 0; i < 4; ++i) {
+        ip6[i].sin6_family = AF_INET6;
+        dns[i].Address.lpSockaddr = (struct sockaddr*)&ip6[i];
+        dns[i].Address.iSockaddrLength = sizeof(ip6[i]);
+        if (i < 3) dns[i].Next = &dns[i + 1];
+    }
+    assert(inet_pton(AF_INET6, "fec0:0:0:ffff::1", &ip6[0].sin6_addr) == 1);
+    assert(inet_pton(AF_INET6, "fec0:0:0:ffff::2", &ip6[1].sin6_addr) == 1);
+    assert(inet_pton(AF_INET6, "fec0:0:0:ffff::3", &ip6[2].sin6_addr) == 1);
+    assert(inet_pton(AF_INET6, "fe80::53", &ip6[3].sin6_addr) == 1);
+    ip6[3].sin6_scope_id = 7;
+    for (int i = 0; i < 2; ++i) {
+        ip4[i].sin_family = AF_INET;
+        ip4[i].sin_addr.s_addr = htonl(0x0a000001 + i);
+        dns[i + 4].Address.lpSockaddr = (struct sockaddr*)&ip4[i];
+        dns[i + 4].Address.iSockaddrLength = sizeof(ip4[i]);
+    }
+    dns[4].Next = &dns[3];
+    dns[3].Next = NULL;
+    assert(hdns__win_nameservers(adapters, out, 4) == 2);
+    assert(out[0].sin.sin_addr.s_addr == ip4[0].sin_addr.s_addr);
+    assert(out[0].sin.sin_port == htons(53));
+    assert(out[1].sin6.sin6_scope_id == 7 && out[1].sin6.sin6_port == htons(53));
+    ip6[3].sin6_scope_id = 0;
+    assert(hdns__win_nameservers(adapters, out, 4) == 2);
+    assert(out[1].sin6.sin6_scope_id == 42);
+    adapters[1].Ipv6IfIndex = 0;
+    assert(hdns__win_nameservers(adapters, out, 4) == 1);
+    adapters[1].FirstGatewayAddress = NULL;
+    assert(hdns__win_nameservers(adapters, out, 4) == 1);
+}
+#endif
+
 // callback that must NEVER be invoked (cancel test)
 static int g_cancel_cb_called = 0;
 static void on_never(hdns_t* query, const hdns_result_t* result, void* userdata) {
@@ -237,13 +336,19 @@ int main() {
         run_expect(loop, "::1", &o6, HDNS_STATUS_OK, 1);
     }
 
-    // 3) /etc/hosts: localhost should resolve without touching the mock
+    // 3) localhost names resolve locally, independent of the hosts file
     {
-        int before = g_mock_queries;
         hdns_setting_t oh = opt;
+        oh.use_cache = 0;
+        oh.family = HDNS_QUERY_A;
+        test_localhost(loop, "localhost", &oh, AF_INET, 1);
+        oh.family = HDNS_QUERY_AAAA;
+        test_localhost(loop, "LOCALHOST.", &oh, AF_INET6, 1);
         oh.family = HDNS_QUERY_BOTH;
-        run_expect(loop, "localhost", &oh, HDNS_STATUS_OK, 1);
-        assert(g_mock_queries == before); // hosts hit, no query sent
+        test_localhost(loop, "example.LocalHost.", &oh, 0, 2);
+        int before = g_mock_queries;
+        run_expect(loop, "notlocalhost", &oh, HDNS_STATUS_OK, 1);
+        assert(g_mock_queries > before);
     }
 
     // 4) real query round-trip against the mock nameserver
@@ -309,6 +414,9 @@ int main() {
     hloop_free(&loop);
 
     test_cleanup_cancel_pending_dns();
+#ifdef OS_WIN
+    test_windows_nameservers();
+#endif
     printf("\nALL hdns_test PASSED\n");
     return 0;
 }

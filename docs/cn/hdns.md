@@ -17,9 +17,9 @@
 - 异步 A（IPv4）/ AAAA（IPv6）查询，纯事件驱动。
 - 自动读取系统 nameserver：
   - Unix/Linux/macOS：解析 `/etc/resolv.conf`；
-  - Windows：`GetAdaptersAddresses()`（链接 `iphlpapi`）；
+  - Windows：`GetAdaptersAddresses()`（链接 `iphlpapi`），优先使用有网关的适配器，跳过占位 DNS 地址并保留 IPv6 作用域；
   - 任意平台若拿不到 nameserver，统一回退到 `8.8.8.8`。
-- 加载 `/etc/hosts`（Windows 为 `%SystemRoot%\System32\drivers\etc\hosts`），查询前先查表，`localhost` 等本地映射行为与系统一致。
+- `localhost` 及其子域名直接返回所请求地址族的回环地址；其他名称在查询前先查 `/etc/hosts`（Windows 为 `%SystemRoot%\System32\drivers\etc\hosts`）。
 - 数字 IP 快速路径（字面量 IPv4/IPv6 不发起查询）。
 - 每次查询支持超时、重试、多 nameserver 轮转。
 - DNS 名字压缩解析。
