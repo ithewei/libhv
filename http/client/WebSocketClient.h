@@ -24,6 +24,10 @@ public:
     // PATCH: onmessage not given opcode
     enum ws_opcode opcode() { return channel ? channel->opcode : WS_OPCODE_CLOSE; }
 
+    using CloseCode = WebSocketChannel::CloseCode;
+    // Read in onclose. A nonnegative value is the status code sent by the peer.
+    int getCloseCode() const { return channel ? channel->close_code_.load() : CloseCode::NoCloseFrame; }
+
     WebSocketClient(EventLoopPtr loop = NULL);
     virtual ~WebSocketClient();
 

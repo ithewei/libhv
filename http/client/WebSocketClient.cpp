@@ -101,7 +101,11 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
             http_parser_->InitResponse(http_resp_.get());
         } else {
             state = WS_CLOSED;
+            // A later DNS failure can reuse this channel. Clear it after the
+            // notification even if the callback replaced the client's channel.
+            WebSocketChannelPtr closed = channel;
             if (onclose) onclose();
+            closed->close_code_ = CloseCode::NoCloseFrame;
         }
     };
     onMessage = [this](const WebSocketChannelPtr& channel, Buffer* buf) {
@@ -111,7 +115,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
             int nparse = http_parser_->FeedRecvData(data, size);
             if (nparse != size && http_parser_->GetError()) {
                 hloge("http parse error!");
-                channel->close();
+                channel->SocketChannel::close();
                 return;
             }
             data += nparse;
@@ -134,7 +138,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                         }
                     }
                     hloge("server side could not upgrade to websocket: status_code=%d", http_resp_->status_code);
-                    channel->close();
+                    channel->SocketChannel::close();
                     return;
                 }
                 std::string ws_key = http_req_->GetHeader(SEC_WEBSOCKET_KEY);
@@ -143,18 +147,29 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                 std::string ws_accept2 = http_resp_->GetHeader(SEC_WEBSOCKET_ACCEPT);
                 if (strcmp(ws_accept, ws_accept2.c_str()) != 0) {
                     hloge("Sec-WebSocket-Accept not match!");
-                    channel->close();
+                    channel->SocketChannel::close();
                     return;
                 }
                 ws_parser_ = std::make_shared<WebSocketParser>();
                 // websocket_onmessage
-                ws_parser_->onMessage = [this, &channel](int opcode, const std::string& msg) {
+                ws_parser_->onMessage = [this, channel](int opcode, const std::string& msg) {
                     channel->opcode = (enum ws_opcode)opcode;
                     switch (opcode) {
                     case WS_OPCODE_CLOSE:
+                    {
+                        // An earlier message in the same read may have closed the channel.
+                        if (!channel->isConnected()) break;
+                        uint16_t code;
+                        if (msg.size() >= sizeof(code)) {
+                            memcpy(&code, msg.data(), sizeof(code));
+                            channel->close_code_ = ntohs(code);
+                        } else {
+                            channel->close_code_ = CloseCode::NoCloseStatus;
+                        }
                         channel->send(msg, WS_OPCODE_CLOSE);
-                        channel->close();
+                        channel->SocketChannel::close();
                         break;
+                    }
                     case WS_OPCODE_PING:
                     {
                         // printf("recv ping\n");
@@ -183,7 +198,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
                         if (channel == NULL) return;
                         if (ping_cnt++ == 3) {
                             hloge("websocket no pong!");
-                            channel->close();
+                            channel->SocketChannel::close();
                             return;
                         }
                         // printf("send ping\n");
@@ -197,7 +212,7 @@ int WebSocketClient::open(const char* _url, const http_headers& headers) {
             int nparse = ws_parser_->FeedRecvData(data, size);
             if (nparse != size) {
                 hloge("websocket parse error!");
-                channel->close();
+                channel->SocketChannel::close();
                 return;
             }
         }
