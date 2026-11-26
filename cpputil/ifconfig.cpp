@@ -39,6 +39,7 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
     ifcs.clear();
     ifconfig_t tmp;
     for (int i = 0; i < cnt; ++i) {
+        tmp.ifindex = if_nametoindex(ifc.ifc_req[i].ifr_name);
         // name
         strcpy(ifr.ifr_name, ifc.ifc_req[i].ifr_name);
         //printf("name: %s\n", ifr.ifr_name);
@@ -125,6 +126,7 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
             pAddr->PhysicalAddress[5]);
 
         memset(&ifc, 0, sizeof(ifc));
+        ifc.ifindex = pAddr->IfIndex;
         strncpy(ifc.name, pAddr->AdapterName, sizeof(ifc.name));
         strncpy(ifc.ip, "0.0.0.0", sizeof(ifc.ip));
         strncpy(ifc.mask, "255.255.255.255", sizeof(ifc.mask));
@@ -167,6 +169,7 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
 #elif defined(OS_MAC)
 #include <ifaddrs.h>
 #include <net/if_dl.h>
+#include <net/if.h>
 int ifconfig(std::vector<ifconfig_t>& ifcs) {
     struct ifaddrs *ifas, *ifap;
     int ret = getifaddrs(&ifas);
@@ -185,6 +188,7 @@ int ifconfig(std::vector<ifconfig_t>& ifcs) {
                 continue;
             }
             memset(&tmp, 0, sizeof(tmp));
+            tmp.ifindex = if_nametoindex(ifap->ifa_name);
             strncpy(tmp.name, ifap->ifa_name, sizeof(tmp.name));
             strncpy(tmp.ip, ip, sizeof(tmp.ip));
             // netmask

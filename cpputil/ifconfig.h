@@ -11,6 +11,7 @@
 #endif
 
 typedef struct ifconfig_s {
+    unsigned int ifindex;
     char name[128];
     char ip[16];
     char mask[16];
