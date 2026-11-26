@@ -90,6 +90,13 @@ target_include_directories(sendmail PRIVATE .. ../base ../protocol ../util)
 add_executable(http_router_test http_router_test.cpp)
 target_include_directories(http_router_test PRIVATE ../http/server)
 
+if(WITH_EVPP AND WITH_HTTP AND WITH_HTTP_SERVER AND WITH_HTTP_CLIENT)
+add_executable(http_static_not_modified_test http_static_not_modified_test.cpp)
+target_include_directories(http_static_not_modified_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server ../http/client)
+target_link_libraries(http_static_not_modified_test ${HV_LIBRARIES})
+set(HTTP_STATIC_UNITTEST_TARGETS http_static_not_modified_test)
+endif()
+
 if(WITH_HTTP)
 add_executable(websocket_parser_test websocket_parser_test.cpp)
 target_include_directories(websocket_parser_test PRIVATE .. ../base ../http)
@@ -237,6 +244,7 @@ add_custom_target(unittest DEPENDS
     sendmail
     http_router_test
     ${HTTP_UNITTEST_TARGETS}
+    ${HTTP_STATIC_UNITTEST_TARGETS}
     ${HTTP_LUA_UNITTEST_TARGETS}
     ${HTTP_JS_UNITTEST_TARGETS}
     ${EVENT_UNITTEST_TARGETS}

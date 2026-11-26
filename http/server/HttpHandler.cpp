@@ -24,6 +24,19 @@ using namespace hv;
 #define HTTP_200_CONNECT_RESPONSE       "HTTP/1.1 200 Connection established\r\n\r\n"
 #define HTTP_200_CONNECT_RESPONSE_LEN   39
 
+// Whether an If-None-Match value ("*" or a list of entity tags) matches etag,
+// using the weak comparison (RFC 9110 section 13.1.2).
+static bool if_none_match(const std::string& value, const char* etag) {
+    if (strncmp(etag, "W/", 2) == 0) etag += 2;
+    for (const auto& item : hv::split(value, ',')) {
+        std::string tag = hv::trim(item);
+        if (tag == "*") return true;
+        if (tag.compare(0, 2, "W/") == 0) tag.erase(0, 2);
+        if (tag == etag) return true;
+    }
+    return false;
+}
+
 HttpHandler::HttpHandler(hio_t* io) :
     protocol(HttpHandler::UNKNOWN),
     state(WANT_RECV),
@@ -688,19 +701,21 @@ int HttpHandler::defaultStaticHandler() {
         }
     }
     else {
-        // Not Modified
+        // Not Modified: If-Modified-Since is only evaluated when the request
+        // has no If-None-Match (RFC 9110 section 13.2.2)
         auto iter = req->headers.find("if-none-match");
-        if (iter != req->headers.end() &&
-            strcmp(iter->second.c_str(), fc->etag) == 0) {
-            fc = NULL;
-            return HTTP_STATUS_NOT_MODIFIED;
-        }
-
-        iter = req->headers.find("if-modified-since");
-        if (iter != req->headers.end() &&
-            strcmp(iter->second.c_str(), fc->last_modified) == 0) {
-            fc = NULL;
-            return HTTP_STATUS_NOT_MODIFIED;
+        if (iter != req->headers.end()) {
+            if (if_none_match(iter->second, fc->etag)) {
+                fc = NULL;
+                return HTTP_STATUS_NOT_MODIFIED;
+            }
+        } else {
+            iter = req->headers.find("if-modified-since");
+            if (iter != req->headers.end() &&
+                strcmp(iter->second.c_str(), fc->last_modified) == 0) {
+                fc = NULL;
+                return HTTP_STATUS_NOT_MODIFIED;
+            }
         }
     }
     return status_code;
