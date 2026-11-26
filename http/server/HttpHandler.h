@@ -174,6 +174,12 @@ private:
     int handleUpgrade(const char* upgrade_protocol);
     int upgradeWebSocket();
     int upgradeHTTP2();
+    bool isHTTP2Upgrade(const char* upgrade_protocol) const;
+    bool canUpgradeHTTP2() const;
+    void setupHTTP2Writer();
+    void finishHTTP2Upgrade();
+
+    bool http2_pending;
 
     // proxy
     int handleProxy();
