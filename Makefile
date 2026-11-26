@@ -502,7 +502,7 @@ echo-servers:
 	$(CC)  -g -Wall -std=c99   -O3 -o bin/libuv_echo      echo-servers/libuv_echo.c        -luv
 	$(CC)  -g -Wall -std=c99   -O3 -o bin/libhv_echo      echo-servers/libhv_echo.c        -lhv
 	$(CXX) -g -Wall -std=c++11 -O3 -DBOOST_ERROR_CODE_HEADER_ONLY -o bin/asio_echo echo-servers/asio_echo.cpp -pthread
-	$(CXX) -g -Wall -std=c++11 -O3 -o bin/poco_echo       echo-servers/poco_echo.cpp       -lPocoNet -lPocoUtil -lPocoFoundation
+	$(CXX) -g -Wall -std=c++17 -O3 -o bin/poco_echo       echo-servers/poco_echo.cpp       -lPocoNet -lPocoUtil -lPocoFoundation
 #	$(CXX) -g -Wall -std=c++11 -O3 -o bin/muduo_echo      echo-servers/muduo_echo.cpp      -lmuduo_net -lmuduo_base -pthread
 
 echo-benchmark: echo-servers
