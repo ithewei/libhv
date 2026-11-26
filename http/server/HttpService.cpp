@@ -196,7 +196,16 @@ std::string HttpService::GetProxyUrl(const char* path) {
     std::string url;
     for (auto iter = proxies.begin(); iter != proxies.end(); ++iter) {
         if (hv_strstartswith(path, iter->first.c_str())) {
-            url = iter->second + (path + iter->first.length());
+            const char* rest = path + iter->first.length();
+            url = iter->second;
+            // authority-only target: make sure the sub path can't alter host (e.g. "@host")
+            size_t authority = url.find("://");
+            authority = authority == std::string::npos ? 0 : authority + 3;
+            bool has_path = url.find('/', authority) != std::string::npos;
+            if (!has_path && *rest != '\0' && *rest != '/') {
+                url += '/';
+            }
+            url += rest;
             break;
         }
     }
