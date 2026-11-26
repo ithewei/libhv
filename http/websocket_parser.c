@@ -58,6 +58,10 @@ size_t websocket_parser_execute(websocket_parser *parser, const websocket_parser
     for(p = data; p != end; p++) {
         switch(parser->state) {
             case s_start:
+                // No extensions are negotiated, so all RSV bits must be zero.
+                if(CC & 0x70) {
+                    return (size_t)(p - data);
+                }
                 parser->offset      = 0;
                 parser->length      = 0;
                 parser->mask_offset = 0;

@@ -206,6 +206,7 @@ bool HttpHandler::SwitchWebSocket() {
 
     protocol = WEBSOCKET;
     ws_parser  = std::make_shared<WebSocketParser>();
+    ws_parser->is_server = true;
     ws_channel = std::make_shared<WebSocketChannel>(io, WS_SERVER);
     ws_parser->onMessage = [this](int opcode, const std::string& msg){
         ws_channel->opcode = (enum ws_opcode)opcode;
