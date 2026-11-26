@@ -16,7 +16,8 @@
  *   - Async A (IPv4) / AAAA (IPv6) queries.
  *   - Reads nameservers from /etc/resolv.conf (Unix) or GetAdaptersAddresses (Windows),
  *     falling back to 8.8.8.8.
- *   - Loads /etc/hosts and answers from it before querying the network.
+ *   - Answers localhost names locally and loads the system hosts file before
+ *     querying the network.
  *   - Numeric-IP fast path (no query for literal IPv4/IPv6).
  *   - Per-query timeout, retry and multi-nameserver rotation.
  *   - DNS name compression parsing. Collects the A/AAAA address records from

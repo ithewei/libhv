@@ -27,7 +27,7 @@
 #include "list.h"
 
 #ifdef OS_WIN
-#include <iphlpapi.h>
+#include "hdns_win.h"
 #ifdef _MSC_VER
 #pragma comment(lib, "iphlpapi.lib")
 #endif
@@ -310,7 +310,7 @@ static void hdns__load_nameservers_win(void) {
     IP_ADAPTER_ADDRESSES* addrs = (IP_ADAPTER_ADDRESSES*)hv_malloc(buflen);
     if (!addrs) return;
     ULONG flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST |
-                  GAA_FLAG_SKIP_FRIENDLY_NAME;
+                  GAA_FLAG_SKIP_FRIENDLY_NAME | GAA_FLAG_INCLUDE_GATEWAYS;
     ULONG ret = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, addrs, &buflen);
     if (ret == ERROR_BUFFER_OVERFLOW) {
         hv_free(addrs);
@@ -319,24 +319,7 @@ static void hdns__load_nameservers_win(void) {
         ret = GetAdaptersAddresses(AF_UNSPEC, flags, NULL, addrs, &buflen);
     }
     if (ret == NO_ERROR) {
-        for (IP_ADAPTER_ADDRESSES* ad = addrs; ad; ad = ad->Next) {
-            if (ad->OperStatus != IfOperStatusUp) continue;
-            for (IP_ADAPTER_DNS_SERVER_ADDRESS* dns = ad->FirstDnsServerAddress;
-                 dns; dns = dns->Next) {
-                char ip[INET6_ADDRSTRLEN] = {0};
-                struct sockaddr* sa = dns->Address.lpSockaddr;
-                if (sa->sa_family == AF_INET) {
-                    inet_ntop(AF_INET, &((struct sockaddr_in*)sa)->sin_addr, ip, sizeof(ip));
-                } else if (sa->sa_family == AF_INET6) {
-                    inet_ntop(AF_INET6, &((struct sockaddr_in6*)sa)->sin6_addr, ip, sizeof(ip));
-                } else {
-                    continue;
-                }
-                hdns__add_nameserver(ip);
-                if (s_nnameservers >= HDNS_MAX_NAMESERVERS) break;
-            }
-            if (s_nnameservers >= HDNS_MAX_NAMESERVERS) break;
-        }
+        s_nnameservers = hdns__win_nameservers(addrs, s_nameservers, HDNS_MAX_NAMESERVERS);
     }
     hv_free(addrs);
 }
@@ -981,7 +964,30 @@ hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
         return q;
     }
 
-    // 2) hosts + cache lookups (need config loaded)
+    // 2) localhost and its subdomains always resolve locally (RFC 6761).
+    size_t name_len = hlen;
+    if (name_len > 0 && host[name_len - 1] == '.') --name_len;
+    uint8_t encoded_name[HDNS_NAME_MAXLEN + 1];
+    if (name_len >= 9 && strncasecmp(host + name_len - 9, "localhost", 9) == 0 &&
+        (name_len == 9 || host[name_len - 10] == '.') &&
+        hdns__encode_name(host, encoded_name, sizeof(encoded_name)) > 0) {
+        if (q->opt.family & HDNS_QUERY_A) {
+            sockaddr_u* addr = &q->addrs[q->naddrs++];
+            memset(addr, 0, sizeof(*addr));
+            addr->sin.sin_family = AF_INET;
+            addr->sin.sin_addr.s_addr = htonl(0x7f000001);
+        }
+        if (q->opt.family & HDNS_QUERY_AAAA) {
+            sockaddr_u* addr = &q->addrs[q->naddrs++];
+            memset(addr, 0, sizeof(*addr));
+            addr->sin6.sin6_family = AF_INET6;
+            ((unsigned char*)&addr->sin6.sin6_addr)[15] = 1;
+        }
+        hdns__defer_complete(q);
+        return q;
+    }
+
+    // 3) hosts + cache lookups (need config loaded)
     hdns__config_lock_init();
     hmutex_lock(&s_config_mutex);
     hdns__load_config_locked();
@@ -1007,7 +1013,7 @@ hdns_t* hdns_resolve_ex(hloop_t* loop, const char* host,
         }
     }
 
-    // 3) network query: assign sub-queries + txids, and start on the next loop
+    // 4) network query: assign sub-queries + txids, and start on the next loop
     //    tick so this function returns the handle before any send/callback.
     //    A per-resolver monotonic 16-bit counter (base, base+1 for A/AAAA) is
     //    used for demuxing responses. NOTE: after 65536 it wraps and could in

@@ -377,22 +377,25 @@ hrpc_calc_server: prepare hrpc_calc_protoc
 
 
 
+# Match the library's GNU C99 mode for Linux targets.
+UNITTEST_C_STD := $(if $(findstring linux,$(shell $(CC) -dumpmachine)),gnu99,c99)
+
 unittest: prepare libhv
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rbtree_test       unittest/rbtree_test.c        base/rbtree.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hbase_test        unittest/hbase_test.c         base/hbase.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/rmdir_p           unittest/rmdir_test.c         base/hbase.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/date              unittest/date_test.c          base/htime.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hlog_test         unittest/hlog_test.c          base/hlog.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hatomic_test      unittest/hatomic_test.c       -pthread
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/rbtree_test       unittest/rbtree_test.c        base/rbtree.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/hbase_test        unittest/hbase_test.c         base/hbase.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/mkdir_p           unittest/mkdir_test.c         base/hbase.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/rmdir_p           unittest/rmdir_test.c         base/hbase.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/date              unittest/date_test.c          base/htime.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/hlog_test         unittest/hlog_test.c          base/hlog.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/hatomic_test      unittest/hatomic_test.c       -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase            -o bin/hatomic_cpp_test  unittest/hatomic_test.cpp     -pthread
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase            -o bin/hthread_test      unittest/hthread_test.cpp     -pthread
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/hmutex_test       unittest/hmutex_test.c        base/htime.c   -pthread
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/connect_test      unittest/connect_test.c       base/hsocket.c base/htime.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase            -o bin/socketpair_test   unittest/socketpair_test.c    base/hsocket.c base/htime.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/base64            unittest/base64_test.c        util/base64.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/md5               unittest/md5_test.c           util/md5.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Iutil            -o bin/sha1              unittest/sha1_test.c          util/sha1.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/hmutex_test       unittest/hmutex_test.c        base/htime.c   -pthread
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/connect_test      unittest/connect_test.c       base/hsocket.c base/htime.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase            -o bin/socketpair_test   unittest/socketpair_test.c    base/hsocket.c base/htime.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Iutil            -o bin/base64            unittest/base64_test.c        util/base64.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Iutil            -o bin/md5               unittest/md5_test.c           util/md5.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Iutil            -o bin/sha1              unittest/sha1_test.c          util/sha1.c
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/hstring_test      unittest/hstring_test.cpp     cpputil/hstring.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/hpath_test        unittest/hpath_test.cpp       cpputil/hpath.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Icpputil  -o bin/hurl_test         unittest/hurl_test.cpp        cpputil/hurl.cpp base/hbase.c
@@ -405,12 +408,12 @@ unittest: prepare libhv
 	$(CXX) -g -Wall -O0 -std=c++11 -Ihttp/server         -o bin/http_router_test  unittest/http_router_test.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Ievpp -Icpputil -Ihttp -Ihttp/client -Ihttp/server -o bin/sizeof_test unittest/sizeof_test.cpp
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ievent -Issl -Ievpp -o bin/tlv_test unittest/tlv_test.cpp
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c  base/hsocket.c base/htime.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_test      unittest/hdns_test.c      -Llib -lhv -pthread
-	$(CC)  -g -Wall -O0 -std=c99   -I. -Ibase -Issl -Ievent -o bin/hdns_benchmark unittest/hdns_benchmark.c -Llib -lhv -pthread
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase -Iprotocol -o bin/nslookup          unittest/nslookup_test.c      protocol/dns.c  base/hsocket.c base/htime.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase -Iprotocol -o bin/ping              unittest/ping_test.c          protocol/icmp.c base/hsocket.c base/htime.c -DPRINT_DEBUG
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase -Iprotocol -o bin/ftp               unittest/ftp_test.c           protocol/ftp.c  base/hsocket.c base/htime.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase -Iprotocol -Iutil -o bin/sendmail   unittest/sendmail_test.c      protocol/smtp.c base/hsocket.c base/htime.c util/base64.c
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase -Issl -Ievent -o bin/hdns_test      unittest/hdns_test.c      -Llib -lhv -pthread
+	$(CC)  -g -Wall -O0 -std=$(UNITTEST_C_STD)   -I. -Ibase -Issl -Ievent -o bin/hdns_benchmark unittest/hdns_benchmark.c -Llib -lhv -pthread
 ifeq ($(WITH_EVPP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -o bin/tcpclient_dns_test unittest/tcpclient_dns_test.cpp -Llib -lhv -pthread
 endif
@@ -498,8 +501,8 @@ echo-servers:
 	$(CC)  -g -Wall -std=c99   -O3 -o bin/libev_echo      echo-servers/libev_echo.c        -lev
 	$(CC)  -g -Wall -std=c99   -O3 -o bin/libuv_echo      echo-servers/libuv_echo.c        -luv
 	$(CC)  -g -Wall -std=c99   -O3 -o bin/libhv_echo      echo-servers/libhv_echo.c        -lhv
-	$(CXX) -g -Wall -std=c++11 -O3 -o bin/asio_echo       echo-servers/asio_echo.cpp       -lboost_system -pthread
-	$(CXX) -g -Wall -std=c++11 -O3 -o bin/poco_echo       echo-servers/poco_echo.cpp       -lPocoNet -lPocoUtil -lPocoFoundation
+	$(CXX) -g -Wall -std=c++11 -O3 -DBOOST_ERROR_CODE_HEADER_ONLY -o bin/asio_echo echo-servers/asio_echo.cpp -pthread
+	$(CXX) -g -Wall -std=c++17 -O3 -o bin/poco_echo       echo-servers/poco_echo.cpp       -lPocoNet -lPocoUtil -lPocoFoundation
 #	$(CXX) -g -Wall -std=c++11 -O3 -o bin/muduo_echo      echo-servers/muduo_echo.cpp      -lmuduo_net -lmuduo_base -pthread
 
 echo-benchmark: echo-servers
