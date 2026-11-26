@@ -97,6 +97,13 @@ target_link_libraries(websocket_parser_test ${HV_LIBRARIES})
 set(HTTP_UNITTEST_TARGETS websocket_parser_test)
 endif()
 
+if(WITH_EVPP AND WITH_HTTP AND WITH_HTTP_SERVER AND WITH_HTTP_CLIENT)
+add_executable(http_static_range_test http_static_range_test.cpp)
+target_include_directories(http_static_range_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server ../http/client)
+target_link_libraries(http_static_range_test ${HV_LIBRARIES})
+set(HTTP_UNITTEST_TARGETS ${HTTP_UNITTEST_TARGETS} http_static_range_test)
+endif()
+
 if(WITH_LUA)
 add_executable(lua_binding_test lua_binding_test.cpp)
 target_include_directories(lua_binding_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../lua)

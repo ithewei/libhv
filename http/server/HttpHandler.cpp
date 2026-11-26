@@ -604,6 +604,42 @@ int HttpHandler::defaultRequestHandler() {
     return status_code;
 }
 
+// Parses the first range of a "bytes=" Range header for a file of `total`
+// bytes: "first-last", "first-" or a suffix "-length" (RFC 9110 section 14.1.2).
+// Returns 0 with [from, to] set, -1 if the range cannot be satisfied, and 1 if
+// the header is to be ignored (another range unit or an invalid range).
+static int parse_byte_range(const char* value, long total, long& from, long& to) {
+    if (strncasecmp(value, "bytes=", 6) != 0) return 1;
+    const char* p = value + 6;
+    while (*p == ' ' || *p == '\t') ++p;
+    char* end = NULL;
+    if (*p == '-') {
+        if (!isdigit((unsigned char)p[1])) return 1;
+        long length = strtol(p + 1, &end, 10);
+        while (*end == ' ' || *end == '\t') ++end;
+        if (*end != '\0' && *end != ',') return 1;
+        if (length == 0 || total == 0) return -1;
+        from = length < total ? total - length : 0;
+        to = total - 1;
+        return 0;
+    }
+    if (!isdigit((unsigned char)*p)) return 1;
+    from = strtol(p, &end, 10);
+    if (*end != '-') return 1;
+    p = end + 1;
+    while (*p == ' ' || *p == '\t') ++p;
+    if (*p == '\0' || *p == ',') {
+        to = total - 1;
+    } else {
+        if (!isdigit((unsigned char)*p)) return 1;
+        to = strtol(p, &end, 10);
+        while (*end == ' ' || *end == '\t') ++end;
+        if ((*end != '\0' && *end != ',') || to < from) return 1;
+        if (to >= total) to = total - 1;
+    }
+    return from < total ? 0 : -1;
+}
+
 int HttpHandler::defaultStaticHandler() {
     // file service
     std::string path = req->Path();
@@ -629,19 +665,28 @@ int HttpHandler::defaultStaticHandler() {
     int status_code = HTTP_STATUS_OK;
     // Range:
     bool has_range = false;
-    long from, to = 0;
-    if (req->GetRange(from, to)) {
-        has_range = true;
+    long from = 0, to = 0;
+    auto range = req->headers.find("Range");
+    if (range != req->headers.end()) {
         if (openFile(filepath.c_str()) != 0) {
             return HTTP_STATUS_NOT_FOUND;
         }
         long total = file->size();
-        if (to == 0 || to >= total) to = total - 1;
-        if (from < 0 || from >= total || to < from) {
+        int ret = parse_byte_range(range->second.c_str(), total, from, to);
+        if (ret < 0) {
             closeFile();
             resp->SetHeader("Content-Range", hv::asprintf("bytes */%ld", total));
             return HTTP_STATUS_RANGE_NOT_SATISFIABLE;
         }
+        if (ret > 0) {
+            // Ignore the Range header and send the whole file
+            closeFile();
+        } else {
+            has_range = true;
+        }
+    }
+    if (has_range) {
+        long total = file->size();
         file->seek(from);
         status_code = HTTP_STATUS_PARTIAL_CONTENT;
         resp->status_code = HTTP_STATUS_PARTIAL_CONTENT;
@@ -649,8 +694,9 @@ int HttpHandler::defaultStaticHandler() {
         resp->SetContentTypeByFilename(filepath.c_str());
         resp->SetRange(from, to, total);
         if(resp->content_length < service->max_file_cache_size) {
-            // read into body directly
-            int nread = file->readrange(resp->body, from, to);
+            // read into body directly (readrange would read to the end of the file for to = 0)
+            resp->body.resize(resp->content_length);
+            int nread = file->read((void*)resp->body.data(), resp->content_length);
             closeFile();
             if (nread != resp->content_length) {
                 resp->content_length = 0;
