@@ -11,6 +11,11 @@ endif
 BUILD_SHARED ?= yes
 BUILD_STATIC ?= yes
 
+HTTP_H2C_UPGRADE_TEST_CXXFLAGS =
+ifeq ($(WITH_NGHTTP2), yes)
+HTTP_H2C_UPGRADE_TEST_CXXFLAGS += -DWITH_NGHTTP2
+endif
+
 LIBHV_SRCDIRS = $(CORE_SRCDIRS) util
 LIBHV_HEADERS = hv.h hconfig.h hexport.h
 LIBHV_HEADERS += $(BASE_HEADERS) $(SSL_HEADERS) $(EVENT_HEADERS) $(UTIL_HEADERS)
@@ -419,6 +424,13 @@ ifeq ($(WITH_EVPP), yes)
 endif
 ifeq ($(WITH_HTTP), yes)
 	$(CXX) -g -Wall -O0 -std=c++11 -I. -Ibase -Ihttp -o bin/websocket_parser_test unittest/websocket_parser_test.cpp -Llib -lhv -pthread
+endif
+ifeq ($(WITH_EVPP), yes)
+ifeq ($(WITH_HTTP), yes)
+ifeq ($(WITH_HTTP_SERVER), yes)
+	$(CXX) -g -Wall -O0 -std=c++11 $(HTTP_H2C_UPGRADE_TEST_CXXFLAGS) -I. -Ibase -Issl -Ievent -Icpputil -Ievpp -Ihttp -Ihttp/server -o bin/http_h2c_upgrade_test unittest/http_h2c_upgrade_test.cpp -Llib -lhv -pthread
+endif
+endif
 endif
 ifeq ($(WITH_EVPP), yes)
 ifeq ($(WITH_REDIS), yes)

@@ -178,7 +178,7 @@ bool HttpHandler::isHTTP2Upgrade(const char* upgrade_protocol) const {
 }
 
 bool HttpHandler::canUpgradeHTTP2() const {
-#if WITH_NGHTTP2
+#ifdef WITH_NGHTTP2
     // The cleartext upgrade belongs to h2c. HTTP/2 over TLS is selected by ALPN.
     return !ssl;
 #else
@@ -806,7 +806,7 @@ int HttpHandler::defaultErrorHandler() {
 int HttpHandler::FeedRecvData(const char* data, size_t len) {
     if (protocol == HttpHandler::UNKNOWN) {
         int http_version = 1;
-#if WITH_NGHTTP2
+#ifdef WITH_NGHTTP2
         if (strncmp(data, HTTP2_MAGIC, MIN(len, HTTP2_MAGIC_LEN)) == 0) {
             http_version = 2;
         }
