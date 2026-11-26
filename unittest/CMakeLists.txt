@@ -97,6 +97,13 @@ target_link_libraries(websocket_parser_test ${HV_LIBRARIES})
 set(HTTP_UNITTEST_TARGETS websocket_parser_test)
 endif()
 
+if(WITH_EVPP AND WITH_HTTP AND WITH_HTTP_SERVER)
+add_executable(http_h2c_upgrade_test http_h2c_upgrade_test.cpp)
+target_include_directories(http_h2c_upgrade_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../http ../http/server)
+target_link_libraries(http_h2c_upgrade_test ${HV_LIBRARIES})
+set(HTTP_UNITTEST_TARGETS ${HTTP_UNITTEST_TARGETS} http_h2c_upgrade_test)
+endif()
+
 if(WITH_LUA)
 add_executable(lua_binding_test lua_binding_test.cpp)
 target_include_directories(lua_binding_test PRIVATE .. ../base ../ssl ../event ../cpputil ../evpp ../lua)

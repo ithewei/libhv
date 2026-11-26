@@ -55,7 +55,8 @@ HttpHandler::HttpHandler(hio_t* io) :
     file(NULL),
     // for proxy
     proxy_port(0),
-    proxy_connect_start_ms(0)
+    proxy_connect_start_ms(0),
+    http2_pending(false)
 {
     // Init();
 }
@@ -85,37 +86,7 @@ bool HttpHandler::Init(int http_version) {
         writer = std::make_shared<HttpResponseWriter>(io, resp);
         writer->status = hv::SocketChannel::CONNECTED;
         if (protocol == HTTP_V2) {
-            // Async handlers run on a worker thread but the nghttp2 session is
-            // not thread-safe, so the writer posts the h2 response submit back
-            // to this io's loop thread (hloop_post_event is thread-safe).
-            // Capture hio_id too: a fd (hence hio_t*) can be reused by a new
-            // connection after close, so verify the id still matches before
-            // touching the handler, otherwise a late post could send this
-            // response over a different connection.
-            hio_t* hio = io;
-            uint32_t hid = hio_id(io);
-            writer->submitHttp2Response = [hio, hid]() {
-                hloop_t* loop = hevent_loop(hio);
-                hevent_t ev;
-                memset(&ev, 0, sizeof(ev));
-                ev.loop = loop;
-                ev.userdata = hio;
-                ev.event_id = hid;   // carry the captured hio id for validation
-                ev.cb = [](hevent_t* ev) {
-                    hio_t* io = (hio_t*)ev->userdata;
-                    // stale post: fd was reused by another connection after close
-                    if (hio_id(io) != ev->event_id) return;
-                    // handler is stored as the io userdata; NULL after close.
-                    HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
-                    if (handler && handler->parser) {
-                        // async left state at HANDLE_CONTINUE; move to WANT_SEND
-                        // so GetSendData drives the h2 send instead of bailing.
-                        handler->state = WANT_SEND;
-                        handler->SendHttpResponse();
-                    }
-                };
-                hloop_post_event(loop, &ev);
-            };
+            setupHTTP2Writer();
         }
     } else {
         pid = hv_getpid();
@@ -198,7 +169,68 @@ bool HttpHandler::SwitchHTTP2() {
     resp->http_major = req->http_major = 2;
     resp->http_minor = req->http_minor = 0;
     parser->InitRequest(req.get());
+    setupHTTP2Writer();
     return true;
+}
+
+bool HttpHandler::isHTTP2Upgrade(const char* upgrade_protocol) const {
+    return stricmp(upgrade_protocol, "h2c") == 0;
+}
+
+bool HttpHandler::canUpgradeHTTP2() const {
+#if WITH_NGHTTP2
+    // The cleartext upgrade belongs to h2c. HTTP/2 over TLS is selected by ALPN.
+    return !ssl;
+#else
+    return false;
+#endif
+}
+
+void HttpHandler::setupHTTP2Writer() {
+    if (!io || !writer) return;
+
+    // Async handlers run on a worker thread but the nghttp2 session is not
+    // thread-safe, so the writer posts the h2 response submit back to this
+    // io's loop thread. Capture hio_id too: a fd (hence hio_t*) can be reused
+    // after close, so verify it before touching the handler in a late post.
+    hio_t* hio = io;
+    uint32_t hid = hio_id(io);
+    writer->submitHttp2Response = [hio, hid]() {
+        hloop_t* loop = hevent_loop(hio);
+        hevent_t ev;
+        memset(&ev, 0, sizeof(ev));
+        ev.loop = loop;
+        ev.userdata = hio;
+        ev.event_id = hid;
+        ev.cb = [](hevent_t* ev) {
+            hio_t* io = (hio_t*)ev->userdata;
+            if (hio_id(io) != ev->event_id) return;
+            HttpHandler* handler = (HttpHandler*)hevent_userdata(io);
+            if (handler && handler->parser) {
+                handler->state = WANT_SEND;
+                handler->SendHttpResponse();
+            }
+        };
+        hloop_post_event(loop, &ev);
+    };
+}
+
+void HttpHandler::finishHTTP2Upgrade() {
+    http2_pending = 0;
+    if (!SwitchHTTP2()) {
+        hlogw("[%s:%d] unsupported HTTP2", ip, port);
+        SetError(ERR_INVALID_PROTOCOL);
+        return;
+    }
+
+    if (writer) writer->Begin();
+
+    // NOTE: send HTTP2_SETTINGS frame
+    SendHttpResponse(false);
+    // The SETTINGS frame is queued, but the upgrade is not a completed HTTP/1
+    // transaction. Return to recv state so the client preface is not rejected
+    // by the in-flight response guard.
+    state = WANT_RECV;
 }
 
 bool HttpHandler::SwitchWebSocket() {
@@ -373,6 +405,16 @@ void HttpHandler::onMessageComplete() {
     }
 
     addResponseHeaders();
+
+    // A rejected upgrade is served as an ordinary HTTP/1.1 request so the
+    // client never receives 101 without a parser that can process HTTP/2.
+    if (upgrade) {
+        auto iter_upgrade = req->headers.find("upgrade");
+        if (iter_upgrade != req->headers.end() && isHTTP2Upgrade(iter_upgrade->second.c_str()) && !canUpgradeHTTP2()) {
+            hlogw("[%s:%d] ignore unsupported h2c upgrade", ip, port);
+            upgrade = 0;
+        }
+    }
 
     // upgrade ? handleUpgrade : HandleHttpRequest
     if (upgrade) {
@@ -816,6 +858,11 @@ int HttpHandler::FeedRecvData(const char* data, size_t len) {
             error = ERR_PARSE;
             return -1;
         }
+        // The HTTP/1 parser is still inside its message-complete callback when
+        // an upgrade response is sent. Replace it only after that call returns.
+        if (http2_pending) {
+            finishHTTP2Upgrade();
+        }
         // HTTP2: flush frames nghttp2 queued while consuming this input --
         // SETTINGS/PING ACK, WINDOW_UPDATE, and DATA that was deferred by flow
         // control until the peer's WINDOW_UPDATE just arrived. Without this a
@@ -1043,8 +1090,8 @@ int HttpHandler::handleUpgrade(const char* upgrade_protocol) {
         return upgradeWebSocket();
     }
 
-    // h2/h2c
-    if (strnicmp(upgrade_protocol, "h2", 2) == 0) {
+    // h2c
+    if (isHTTP2Upgrade(upgrade_protocol)) {
         return upgradeHTTP2();
     }
 
@@ -1103,16 +1150,18 @@ int HttpHandler::upgradeHTTP2() {
     resp->headers["Connection"] = "Upgrade";
     resp->headers["Upgrade"] = "h2c";
 
-    SendHttpResponse();
-
-    if (!SwitchHTTP2()) {
+    if (!canUpgradeHTTP2()) {
         hlogw("[%s:%d] unsupported HTTP2", ip, port);
         return SetError(ERR_INVALID_PROTOCOL);
     }
 
-    // NOTE: send HTTP2_SETTINGS frame
-    SendHttpResponse(false);
+    SendHttpResponse();
 
+    // Finish the switch after Http1Parser::FeedRecvData returns. Destroying
+    // this parser while it is executing its callback causes a use-after-free.
+    http2_pending = 1;
+
+    // NOTE: send HTTP2_SETTINGS frame
     return 0;
 }
 
