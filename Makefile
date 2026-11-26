@@ -2,7 +2,7 @@ include config.mk
 include Makefile.vars
 
 MAKEF=$(MAKE) -f Makefile.in
-ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt js
+ALL_SRCDIRS=. base ssl event event/kcp util cpputil evpp redis protocol http http/client http/server mqtt mail js
 CORE_SRCDIRS=. base ssl event
 ifeq ($(WITH_KCP), yes)
 CORE_SRCDIRS += event/kcp
@@ -80,6 +80,11 @@ LIBHV_HEADERS += $(MQTT_HEADERS)
 LIBHV_SRCDIRS += mqtt
 endif
 
+ifeq ($(WITH_MAIL), yes)
+LIBHV_HEADERS += $(MAIL_HEADERS)
+LIBHV_SRCDIRS += mail
+endif
+
 default: all
 
 all: libhv examples
@@ -122,6 +127,10 @@ endif
 
 ifeq ($(WITH_MQTT), yes)
 EXAMPLES += mqtt_sub mqtt_pub mqtt_client_test
+endif
+
+ifeq ($(WITH_MAIL), yes)
+EXAMPLES += sendmail_test recvmail_test
 endif
 
 ifeq ($(WITH_LUA), yes)
@@ -319,6 +328,12 @@ mqtt_pub: prepare
 
 mqtt_client_test: prepare
 	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) mqtt" SRCS="examples/mqtt/mqtt_client_test.cpp"
+
+sendmail_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util mail" SRCS="examples/mail/sendmail_test.cpp"
+
+recvmail_test: prepare
+	$(MAKEF) TARGET=$@ SRCDIRS="$(CORE_SRCDIRS) util mail" SRCS="examples/mail/recvmail_test.cpp"
 
 kcptun: kcptun_client kcptun_server
 

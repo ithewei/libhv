@@ -124,6 +124,12 @@ set(MQTT_HEADERS
     mqtt/mqtt_client.h
 )
 
+set(MAIL_HEADERS
+    mail/mime.h
+    mail/smtp_client.h
+    mail/imap_client.h
+)
+
 set(LUA_HEADERS
     lua/hvlua.h
     lua/hvlua_util.h

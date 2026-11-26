@@ -36,7 +36,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libssl-dev libnghttp2-dev libprotobuf-dev libprotoc-dev protobuf-compiler liblua5.4-dev
-          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-rpc --with-lua --with-js
+          ./configure --with-openssl --with-nghttp2 --with-kcp --with-mqtt --with-redis --with-mail --with-rpc --with-lua --with-js
           make libhv evpp unittest
           # hrpc = separate libhrpc (needs protobuf); apt installs protobuf under /usr
           make libhrpc hrpc PROTOBUF_PREFIX=/usr
