@@ -16,7 +16,7 @@ using boost::asio::ip::tcp;
 
 class session {
 public:
-    session(boost::asio::io_service& io_service) :
+    session(boost::asio::io_context& io_service) :
         socket_(io_service) {
     }
 
@@ -63,7 +63,7 @@ private:
 
 class server {
 public:
-    server(boost::asio::io_service& io_service, short port) :
+    server(boost::asio::io_context& io_service, short port) :
         io_service_(io_service), acceptor_(io_service, tcp::endpoint(tcp::v4(),
                 port)) {
         session* new_session = new session(io_service_);
@@ -86,7 +86,7 @@ public:
     }
 
 private:
-    boost::asio::io_service& io_service_;
+    boost::asio::io_context& io_service_;
     tcp::acceptor acceptor_;
 };
 
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
     }
     int port = atoi(argv[1]);
 
-    boost::asio::io_service io_service;
+    boost::asio::io_context io_service;
     server s(io_service, port);
     io_service.run();
 
